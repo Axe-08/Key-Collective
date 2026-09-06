@@ -1,23 +1,20 @@
 package main
 
 import (
-	"embed"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/akshit/key-collective/internal/api"
 	"github.com/akshit/key-collective/internal/db"
 	"github.com/akshit/key-collective/internal/domain"
 	"github.com/akshit/key-collective/internal/proxy"
 	"github.com/joho/godotenv"
 )
 
-//go:embed all:ui/dist
-var uiAssets embed.FS
-
 func main() {
-	godotenv.Load()
+	_ = godotenv.Load()
 
 	masterKey := os.Getenv("KC_MASTER_KEY")
 	if masterKey == "" {
@@ -30,17 +27,49 @@ func main() {
 	}
 	defer database.Close()
 
-	// Load keys and tokens from DB... (mocking this for now to boot)
-	keys := []*domain.APIKey{}
-	// Example key for local testing if DB is empty
-	// keys = append(keys, &domain.APIKey{ ... })
+	// Hydrate active keys from SQLite, decrypting into memory
+	dbKeys, err := database.GetKeys()
+	if err != nil {
+		log.Fatalf("Failed to fetch keys from database: %v", err)
+	}
+
+	keys := make([]*domain.APIKey, 0, len(dbKeys))
+	for _, k := range dbKeys {
+		decrypted, err := proxy.Decrypt(k.EncryptedKey, masterKey)
+		if err != nil {
+			log.Printf("Warning: failed to decrypt key %s (%s): %v. Skipping.", k.ID, k.Label, err)
+			continue
+		}
+		k.Decrypted = decrypted
+		k.MinuteWindowStart = time.Now()
+		keys = append(keys, k)
+	}
+	log.Printf("Hydrated %d active key(s) from SQLite into memory", len(keys))
 
 	manager := proxy.NewKeyManager(keys, 500)
-	
+
+	// Auth tokens initialization
 	validTokens := make(map[string]bool)
-	// Example token load
-	// validTokens[proxy.HashToken("kc_test_token")] = true
-	
+	if authToken := os.Getenv("KC_AUTH_TOKEN"); authToken != "" {
+		validTokens[proxy.HashToken(authToken)] = true
+	}
+
+	rows, err := database.Query("SELECT token_hash FROM auth_tokens")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var tokenHash string
+			if err := rows.Scan(&tokenHash); err == nil {
+				validTokens[tokenHash] = true
+			}
+		}
+	}
+
+	if len(validTokens) == 0 {
+		validTokens[proxy.HashToken("kc_test_token")] = true
+		log.Println("No auth tokens configured; initialized with default token 'kc_test_token'")
+	}
+
 	logChannel := make(chan *domain.RequestLog, 1000)
 
 	proxyServer := &proxy.ProxyServer{
@@ -55,37 +84,22 @@ func main() {
 	mux.Handle("/v1/", proxyServer)
 
 	// API Management Endpoints (for dashboard)
-	mux.HandleFunc("/api/keys", func(w http.ResponseWriter, r *http.Request) {
-		// return keys
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("[]"))
-	})
+	apiHandler := api.NewHandler(database, manager, masterKey)
+	apiHandler.RegisterRoutes(mux)
 
 	// Dashboard UI (Static Files)
-	uiFS, err := fs.Sub(uiAssets, "ui/dist")
-	if err != nil {
-		// Fallback to local FS for dev mode if ui/dist doesn't exist yet
-		log.Println("Embedded UI not found (maybe not built yet). Using local ./ui/dist if exists.")
-		mux.Handle("/", http.FileServer(http.Dir("./ui/dist")))
-	} else {
-		mux.Handle("/", http.FileServer(http.FS(uiFS)))
-	}
+	mux.Handle("/", http.FileServer(http.Dir("./ui/dist")))
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	// Start async logger
+	// Start non-blocking async logger
 	go func() {
 		for reqLog := range logChannel {
-			// Write to SQLite here
-			_, err := database.Exec(`
-				INSERT INTO request_logs (id, key_id, provider, status_code, latency_ms, bytes_in, bytes_out, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			`, reqLog.ID, reqLog.KeyID, reqLog.Provider, reqLog.StatusCode, reqLog.LatencyMs, reqLog.BytesIn, reqLog.BytesOut, reqLog.CreatedAt)
-			if err != nil {
-				log.Printf("Failed to insert log: %v", err)
+			if err := database.InsertLog(reqLog); err != nil {
+				log.Printf("Failed to insert request log: %v", err)
 			}
 		}
 	}()

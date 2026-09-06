@@ -41,7 +41,7 @@ func (km *KeyManager) GetBestKey(preferredProvider domain.Provider) (*domain.API
 		}
 
 		// Reset cooldown if expired
-		if k.Status == domain.KeyRateLimited && now.After(k.CooldownUntil) {
+		if k.Status == domain.KeyRateLimited && !k.CooldownUntil.IsZero() && now.After(k.CooldownUntil) {
 			k.Status = domain.KeyHealthy
 		}
 	}
@@ -85,7 +85,7 @@ func (km *KeyManager) GetBestKey(preferredProvider domain.Provider) (*domain.API
 		if b.Provider == preferredProvider {
 			bMatch = 0
 		}
-		
+
 		if aMatch != bMatch {
 			return aMatch < bMatch
 		}
@@ -135,4 +135,56 @@ func (km *KeyManager) ReportError(key *domain.APIKey, statusCode int) {
 	} else if statusCode == 401 || statusCode == 403 {
 		key.Status = domain.KeyInvalid
 	}
+}
+
+// AddKey registers a new API key into the in-memory key pool
+func (km *KeyManager) AddKey(key *domain.APIKey) {
+	km.mu.Lock()
+	defer km.mu.Unlock()
+	km.keys = append(km.keys, key)
+}
+
+// RemoveKey removes an API key by ID from the in-memory key pool
+func (km *KeyManager) RemoveKey(id string) bool {
+	km.mu.Lock()
+	defer km.mu.Unlock()
+	for i, k := range km.keys {
+		if k.ID == id {
+			km.keys = append(km.keys[:i], km.keys[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// GetKeys returns a copy of all managed keys
+func (km *KeyManager) GetKeys() []*domain.APIKey {
+	km.mu.RLock()
+	defer km.mu.RUnlock()
+	result := make([]*domain.APIKey, len(km.keys))
+	copy(result, km.keys)
+	return result
+}
+
+// GetStats returns active, healthy, and rate-limited key counts
+func (km *KeyManager) GetStats() (active int, healthy int, rateLimited int) {
+	km.mu.RLock()
+	defer km.mu.RUnlock()
+	now := time.Now()
+	for _, k := range km.keys {
+		if k.Status == domain.KeyDisabled {
+			continue
+		}
+		active++
+		status := k.Status
+		if status == domain.KeyRateLimited && !k.CooldownUntil.IsZero() && now.After(k.CooldownUntil) {
+			status = domain.KeyHealthy
+		}
+		if status == domain.KeyHealthy {
+			healthy++
+		} else if status == domain.KeyRateLimited {
+			rateLimited++
+		}
+	}
+	return active, healthy, rateLimited
 }

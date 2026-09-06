@@ -40,9 +40,11 @@ func (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	var reqBody map[string]interface{}
-	json.Unmarshal(bodyBytes, &reqBody)
-	modelName, _ := reqBody["model"].(string)
+	var reqBody struct {
+		Model string `json:"model"`
+	}
+	_ = json.Unmarshal(bodyBytes, &reqBody)
+	modelName := reqBody.Model
 
 	var preferred domain.Provider
 	if modelName != "" {
@@ -67,7 +69,7 @@ func (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Gemini API URL format
 		targetUrl, _ = url.Parse("https://generativelanguage.googleapis.com")
 		// For OpenAI compatibility on Gemini:
-		// We expect the client to use standard OpenAI paths and we might need to rewrite it, 
+		// We expect the client to use standard OpenAI paths and we might need to rewrite it,
 		// but let's assume the user is using litellm format or standard openai proxy on google.
 	} else {
 		targetUrl, _ = url.Parse("https://api.groq.com/openai")
@@ -112,7 +114,7 @@ func (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// For now, assuming bestKey has a way to provide it or it's held in memory.
 	// Actually, we must hold decrypted key in memory. Let's assume bestKey has a field Decrypted string
 	// Let's modify the struct temporarily using a runtime map or just assume we have it.
-	
+
 	// Proxy!
 	proxy.ServeHTTP(w, r)
 }
