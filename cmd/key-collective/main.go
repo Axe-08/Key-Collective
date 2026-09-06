@@ -10,6 +10,7 @@ import (
 	"github.com/akshit/key-collective/internal/db"
 	"github.com/akshit/key-collective/internal/domain"
 	"github.com/akshit/key-collective/internal/proxy"
+	"github.com/akshit/key-collective/ui"
 	"github.com/joho/godotenv"
 )
 
@@ -87,8 +88,8 @@ func main() {
 	apiHandler := api.NewHandler(database, manager, masterKey)
 	apiHandler.RegisterRoutes(mux)
 
-	// Dashboard UI (Static Files)
-	mux.Handle("/", http.FileServer(http.Dir("./ui/dist")))
+	// Dashboard UI (Static Files - Embedded)
+	mux.Handle("/", ui.Handler())
 
 	port := os.Getenv("PORT")
 	if port == "" {
