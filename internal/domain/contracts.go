@@ -31,6 +31,7 @@ type APIKey struct {
     Status            KeyStatus `json:"status" db:"status"`
     
     // Runtime State (not persisted to DB immediately)
+    Decrypted         string    `json:"-"`
     RequestsThisMin   int       `json:"-"`
     RequestsToday     int       `json:"-"`
     MinuteWindowStart time.Time `json:"-"`
