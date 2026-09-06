@@ -1,0 +1,25 @@
+graph TD
+    subgraph Stage 1: Contracts
+        C[internal/domain/contracts.go]
+    end
+
+    subgraph Stage 2: Parallel Pods
+        PodBackend[Backend Pod: Go Proxy & Circuit Breaker]
+        PodFrontend[Frontend Pod: Svelte Dashboard]
+        PodDB[DB Pod: SQLite WAL & Logger]
+    end
+
+    subgraph Stage 3: Integration
+        Merge[main]
+        E2E[End-to-End Tests]
+    end
+
+    C --> PodBackend
+    C --> PodFrontend
+    C --> PodDB
+    
+    PodBackend --> Merge
+    PodFrontend --> Merge
+    PodDB --> Merge
+    
+    Merge --> E2E
