@@ -1,0 +1,18 @@
+stateDiagram-v2
+    [*] --> Healthy: Key Registered
+
+    Healthy --> Healthy: 200 OK (report_success)
+    Healthy --> RateLimited: HTTP 429 / RPM exhausted
+    Healthy --> Exhausted: RPD daily limit reached
+    Healthy --> Invalid: HTTP 401 / 403
+    Healthy --> Disabled: User disables key
+
+    RateLimited --> Healthy: 60s cooldown expires
+    RateLimited --> Exhausted: RPD limit hit during cooldown check
+
+    Exhausted --> Healthy: Midnight UTC daily reset
+
+    Invalid --> Healthy: User re-validates key
+    Invalid --> Disabled: User acknowledges
+
+    Disabled --> Healthy: User re-enables key
