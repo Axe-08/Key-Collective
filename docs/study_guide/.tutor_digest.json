@@ -1,0 +1,680 @@
+{
+  "project_name": "Key Collective",
+  "total_files": 16,
+  "total_loc": 2311,
+  "total_classes": 19,
+  "total_functions": 43,
+  "classes": [
+    {
+      "name": "ProxyServer",
+      "file": "internal/proxy/handler.go",
+      "line": 16,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyManager",
+      "file": "internal/proxy/manager.go",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DB",
+      "file": "internal/db/sqlite.go",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "APIKey",
+      "file": "internal/domain/contracts.go",
+      "line": 22,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RequestLog",
+      "file": "internal/domain/contracts.go",
+      "line": 45,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProxyStats",
+      "file": "internal/domain/contracts.go",
+      "line": 56,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyResponse",
+      "file": "internal/api/handler.go",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateKeyRequest",
+      "file": "internal/api/handler.go",
+      "line": 31,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ErrorResponse",
+      "file": "internal/api/handler.go",
+      "line": 40,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "MessageResponse",
+      "file": "internal/api/handler.go",
+      "line": 44,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TestKeyResponse",
+      "file": "internal/api/handler.go",
+      "line": 49,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "Handler",
+      "file": "internal/api/handler.go",
+      "line": 55,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "Provider",
+      "file": "ui/src/lib/types.ts",
+      "line": 1,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyStatus",
+      "file": "ui/src/lib/types.ts",
+      "line": 3,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "APIKey",
+      "file": "ui/src/lib/types.ts",
+      "line": 5,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RequestLog",
+      "file": "ui/src/lib/types.ts",
+      "line": 23,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PoolStats",
+      "file": "ui/src/lib/types.ts",
+      "line": 35,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateKeyPayload",
+      "file": "ui/src/lib/types.ts",
+      "line": 49,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ToastMessage",
+      "file": "ui/src/lib/types.ts",
+      "line": 58,
+      "docstring": "",
+      "methods": []
+    }
+  ],
+  "functions": [
+    {
+      "name": "main",
+      "file": "cmd/key-collective/main.go",
+      "line": 17,
+      "signature": "func main() {",
+      "docstring": ""
+    },
+    {
+      "name": "Encrypt",
+      "file": "internal/proxy/crypto.go",
+      "line": 14,
+      "signature": "func Encrypt(plaintext string, masterKey string) ([]byte, error) {",
+      "docstring": ""
+    },
+    {
+      "name": "Decrypt",
+      "file": "internal/proxy/crypto.go",
+      "line": 36,
+      "signature": "func Decrypt(ciphertext []byte, masterKey string) (string, error) {",
+      "docstring": ""
+    },
+    {
+      "name": "HashToken",
+      "file": "internal/proxy/crypto.go",
+      "line": 62,
+      "signature": "func HashToken(token string) string {",
+      "docstring": ""
+    },
+    {
+      "name": "ServeHTTP",
+      "file": "internal/proxy/handler.go",
+      "line": 22,
+      "signature": "func (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {",
+      "docstring": ""
+    },
+    {
+      "name": "NewKeyManager",
+      "file": "internal/proxy/manager.go",
+      "line": 18,
+      "signature": "func NewKeyManager(keys []*domain.APIKey, dailyLimit int) *KeyManager {",
+      "docstring": ""
+    },
+    {
+      "name": "GetBestKey",
+      "file": "internal/proxy/manager.go",
+      "line": 26,
+      "signature": "func (km *KeyManager) GetBestKey(preferredProvider domain.Provider) (*domain.API",
+      "docstring": ""
+    },
+    {
+      "name": "ReportSuccess",
+      "file": "internal/proxy/manager.go",
+      "line": 119,
+      "signature": "func (km *KeyManager) ReportSuccess(key *domain.APIKey, latencyMs float64) {",
+      "docstring": ""
+    },
+    {
+      "name": "ReportError",
+      "file": "internal/proxy/manager.go",
+      "line": 128,
+      "signature": "func (km *KeyManager) ReportError(key *domain.APIKey, statusCode int) {",
+      "docstring": ""
+    },
+    {
+      "name": "AddKey",
+      "file": "internal/proxy/manager.go",
+      "line": 141,
+      "signature": "func (km *KeyManager) AddKey(key *domain.APIKey) {",
+      "docstring": ""
+    },
+    {
+      "name": "RemoveKey",
+      "file": "internal/proxy/manager.go",
+      "line": 148,
+      "signature": "func (km *KeyManager) RemoveKey(id string) bool {",
+      "docstring": ""
+    },
+    {
+      "name": "GetKeys",
+      "file": "internal/proxy/manager.go",
+      "line": 161,
+      "signature": "func (km *KeyManager) GetKeys() []*domain.APIKey {",
+      "docstring": ""
+    },
+    {
+      "name": "GetStats",
+      "file": "internal/proxy/manager.go",
+      "line": 170,
+      "signature": "func (km *KeyManager) GetStats() (active int, healthy int, rateLimited int) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestKeyManager_GetBestKey",
+      "file": "internal/proxy/manager_test.go",
+      "line": 10,
+      "signature": "func TestKeyManager_GetBestKey(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestKeyManager_AddRemoveAndStats",
+      "file": "internal/proxy/manager_test.go",
+      "line": 76,
+      "signature": "func TestKeyManager_AddRemoveAndStats(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "New",
+      "file": "internal/db/sqlite.go",
+      "line": 18,
+      "signature": "func New(sqlDB *sql.DB) *DB {",
+      "docstring": ""
+    },
+    {
+      "name": "InitDB",
+      "file": "internal/db/sqlite.go",
+      "line": 22,
+      "signature": "func InitDB(dbPath string) (*DB, error) {",
+      "docstring": ""
+    },
+    {
+      "name": "InsertKey",
+      "file": "internal/db/sqlite.go",
+      "line": 78,
+      "signature": "func (db *DB) InsertKey(key *domain.APIKey, encrypted []byte) error {",
+      "docstring": ""
+    },
+    {
+      "name": "GetKeys",
+      "file": "internal/db/sqlite.go",
+      "line": 111,
+      "signature": "func (db *DB) GetKeys() ([]*domain.APIKey, error) {",
+      "docstring": ""
+    },
+    {
+      "name": "DeleteKey",
+      "file": "internal/db/sqlite.go",
+      "line": 157,
+      "signature": "func (db *DB) DeleteKey(id string) error {",
+      "docstring": ""
+    },
+    {
+      "name": "GetRecentLogs",
+      "file": "internal/db/sqlite.go",
+      "line": 173,
+      "signature": "func (db *DB) GetRecentLogs(limit int) ([]*domain.RequestLog, error) {",
+      "docstring": ""
+    },
+    {
+      "name": "GetStats",
+      "file": "internal/db/sqlite.go",
+      "line": 229,
+      "signature": "func (db *DB) GetStats() (*domain.ProxyStats, error) {",
+      "docstring": ""
+    },
+    {
+      "name": "InsertLog",
+      "file": "internal/db/sqlite.go",
+      "line": 258,
+      "signature": "func (db *DB) InsertLog(l *domain.RequestLog) error {",
+      "docstring": ""
+    },
+    {
+      "name": "setupTestDB",
+      "file": "internal/db/sqlite_test.go",
+      "line": 13,
+      "signature": "func setupTestDB(t *testing.T) (*DB, func()) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestDB_InsertAndGetKeys",
+      "file": "internal/db/sqlite_test.go",
+      "line": 35,
+      "signature": "func TestDB_InsertAndGetKeys(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestDB_DeleteKey",
+      "file": "internal/db/sqlite_test.go",
+      "line": 101,
+      "signature": "func TestDB_DeleteKey(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestDB_LogsAndStats",
+      "file": "internal/db/sqlite_test.go",
+      "line": 141,
+      "signature": "func TestDB_LogsAndStats(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "NewHandler",
+      "file": "internal/api/handler.go",
+      "line": 61,
+      "signature": "func NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *H",
+      "docstring": ""
+    },
+    {
+      "name": "RegisterRoutes",
+      "file": "internal/api/handler.go",
+      "line": 69,
+      "signature": "func (h *Handler) RegisterRoutes(mux *http.ServeMux) {",
+      "docstring": ""
+    },
+    {
+      "name": "HandleGetKeys",
+      "file": "internal/api/handler.go",
+      "line": 78,
+      "signature": "func (h *Handler) HandleGetKeys(w http.ResponseWriter, r *http.Request) {",
+      "docstring": ""
+    },
+    {
+      "name": "HandleCreateKey",
+      "file": "internal/api/handler.go",
+      "line": 116,
+      "signature": "func (h *Handler) HandleCreateKey(w http.ResponseWriter, r *http.Request) {",
+      "docstring": ""
+    },
+    {
+      "name": "HandleDeleteKey",
+      "file": "internal/api/handler.go",
+      "line": 213,
+      "signature": "func (h *Handler) HandleDeleteKey(w http.ResponseWriter, r *http.Request) {",
+      "docstring": ""
+    },
+    {
+      "name": "HandleTestKey",
+      "file": "internal/api/handler.go",
+      "line": 243,
+      "signature": "func (h *Handler) HandleTestKey(w http.ResponseWriter, r *http.Request) {",
+      "docstring": ""
+    },
+    {
+      "name": "HandleGetLogs",
+      "file": "internal/api/handler.go",
+      "line": 301,
+      "signature": "func (h *Handler) HandleGetLogs(w http.ResponseWriter, r *http.Request) {",
+      "docstring": ""
+    },
+    {
+      "name": "HandleGetStats",
+      "file": "internal/api/handler.go",
+      "line": 318,
+      "signature": "func (h *Handler) HandleGetStats(w http.ResponseWriter, r *http.Request) {",
+      "docstring": ""
+    },
+    {
+      "name": "extractPrefixSuffix",
+      "file": "internal/api/handler.go",
+      "line": 337,
+      "signature": "func extractPrefixSuffix(key string) (string, string) {",
+      "docstring": ""
+    },
+    {
+      "name": "writeJSON",
+      "file": "internal/api/handler.go",
+      "line": 349,
+      "signature": "func writeJSON(w http.ResponseWriter, status int, data any) {",
+      "docstring": ""
+    },
+    {
+      "name": "setupTestAPI",
+      "file": "internal/api/handler_test.go",
+      "line": 20,
+      "signature": "func setupTestAPI(t *testing.T) (*Handler, *http.ServeMux, func()) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestAPI_KeysLifecycle",
+      "file": "internal/api/handler_test.go",
+      "line": 47,
+      "signature": "func TestAPI_KeysLifecycle(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestAPI_CreateKeyValidation",
+      "file": "internal/api/handler_test.go",
+      "line": 179,
+      "signature": "func TestAPI_CreateKeyValidation(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestAPI_LogsAndStats",
+      "file": "internal/api/handler_test.go",
+      "line": 231,
+      "signature": "func TestAPI_LogsAndStats(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "TestAPI_TestKey",
+      "file": "internal/api/handler_test.go",
+      "line": 312,
+      "signature": "func TestAPI_TestKey(t *testing.T) {",
+      "docstring": ""
+    },
+    {
+      "name": "Handler",
+      "file": "ui/ui.go",
+      "line": 13,
+      "signature": "func Handler() http.Handler {",
+      "docstring": ""
+    }
+  ],
+  "snippets": [
+    {
+      "title": "`ProxyServer` (internal/proxy/handler.go:16)",
+      "file": "internal/proxy/handler.go",
+      "start_line": 16,
+      "end_line": 41,
+      "code": "type ProxyServer struct {\n\tManager     *KeyManager\n\tValidTokens map[string]bool // hashed token -> true\n\tLogChannel  chan *domain.RequestLog\n}\n\nfunc (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {\n\tstartTime := time.Now()\n\n\t// 1. Validate Auth Token\n\tauthHeader := r.Header.Get(\"Authorization\")\n\tif len(authHeader) < 8 || authHeader[:7] != \"Bearer \" {\n\t\thttp.Error(w, \"Unauthorized\", http.StatusUnauthorized)\n\t\treturn\n\t}\n\ttoken := authHeader[7:]\n\thashed := HashToken(token)\n\tif !p.ValidTokens[hashed] {\n\t\thttp.Error(w, \"Unauthorized\", http.StatusUnauthorized)\n\t\treturn\n\t}\n\n\t// 2. Read body to parse provider if possible (e.g., model name checking)\n\tbodyBytes, _ := io.ReadAll(r.Body)\n\tr.Body.Close()\n\tr.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))"
+    },
+    {
+      "title": "`KeyManager` (internal/proxy/manager.go:12)",
+      "file": "internal/proxy/manager.go",
+      "start_line": 12,
+      "end_line": 37,
+      "code": "type KeyManager struct {\n\tkeys       []*domain.APIKey\n\tmu         sync.RWMutex\n\tdailyLimit int\n}\n\nfunc NewKeyManager(keys []*domain.APIKey, dailyLimit int) *KeyManager {\n\treturn &KeyManager{\n\t\tkeys:       keys,\n\t\tdailyLimit: dailyLimit,\n\t}\n}\n\n// GetBestKey selects the most optimal key based on priority, RPM headroom, and latency\nfunc (km *KeyManager) GetBestKey(preferredProvider domain.Provider) (*domain.APIKey, error) {\n\tkm.mu.Lock()\n\tdefer km.mu.Unlock()\n\n\tnow := time.Now()\n\ttotalToday := 0\n\n\t// Sliding window resets and global quota check\n\tfor _, k := range km.keys {\n\t\ttotalToday += k.RequestsToday\n\n\t\t// Reset minute window if 60s passed"
+    },
+    {
+      "title": "`DB` (internal/db/sqlite.go:14)",
+      "file": "internal/db/sqlite.go",
+      "start_line": 14,
+      "end_line": 39,
+      "code": "type DB struct {\n\t*sql.DB\n}\n\nfunc New(sqlDB *sql.DB) *DB {\n\treturn &DB{DB: sqlDB}\n}\n\nfunc InitDB(dbPath string) (*DB, error) {\n\tdb, err := sql.Open(\"sqlite\", dbPath)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\n\t// WAL mode for concurrency\n\tif _, err := db.Exec(\"PRAGMA journal_mode=WAL;\"); err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to enable WAL: %w\", err)\n\t}\n\n\tschema := `\n\tCREATE TABLE IF NOT EXISTS api_keys (\n\t\tid TEXT PRIMARY KEY,\n\t\tkey_hash TEXT UNIQUE NOT NULL,\n\t\tkey_prefix TEXT NOT NULL,\n\t\tkey_suffix TEXT NOT NULL,\n\t\tencrypted_key BLOB NOT NULL,"
+    },
+    {
+      "title": "`APIKey` (internal/domain/contracts.go:22)",
+      "file": "internal/domain/contracts.go",
+      "start_line": 22,
+      "end_line": 47,
+      "code": "type APIKey struct {\n\tID           string    `json:\"id\" db:\"id\"`\n\tKeyHash      string    `json:\"-\" db:\"key_hash\"`\n\tKeyPrefix    string    `json:\"key_prefix\" db:\"key_prefix\"`\n\tKeySuffix    string    `json:\"key_suffix\" db:\"key_suffix\"`\n\tEncryptedKey []byte    `json:\"-\" db:\"encrypted_key\"`\n\tProvider     Provider  `json:\"provider\" db:\"provider\"`\n\tLabel        string    `json:\"label\" db:\"label\"`\n\tRPMLimit     int       `json:\"rpm_limit\" db:\"rpm_limit\"`\n\tRPDLimit     int       `json:\"rpd_limit\" db:\"rpd_limit\"`\n\tPriority     int       `json:\"priority\" db:\"priority\"`\n\tStatus       KeyStatus `json:\"status\" db:\"status\"`\n\n\t// Runtime State (not persisted to DB immediately)\n\tDecrypted         string    `json:\"-\"`\n\tRequestsThisMin   int       `json:\"-\"`\n\tRequestsToday     int       `json:\"-\"`\n\tMinuteWindowStart time.Time `json:\"-\"`\n\tTotalLatencyMs    float64   `json:\"-\"`\n\tTotalRequests     int64     `json:\"-\"`\n\tCooldownUntil     time.Time `json:\"-\"`\n}\n\ntype RequestLog struct {\n\tID         string    `json:\"id\"`\n\tKeyID      string    `json:\"key_id\"`"
+    },
+    {
+      "title": "`RequestLog` (internal/domain/contracts.go:45)",
+      "file": "internal/domain/contracts.go",
+      "start_line": 45,
+      "end_line": 61,
+      "code": "type RequestLog struct {\n\tID         string    `json:\"id\"`\n\tKeyID      string    `json:\"key_id\"`\n\tProvider   Provider  `json:\"provider\"`\n\tStatusCode int       `json:\"status_code\"`\n\tLatencyMs  float64   `json:\"latency_ms\"`\n\tBytesIn    int64     `json:\"bytes_in\"`\n\tBytesOut   int64     `json:\"bytes_out\"`\n\tCreatedAt  time.Time `json:\"created_at\"`\n}\n\ntype ProxyStats struct {\n\tActiveKeys         int `json:\"active_keys\"`\n\tTotalRequestsToday int `json:\"total_requests_today\"`\n\tHealthyCount       int `json:\"healthy_count\"`\n\tRateLimitedCount   int `json:\"rate_limited_count\"`\n}"
+    },
+    {
+      "title": "`ProxyStats` (internal/domain/contracts.go:56)",
+      "file": "internal/domain/contracts.go",
+      "start_line": 56,
+      "end_line": 61,
+      "code": "type ProxyStats struct {\n\tActiveKeys         int `json:\"active_keys\"`\n\tTotalRequestsToday int `json:\"total_requests_today\"`\n\tHealthyCount       int `json:\"healthy_count\"`\n\tRateLimitedCount   int `json:\"rate_limited_count\"`\n}"
+    },
+    {
+      "title": "`KeyResponse` (internal/api/handler.go:19)",
+      "file": "internal/api/handler.go",
+      "start_line": 19,
+      "end_line": 44,
+      "code": "type KeyResponse struct {\n\tID        string           `json:\"id\"`\n\tKeyPrefix string           `json:\"key_prefix\"`\n\tKeySuffix string           `json:\"key_suffix\"`\n\tProvider  domain.Provider  `json:\"provider\"`\n\tLabel     string           `json:\"label\"`\n\tRPMLimit  int              `json:\"rpm_limit\"`\n\tRPDLimit  int              `json:\"rpd_limit\"`\n\tPriority  int              `json:\"priority\"`\n\tStatus    domain.KeyStatus `json:\"status\"`\n}\n\ntype CreateKeyRequest struct {\n\tLabel    string          `json:\"label\"`\n\tProvider domain.Provider `json:\"provider\"`\n\tKey      string          `json:\"key\"`\n\tRPMLimit int             `json:\"rpm_limit\"`\n\tRPDLimit int             `json:\"rpd_limit\"`\n\tPriority int             `json:\"priority\"`\n}\n\ntype ErrorResponse struct {\n\tError string `json:\"error\"`\n}\n\ntype MessageResponse struct {"
+    },
+    {
+      "title": "`CreateKeyRequest` (internal/api/handler.go:31)",
+      "file": "internal/api/handler.go",
+      "start_line": 31,
+      "end_line": 56,
+      "code": "type CreateKeyRequest struct {\n\tLabel    string          `json:\"label\"`\n\tProvider domain.Provider `json:\"provider\"`\n\tKey      string          `json:\"key\"`\n\tRPMLimit int             `json:\"rpm_limit\"`\n\tRPDLimit int             `json:\"rpd_limit\"`\n\tPriority int             `json:\"priority\"`\n}\n\ntype ErrorResponse struct {\n\tError string `json:\"error\"`\n}\n\ntype MessageResponse struct {\n\tMessage string `json:\"message\"`\n\tID      string `json:\"id,omitempty\"`\n}\n\ntype TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB"
+    },
+    {
+      "title": "`ErrorResponse` (internal/api/handler.go:40)",
+      "file": "internal/api/handler.go",
+      "start_line": 40,
+      "end_line": 65,
+      "code": "type ErrorResponse struct {\n\tError string `json:\"error\"`\n}\n\ntype MessageResponse struct {\n\tMessage string `json:\"message\"`\n\tID      string `json:\"id,omitempty\"`\n}\n\ntype TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,"
+    },
+    {
+      "title": "`MessageResponse` (internal/api/handler.go:44)",
+      "file": "internal/api/handler.go",
+      "start_line": 44,
+      "end_line": 69,
+      "code": "type MessageResponse struct {\n\tMessage string `json:\"message\"`\n\tID      string `json:\"id,omitempty\"`\n}\n\ntype TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,\n\t}\n}\n\nfunc (h *Handler) RegisterRoutes(mux *http.ServeMux) {"
+    },
+    {
+      "title": "`TestKeyResponse` (internal/api/handler.go:49)",
+      "file": "internal/api/handler.go",
+      "start_line": 49,
+      "end_line": 74,
+      "code": "type TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,\n\t}\n}\n\nfunc (h *Handler) RegisterRoutes(mux *http.ServeMux) {\n\tmux.HandleFunc(\"GET /api/keys\", h.HandleGetKeys)\n\tmux.HandleFunc(\"POST /api/keys\", h.HandleCreateKey)\n\tmux.HandleFunc(\"DELETE /api/keys/{id}\", h.HandleDeleteKey)\n\tmux.HandleFunc(\"POST /api/keys/{id}/test\", h.HandleTestKey)\n\tmux.HandleFunc(\"GET /api/logs\", h.HandleGetLogs)"
+    },
+    {
+      "title": "`Handler` (internal/api/handler.go:55)",
+      "file": "internal/api/handler.go",
+      "start_line": 55,
+      "end_line": 80,
+      "code": "type Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,\n\t}\n}\n\nfunc (h *Handler) RegisterRoutes(mux *http.ServeMux) {\n\tmux.HandleFunc(\"GET /api/keys\", h.HandleGetKeys)\n\tmux.HandleFunc(\"POST /api/keys\", h.HandleCreateKey)\n\tmux.HandleFunc(\"DELETE /api/keys/{id}\", h.HandleDeleteKey)\n\tmux.HandleFunc(\"POST /api/keys/{id}/test\", h.HandleTestKey)\n\tmux.HandleFunc(\"GET /api/logs\", h.HandleGetLogs)\n\tmux.HandleFunc(\"GET /api/stats\", h.HandleGetStats)\n}\n\nfunc (h *Handler) HandleGetKeys(w http.ResponseWriter, r *http.Request) {\n\tkeys, err := h.DB.GetKeys()\n\tif err != nil {"
+    },
+    {
+      "title": "`Provider` (ui/src/lib/types.ts:1)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 1,
+      "end_line": 26,
+      "code": "export type Provider = 'gemini' | 'groq';\n\nexport type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n}\n\nexport interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;"
+    },
+    {
+      "title": "`KeyStatus` (ui/src/lib/types.ts:3)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 3,
+      "end_line": 28,
+      "code": "export type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n}\n\nexport interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;\n  status_code: number;\n  latency_ms: number;"
+    },
+    {
+      "title": "`APIKey` (ui/src/lib/types.ts:5)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 5,
+      "end_line": 30,
+      "code": "export interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n}\n\nexport interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;\n  status_code: number;\n  latency_ms: number;\n  bytes_in: number;\n  bytes_out: number;"
+    },
+    {
+      "title": "`RequestLog` (ui/src/lib/types.ts:23)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 23,
+      "end_line": 48,
+      "code": "export interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;\n  status_code: number;\n  latency_ms: number;\n  bytes_in: number;\n  bytes_out: number;\n  created_at: string;\n  model?: string;\n}\n\nexport interface PoolStats {\n  total_keys: number;\n  healthy_keys: number;\n  rate_limited_keys: number;\n  invalid_keys: number;\n  total_rpm_headroom: number;\n  total_rpm_limit: number;\n  current_rpm_used: number;\n  avg_upstream_latency_ms: number;\n  daily_quota_used: number;\n  daily_quota_limit: number;\n  proxy_status: 'healthy' | 'degraded' | 'offline';\n}\n"
+    },
+    {
+      "title": "`PoolStats` (ui/src/lib/types.ts:35)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 35,
+      "end_line": 60,
+      "code": "export interface PoolStats {\n  total_keys: number;\n  healthy_keys: number;\n  rate_limited_keys: number;\n  invalid_keys: number;\n  total_rpm_headroom: number;\n  total_rpm_limit: number;\n  current_rpm_used: number;\n  avg_upstream_latency_ms: number;\n  daily_quota_used: number;\n  daily_quota_limit: number;\n  proxy_status: 'healthy' | 'degraded' | 'offline';\n}\n\nexport interface CreateKeyPayload {\n  provider: Provider;\n  label: string;\n  key: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n}\n\nexport interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';"
+    },
+    {
+      "title": "`CreateKeyPayload` (ui/src/lib/types.ts:49)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 49,
+      "end_line": 62,
+      "code": "export interface CreateKeyPayload {\n  provider: Provider;\n  label: string;\n  key: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n}\n\nexport interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';\n  message: string;\n}"
+    },
+    {
+      "title": "`ToastMessage` (ui/src/lib/types.ts:58)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 58,
+      "end_line": 62,
+      "code": "export interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';\n  message: string;\n}"
+    }
+  ],
+  "files": [
+    {
+      "path": "cmd/key-collective/main.go",
+      "loc": 110,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "internal/proxy/crypto.go",
+      "loc": 65,
+      "class_count": 0,
+      "function_count": 3
+    },
+    {
+      "path": "internal/proxy/handler.go",
+      "loc": 120,
+      "class_count": 1,
+      "function_count": 1
+    },
+    {
+      "path": "internal/proxy/manager.go",
+      "loc": 190,
+      "class_count": 1,
+      "function_count": 8
+    },
+    {
+      "path": "internal/proxy/manager_test.go",
+      "loc": 126,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "internal/db/sqlite.go",
+      "loc": 283,
+      "class_count": 1,
+      "function_count": 8
+    },
+    {
+      "path": "internal/db/sqlite_test.go",
+      "loc": 241,
+      "class_count": 0,
+      "function_count": 4
+    },
+    {
+      "path": "internal/domain/contracts.go",
+      "loc": 61,
+      "class_count": 3,
+      "function_count": 0
+    },
+    {
+      "path": "internal/api/handler.go",
+      "loc": 353,
+      "class_count": 6,
+      "function_count": 10
+    },
+    {
+      "path": "internal/api/handler_test.go",
+      "loc": 349,
+      "class_count": 0,
+      "function_count": 5
+    },
+    {
+      "path": "ui/svelte.config.js",
+      "loc": 2,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/ui.go",
+      "loc": 19,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "ui/vite.config.ts",
+      "loc": 11,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/main.ts",
+      "loc": 9,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/api.ts",
+      "loc": 310,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/types.ts",
+      "loc": 62,
+      "class_count": 7,
+      "function_count": 0
+    }
+  ],
+  "github_base_url": "https://github.com/Axe-08/Key-Collective",
+  "git_branch": "master"
+}

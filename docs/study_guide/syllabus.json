@@ -1,0 +1,155 @@
+{
+  "project_name": "Key Collective",
+  "version": "1.0.0",
+  "git_commit": "1de800f20d",
+  "git_branch": "master",
+  "github_base_url": "https://github.com/Axe-08/Key-Collective",
+  "generated_at": "2026-09-08T11:58:32.431576+00:00",
+  "stack": {
+    "languages": [
+      "Go"
+    ],
+    "toolchains": [
+      "go modules"
+    ],
+    "frameworks": []
+  },
+  "parts": [
+    {
+      "id": "part_0",
+      "title": "Preface, Learning Objectives & Syllabus",
+      "file": "00_preface_and_syllabus.md",
+      "estimated_read_time_mins": 5,
+      "summary": "Target audience, prerequisites, mental models, and reading path guide."
+    },
+    {
+      "id": "part_1",
+      "title": "Language Primitives & Toolchain 101 (Go)",
+      "file": "01_language_primitives_and_idioms_101.md",
+      "estimated_read_time_mins": 20,
+      "summary": "First-principles language primer with simple analogies, syntax crash course, and toolchain commands."
+    },
+    {
+      "id": "part_2",
+      "title": "Architecture Blueprint, Mental Models & The 'Whys'",
+      "file": "02_architecture_and_whys.md",
+      "estimated_read_time_mins": 25,
+      "summary": "Core mental model, high-level Mermaid system diagram, folder structure rationale, and design trade-offs."
+    },
+    {
+      "id": "part_3",
+      "title": "Guided Thematic Subsystem Units",
+      "file": "03_subsystem_tours/README.md",
+      "estimated_read_time_mins": 45,
+      "summary": "Deep-dive textbook units walking through core domains with production code annotations.",
+      "thematic_units": [
+        {
+          "unit_id": "unit_1",
+          "slug": "01_data_contracts_and_models",
+          "title": "Unit 1: Data Contracts, Schemas & Domain Primitives",
+          "file": "03_subsystem_tours/03_1_01_data_contracts_and_models.md",
+          "estimated_read_time_mins": 25,
+          "summary": "Deconstructs the foundational types, schemas, and boundary contracts that govern all inputs and internal state.",
+          "files": [
+            "internal/domain/contracts.go",
+            "ui/src/lib/types.ts"
+          ],
+          "key_classes": [
+            "APIKey",
+            "RequestLog",
+            "ProxyStats",
+            "Provider",
+            "KeyStatus",
+            "APIKey",
+            "RequestLog",
+            "PoolStats"
+          ]
+        },
+        {
+          "unit_id": "unit_2",
+          "slug": "02_core_engine_and_logic",
+          "title": "Unit 2: Core Engine & Computational Pipelines",
+          "file": "03_subsystem_tours/03_2_02_core_engine_and_logic.md",
+          "estimated_read_time_mins": 25,
+          "summary": "Walks through the primary algorithmic workflows, internal state machines, and transactional execution paths.",
+          "files": [
+            "cmd/key-collective/main.go",
+            "internal/proxy/crypto.go",
+            "internal/proxy/handler.go"
+          ],
+          "key_classes": [
+            "ProxyServer"
+          ]
+        },
+        {
+          "unit_id": "unit_3",
+          "slug": "03_interfaces_and_gateways",
+          "title": "Unit 3: Interfaces, Adapters & External Gateways",
+          "file": "03_subsystem_tours/03_3_03_interfaces_and_gateways.md",
+          "estimated_read_time_mins": 25,
+          "summary": "Examines entrypoints, CLI parsing, API controllers, and external system adapters.",
+          "files": [
+            "internal/api/handler.go",
+            "internal/api/handler_test.go",
+            "ui/svelte.config.js",
+            "ui/ui.go",
+            "ui/vite.config.ts",
+            "ui/src/main.ts",
+            "ui/src/lib/api.ts"
+          ],
+          "key_classes": [
+            "KeyResponse",
+            "CreateKeyRequest",
+            "ErrorResponse",
+            "MessageResponse",
+            "TestKeyResponse",
+            "Handler"
+          ]
+        },
+        {
+          "unit_id": "unit_4",
+          "slug": "04_observability_and_infrastructure",
+          "title": "Unit 4: Runtime Observability, Storage & Tooling",
+          "file": "03_subsystem_tours/03_4_04_observability_and_infrastructure.md",
+          "estimated_read_time_mins": 25,
+          "summary": "Covers trace observability, storage persistence, configuration, and verification harnesses.",
+          "files": [
+            "cmd/key-collective/main.go",
+            "internal/proxy/crypto.go",
+            "internal/proxy/handler.go",
+            "internal/proxy/manager.go",
+            "internal/proxy/manager_test.go",
+            "internal/db/sqlite.go",
+            "internal/db/sqlite_test.go"
+          ],
+          "key_classes": [
+            "ProxyServer",
+            "KeyManager",
+            "DB"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "part_4",
+      "title": "End-to-End Execution Flows (The 'Hows')",
+      "file": "04_end_to_end_execution_flows.md",
+      "estimated_read_time_mins": 30,
+      "summary": "Narrated step-by-step lifecycle of 2-3 primary user flows with sequence diagrams and payload transitions."
+    },
+    {
+      "id": "part_5",
+      "title": "Idioms, Design Patterns & Architectural Trade-offs",
+      "file": "05_idioms_patterns_and_tradeoffs.md",
+      "estimated_read_time_mins": 20,
+      "summary": "Design patterns used (Facades, DI, Guardrails), common beginner gotchas, and performance considerations."
+    },
+    {
+      "id": "part_6",
+      "title": "Hands-On Lab Challenges & Self-Check Quizzes",
+      "file": "06_exercises_and_challenges.md",
+      "estimated_read_time_mins": 25,
+      "summary": "Active-recall comprehension quiz, code exploration treasure hunts, and first-feature challenge."
+    }
+  ]
+}

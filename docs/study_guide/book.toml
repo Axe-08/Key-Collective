@@ -1,0 +1,9 @@
+[book]
+authors = ["Codebase Tutor v3.0"]
+language = "en"
+src = "."
+title = "Key Collective — Zero-to-Hero Study Guide"
+
+[output.html]
+git-repository-url = "https://github.com/Axe-08/Key-Collective"
+additional-js = ["mermaid-init.js"]
