@@ -1,140 +1,139 @@
-# Data Contracts and Models
+# Unit 1: Data Contracts, Schemas & Domain Primitives
 
-We begin our examination by dissecting the core structures serving as the nervous system of Key Collective. The data domain outlines the strict shapes transferring state between the client boundary, the proxy engine, and the durable database.
+## Overview & Pedagogical Scope
+In high-throughput, edge-native distributed architectures, the bedrock of reliability is the contract layer. Key Collective v2 establishes an immutable contract foundation that eliminates floating-point drift, enforces strict type boundaries across Cloudflare Workers and Durable Objects, and guarantees that sensitive credentials never exist in plaintext beyond ephemeral cryptographic boundaries.
 
-## Three-Pass Dissection
+This unit dissects the type definitions, contract interfaces, financial models, and domain error hierarchies that govern all system communication.
 
-### 1. Purpose
+---
 
-The domain models isolate business concepts from transport mechanics. Structs like `APIKey` and `RequestLog` function as canonical source-of-truth abstractions. They establish vocabulary constraints, ensuring the database layer (`DB`) and the presentation layer (`ui/src/lib/types.ts`) communicate using an agreed-upon lexicon, specifically tracking provider limits, telemetry, and lifecycle markers.
-
-### 2. Invariants
-
--   **Data Masking**: Cryptographic blobs never leak to the UI. The plaintext `Decrypted` key rests purely in runtime memory and escapes serialization due to the `json:"-"` struct tag.
--   **Immutable Telemetry**: A `RequestLog` represents a historical fact. Once generated, its latency and byte counts cannot mutate.
--   **Strict Enums**: The `Provider` and `KeyStatus` types constrain routing logic to a known universe of states.
-
-### 3. State Lifecycle
-
-Entities shift from ephemeral client payloads (`CreateKeyPayload`) to enriched runtime models (`APIKey`), eventually flushing to persistent records. During execution, transient fields like `RequestsThisMin` mutate vigorously but avoid durable storage until aggregated into broader metrics like `PoolStats` or `ProxyStats`.
-
-## Model Breakdown
-
-### Provider and KeyStatus Constraints
-
-The routing engine relies on strict type aliases defining allowable upstream targets and health markers.
-
-```go
-type Provider string
-
-const (
-	ProviderGemini Provider = "gemini"
-	ProviderGroq   Provider = "groq"
-)
-
-type KeyStatus string
-
-const (
-	KeyHealthy     KeyStatus = "healthy"
-	KeyRateLimited KeyStatus = "rate_limited"
-	KeyExhausted   KeyStatus = "exhausted"
-	KeyInvalid     KeyStatus = "invalid"
-	KeyDisabled    KeyStatus = "disabled"
-)
-```
-
-The `Provider` ensures the reverse proxy targets the correct backend (e.g., Google or Groq), while `KeyStatus` drives the load balancer's circuit breaker logic.
-
-### The APIKey Entity
-
-The `APIKey` struct bridges persistent configuration and highly volatile runtime telemetry. 
-
-```go
-type APIKey struct {
-	ID           string    `json:"id" db:"id"`
-	KeyHash      string    `json:"-" db:"key_hash"`
-	KeyPrefix    string    `json:"key_prefix" db:"key_prefix"`
-	KeySuffix    string    `json:"key_suffix" db:"key_suffix"`
-	EncryptedKey []byte    `json:"-" db:"encrypted_key"`
-	Provider     Provider  `json:"provider" db:"provider"`
-	Label        string    `json:"label" db:"label"`
-	RPMLimit     int       `json:"rpm_limit" db:"rpm_limit"`
-	RPDLimit     int       `json:"rpd_limit" db:"rpd_limit"`
-	Priority     int       `json:"priority" db:"priority"`
-	Status       KeyStatus `json:"status" db:"status"`
-
-	// Runtime State (not persisted to DB immediately)
-	Decrypted         string    `json:"-"`
-	RequestsThisMin   int       `json:"-"`
-	RequestsToday     int       `json:"-"`
-	MinuteWindowStart time.Time `json:"-"`
-	TotalLatencyMs    float64   `json:"-"`
-	TotalRequests     int64     `json:"-"`
-	CooldownUntil     time.Time `json:"-"`
-}
-```
-
-Notice the division of fields. The top half describes the durable configuration stored in SQLite, heavily relying on structural masking (`KeyPrefix` and `KeySuffix`) to display identity without revealing secrets. The bottom half contains transient fields that the `KeyManager` actively mutates during traffic routing. These runtime metrics avoid constant database writes, preserving I/O bandwidth.
-
-### Telemetry Shapes: RequestLog, ProxyStats, and PoolStats
-
-Visibility requires structured logging. `RequestLog` captures atomic proxy events.
-
-```go
-type RequestLog struct {
-	ID         string    `json:"id"`
-	KeyID      string    `json:"key_id"`
-	Provider   Provider  `json:"provider"`
-	StatusCode int       `json:"status_code"`
-	LatencyMs  float64   `json:"latency_ms"`
-	BytesIn    int64     `json:"bytes_in"`
-	BytesOut   int64     `json:"bytes_out"`
-	CreatedAt  time.Time `json:"created_at"`
-}
-```
-
-This struct enables latency percentiles and error tracking. Aggregation then shapes these events into dashboard-ready formats like `ProxyStats` for backend processing or `PoolStats` in the TypeScript interface.
+## 1. Frozen Interface Contracts
+All inter-pod boundaries are governed by four frozen interfaces: `AuthContract`, `KeyPoolContract`, `RouterContract`, and `TelemetryContract`.
 
 ```typescript
-export interface PoolStats {
-  total_keys: number;
-  healthy_keys: number;
-  rate_limited_keys: number;
-  invalid_keys: number;
-  total_rpm_headroom: number;
-  total_rpm_limit: number;
-  current_rpm_used: number;
-  avg_upstream_latency_ms: number;
-  daily_quota_used: number;
-  daily_quota_limit: number;
-  proxy_status: 'healthy' | 'degraded' | 'offline';
+// src/contracts/index.ts
+export interface AuthContract {
+  authenticate(request: Request): Promise<AuthContext>;
+}
+
+export interface KeyPoolContract {
+  getKey(req: RouteRequest): Promise<RouterDecision>;
+  recordUsage(decision: RouterDecision, usage: TokenUsage): Promise<void>;
+  recordResult(decision: RouterDecision, success: boolean, statusCode: number): Promise<void>;
+}
+
+export interface RouterContract {
+  resolveRoute(req: CascadeRouteRequest): Promise<CascadeRouteResponse>;
+}
+
+export interface TelemetryContract {
+  emit(event: TelemetryEvent): void;
 }
 ```
 
-The UI utilizes `PoolStats` to render fleet health at a glance. The backend generates these counters via optimized SQL aggregates, hiding the complexity of raw `RequestLog` rows from the client.
+Standardized API envelope payloads rely on `ApiResponse`, `ApiRequest`, `ApiSuccessResponse`, `ApiFailureResponse`, `ApiErrorResponse`, `ApiErrorDetail`, `ApiResponseMeta`, `ApiPaginationMeta`, `ApiResult`, `PaginatedApiResponse`, `ApiRequestOptions`, `HealthResponse`, `MessageResponse`, `TestKeyResponse`, and `ToastMessage`.
 
-## Memory Footprint vs. Persistence
+---
 
-Our data strategy leverages a strict boundary between memory and disk. `APIKey` struct definitions illustrate this beautifully. 
+## 2. Authentication & Tenant Data Models
+The tenancy and authentication layer defines the caller identity and financial quotas:
 
-A standard `APIKey` config requires minimal disk space, largely constrained to small strings and an AES cipher block. However, its runtime counterpart lives fully in memory, tracking `TotalRequests` and `RequestsThisMin` inside localized CPU caches. This separation prevents database lock contention. A proxy request only reads the cached struct via a read-write lock, avoiding a synchronous round-trip to SQLite for quota enforcement.
+```typescript
+// src/types/api.ts & src/contracts/auth.ts
+export interface AuthToken {
+  id: string;
+  tokenHash: string;
+  tenantId: string;
+  budgetMicrodollars: bigint;
+  spentMicrodollars: bigint;
+  rpmLimit: number;
+  allowedProviders: string[];
+  isActive: boolean;
+  createdAt: string;
+}
 
-The `RequestLog` structure adopts the opposite pattern. These entries flow aggressively from memory into the database via an async channel, minimizing heap allocation pressure. We retain only a finite slice of logs in memory, relying on SQLite's durable WAL files to answer historical queries.
+export interface AuthContext {
+  token: AuthToken;
+  tenantId: string;
+  remainingMicrodollars: bigint;
+}
+```
 
-By formalizing `Provider`, `KeyStatus`, and the bridging telemetry models, Key Collective sustains a typed, resilient domain language extending from the database up to the user interface.
+Additional tenant configuration and persistence models include:
+- `AuthTokenRecord` and `AuthTokenRow`: Represent physical SQLite rows in Cloudflare D1.
+- `AuthenticatedContext`: The fully verified security context attached to downstream requests.
+- `TenantConfig` and `TenantBudgetConfig`: Enforce per-tenant spend caps and provider white-lists.
+- `TenantSpendSummary`: Aggregated usage and budget headroom metrics.
 
-### Advanced Telemetry Considerations
+---
 
-When operating at scale, the distinction between runtime state and persistent state becomes critical. While the `APIKey` struct holds pointers to active requests, `ProxyStats` provides the historical snapshot. 
+## 3. Cryptographic & API Key Domain Primitives
+Every upstream provider key is managed through `APIKey` and `APIKeyRow`.
 
-We must also consider how these models evolve. If Key Collective introduces a third AI provider, the `Provider` enum expands, but the underlying struct definitions remain stable. This polymorphism allows the UI to render provider-agnostic health metrics. A `RequestLog` representing a Groq failure structurally matches a Gemini failure, ensuring that aggregation logic never requires provider-specific branching.
+```typescript
+// src/types/models.ts
+export interface APIKey {
+  id: string;
+  tenantId: string;
+  provider: KnownModelProvider;
+  label: string;
+  encryptedKey: Uint8Array;
+  nonce: Uint8Array;
+  keyPrefix: string;
+  keySuffix: string;
+  priority: number;
+  rpmLimit: number;
+  rpdLimit: number;
+  status: KeyStatus;
+}
+```
 
-By meticulously curating these domain primitives, the system prevents spaghetti dependencies. The HTTP handler, the reverse proxy, and the database engine all speak this unified language, ensuring structural integrity across the entire application lifecycle.
+Key lifecycle and selection primitives include `KeyInput`, `KeyResponse`, `KeyMetrics`, `KeyStatus`, `KeyTriageItem`, `KeyTriageResult`, `SelectableKey`, and `MaskedKeyParts`.
 
-### Cross-Layer Type Synchronization
+Cryptographic payloads and buffers utilize strict types: `EncryptedKey`, `EncryptedPayload`, `EncryptedData`, `PlaintextInput`, `CiphertextInput`, and `HashInput`.
 
-One of the most profound benefits of our structured modeling approach is the ability to project domain constraints directly into the frontend. The TypeScript definitions like `PoolStats` and `APIKey` are not merely loose approximations; they are exact reflections of the Go structs. This structural parity eliminates an entire class of serialization bugs where the frontend expects a field that the backend fails to provide. By unifying the terminology—referring to a rate-limited key explicitly as `KeyRateLimited` in both Go and TypeScript—we establish a ubiquitous language that spans the entire codebase, dramatically reducing cognitive load for developers moving across the stack.
+---
 
-### Future Extensibility Vectors
+## 4. Model Registry, Pricing & Capability Schemas
+Models and upstream capabilities are cataloged via:
+- `ModelDef`: Context length, max output tokens, tool/vision/schema flags.
+- `ModelPricing`: Input, output, and cache-read costs denominated strictly in microdollars.
+- `ModelCapabilities`: Bitmasks and boolean capability flags.
+- `ModelAlias`: Logical alias resolution mappings (e.g. `smart-fast`).
+- `ModelProvider`: Upstream provider identifier.
+- `KnownModelAlias` and `KnownModelProvider`: Strongly typed enum unions for supported LLMs.
+- `ModelFilterCriteria`, `ModelFilterOptions`, and `ModelSortStrategy`: Sieve rules for candidate selection.
 
-Looking ahead, these data models are primed for expansion. Should we introduce token budgeting or cost allocation, the `APIKey` struct can easily accommodate a `CostAccrued` float, while the `RequestLog` can capture the precise `TokenCount` consumed. Because the foundation rigidly separates durable metadata from ephemeral runtime telemetry, we can weave these new dimensions into the system without compromising the latency or throughput of the existing proxy engine. The contracts remain the ultimate source of truth, dictating how the system reasons about its own state.
+---
+
+## 5. Domain Error Hierarchy
+Key Collective enforces an exhaustive error tree extending `Error`:
+
+```typescript
+// src/errors/index.ts
+export interface DomainErrorOptions {
+  cause?: unknown;
+  code?: string;
+  statusCode?: number;
+}
+export interface DomainErrorJson {
+  error: string;
+  code: string;
+  statusCode: number;
+}
+```
+
+The error catalog comprises:
+- **Authentication & Tenancy:** `AuthenticationError`, `AuthenticationErrorOptions`, `TenantIsolationError`, `TenantIsolationErrorOptions`, `TenantIsolationViolationError`.
+- **Key & Quota Management:** `InvalidKeyError`, `InvalidKeyErrorOptions`, `KeyNotFoundError`, `KeyNotFoundErrorOptions`, `KeyExhaustedError`, `KeyExhaustedErrorOptions`, `QuotaExceededError`, `QuotaExceededErrorOptions`, `RateLimitExceededError`, `RateLimitExceededErrorOptions`.
+- **Fault Tolerance & Circuit Breaking:** `CircuitBreakerTrippedError`, `CircuitBreakerTrippedErrorOptions`.
+- **Model & Routing:** `ContextWindowExceededError`, `ContextWindowExceededErrorOptions`, `CapabilityMismatchError`, `CapabilityMismatchErrorOptions`, `UnknownModelAliasError`, `UnknownModelAliasErrorOptions`, `ModelNotFoundError`, `ModelNotFoundErrorOptions`, `NoAvailableProviderError`, `NoAvailableProviderErrorOptions`, `FallbackExhaustedError`, `FallbackExhaustedErrorOptions`, `ProviderRoutingError`, `ProviderRoutingErrorOptions`, `ProviderTimeoutError`, `ProviderTimeoutErrorOptions`, `RouterError`.
+- **Telemetry & Financial:** `CostLedgerError`, `InvalidCostLedgerEventError`, `TelemetryEmissionError`, `TelemetryEmissionErrorOptions`, `InvalidTelemetryEventError`, `InvalidTelemetryEventErrorOptions`.
+- **Cryptography:** `EncryptionError`, `EncryptionErrorOptions`, `DecryptionError`, `DecryptionErrorOptions`.
+
+### Complexity & Memory Allocation Profile
+| Entity Group | Structural Memory Footprint | Runtime Mutation | Big-O Access |
+|---|---|---|---|
+| Contracts & Schemas | $\mathcal{O}(1)$ allocation | Immutable | $\mathcal{O}(1)$ member access |
+| Domain Error Classes | $\mathcal{O}(1)$ allocation | Prototype chain | $\mathcal{O}(1)$ instantiation |
+| Microdollar Pricing | 64-bit BigInt primitives | Pure value types | $\mathcal{O}(1)$ arithmetic |

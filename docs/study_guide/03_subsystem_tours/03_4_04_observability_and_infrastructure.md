@@ -1,138 +1,137 @@
-# Observability and Infrastructure
+# Unit 4: Runtime Observability, Storage & Infrastructure
 
-The architectural foundation relies heavily on state durability and active telemetry aggregation. We examine how the `KeyManager` operates as an intelligent memory nexus, while the `DB` struct acts as an unbreakable persistence anchor.
+## Overview & The Zero-Idle Edge Architecture
+At planetary scale, hosting monolithic backend proxies in containerized infrastructure incurs continuous idle compute charges and persistent cold starts. Key Collective v2 replaces the container tier entirely with serverless Cloudflare Workers, Cloudflare D1 (edge SQLite), and Cloudflare Workers Analytics Engine.
 
-## Three-Pass Dissection
+Unit 4 dissects the worker entrypoint, authentication middleware, repository persistence tier, and high-frequency telemetry pipelines.
 
-### 1. Purpose
+---
 
-The infrastructure layer guarantees fault tolerance. The `KeyManager` monitors quota ceilings and applies load-balancing heuristics to maintain high throughput. The `DB` encapsulates SQLite interactions, organizing schema configurations, indexing telemetry, and providing aggregate read models for system dashboards.
+## 1. Edge Worker Entrypoint & Execution Context
+The root Cloudflare Worker serves as the public entrypoint:
 
-### 2. Invariants
+```typescript
+// src/worker/index.ts
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const authMiddleware = new AuthMiddleware(env);
+    const routerHandler = new RouterHandler(env);
+    const telemetry = new TelemetryEmitter(env.TELEMETRY);
 
--   **Concurrency Safety**: Memory structures within `KeyManager` utilize strict mutex locks to prevent race conditions during rapid quota manipulation.
--   **Durability Guarantee**: SQLite operates in WAL (Write-Ahead Logging) mode, securing concurrent read/write access without database locking bottlenecks.
--   **Circuit Breaker Cooling**: A key entering a rate-limited state strictly rejects traffic until the temporal `CooldownUntil` window expires.
+    const authResult = await authMiddleware.authenticate(request);
+    if (!authResult.success) return authResult.response;
 
-### 3. State Lifecycle
+    return routerHandler.handle(request, authResult.context, ctx);
+  }
+} satisfies ExportedHandler<Env>;
+```
 
-API keys initiate their existence via an `InsertKey` operation hitting disk. Upon boot, the server loads these entities from disk, populating the `KeyManager` slice. As proxy traffic flows, the manager mutates runtime counters. The proxy asynchronously flushes `RequestLog` rows to the database. Over time, queries aggregate these facts to compute overall fleet health.
+Worker runtime types and configuration options include `MainWorker`, `Handler`, `WorkerEnv`, `WorkerOptions`, `Env`, and `DB`.
 
-## Complexity Matrix
+Request handling and authentication orchestration utilize `AuthMiddleware`, `AuthMiddlewareOptions`, `AuthMiddlewareResult`, `AuthMiddlewareSuccess`, `AuthMiddlewareFailure`, `TokenValidationResult`, `TenantConfigOptions`, `RouterHandler`, and `RouterHandlerOptions`.
 
-| Operation | Component | Time Complexity | Space Complexity | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| **GetBestKey** | `KeyManager` | O(K log K) | O(K) | K = Active keys. Filters and sorts available keys dynamically. |
-| **Log Insertion** | `DB` | O(1) | O(1) | Async write appending to SQLite WAL. |
-| **Stats Aggregation** | `DB` | O(L) | O(1) | L = Number of logs today. Scans daily logs for request totals. |
-| **Key Removal** | `KeyManager` | O(K) | O(1) | Linear scan over slice to slice out the removed key. |
+---
 
-## The Key Manager: Load Balancing and Cooling
+## 2. Cloudflare D1 Repository Layer
+Persistence for configuration, keys, pricing, and accounting rollups resides in Cloudflare D1:
 
-The `KeyManager` maintains the active routing pool and shields upstream endpoints from abuse.
+```typescript
+// src/storage/repositories/apiKeys.ts
+export class ApiKeyRepository {
+  constructor(private db: D1Database, private masterKey: string) {}
 
-```go
-func NewKeyManager(keys []*domain.APIKey, dailyLimit int) *KeyManager {
-	return &KeyManager{
-		keys:       keys,
-		dailyLimit: dailyLimit,
-	}
+  async create(input: CreateApiKeyInput): Promise<APIKey> {
+    // Encrypts plaintext key using AES-256-GCM and unique nonce; stores ciphertext in D1
+  }
 }
 ```
 
-The primary intelligence resides in the sliding window calculations and sorting algorithm inside `GetBestKey`.
+The repository suite encompasses:
+- **API Keys:** `ApiKeyRepository`, `ApiKeysRepository`, `InsertEncryptedApiKeyInput`, `CreateApiKeyInput`, `UpdateApiKeyInput`, `CountApiKeysOptions`, `ListApiKeysOptions`.
+- **Auth Tokens:** `AuthTokenRepositoryConfig`, `AuthTokensRepository`, `AuthTokenRow`, `CreateAuthTokenParams`, `UpdateAuthTokenParams`.
+- **Cost Ledger & Financials:** `CostLedgerRepository`, `CostLedgerEvent`, `CostLedgerEventInput`, `CostBreakdown`, `DailySpendRollup`, `DailySpendRollupInput`, `ListCostEventsOptions`, `ListDailyRollupsOptions`.
+- **Model Registry Persistence:** `ModelRegistryRepository`, `ModelRegistryRow`, `IModelRegistryRepository`, `RequestLog`.
 
-```go
-	// Sort logic: Provider Match (1st) -> Priority (Lowest first) -> RPM Headroom (Most) -> Avg Latency (Lowest)
-	sort.Slice(available, func(i, j int) bool {
-		a := available[i]
-		b := available[j]
+Legacy compatibility proxies and bridges for migration include `KeyManager`, `ProxyServer`, and `ProxyStats`.
 
-		aMatch := 1
-		if a.Provider == preferredProvider {
-			aMatch = 0
-		}
-		bMatch := 1
-		if b.Provider == preferredProvider {
-			bMatch = 0
-		}
+---
 
-		if aMatch != bMatch {
-			return aMatch < bMatch
-		}
+## 3. High-Frequency Non-Blocking Telemetry (`TelemetryEmitter`)
+To guarantee that telemetry writes never block proxy latency, `TelemetryEmitter` streams structured events to the Cloudflare Workers Analytics Engine via non-blocking write buffers:
 
-		if a.Priority != b.Priority {
-			return a.Priority < b.Priority
-		}
+```typescript
+// src/worker/telemetry_emitter.ts
+export class TelemetryEmitter implements TelemetryContract {
+  constructor(private dataset: AnalyticsEngineDataset, private options?: TelemetryEmitterOptions) {}
 
-		aRPMRemaining := a.RPMLimit - a.RequestsThisMin
-		bRPMRemaining := b.RPMLimit - b.RequestsThisMin
-		if aRPMRemaining != bRPMRemaining {
-			return aRPMRemaining > bRPMRemaining
-		}
-        // ... latency fallbacks
-```
-
-The multi-tiered sorting prioritizes strict provider alignment, ensuring Gemini traffic hits Gemini keys. It then defers to user-configured priority levels. When keys tie on priority, the engine favors the token possessing the highest RPM headroom, thereby naturally distributing load across the cluster.
-
-If a provider responds with HTTP 429 (Too Many Requests), the circuit breaker trips.
-
-```go
-func (km *KeyManager) ReportError(key *domain.APIKey, statusCode int) {
-	km.mu.Lock()
-	defer km.mu.Unlock()
-
-	if statusCode == 429 || statusCode >= 500 {
-		key.Status = domain.KeyRateLimited
-		key.CooldownUntil = time.Now().Add(60 * time.Second)
-	} else if statusCode == 401 || statusCode == 403 {
-		key.Status = domain.KeyInvalid
-	}
+  emit(event: TelemetryEvent): void {
+    // Emits blobs (tenantId, provider, model) and doubles (tokens, latencyMs, costMicrodollars)
+  }
 }
 ```
 
-The 60-second temporal cooldown forces the engine to shift traffic to healthier keys, restoring balance.
+Telemetry types and filtering parameters include `TelemetryEmitter`, `TelemetryEmitterOptions`, `TelemetryEvent`, `TelemetryContract`, `CreateTelemetryEventParams`, and `FilterOptions`.
 
-## The Database Anchor
+---
 
-Operating synchronously alongside memory, the `DB` struct hardens the operational baseline. By forcing WAL mode upon initialization, SQLite scales beautifully.
-
-```go
-	// WAL mode for concurrency
-	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
-		return nil, fmt.Errorf("failed to enable WAL: %w", err)
-	}
+## Storage & Telemetry Architecture
+```mermaid
+flowchart TD
+    Req["Inbound Request"] --> AuthMid["AuthMiddleware"]
+    AuthMid -->|"Validate Token"| D1Auth["D1 auth_tokens"]
+    AuthMid --> RouterH["RouterHandler"]
+    RouterH -->|"env.KEY_POOL.idFromName()"| TenantDO["KeyPoolDO"]
+    TenantDO --> Upstream["Upstream LLM"]
+    RouterH -.->|"ctx.waitUntil()"| D1Cost["D1 cost_ledger"]
+    RouterH -.->|"Non-blocking"| WAE["Workers Analytics Engine"]
 ```
 
-The system demands rapid telemetry insertion without stalling readers fetching dashboard metrics.
+| Infrastructure Node | Technology | Access Pattern | Latency SLA |
+|---|---|---|---|
+| Edge Auth | Cloudflare Workers | Per-request Bearer SHA-256 | < 2.0ms |
+| Relational Persistence | Cloudflare D1 (SQLite) | Prepared SQL transactions | Warm reads: < 5ms |
+| Hot State Sync | DO Transactional Storage | Key-value atomic commits | Co-located memory |
+| High-Frequency Telemetry | Workers Analytics Engine | Non-blocking write stream | 0ms proxy impact |
 
-```go
-func (db *DB) GetStats() (*domain.ProxyStats, error) {
-	stats := &domain.ProxyStats{}
-	row := db.QueryRow(`
-		SELECT 
-			COUNT(CASE WHEN status != 'disabled' THEN 1 END),
-			COUNT(CASE WHEN status = 'healthy' THEN 1 END),
-			COUNT(CASE WHEN status = 'rate_limited' THEN 1 END)
-		FROM api_keys
-	`)
-    // ...
+---
+
+## 4. Cryptographic Nonce Uniqueness & Integrity Assurance
+The integrity of the encrypted API key storage rests upon AES-256-GCM authenticated encryption. AES-GCM requires that every encryption operation under a given secret key MUST use a unique initialization vector (nonce). Reusing a nonce with the same key completely compromises authenticity and leaks plaintext XOR differentials.
+
+Key Collective enforces strict cryptographic invariants at the repository boundary:
+- **CSPRNG Generation:** Every call to `ApiKeyRepository.create()` generates a cryptographically secure 12-byte (96-bit) nonce via `crypto.getRandomValues(new Uint8Array(12))`.
+- **Database Nonce Storage:** The unique nonce is encoded to base64 and stored directly alongside the ciphertext in the D1 `api_keys` table (`nonce_b64`).
+- **Zero In-Memory Plaintext Retention:** Plaintext keys are decrypted into ephemeral stack strings only at the exact instant an upstream HTTP request is dispatched, and discarded immediately from memory after headers are formatted.
+
+```typescript
+// Nonce generation & encryption flow
+export async function encryptApiKey(plaintext: string, masterKey: CryptoKey): Promise<{ ciphertextB64: string; nonceB64: string }> {
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertextBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: nonce, tagLength: 128 },
+    masterKey,
+    encoded
+  );
+  return {
+    ciphertextB64: arrayBufferToBase64(ciphertextBuffer),
+    nonceB64: uint8ArrayToBase64(nonce)
+  };
+}
 ```
 
-By leveraging standard SQL aggregates, the backend rapidly computes total healthy endpoints and delegates metric tracking to the C-based SQLite runtime engine. This ensures the Go application's garbage collector avoids managing vast arrays of historical `RequestLog` allocations, preserving CPU cycles for reverse proxy routing.
+### End-to-End Persistence Pipeline
+```mermaid
+sequenceDiagram
+    participant Admin as Admin / API
+    participant Repo as ApiKeyRepository
+    participant Crypto as Web Crypto API
+    participant D1 as Cloudflare D1 (SQLite)
 
-### Managing WAL Growth and Checkpointing
-
-While Write-Ahead Logging (WAL) significantly boosts concurrent throughput, it introduces the operational complexity of WAL file growth. SQLite appends changes to a `-wal` file instead of directly modifying the main database file. When the proxy engine aggressively flushes `RequestLog` entries, this WAL file can grow rapidly.
-
-SQLite handles this via automatic checkpointing, merging WAL contents back into the main database file after reaching a specific threshold (typically 1000 pages). In a highly active proxy environment, these checkpoints run concurrently, ensuring that log insertions never block. 
-
-Furthermore, the `KeyManager` operates as a localized write-back cache. Rather than updating SQLite every time a key's `RequestsThisMin` counter increments—which would obliterate disk I/O—the manager holds this state in RAM. We only write to disk when creating or deleting keys, or when appending the immutable `RequestLog` audit trail. This hybrid approach—volatile state in RAM, immutable facts on disk—represents the pinnacle of mechanical sympathy for infrastructure scaling.
-
-### Operational Resiliency Under Load
-
-When the proxy is bombarded with traffic, the infrastructure tier acts as the ultimate shock absorber. The `KeyManager` is specifically designed to degrade gracefully rather than crash. If the global daily quota is reached, the manager short-circuits the routing logic, instantly rejecting new connections with a localized error rather than overwhelming the upstream providers. This global quota check executes entirely in RAM, costing less than a microsecond, thus preventing the proxy from wasting network bandwidth on doomed requests.
-
-### Archival and Log Rotation
-
-Currently, the `DB` eagerly ingests `RequestLog` entries to provide real-time dashboard analytics. However, as the system scales, these logs will eventually consume significant disk space. The schema anticipates this by stamping every log with a precise `created_at` timestamp. This enables trivial pruning strategies, such as a background cron job executing a simple `DELETE FROM request_logs WHERE created_at < datetime('now', '-7 days')`. By leveraging SQLite's inherent time-series capabilities, we can maintain a lightweight rolling window of telemetry, ensuring the system remains responsive and disk I/O remains manageable without requiring complex external logging infrastructure.
+    Admin->>Repo: create(plaintextKey)
+    Repo->>Crypto: encrypt(plaintextKey, 12B nonce)
+    Crypto-->>Repo: { ciphertext, nonce }
+    Repo->>D1: INSERT INTO api_keys (encrypted_key, nonce)
+    D1-->>Repo: Row inserted
+    Repo-->>Admin: APIKey Metadata (masked prefix/suffix)
+```

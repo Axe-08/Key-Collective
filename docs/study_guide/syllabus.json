@@ -1,16 +1,18 @@
 {
-  "project_name": "Key Collective",
-  "version": "1.0.0",
-  "git_commit": "1de800f20d",
+  "project_name": "key-collective",
+  "version": "1.1.0",
+  "git_commit": "32ae0679ea",
   "git_branch": "master",
   "github_base_url": "https://github.com/Axe-08/Key-Collective",
-  "generated_at": "2026-09-08T11:58:32.431576+00:00",
+  "generated_at": "2026-09-09T20:16:10.335124+00:00",
   "stack": {
     "languages": [
-      "Go"
+      "Go",
+      "TypeScript"
     ],
     "toolchains": [
-      "go modules"
+      "go modules",
+      "npm"
     ],
     "frameworks": []
   },
@@ -24,7 +26,7 @@
     },
     {
       "id": "part_1",
-      "title": "Language Primitives & Toolchain 101 (Go)",
+      "title": "Language Primitives & Toolchain 101 (Go, TypeScript)",
       "file": "01_language_primitives_and_idioms_101.md",
       "estimated_read_time_mins": 20,
       "summary": "First-principles language primer with simple analogies, syntax crash course, and toolchain commands."
@@ -52,7 +54,15 @@
           "summary": "Deconstructs the foundational types, schemas, and boundary contracts that govern all inputs and internal state.",
           "files": [
             "internal/domain/contracts.go",
-            "ui/src/lib/types.ts"
+            "ui/src/lib/types.ts",
+            "src/contracts/auth.ts",
+            "src/contracts/index.ts",
+            "src/contracts/key_pool.ts",
+            "src/contracts/router.ts",
+            "src/contracts/telemetry.ts",
+            "src/router/model_registry.test.ts",
+            "src/router/model_registry.ts",
+            "src/storage/repositories/modelRegistry.ts"
           ],
           "key_classes": [
             "APIKey",
@@ -95,7 +105,10 @@
             "ui/ui.go",
             "ui/vite.config.ts",
             "ui/src/main.ts",
-            "ui/src/lib/api.ts"
+            "ui/src/lib/api.ts",
+            "src/durable_objects/circuit_breaker.ts",
+            "src/proxy/upstream_client.test.ts",
+            "src/proxy/upstream_client.ts"
           ],
           "key_classes": [
             "KeyResponse",
@@ -103,7 +116,9 @@
             "ErrorResponse",
             "MessageResponse",
             "TestKeyResponse",
-            "Handler"
+            "Handler",
+            "CircuitBreakerState",
+            "CircuitBreakerData"
           ]
         },
         {
@@ -120,12 +135,20 @@
             "internal/proxy/manager.go",
             "internal/proxy/manager_test.go",
             "internal/db/sqlite.go",
-            "internal/db/sqlite_test.go"
+            "internal/db/sqlite_test.go",
+            "src/index.ts",
+            "src/constants/crypto.ts",
+            "src/constants/financial.ts"
           ],
           "key_classes": [
             "ProxyServer",
             "KeyManager",
-            "DB"
+            "DB",
+            "Env",
+            "MaskedKeyParts",
+            "EncryptedData",
+            "EncryptedPayload",
+            "KeyInput"
           ]
         }
       ]
@@ -151,5 +174,10 @@
       "estimated_read_time_mins": 25,
       "summary": "Active-recall comprehension quiz, code exploration treasure hunts, and first-feature challenge."
     }
+  ],
+  "last_updated_at": "2026-09-09T20:16:12.634170+00:00",
+  "recent_modified_files": [
+    "docs/study_guide/.tutor_digest.json",
+    "docs/study_guide/syllabus.json"
   ]
 }

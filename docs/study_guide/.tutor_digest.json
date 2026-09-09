@@ -1,9 +1,9 @@
 {
-  "project_name": "Key Collective",
-  "total_files": 16,
-  "total_loc": 2311,
-  "total_classes": 19,
-  "total_functions": 43,
+  "project_name": "key-collective",
+  "total_files": 87,
+  "total_loc": 36262,
+  "total_classes": 214,
+  "total_functions": 172,
   "classes": [
     {
       "name": "ProxyServer",
@@ -135,6 +135,1371 @@
       "name": "ToastMessage",
       "file": "ui/src/lib/types.ts",
       "line": 58,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "Env",
+      "file": "src/index.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthToken",
+      "file": "src/contracts/auth.ts",
+      "line": 1,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthContext",
+      "file": "src/contracts/auth.ts",
+      "line": 9,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthContract",
+      "file": "src/contracts/auth.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptedKey",
+      "file": "src/contracts/key_pool.ts",
+      "line": 1,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyMetrics",
+      "file": "src/contracts/key_pool.ts",
+      "line": 16,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolContract",
+      "file": "src/contracts/key_pool.ts",
+      "line": 22,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouteRequest",
+      "file": "src/contracts/router.ts",
+      "line": 1,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouteResponse",
+      "file": "src/contracts/router.ts",
+      "line": 7,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterContract",
+      "file": "src/contracts/router.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TelemetryEvent",
+      "file": "src/contracts/telemetry.ts",
+      "line": 1,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TelemetryContract",
+      "file": "src/contracts/telemetry.ts",
+      "line": 11,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "MaskedKeyParts",
+      "file": "src/constants/crypto.ts",
+      "line": 71,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptedData",
+      "file": "src/crypto/encryption.ts",
+      "line": 35,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptedPayload",
+      "file": "src/crypto/encryption.ts",
+      "line": 54,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyInput",
+      "file": "src/crypto/encryption.ts",
+      "line": 65,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PlaintextInput",
+      "file": "src/crypto/encryption.ts",
+      "line": 70,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CiphertextInput",
+      "file": "src/crypto/encryption.ts",
+      "line": 77,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "HashInput",
+      "file": "src/crypto/hashing.ts",
+      "line": 43,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerState",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 29,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerData",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 40,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerOptions",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 52,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStorageLike",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 73,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreaker",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 151,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolDOEnv",
+      "file": "src/durable_objects/key_pool_do.ts",
+      "line": 46,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolDOOptions",
+      "file": "src/durable_objects/key_pool_do.ts",
+      "line": 56,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStateLike",
+      "file": "src/durable_objects/key_pool_do.ts",
+      "line": 76,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolDO",
+      "file": "src/durable_objects/key_pool_do.ts",
+      "line": 110,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SelectableKey",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 37,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeySelectionStrategy",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 53,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeySelectorOptions",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 64,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SelectKeyOptions",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 86,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyTriageItem",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 102,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyTriageResult",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 123,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapacitySummary",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 137,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeySelector",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 167,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimitEntry",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 47,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimiterData",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 56,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimiterOptions",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 65,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimitCheckResult",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 89,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimiterMetrics",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 104,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimiter",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 160,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthenticationErrorOptions",
+      "file": "src/errors/auth_errors.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthenticationError",
+      "file": "src/errors/auth_errors.ts",
+      "line": 22,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantIsolationErrorOptions",
+      "file": "src/errors/auth_errors.ts",
+      "line": 54,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantIsolationError",
+      "file": "src/errors/auth_errors.ts",
+      "line": 66,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DomainErrorJson",
+      "file": "src/errors/domain_error.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DomainErrorOptions",
+      "file": "src/errors/domain_error.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DecryptionErrorOptions",
+      "file": "src/errors/key_errors.ts",
+      "line": 18,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DecryptionError",
+      "file": "src/errors/key_errors.ts",
+      "line": 31,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptionErrorOptions",
+      "file": "src/errors/key_errors.ts",
+      "line": 60,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptionError",
+      "file": "src/errors/key_errors.ts",
+      "line": 70,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimitExceededErrorOptions",
+      "file": "src/errors/key_errors.ts",
+      "line": 95,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimitExceededError",
+      "file": "src/errors/key_errors.ts",
+      "line": 110,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyNotFoundErrorOptions",
+      "file": "src/errors/key_errors.ts",
+      "line": 155,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyNotFoundError",
+      "file": "src/errors/key_errors.ts",
+      "line": 166,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyExhaustedErrorOptions",
+      "file": "src/errors/key_errors.ts",
+      "line": 196,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyExhaustedError",
+      "file": "src/errors/key_errors.ts",
+      "line": 208,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InvalidKeyErrorOptions",
+      "file": "src/errors/key_errors.ts",
+      "line": 246,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InvalidKeyError",
+      "file": "src/errors/key_errors.ts",
+      "line": 256,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "QuotaExceededErrorOptions",
+      "file": "src/errors/key_errors.ts",
+      "line": 281,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "QuotaExceededError",
+      "file": "src/errors/key_errors.ts",
+      "line": 293,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerTrippedErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerTrippedError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 33,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProviderRoutingErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 81,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProviderRoutingError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 95,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelNotFoundErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 135,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelNotFoundError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 145,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UnknownModelAliasErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 172,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UnknownModelAliasError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 182,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "NoAvailableProviderErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 211,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "NoAvailableProviderError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 223,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProviderTimeoutErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 249,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProviderTimeoutError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 260,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityMismatchErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 292,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityMismatchError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 303,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FallbackAttempt",
+      "file": "src/errors/routing_errors.ts",
+      "line": 332,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FallbackExhaustedErrorOptions",
+      "file": "src/errors/routing_errors.ts",
+      "line": 338,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FallbackExhaustedError",
+      "file": "src/errors/routing_errors.ts",
+      "line": 347,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TelemetryEmissionErrorOptions",
+      "file": "src/errors/telemetry_errors.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TelemetryEmissionError",
+      "file": "src/errors/telemetry_errors.ts",
+      "line": 23,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InvalidTelemetryEventErrorOptions",
+      "file": "src/errors/telemetry_errors.ts",
+      "line": 51,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InvalidTelemetryEventError",
+      "file": "src/errors/telemetry_errors.ts",
+      "line": 60,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StreamUsage",
+      "file": "src/proxy/sse_transformer.ts",
+      "line": 26,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SSEEvent",
+      "file": "src/proxy/sse_transformer.ts",
+      "line": 52,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StreamMetadata",
+      "file": "src/proxy/sse_transformer.ts",
+      "line": 68,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SSEStreamTransformerOptions",
+      "file": "src/proxy/sse_transformer.ts",
+      "line": 94,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SSEStreamTransformer",
+      "file": "src/proxy/sse_transformer.ts",
+      "line": 345,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamClientOptions",
+      "file": "src/proxy/upstream_client.ts",
+      "line": 105,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamRequest",
+      "file": "src/proxy/upstream_client.ts",
+      "line": 147,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamResponse",
+      "file": "src/proxy/upstream_client.ts",
+      "line": 181,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamChatRequest",
+      "file": "src/proxy/upstream_client.ts",
+      "line": 212,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamChatResponse",
+      "file": "src/proxy/upstream_client.ts",
+      "line": 240,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamClient",
+      "file": "src/proxy/upstream_client.ts",
+      "line": 608,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityRequirements",
+      "file": "src/router/capability_filter.ts",
+      "line": 25,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityCheckResult",
+      "file": "src/router/capability_filter.ts",
+      "line": 49,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelSortStrategy",
+      "file": "src/router/capability_filter.ts",
+      "line": 63,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FilterOptions",
+      "file": "src/router/capability_filter.ts",
+      "line": 68,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RequirementExtractionOptions",
+      "file": "src/router/capability_filter.ts",
+      "line": 78,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityFilter",
+      "file": "src/router/capability_filter.ts",
+      "line": 119,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouteRequest",
+      "file": "src/router/cascade_router.ts",
+      "line": 52,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouteResponse",
+      "file": "src/router/cascade_router.ts",
+      "line": 101,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouterOptions",
+      "file": "src/router/cascade_router.ts",
+      "line": 123,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouter",
+      "file": "src/router/cascade_router.ts",
+      "line": 211,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContextWindowExceededErrorOptions",
+      "file": "src/router/model_registry.ts",
+      "line": 41,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContextWindowExceededError",
+      "file": "src/router/model_registry.ts",
+      "line": 52,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TokenUsage",
+      "file": "src/router/model_registry.ts",
+      "line": 106,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostBreakdown",
+      "file": "src/router/model_registry.ts",
+      "line": 120,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContextValidationResult",
+      "file": "src/router/model_registry.ts",
+      "line": 136,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelFilterCriteria",
+      "file": "src/router/model_registry.ts",
+      "line": 158,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRegistryOptions",
+      "file": "src/router/model_registry.ts",
+      "line": 178,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "IModelRegistry",
+      "file": "src/router/model_registry.ts",
+      "line": 188,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRegistry",
+      "file": "src/router/model_registry.ts",
+      "line": 420,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "APIKeyRow",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 51,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateApiKeyInput",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 72,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InsertEncryptedApiKeyInput",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 100,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpdateApiKeyInput",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 136,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ListApiKeysOptions",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 156,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CountApiKeysOptions",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 170,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiKeyRepository",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 204,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiKeysRepository",
+      "file": "src/storage/repositories/apiKeys.ts",
+      "line": 984,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokenRow",
+      "file": "src/storage/repositories/authTokens.ts",
+      "line": 36,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokenRecord",
+      "file": "src/storage/repositories/authTokens.ts",
+      "line": 53,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateAuthTokenParams",
+      "file": "src/storage/repositories/authTokens.ts",
+      "line": 81,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokenRepositoryConfig",
+      "file": "src/storage/repositories/authTokens.ts",
+      "line": 105,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TokenValidationResult",
+      "file": "src/storage/repositories/authTokens.ts",
+      "line": 113,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpdateAuthTokenParams",
+      "file": "src/storage/repositories/authTokens.ts",
+      "line": 125,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokensRepository",
+      "file": "src/storage/repositories/authTokens.ts",
+      "line": 178,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerError",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 24,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InvalidCostLedgerEventError",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 40,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantIsolationViolationError",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 56,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerEventInput",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 72,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DailySpendRollup",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 107,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DailySpendRollupInput",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 127,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ListCostEventsOptions",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 143,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ListDailyRollupsOptions",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 165,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantSpendSummary",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 185,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerRepository",
+      "file": "src/storage/repositories/costLedger.ts",
+      "line": 403,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRegistryRow",
+      "file": "src/storage/repositories/modelRegistry.ts",
+      "line": 18,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelFilterOptions",
+      "file": "src/storage/repositories/modelRegistry.ts",
+      "line": 39,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelCapabilitiesFilter",
+      "file": "src/storage/repositories/modelRegistry.ts",
+      "line": 67,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "IModelRegistryRepository",
+      "file": "src/storage/repositories/modelRegistry.ts",
+      "line": 89,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRegistryRepository",
+      "file": "src/storage/repositories/modelRegistry.ts",
+      "line": 241,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiResponseMeta",
+      "file": "src/types/api.ts",
+      "line": 15,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiResponse",
+      "file": "src/types/api.ts",
+      "line": 38,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiRequestOptions",
+      "file": "src/types/api.ts",
+      "line": 48,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiRequest",
+      "file": "src/types/api.ts",
+      "line": 60,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiErrorDetail",
+      "file": "src/types/api.ts",
+      "line": 80,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiErrorResponse",
+      "file": "src/types/api.ts",
+      "line": 89,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiSuccessResponse",
+      "file": "src/types/api.ts",
+      "line": 97,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiFailureResponse",
+      "file": "src/types/api.ts",
+      "line": 106,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiResult",
+      "file": "src/types/api.ts",
+      "line": 115,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiPaginationMeta",
+      "file": "src/types/api.ts",
+      "line": 120,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PaginatedApiResponse",
+      "file": "src/types/api.ts",
+      "line": 131,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RoutingStrategy",
+      "file": "src/types/config.ts",
+      "line": 16,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyRoutingConfig",
+      "file": "src/types/config.ts",
+      "line": 36,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FallbackTrigger",
+      "file": "src/types/config.ts",
+      "line": 52,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FallbackConfig",
+      "file": "src/types/config.ts",
+      "line": 70,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimitConfig",
+      "file": "src/types/config.ts",
+      "line": 88,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerConfig",
+      "file": "src/types/config.ts",
+      "line": 103,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantBudgetConfig",
+      "file": "src/types/config.ts",
+      "line": 118,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantConfig",
+      "file": "src/types/config.ts",
+      "line": 134,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantConfigOptions",
+      "file": "src/types/config.ts",
+      "line": 163,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KnownModelProvider",
+      "file": "src/types/models.ts",
+      "line": 28,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelProvider",
+      "file": "src/types/models.ts",
+      "line": 34,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KnownModelAlias",
+      "file": "src/types/models.ts",
+      "line": 51,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelAlias",
+      "file": "src/types/models.ts",
+      "line": 57,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyStatus",
+      "file": "src/types/models.ts",
+      "line": 62,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelCapabilities",
+      "file": "src/types/models.ts",
+      "line": 88,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelPricing",
+      "file": "src/types/models.ts",
+      "line": 103,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelDef",
+      "file": "src/types/models.ts",
+      "line": 116,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "APIKey",
+      "file": "src/types/models.ts",
+      "line": 153,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterDecision",
+      "file": "src/types/models.ts",
+      "line": 189,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerEvent",
+      "file": "src/types/models.ts",
+      "line": 206,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "WorkerEnv",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 45,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthenticatedContext",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 57,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareOptions",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 81,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareSuccess",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 112,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareFailure",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 122,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareResult",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 132,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InMemoryRateLimiterStorage",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 141,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddleware",
+      "file": "src/worker/auth_middleware.ts",
+      "line": 340,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "HealthResponse",
+      "file": "src/worker/index.ts",
+      "line": 50,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "WorkerOptions",
+      "file": "src/worker/index.ts",
+      "line": 71,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "MainWorker",
+      "file": "src/worker/index.ts",
+      "line": 105,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterError",
+      "file": "src/worker/router_handler.ts",
+      "line": 100,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStubLike",
+      "file": "src/worker/router_handler.ts",
+      "line": 113,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectNamespaceLike",
+      "file": "src/worker/router_handler.ts",
+      "line": 130,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectKeyPoolClient",
+      "file": "src/worker/router_handler.ts",
+      "line": 139,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterHandlerOptions",
+      "file": "src/worker/router_handler.ts",
+      "line": 399,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterHandler",
+      "file": "src/worker/router_handler.ts",
+      "line": 438,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ExecutionContextLike",
+      "file": "src/worker/telemetry_emitter.ts",
+      "line": 22,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TelemetryEmitterOptions",
+      "file": "src/worker/telemetry_emitter.ts",
+      "line": 30,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateTelemetryEventParams",
+      "file": "src/worker/telemetry_emitter.ts",
+      "line": 51,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TelemetryEmitter",
+      "file": "src/worker/telemetry_emitter.ts",
+      "line": 215,
       "docstring": "",
       "methods": []
     }
@@ -440,6 +1805,405 @@
       "line": 13,
       "signature": "func Handler() http.Handler {",
       "docstring": ""
+    },
+    {
+      "name": "isValidNonceLength",
+      "file": "src/constants/crypto.ts",
+      "line": 80,
+      "signature": "export function isValidNonceLength(lengthBytes: number): boolean {",
+      "docstring": ""
+    },
+    {
+      "name": "isValidKeyLength",
+      "file": "src/constants/crypto.ts",
+      "line": 87,
+      "signature": "export function isValidKeyLength(lengthBits: number): boolean {",
+      "docstring": ""
+    },
+    {
+      "name": "maskApiKey",
+      "file": "src/constants/crypto.ts",
+      "line": 98,
+      "signature": "export function maskApiKey(",
+      "docstring": ""
+    },
+    {
+      "name": "dollarsToMicrodollars",
+      "file": "src/constants/financial.ts",
+      "line": 60,
+      "signature": "export function dollarsToMicrodollars(dollars: number | string): bigint {",
+      "docstring": ""
+    },
+    {
+      "name": "microdollarsToDollars",
+      "file": "src/constants/financial.ts",
+      "line": 90,
+      "signature": "export function microdollarsToDollars(microdollars: bigint): number {",
+      "docstring": ""
+    },
+    {
+      "name": "centsToMicrodollars",
+      "file": "src/constants/financial.ts",
+      "line": 98,
+      "signature": "export function centsToMicrodollars(cents: number | bigint): bigint {",
+      "docstring": ""
+    },
+    {
+      "name": "microdollarsToCents",
+      "file": "src/constants/financial.ts",
+      "line": 106,
+      "signature": "export function microdollarsToCents(microdollars: bigint): bigint {",
+      "docstring": ""
+    },
+    {
+      "name": "formatMicrodollars",
+      "file": "src/constants/financial.ts",
+      "line": 115,
+      "signature": "export function formatMicrodollars(",
+      "docstring": ""
+    },
+    {
+      "name": "isValidMicrodollarAmount",
+      "file": "src/constants/financial.ts",
+      "line": 157,
+      "signature": "export function isValidMicrodollarAmount(value: unknown): value is bigint {",
+      "docstring": ""
+    },
+    {
+      "name": "isValidRpmLimit",
+      "file": "src/constants/limits.ts",
+      "line": 83,
+      "signature": "export function isValidRpmLimit(rpm: unknown): rpm is number {",
+      "docstring": ""
+    },
+    {
+      "name": "isValidCircuitBreakerThreshold",
+      "file": "src/constants/limits.ts",
+      "line": 95,
+      "signature": "export function isValidCircuitBreakerThreshold(threshold: unknown): threshold is",
+      "docstring": ""
+    },
+    {
+      "name": "uint8ArrayToBase64",
+      "file": "src/crypto/encryption.ts",
+      "line": 83,
+      "signature": "export function uint8ArrayToBase64(bytes: Uint8Array): string {",
+      "docstring": ""
+    },
+    {
+      "name": "base64ToUint8Array",
+      "file": "src/crypto/encryption.ts",
+      "line": 97,
+      "signature": "export function base64ToUint8Array(b64: string): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "generateNonce",
+      "file": "src/crypto/encryption.ts",
+      "line": 123,
+      "signature": "export function generateNonce(lengthBytes: number = NONCE_LENGTH_BYTES): Uint8Ar",
+      "docstring": ""
+    },
+    {
+      "name": "generateNonceB64",
+      "file": "src/crypto/encryption.ts",
+      "line": 137,
+      "signature": "export function generateNonceB64(lengthBytes: number = NONCE_LENGTH_BYTES): stri",
+      "docstring": ""
+    },
+    {
+      "name": "deriveKey",
+      "file": "src/crypto/encryption.ts",
+      "line": 149,
+      "signature": "export async function deriveKey(secret: string | Uint8Array): Promise<CryptoKey>",
+      "docstring": ""
+    },
+    {
+      "name": "importRawKey",
+      "file": "src/crypto/encryption.ts",
+      "line": 180,
+      "signature": "export async function importRawKey(rawKey: Uint8Array): Promise<CryptoKey> {",
+      "docstring": ""
+    },
+    {
+      "name": "encrypt",
+      "file": "src/crypto/encryption.ts",
+      "line": 283,
+      "signature": "export async function encrypt(",
+      "docstring": ""
+    },
+    {
+      "name": "decryptRaw",
+      "file": "src/crypto/encryption.ts",
+      "line": 356,
+      "signature": "export async function decryptRaw(",
+      "docstring": ""
+    },
+    {
+      "name": "decrypt",
+      "file": "src/crypto/encryption.ts",
+      "line": 450,
+      "signature": "export async function decrypt(",
+      "docstring": ""
+    },
+    {
+      "name": "hashToken",
+      "file": "src/crypto/encryption.ts",
+      "line": 473,
+      "signature": "export async function hashToken(token: string): Promise<string> {",
+      "docstring": ""
+    },
+    {
+      "name": "sha256",
+      "file": "src/crypto/hashing.ts",
+      "line": 86,
+      "signature": "export async function sha256(data: HashInput): Promise<Uint8Array> {",
+      "docstring": ""
+    },
+    {
+      "name": "sha256Hex",
+      "file": "src/crypto/hashing.ts",
+      "line": 98,
+      "signature": "export async function sha256Hex(data: HashInput): Promise<string> {",
+      "docstring": ""
+    },
+    {
+      "name": "sha256Base64",
+      "file": "src/crypto/hashing.ts",
+      "line": 109,
+      "signature": "export async function sha256Base64(data: HashInput): Promise<string> {",
+      "docstring": ""
+    },
+    {
+      "name": "sha256Base64Url",
+      "file": "src/crypto/hashing.ts",
+      "line": 120,
+      "signature": "export async function sha256Base64Url(data: HashInput): Promise<string> {",
+      "docstring": ""
+    },
+    {
+      "name": "hashToken",
+      "file": "src/crypto/hashing.ts",
+      "line": 134,
+      "signature": "export async function hashToken(token: string): Promise<string> {",
+      "docstring": ""
+    },
+    {
+      "name": "hashApiKey",
+      "file": "src/crypto/hashing.ts",
+      "line": 145,
+      "signature": "export async function hashApiKey(apiKey: string): Promise<string> {",
+      "docstring": ""
+    },
+    {
+      "name": "hashWithSalt",
+      "file": "src/crypto/hashing.ts",
+      "line": 157,
+      "signature": "export async function hashWithSalt(",
+      "docstring": ""
+    },
+    {
+      "name": "hashFingerprint",
+      "file": "src/crypto/hashing.ts",
+      "line": 179,
+      "signature": "export async function hashFingerprint(",
+      "docstring": ""
+    },
+    {
+      "name": "verifySha256",
+      "file": "src/crypto/hashing.ts",
+      "line": 200,
+      "signature": "export async function verifySha256(",
+      "docstring": ""
+    },
+    {
+      "name": "verifyToken",
+      "file": "src/crypto/hashing.ts",
+      "line": 228,
+      "signature": "export async function verifyToken(",
+      "docstring": ""
+    },
+    {
+      "name": "hmacSha256",
+      "file": "src/crypto/hashing.ts",
+      "line": 243,
+      "signature": "export async function hmacSha256(",
+      "docstring": ""
+    },
+    {
+      "name": "hmacSha256Hex",
+      "file": "src/crypto/hashing.ts",
+      "line": 269,
+      "signature": "export async function hmacSha256Hex(",
+      "docstring": ""
+    },
+    {
+      "name": "verifyHmacSha256",
+      "file": "src/crypto/hashing.ts",
+      "line": 285,
+      "signature": "export async function verifyHmacSha256(",
+      "docstring": ""
+    },
+    {
+      "name": "timingSafeEqual",
+      "file": "src/crypto/utils.ts",
+      "line": 25,
+      "signature": "export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {",
+      "docstring": ""
+    },
+    {
+      "name": "timingSafeEqualStrings",
+      "file": "src/crypto/utils.ts",
+      "line": 51,
+      "signature": "export function timingSafeEqualStrings(a: string, b: string): boolean {",
+      "docstring": ""
+    },
+    {
+      "name": "timingSafeEqualHashed",
+      "file": "src/crypto/utils.ts",
+      "line": 71,
+      "signature": "export async function timingSafeEqualHashed(",
+      "docstring": ""
+    },
+    {
+      "name": "bytesToHex",
+      "file": "src/crypto/utils.ts",
+      "line": 90,
+      "signature": "export function bytesToHex(bytes: Uint8Array): string {",
+      "docstring": ""
+    },
+    {
+      "name": "hexToBytes",
+      "file": "src/crypto/utils.ts",
+      "line": 106,
+      "signature": "export function hexToBytes(hex: string): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "stringToBytes",
+      "file": "src/crypto/utils.ts",
+      "line": 128,
+      "signature": "export function stringToBytes(str: string): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "bytesToString",
+      "file": "src/crypto/utils.ts",
+      "line": 138,
+      "signature": "export function bytesToString(bytes: Uint8Array, fatal = true, ignoreBOM = false",
+      "docstring": ""
+    },
+    {
+      "name": "uint8ArrayToBase64",
+      "file": "src/crypto/utils.ts",
+      "line": 147,
+      "signature": "export function uint8ArrayToBase64(bytes: Uint8Array): string {",
+      "docstring": ""
+    },
+    {
+      "name": "base64ToUint8Array",
+      "file": "src/crypto/utils.ts",
+      "line": 164,
+      "signature": "export function base64ToUint8Array(b64: string): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "uint8ArrayToBase64Url",
+      "file": "src/crypto/utils.ts",
+      "line": 187,
+      "signature": "export function uint8ArrayToBase64Url(bytes: Uint8Array): string {",
+      "docstring": ""
+    },
+    {
+      "name": "base64UrlToUint8Array",
+      "file": "src/crypto/utils.ts",
+      "line": 197,
+      "signature": "export function base64UrlToUint8Array(b64url: string): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "secureRandomBytes",
+      "file": "src/crypto/utils.ts",
+      "line": 208,
+      "signature": "export function secureRandomBytes(length: number): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "secureRandomHex",
+      "file": "src/crypto/utils.ts",
+      "line": 226,
+      "signature": "export function secureRandomHex(byteLength: number): string {",
+      "docstring": ""
+    },
+    {
+      "name": "secureRandomString",
+      "file": "src/crypto/utils.ts",
+      "line": 240,
+      "signature": "export function secureRandomString(",
+      "docstring": ""
+    },
+    {
+      "name": "wipeBytes",
+      "file": "src/crypto/utils.ts",
+      "line": 277,
+      "signature": "export function wipeBytes(bytes: Uint8Array): void {",
+      "docstring": ""
+    },
+    {
+      "name": "createDefaultCircuitBreakerData",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 108,
+      "signature": "export function createDefaultCircuitBreakerData(): CircuitBreakerData {",
+      "docstring": ""
+    },
+    {
+      "name": "isCircuitBreakerState",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 122,
+      "signature": "export function isCircuitBreakerState(value: unknown): value is CircuitBreakerSt",
+      "docstring": ""
+    },
+    {
+      "name": "isCircuitBreakerData",
+      "file": "src/durable_objects/circuit_breaker.ts",
+      "line": 132,
+      "signature": "export function isCircuitBreakerData(value: unknown): value is CircuitBreakerDat",
+      "docstring": ""
+    },
+    {
+      "name": "isEncryptedKey",
+      "file": "src/durable_objects/key_pool_do.ts",
+      "line": 89,
+      "signature": "export function isEncryptedKey(value: unknown): value is EncryptedKey {",
+      "docstring": ""
+    },
+    {
+      "name": "isSelectableKey",
+      "file": "src/durable_objects/key_selector.ts",
+      "line": 150,
+      "signature": "export function isSelectableKey(value: unknown): value is SelectableKey {",
+      "docstring": ""
+    },
+    {
+      "name": "createDefaultRateLimiterData",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 117,
+      "signature": "export function createDefaultRateLimiterData(): RateLimiterData {",
+      "docstring": ""
+    },
+    {
+      "name": "isRateLimitEntry",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 128,
+      "signature": "export function isRateLimitEntry(value: unknown): value is RateLimitEntry {",
+      "docstring": ""
+    },
+    {
+      "name": "isRateLimiterData",
+      "file": "src/durable_objects/rate_limiter.ts",
+      "line": 143,
+      "signature": "export function isRateLimiterData(value: unknown): value is RateLimiterData {",
+      "docstring": ""
     }
   ],
   "snippets": [
@@ -575,6 +2339,83 @@
       "start_line": 58,
       "end_line": 62,
       "code": "export interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';\n  message: string;\n}"
+    },
+    {
+      "title": "`Env` (src/index.ts:14)",
+      "file": "src/index.ts",
+      "start_line": 14,
+      "end_line": 31,
+      "code": "export interface Env {\n  KEY_POOL: DurableObjectNamespace;\n  DB: D1Database;\n  TELEMETRY: AnalyticsEngineDataset;\n  KC_MASTER_KEY?: string;\n  [key: string]: unknown;\n}\n\nexport { HealthResponse, WorkerEnv };\nexport { KeyPoolDO } from \"./durable_objects/key_pool_do\";\nexport { createWorker, MainWorker };\nexport type { WorkerOptions };\n\n// Re-export all worker module components\nexport * from \"./worker/index\";\n\n// Cloudflare Worker Default Fetch Handler\nexport default worker;"
+    },
+    {
+      "title": "`AuthToken` (src/contracts/auth.ts:1)",
+      "file": "src/contracts/auth.ts",
+      "start_line": 1,
+      "end_line": 16,
+      "code": "export interface AuthToken {\n    id: string;\n    tenantId: string;\n    tokenHash: string;\n    createdAt: number;\n    expiresAt: number | null;\n}\n\nexport interface AuthContext {\n    tenantId: string;\n    isAuthenticated: boolean;\n}\n\nexport interface AuthContract {\n    verifyToken(bearerToken: string): Promise<AuthContext>;\n}"
+    },
+    {
+      "title": "`AuthContext` (src/contracts/auth.ts:9)",
+      "file": "src/contracts/auth.ts",
+      "start_line": 9,
+      "end_line": 16,
+      "code": "export interface AuthContext {\n    tenantId: string;\n    isAuthenticated: boolean;\n}\n\nexport interface AuthContract {\n    verifyToken(bearerToken: string): Promise<AuthContext>;\n}"
+    },
+    {
+      "title": "`AuthContract` (src/contracts/auth.ts:14)",
+      "file": "src/contracts/auth.ts",
+      "start_line": 14,
+      "end_line": 16,
+      "code": "export interface AuthContract {\n    verifyToken(bearerToken: string): Promise<AuthContext>;\n}"
+    },
+    {
+      "title": "`EncryptedKey` (src/contracts/key_pool.ts:1)",
+      "file": "src/contracts/key_pool.ts",
+      "start_line": 1,
+      "end_line": 26,
+      "code": "export interface EncryptedKey {\n    id: string;\n    tenantId: string;\n    provider: string;\n    ciphertext: string;\n    nonce: string;\n    label?: string;\n    priority?: number;\n    rpmLimit?: number;\n    rpdLimit?: number;\n    status?: string;\n    circuitOpenUntil?: string | null;\n    lastUsedAt?: string | number | null;\n}\n\nexport interface KeyMetrics {\n    rpm: number;\n    circuitBreakerTripped: boolean;\n    costAccumulatedMicrodollars: bigint;\n}\n\nexport interface KeyPoolContract {\n    getKey(provider: string): Promise<string>;\n    recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;\n    recordResult(keyId: string, success: boolean): Promise<void>;\n}"
+    },
+    {
+      "title": "`KeyMetrics` (src/contracts/key_pool.ts:16)",
+      "file": "src/contracts/key_pool.ts",
+      "start_line": 16,
+      "end_line": 26,
+      "code": "export interface KeyMetrics {\n    rpm: number;\n    circuitBreakerTripped: boolean;\n    costAccumulatedMicrodollars: bigint;\n}\n\nexport interface KeyPoolContract {\n    getKey(provider: string): Promise<string>;\n    recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;\n    recordResult(keyId: string, success: boolean): Promise<void>;\n}"
+    },
+    {
+      "title": "`KeyPoolContract` (src/contracts/key_pool.ts:22)",
+      "file": "src/contracts/key_pool.ts",
+      "start_line": 22,
+      "end_line": 26,
+      "code": "export interface KeyPoolContract {\n    getKey(provider: string): Promise<string>;\n    recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;\n    recordResult(keyId: string, success: boolean): Promise<void>;\n}"
+    },
+    {
+      "title": "`RouteRequest` (src/contracts/router.ts:1)",
+      "file": "src/contracts/router.ts",
+      "start_line": 1,
+      "end_line": 14,
+      "code": "export interface RouteRequest {\n    modelAlias: string;\n    messages: unknown[];\n    stream: boolean;\n}\n\nexport interface RouteResponse {\n    content: string;\n    costMicrodollars: bigint;\n}\n\nexport interface RouterContract {\n    route(request: RouteRequest): Promise<RouteResponse>;\n}"
+    },
+    {
+      "title": "`RouteResponse` (src/contracts/router.ts:7)",
+      "file": "src/contracts/router.ts",
+      "start_line": 7,
+      "end_line": 14,
+      "code": "export interface RouteResponse {\n    content: string;\n    costMicrodollars: bigint;\n}\n\nexport interface RouterContract {\n    route(request: RouteRequest): Promise<RouteResponse>;\n}"
+    },
+    {
+      "title": "`RouterContract` (src/contracts/router.ts:12)",
+      "file": "src/contracts/router.ts",
+      "start_line": 12,
+      "end_line": 14,
+      "code": "export interface RouterContract {\n    route(request: RouteRequest): Promise<RouteResponse>;\n}"
+    },
+    {
+      "title": "`TelemetryEvent` (src/contracts/telemetry.ts:1)",
+      "file": "src/contracts/telemetry.ts",
+      "start_line": 1,
+      "end_line": 13,
+      "code": "export interface TelemetryEvent {\n    traceId: string;\n    tenantId: string;\n    timestamp: number;\n    eventType: string;\n    latencyMs: number;\n    costMicrodollars: bigint;\n    metadata: Record<string, string>;\n}\n\nexport interface TelemetryContract {\n    emit(event: TelemetryEvent): void;\n}"
     }
   ],
   "files": [
@@ -672,6 +2513,432 @@
       "path": "ui/src/lib/types.ts",
       "loc": 62,
       "class_count": 7,
+      "function_count": 0
+    },
+    {
+      "path": "src/index.ts",
+      "loc": 31,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/auth.ts",
+      "loc": 16,
+      "class_count": 3,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/index.ts",
+      "loc": 4,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/key_pool.ts",
+      "loc": 26,
+      "class_count": 3,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/router.ts",
+      "loc": 14,
+      "class_count": 3,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/telemetry.ts",
+      "loc": 13,
+      "class_count": 2,
+      "function_count": 0
+    },
+    {
+      "path": "src/constants/crypto.ts",
+      "loc": 121,
+      "class_count": 1,
+      "function_count": 3
+    },
+    {
+      "path": "src/constants/financial.ts",
+      "loc": 159,
+      "class_count": 0,
+      "function_count": 6
+    },
+    {
+      "path": "src/constants/index.ts",
+      "loc": 8,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/constants/limits.ts",
+      "loc": 101,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/crypto/encryption.ts",
+      "loc": 483,
+      "class_count": 5,
+      "function_count": 10
+    },
+    {
+      "path": "src/crypto/hashing.ts",
+      "loc": 310,
+      "class_count": 1,
+      "function_count": 13
+    },
+    {
+      "path": "src/crypto/index.ts",
+      "loc": 12,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/crypto/utils.ts",
+      "loc": 279,
+      "class_count": 0,
+      "function_count": 15
+    },
+    {
+      "path": "src/durable_objects/circuit_breaker.ts",
+      "loc": 510,
+      "class_count": 5,
+      "function_count": 3
+    },
+    {
+      "path": "src/durable_objects/index.ts",
+      "loc": 26,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_pool_do.ts",
+      "loc": 869,
+      "class_count": 4,
+      "function_count": 1
+    },
+    {
+      "path": "src/durable_objects/key_selector.ts",
+      "loc": 1105,
+      "class_count": 8,
+      "function_count": 1
+    },
+    {
+      "path": "src/durable_objects/rate_limiter.ts",
+      "loc": 685,
+      "class_count": 6,
+      "function_count": 3
+    },
+    {
+      "path": "src/errors/auth_errors.ts",
+      "loc": 110,
+      "class_count": 4,
+      "function_count": 2
+    },
+    {
+      "path": "src/errors/domain_error.ts",
+      "loc": 91,
+      "class_count": 2,
+      "function_count": 1
+    },
+    {
+      "path": "src/errors/index.ts",
+      "loc": 10,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/errors/key_errors.ts",
+      "loc": 390,
+      "class_count": 14,
+      "function_count": 7
+    },
+    {
+      "path": "src/errors/routing_errors.ts",
+      "loc": 444,
+      "class_count": 17,
+      "function_count": 8
+    },
+    {
+      "path": "src/errors/telemetry_errors.ts",
+      "loc": 99,
+      "class_count": 4,
+      "function_count": 2
+    },
+    {
+      "path": "src/proxy/index.ts",
+      "loc": 17,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/sse_transformer.test.ts",
+      "loc": 792,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/sse_transformer.ts",
+      "loc": 806,
+      "class_count": 5,
+      "function_count": 1
+    },
+    {
+      "path": "src/proxy/upstream_client.test.ts",
+      "loc": 974,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/upstream_client.ts",
+      "loc": 1135,
+      "class_count": 6,
+      "function_count": 5
+    },
+    {
+      "path": "src/router/capability_filter.test.ts",
+      "loc": 720,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/capability_filter.ts",
+      "loc": 719,
+      "class_count": 6,
+      "function_count": 1
+    },
+    {
+      "path": "src/router/cascade_router.test.ts",
+      "loc": 875,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/cascade_router.ts",
+      "loc": 595,
+      "class_count": 4,
+      "function_count": 2
+    },
+    {
+      "path": "src/router/index.ts",
+      "loc": 18,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/model_registry.test.ts",
+      "loc": 550,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/model_registry.ts",
+      "loc": 1078,
+      "class_count": 9,
+      "function_count": 1
+    },
+    {
+      "path": "src/storage/index.ts",
+      "loc": 9,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/apiKeys.ts",
+      "loc": 984,
+      "class_count": 8,
+      "function_count": 1
+    },
+    {
+      "path": "src/storage/repositories/authTokens.ts",
+      "loc": 701,
+      "class_count": 7,
+      "function_count": 1
+    },
+    {
+      "path": "src/storage/repositories/costLedger.ts",
+      "loc": 1242,
+      "class_count": 10,
+      "function_count": 5
+    },
+    {
+      "path": "src/storage/repositories/modelRegistry.ts",
+      "loc": 727,
+      "class_count": 5,
+      "function_count": 2
+    },
+    {
+      "path": "src/types/api.ts",
+      "loc": 230,
+      "class_count": 11,
+      "function_count": 6
+    },
+    {
+      "path": "src/types/config.ts",
+      "loc": 330,
+      "class_count": 9,
+      "function_count": 6
+    },
+    {
+      "path": "src/types/index.ts",
+      "loc": 3,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/types/models.ts",
+      "loc": 361,
+      "class_count": 11,
+      "function_count": 9
+    },
+    {
+      "path": "src/worker/auth_middleware.ts",
+      "loc": 695,
+      "class_count": 8,
+      "function_count": 4
+    },
+    {
+      "path": "src/worker/index.ts",
+      "loc": 262,
+      "class_count": 3,
+      "function_count": 2
+    },
+    {
+      "path": "src/worker/router_handler.ts",
+      "loc": 1287,
+      "class_count": 6,
+      "function_count": 3
+    },
+    {
+      "path": "src/worker/telemetry_emitter.ts",
+      "loc": 419,
+      "class_count": 4,
+      "function_count": 3
+    },
+    {
+      "path": "test/durable_objects/circuit_breaker.test.ts",
+      "loc": 505,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/durable_objects/index.test.ts",
+      "loc": 108,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/durable_objects/key_pool_do.test.ts",
+      "loc": 673,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/durable_objects/key_selector.test.ts",
+      "loc": 625,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/durable_objects/rate_limiter.test.ts",
+      "loc": 643,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/integration/worker/index.test.ts",
+      "loc": 1088,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/unit/worker/auth_middleware.test.ts",
+      "loc": 849,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/unit/worker/router_handler.test.ts",
+      "loc": 974,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/unit/worker/telemetry_emitter.test.ts",
+      "loc": 411,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/api_types.test.ts",
+      "loc": 282,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/constants.test.ts",
+      "loc": 265,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/errors.test.ts",
+      "loc": 503,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/models_and_config_types.test.ts",
+      "loc": 447,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/smoke.test.ts",
+      "loc": 35,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/crypto/encryption.test.ts",
+      "loc": 356,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/crypto/hashing.test.ts",
+      "loc": 275,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/crypto/utils.test.ts",
+      "loc": 315,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/storage/repositories/apiKeys.test.ts",
+      "loc": 1003,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/storage/repositories/authTokens.test.ts",
+      "loc": 874,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/storage/repositories/costLedger.test.ts",
+      "loc": 1294,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/storage/repositories/modelRegistry.test.ts",
+      "loc": 981,
+      "class_count": 0,
       "function_count": 0
     }
   ],

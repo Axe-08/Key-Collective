@@ -1,3 +1,8 @@
+
+> [!NOTE]
+> **Edition 1.1.0 Update (Git: `32ae0679ea`):**
+> Synchronized with recent changes across 2 file(s).
+
 # Preface & Syllabus: Architecting the Key Collective
 
 Let's cut straight to the chase. If you're building applications against language models in production today, you know the pain. You are juggling multiple providers, battling arbitrary rate limits, and dealing with constant 429 outages. The reality of multi-LLM quota fragmentation is a mess of scattered API keys and brittle retry loops that fail when you need them most. 
