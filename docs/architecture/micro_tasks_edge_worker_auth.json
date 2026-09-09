@@ -1,0 +1,22 @@
+[
+  {
+    "id": "T1",
+    "description": "Implement TelemetryEmitter for non-blocking Workers Analytics Engine integration.",
+    "files": ["src/worker/telemetry_emitter.ts", "test/unit/worker/telemetry_emitter.test.ts"]
+  },
+  {
+    "id": "T2",
+    "description": "Implement AuthMiddleware for token validation, D1 lookup, RPM check, and budget gating.",
+    "files": ["src/worker/auth_middleware.ts", "test/unit/worker/auth_middleware.test.ts"]
+  },
+  {
+    "id": "T3",
+    "description": "Implement RouterHandler for DO routing and streaming response handling.",
+    "files": ["src/worker/router_handler.ts", "test/unit/worker/router_handler.test.ts"]
+  },
+  {
+    "id": "T4",
+    "description": "Implement Main Worker Export with routing logic for /health, /v1/models, and /v1/chat/completions, and update root index.ts.",
+    "files": ["src/worker/index.ts", "src/index.ts", "test/integration/worker/index.test.ts"]
+  }
+]
