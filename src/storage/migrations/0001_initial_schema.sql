@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
     id TEXT PRIMARY KEY,
     hash_sha256 TEXT NOT NULL UNIQUE,
     tenant_id TEXT NOT NULL,
+    encrypted_token_b64 TEXT,
+    nonce_b64 TEXT,
     budget_microdollars INTEGER NOT NULL DEFAULT 0,
     spent_microdollars INTEGER NOT NULL DEFAULT 0,
     allowed_providers TEXT NOT NULL DEFAULT '[]',
