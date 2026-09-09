@@ -1,0 +1,4610 @@
+{
+  "project": "Key Collective",
+  "mode": "full",
+  "scanned_files_count": 90,
+  "files": [
+    {
+      "file": "/home/akshit/Projects/Key Collective/docs/data_contracts.go",
+      "language": "go",
+      "functions": [],
+      "classes": [
+        {
+          "name": "AuthToken",
+          "line": 16
+        },
+        {
+          "name": "APIKey",
+          "line": 28
+        },
+        {
+          "name": "ModelDef",
+          "line": 45
+        },
+        {
+          "name": "CostLedgerEvent",
+          "line": 64
+        },
+        {
+          "name": "DailySpendRollup",
+          "line": 82
+        },
+        {
+          "name": "RequestLog",
+          "line": 93
+        },
+        {
+          "name": "RouterDecision",
+          "line": 112
+        },
+        {
+          "name": "ProxyRequest",
+          "line": 121
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 213,
+      "relative_path": "docs/data_contracts.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/docs/data_contracts.py",
+      "language": "python",
+      "functions": [],
+      "classes": [
+        {
+          "name": "AuthToken",
+          "line": 20,
+          "docstring": null
+        },
+        {
+          "name": "APIKey",
+          "line": 31,
+          "docstring": null
+        },
+        {
+          "name": "ModelDef",
+          "line": 48,
+          "docstring": null
+        },
+        {
+          "name": "CostLedgerEvent",
+          "line": 66,
+          "docstring": null
+        },
+        {
+          "name": "DailySpendRollup",
+          "line": 83,
+          "docstring": null
+        },
+        {
+          "name": "RouterDecision",
+          "line": 93,
+          "docstring": null
+        }
+      ],
+      "imports": [
+        {
+          "module": "__future__",
+          "name": "annotations",
+          "alias": "annotations",
+          "line": 15
+        },
+        {
+          "module": "typing",
+          "name": "TypedDict",
+          "alias": "TypedDict",
+          "line": 16
+        },
+        {
+          "module": "typing",
+          "name": "Optional",
+          "alias": "Optional",
+          "line": 16
+        },
+        {
+          "module": "datetime",
+          "name": "datetime",
+          "alias": "datetime",
+          "line": 17
+        }
+      ],
+      "all_calls": [],
+      "line_count": 182,
+      "relative_path": "docs/data_contracts.py"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/docs/study_guide/mermaid-init.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "loadScript",
+          "full_name": "loadScript",
+          "line": 3,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "renderMermaid",
+          "full_name": "renderMermaid",
+          "line": 15,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "init",
+          "full_name": "init",
+          "line": 39,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 53,
+      "relative_path": "docs/study_guide/mermaid-init.js"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/cmd/key-collective/main.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "main",
+          "full_name": "main",
+          "line": 17,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 110,
+      "relative_path": "cmd/key-collective/main.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/proxy/crypto.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "Encrypt",
+          "full_name": "Encrypt",
+          "line": 14,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "Decrypt",
+          "full_name": "Decrypt",
+          "line": 36,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "HashToken",
+          "full_name": "HashToken",
+          "line": 62,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 65,
+      "relative_path": "internal/proxy/crypto.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/proxy/manager.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "NewKeyManager",
+          "full_name": "NewKeyManager",
+          "line": 18,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "GetBestKey",
+          "full_name": "GetBestKey",
+          "line": 26,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "ReportSuccess",
+          "full_name": "ReportSuccess",
+          "line": 119,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "ReportError",
+          "full_name": "ReportError",
+          "line": 128,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "AddKey",
+          "full_name": "AddKey",
+          "line": 141,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "RemoveKey",
+          "full_name": "RemoveKey",
+          "line": 148,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "GetKeys",
+          "full_name": "GetKeys",
+          "line": 161,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "GetStats",
+          "full_name": "GetStats",
+          "line": 170,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "KeyManager",
+          "line": 12
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 190,
+      "relative_path": "internal/proxy/manager.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/proxy/handler.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "ServeHTTP",
+          "full_name": "ServeHTTP",
+          "line": 22,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "ProxyServer",
+          "line": 16
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 120,
+      "relative_path": "internal/proxy/handler.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/proxy/manager_test.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "TestKeyManager_GetBestKey",
+          "full_name": "TestKeyManager_GetBestKey",
+          "line": 10,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestKeyManager_AddRemoveAndStats",
+          "full_name": "TestKeyManager_AddRemoveAndStats",
+          "line": 76,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 126,
+      "relative_path": "internal/proxy/manager_test.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/db/sqlite.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "New",
+          "full_name": "New",
+          "line": 18,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "InitDB",
+          "full_name": "InitDB",
+          "line": 22,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "InsertKey",
+          "full_name": "InsertKey",
+          "line": 78,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "GetKeys",
+          "full_name": "GetKeys",
+          "line": 111,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "DeleteKey",
+          "full_name": "DeleteKey",
+          "line": 157,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "GetRecentLogs",
+          "full_name": "GetRecentLogs",
+          "line": 173,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "GetStats",
+          "full_name": "GetStats",
+          "line": 229,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "InsertLog",
+          "full_name": "InsertLog",
+          "line": 258,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "DB",
+          "line": 14
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 283,
+      "relative_path": "internal/db/sqlite.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/db/sqlite_test.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "setupTestDB",
+          "full_name": "setupTestDB",
+          "line": 13,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestDB_InsertAndGetKeys",
+          "full_name": "TestDB_InsertAndGetKeys",
+          "line": 35,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestDB_DeleteKey",
+          "full_name": "TestDB_DeleteKey",
+          "line": 101,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestDB_LogsAndStats",
+          "full_name": "TestDB_LogsAndStats",
+          "line": 141,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 241,
+      "relative_path": "internal/db/sqlite_test.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/domain/contracts.go",
+      "language": "go",
+      "functions": [],
+      "classes": [
+        {
+          "name": "APIKey",
+          "line": 22
+        },
+        {
+          "name": "RequestLog",
+          "line": 45
+        },
+        {
+          "name": "ProxyStats",
+          "line": 56
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 61,
+      "relative_path": "internal/domain/contracts.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/api/handler.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "NewHandler",
+          "full_name": "NewHandler",
+          "line": 61,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "RegisterRoutes",
+          "full_name": "RegisterRoutes",
+          "line": 69,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "HandleGetKeys",
+          "full_name": "HandleGetKeys",
+          "line": 78,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "HandleCreateKey",
+          "full_name": "HandleCreateKey",
+          "line": 116,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "HandleDeleteKey",
+          "full_name": "HandleDeleteKey",
+          "line": 213,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "HandleTestKey",
+          "full_name": "HandleTestKey",
+          "line": 243,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "HandleGetLogs",
+          "full_name": "HandleGetLogs",
+          "line": 301,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "HandleGetStats",
+          "full_name": "HandleGetStats",
+          "line": 318,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "extractPrefixSuffix",
+          "full_name": "extractPrefixSuffix",
+          "line": 337,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "writeJSON",
+          "full_name": "writeJSON",
+          "line": 349,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "KeyResponse",
+          "line": 19
+        },
+        {
+          "name": "CreateKeyRequest",
+          "line": 31
+        },
+        {
+          "name": "ErrorResponse",
+          "line": 40
+        },
+        {
+          "name": "MessageResponse",
+          "line": 44
+        },
+        {
+          "name": "TestKeyResponse",
+          "line": 49
+        },
+        {
+          "name": "Handler",
+          "line": 55
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 353,
+      "relative_path": "internal/api/handler.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/internal/api/handler_test.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "setupTestAPI",
+          "full_name": "setupTestAPI",
+          "line": 20,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestAPI_KeysLifecycle",
+          "full_name": "TestAPI_KeysLifecycle",
+          "line": 47,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestAPI_CreateKeyValidation",
+          "full_name": "TestAPI_CreateKeyValidation",
+          "line": 179,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestAPI_LogsAndStats",
+          "full_name": "TestAPI_LogsAndStats",
+          "line": 231,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "TestAPI_TestKey",
+          "full_name": "TestAPI_TestKey",
+          "line": 312,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 349,
+      "relative_path": "internal/api/handler_test.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/ui/svelte.config.js",
+      "language": "javascript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 2,
+      "relative_path": "ui/svelte.config.js"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/ui/vite.config.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vite",
+          "line": 1
+        },
+        {
+          "module": "@sveltejs/vite-plugin-svelte",
+          "line": 2
+        },
+        {
+          "module": "@tailwindcss/vite",
+          "line": 3
+        }
+      ],
+      "all_calls": [],
+      "line_count": 11,
+      "relative_path": "ui/vite.config.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/ui/ui.go",
+      "language": "go",
+      "functions": [
+        {
+          "name": "Handler",
+          "full_name": "Handler",
+          "line": 13,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 19,
+      "relative_path": "ui/ui.go"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/ui/src/main.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "svelte",
+          "line": 1
+        },
+        {
+          "module": "./App.svelte",
+          "line": 3
+        }
+      ],
+      "all_calls": [],
+      "line_count": 9,
+      "relative_path": "ui/src/main.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/ui/src/lib/types.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "Provider",
+          "line": 1
+        },
+        {
+          "name": "KeyStatus",
+          "line": 3
+        },
+        {
+          "name": "APIKey",
+          "line": 5
+        },
+        {
+          "name": "RequestLog",
+          "line": 23
+        },
+        {
+          "name": "PoolStats",
+          "line": 35
+        },
+        {
+          "name": "CreateKeyPayload",
+          "line": 49
+        },
+        {
+          "name": "ToastMessage",
+          "line": 58
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 62,
+      "relative_path": "ui/src/lib/types.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/ui/src/lib/api.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "generateMockLogs",
+          "full_name": "generateMockLogs",
+          "line": 103,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "module": "./types",
+          "line": 1
+        }
+      ],
+      "all_calls": [],
+      "line_count": 310,
+      "relative_path": "ui/src/lib/api.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "Env",
+          "line": 14
+        }
+      ],
+      "imports": [
+        {
+          "module": "./worker/auth_middleware",
+          "line": 12
+        }
+      ],
+      "all_calls": [],
+      "line_count": 31,
+      "relative_path": "src/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/contracts/auth.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "AuthToken",
+          "line": 1
+        },
+        {
+          "name": "AuthContext",
+          "line": 9
+        },
+        {
+          "name": "AuthContract",
+          "line": 14
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 16,
+      "relative_path": "src/contracts/auth.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/contracts/router.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "RouteRequest",
+          "line": 1
+        },
+        {
+          "name": "RouteResponse",
+          "line": 7
+        },
+        {
+          "name": "RouterContract",
+          "line": 12
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 14,
+      "relative_path": "src/contracts/router.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/contracts/telemetry.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "TelemetryEvent",
+          "line": 1
+        },
+        {
+          "name": "TelemetryContract",
+          "line": 11
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 13,
+      "relative_path": "src/contracts/telemetry.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/contracts/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 4,
+      "relative_path": "src/contracts/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/contracts/key_pool.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "EncryptedKey",
+          "line": 1
+        },
+        {
+          "name": "KeyMetrics",
+          "line": 16
+        },
+        {
+          "name": "KeyPoolContract",
+          "line": 22
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 26,
+      "relative_path": "src/contracts/key_pool.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/constants/crypto.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isValidNonceLength",
+          "full_name": "isValidNonceLength",
+          "line": 80,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isValidKeyLength",
+          "full_name": "isValidKeyLength",
+          "line": 87,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "maskApiKey",
+          "full_name": "maskApiKey",
+          "line": 98,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MaskedKeyParts",
+          "line": 71
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 121,
+      "relative_path": "src/constants/crypto.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/constants/financial.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "dollarsToMicrodollars",
+          "full_name": "dollarsToMicrodollars",
+          "line": 60,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "microdollarsToDollars",
+          "full_name": "microdollarsToDollars",
+          "line": 90,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "centsToMicrodollars",
+          "full_name": "centsToMicrodollars",
+          "line": 98,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "microdollarsToCents",
+          "full_name": "microdollarsToCents",
+          "line": 106,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "formatMicrodollars",
+          "full_name": "formatMicrodollars",
+          "line": 115,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isValidMicrodollarAmount",
+          "full_name": "isValidMicrodollarAmount",
+          "line": 157,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 159,
+      "relative_path": "src/constants/financial.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/constants/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 8,
+      "relative_path": "src/constants/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/constants/limits.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isValidRpmLimit",
+          "full_name": "isValidRpmLimit",
+          "line": 83,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isValidCircuitBreakerThreshold",
+          "full_name": "isValidCircuitBreakerThreshold",
+          "line": 95,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 101,
+      "relative_path": "src/constants/limits.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/crypto/encryption.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "uint8ArrayToBase64",
+          "full_name": "uint8ArrayToBase64",
+          "line": 83,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "base64ToUint8Array",
+          "full_name": "base64ToUint8Array",
+          "line": 97,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "generateNonce",
+          "full_name": "generateNonce",
+          "line": 123,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "generateNonceB64",
+          "full_name": "generateNonceB64",
+          "line": 137,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "deriveKey",
+          "full_name": "deriveKey",
+          "line": 149,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "importRawKey",
+          "full_name": "importRawKey",
+          "line": 180,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCryptoKey",
+          "full_name": "isCryptoKey",
+          "line": 205,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "resolveKeyForEncryption",
+          "full_name": "resolveKeyForEncryption",
+          "line": 218,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "resolveKeyForDecryption",
+          "full_name": "resolveKeyForDecryption",
+          "line": 240,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "encrypt",
+          "full_name": "encrypt",
+          "line": 283,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "decryptRaw",
+          "full_name": "decryptRaw",
+          "line": 356,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "decrypt",
+          "full_name": "decrypt",
+          "line": 450,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hashToken",
+          "full_name": "hashToken",
+          "line": 473,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "safety",
+          "line": 15
+        },
+        {
+          "name": "EncryptedData",
+          "line": 35
+        },
+        {
+          "name": "EncryptedPayload",
+          "line": 54
+        },
+        {
+          "name": "KeyInput",
+          "line": 65
+        },
+        {
+          "name": "PlaintextInput",
+          "line": 70
+        },
+        {
+          "name": "CiphertextInput",
+          "line": 77
+        }
+      ],
+      "imports": [
+        {
+          "module": "../errors/key_errors",
+          "line": 28
+        }
+      ],
+      "all_calls": [],
+      "line_count": 483,
+      "relative_path": "src/crypto/encryption.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/crypto/hashing.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "normalizeHashInput",
+          "full_name": "normalizeHashInput",
+          "line": 48,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "toUint8Array",
+          "full_name": "toUint8Array",
+          "line": 64,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "sha256",
+          "full_name": "sha256",
+          "line": 86,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "sha256Hex",
+          "full_name": "sha256Hex",
+          "line": 98,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "sha256Base64",
+          "full_name": "sha256Base64",
+          "line": 109,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "sha256Base64Url",
+          "full_name": "sha256Base64Url",
+          "line": 120,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hashToken",
+          "full_name": "hashToken",
+          "line": 134,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hashApiKey",
+          "full_name": "hashApiKey",
+          "line": 145,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hashWithSalt",
+          "full_name": "hashWithSalt",
+          "line": 157,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hashFingerprint",
+          "full_name": "hashFingerprint",
+          "line": 179,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "verifySha256",
+          "full_name": "verifySha256",
+          "line": 200,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "verifyToken",
+          "full_name": "verifyToken",
+          "line": 228,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hmacSha256",
+          "full_name": "hmacSha256",
+          "line": 243,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hmacSha256Hex",
+          "full_name": "hmacSha256Hex",
+          "line": 269,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "verifyHmacSha256",
+          "full_name": "verifyHmacSha256",
+          "line": 285,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "HashInput",
+          "line": 43
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 310,
+      "relative_path": "src/crypto/hashing.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/crypto/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 12,
+      "relative_path": "src/crypto/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/crypto/utils.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "timingSafeEqual",
+          "full_name": "timingSafeEqual",
+          "line": 25,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "timingSafeEqualStrings",
+          "full_name": "timingSafeEqualStrings",
+          "line": 51,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "timingSafeEqualHashed",
+          "full_name": "timingSafeEqualHashed",
+          "line": 71,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "bytesToHex",
+          "full_name": "bytesToHex",
+          "line": 90,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "hexToBytes",
+          "full_name": "hexToBytes",
+          "line": 106,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "stringToBytes",
+          "full_name": "stringToBytes",
+          "line": 128,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "bytesToString",
+          "full_name": "bytesToString",
+          "line": 138,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "uint8ArrayToBase64",
+          "full_name": "uint8ArrayToBase64",
+          "line": 147,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "base64ToUint8Array",
+          "full_name": "base64ToUint8Array",
+          "line": 164,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "uint8ArrayToBase64Url",
+          "full_name": "uint8ArrayToBase64Url",
+          "line": 187,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "base64UrlToUint8Array",
+          "full_name": "base64UrlToUint8Array",
+          "line": 197,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "secureRandomBytes",
+          "full_name": "secureRandomBytes",
+          "line": 208,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "secureRandomHex",
+          "full_name": "secureRandomHex",
+          "line": 226,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "secureRandomString",
+          "full_name": "secureRandomString",
+          "line": 240,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "wipeBytes",
+          "full_name": "wipeBytes",
+          "line": 277,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "safety",
+          "line": 9
+        }
+      ],
+      "imports": [
+        {
+          "module": "../errors/key_errors",
+          "line": 12
+        }
+      ],
+      "all_calls": [],
+      "line_count": 279,
+      "relative_path": "src/crypto/utils.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/durable_objects/circuit_breaker.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createDefaultCircuitBreakerData",
+          "full_name": "createDefaultCircuitBreakerData",
+          "line": 108,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCircuitBreakerState",
+          "full_name": "isCircuitBreakerState",
+          "line": 122,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCircuitBreakerData",
+          "full_name": "isCircuitBreakerData",
+          "line": 132,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "CircuitBreakerState",
+          "line": 29
+        },
+        {
+          "name": "CircuitBreakerData",
+          "line": 40
+        },
+        {
+          "name": "CircuitBreakerOptions",
+          "line": 52
+        },
+        {
+          "name": "DurableObjectStorageLike",
+          "line": 73
+        },
+        {
+          "name": "CircuitBreaker",
+          "line": 151
+        }
+      ],
+      "imports": [
+        {
+          "module": "../errors/routing_errors",
+          "line": 23
+        },
+        {
+          "module": "../types/config",
+          "line": 24
+        }
+      ],
+      "all_calls": [],
+      "line_count": 510,
+      "relative_path": "src/durable_objects/circuit_breaker.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/durable_objects/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "export",
+          "line": 25
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 26,
+      "relative_path": "src/durable_objects/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/durable_objects/key_pool_do.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isEncryptedKey",
+          "full_name": "isEncryptedKey",
+          "line": 89,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "for",
+          "line": 14
+        },
+        {
+          "name": "KeyPoolDOEnv",
+          "line": 46
+        },
+        {
+          "name": "KeyPoolDOOptions",
+          "line": 56
+        },
+        {
+          "name": "DurableObjectStateLike",
+          "line": 76
+        },
+        {
+          "name": "KeyPoolDO",
+          "line": 110
+        }
+      ],
+      "imports": [
+        {
+          "module": "../contracts/telemetry",
+          "line": 22
+        },
+        {
+          "module": "../errors/auth_errors",
+          "line": 23
+        },
+        {
+          "module": "../errors/domain_error",
+          "line": 24
+        },
+        {
+          "module": "./rate_limiter",
+          "line": 41
+        }
+      ],
+      "all_calls": [],
+      "line_count": 869,
+      "relative_path": "src/durable_objects/key_pool_do.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/durable_objects/key_selector.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isSelectableKey",
+          "full_name": "isSelectableKey",
+          "line": 150,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "satisfied",
+          "line": 34
+        },
+        {
+          "name": "SelectableKey",
+          "line": 37
+        },
+        {
+          "name": "KeySelectionStrategy",
+          "line": 53
+        },
+        {
+          "name": "KeySelectorOptions",
+          "line": 64
+        },
+        {
+          "name": "SelectKeyOptions",
+          "line": 86
+        },
+        {
+          "name": "KeyTriageItem",
+          "line": 102
+        },
+        {
+          "name": "KeyTriageResult",
+          "line": 123
+        },
+        {
+          "name": "CapacitySummary",
+          "line": 137
+        },
+        {
+          "name": "KeySelector",
+          "line": 167
+        }
+      ],
+      "imports": [
+        {
+          "module": "../contracts/key_pool",
+          "line": 22
+        },
+        {
+          "module": "../errors/key_errors",
+          "line": 23
+        },
+        {
+          "module": "../types/config",
+          "line": 24
+        },
+        {
+          "module": "../types/models",
+          "line": 25
+        },
+        {
+          "module": "./rate_limiter",
+          "line": 31
+        }
+      ],
+      "all_calls": [],
+      "line_count": 1105,
+      "relative_path": "src/durable_objects/key_selector.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/durable_objects/rate_limiter.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createDefaultRateLimiterData",
+          "full_name": "createDefaultRateLimiterData",
+          "line": 117,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isRateLimitEntry",
+          "full_name": "isRateLimitEntry",
+          "line": 128,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isRateLimiterData",
+          "full_name": "isRateLimiterData",
+          "line": 143,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "RateLimitEntry",
+          "line": 47
+        },
+        {
+          "name": "RateLimiterData",
+          "line": 56
+        },
+        {
+          "name": "RateLimiterOptions",
+          "line": 65
+        },
+        {
+          "name": "RateLimitCheckResult",
+          "line": 89
+        },
+        {
+          "name": "RateLimiterMetrics",
+          "line": 104
+        },
+        {
+          "name": "RateLimiter",
+          "line": 160
+        }
+      ],
+      "imports": [
+        {
+          "module": "../types/config",
+          "line": 28
+        },
+        {
+          "module": "./circuit_breaker",
+          "line": 29
+        }
+      ],
+      "all_calls": [],
+      "line_count": 685,
+      "relative_path": "src/durable_objects/rate_limiter.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/errors/auth_errors.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isAuthenticationError",
+          "full_name": "isAuthenticationError",
+          "line": 94,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isTenantIsolationError",
+          "full_name": "isTenantIsolationError",
+          "line": 103,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "AuthenticationErrorOptions",
+          "line": 12
+        },
+        {
+          "name": "AuthenticationError",
+          "line": 22
+        },
+        {
+          "name": "TenantIsolationErrorOptions",
+          "line": 54
+        },
+        {
+          "name": "TenantIsolationError",
+          "line": 66
+        }
+      ],
+      "imports": [
+        {
+          "module": "./domain_error",
+          "line": 10
+        }
+      ],
+      "all_calls": [],
+      "line_count": 110,
+      "relative_path": "src/errors/auth_errors.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/errors/domain_error.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isDomainError",
+          "full_name": "isDomainError",
+          "line": 80,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "DomainErrorJson",
+          "line": 12
+        },
+        {
+          "name": "DomainErrorOptions",
+          "line": 19
+        },
+        {
+          "name": "for",
+          "line": 28
+        },
+        {
+          "name": "DomainError",
+          "line": 31
+        },
+        {
+          "name": "chain",
+          "line": 45
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 91,
+      "relative_path": "src/errors/domain_error.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/errors/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 10,
+      "relative_path": "src/errors/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/errors/key_errors.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isDecryptionError",
+          "full_name": "isDecryptionError",
+          "line": 329,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isEncryptionError",
+          "full_name": "isEncryptionError",
+          "line": 338,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isRateLimitExceededError",
+          "full_name": "isRateLimitExceededError",
+          "line": 347,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isKeyNotFoundError",
+          "full_name": "isKeyNotFoundError",
+          "line": 356,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isKeyExhaustedError",
+          "full_name": "isKeyExhaustedError",
+          "line": 365,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isInvalidKeyError",
+          "full_name": "isInvalidKeyError",
+          "line": 374,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isQuotaExceededError",
+          "full_name": "isQuotaExceededError",
+          "line": 383,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "DecryptionErrorOptions",
+          "line": 18
+        },
+        {
+          "name": "DecryptionError",
+          "line": 31
+        },
+        {
+          "name": "EncryptionErrorOptions",
+          "line": 60
+        },
+        {
+          "name": "EncryptionError",
+          "line": 70
+        },
+        {
+          "name": "RateLimitExceededErrorOptions",
+          "line": 95
+        },
+        {
+          "name": "RateLimitExceededError",
+          "line": 110
+        },
+        {
+          "name": "KeyNotFoundErrorOptions",
+          "line": 155
+        },
+        {
+          "name": "KeyNotFoundError",
+          "line": 166
+        },
+        {
+          "name": "KeyExhaustedErrorOptions",
+          "line": 196
+        },
+        {
+          "name": "KeyExhaustedError",
+          "line": 208
+        },
+        {
+          "name": "InvalidKeyErrorOptions",
+          "line": 246
+        },
+        {
+          "name": "InvalidKeyError",
+          "line": 256
+        },
+        {
+          "name": "QuotaExceededErrorOptions",
+          "line": 281
+        },
+        {
+          "name": "QuotaExceededError",
+          "line": 293
+        }
+      ],
+      "imports": [
+        {
+          "module": "./domain_error",
+          "line": 16
+        }
+      ],
+      "all_calls": [],
+      "line_count": 390,
+      "relative_path": "src/errors/key_errors.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/errors/routing_errors.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isCircuitBreakerTrippedError",
+          "full_name": "isCircuitBreakerTrippedError",
+          "line": 374,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isProviderRoutingError",
+          "full_name": "isProviderRoutingError",
+          "line": 383,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isModelNotFoundError",
+          "full_name": "isModelNotFoundError",
+          "line": 392,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isUnknownModelAliasError",
+          "full_name": "isUnknownModelAliasError",
+          "line": 401,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isNoAvailableProviderError",
+          "full_name": "isNoAvailableProviderError",
+          "line": 410,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isProviderTimeoutError",
+          "full_name": "isProviderTimeoutError",
+          "line": 419,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCapabilityMismatchError",
+          "full_name": "isCapabilityMismatchError",
+          "line": 428,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isFallbackExhaustedError",
+          "full_name": "isFallbackExhaustedError",
+          "line": 437,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "CircuitBreakerTrippedErrorOptions",
+          "line": 19
+        },
+        {
+          "name": "CircuitBreakerTrippedError",
+          "line": 33
+        },
+        {
+          "name": "ProviderRoutingErrorOptions",
+          "line": 81
+        },
+        {
+          "name": "ProviderRoutingError",
+          "line": 95
+        },
+        {
+          "name": "ModelNotFoundErrorOptions",
+          "line": 135
+        },
+        {
+          "name": "ModelNotFoundError",
+          "line": 145
+        },
+        {
+          "name": "UnknownModelAliasErrorOptions",
+          "line": 172
+        },
+        {
+          "name": "UnknownModelAliasError",
+          "line": 182
+        },
+        {
+          "name": "NoAvailableProviderErrorOptions",
+          "line": 211
+        },
+        {
+          "name": "NoAvailableProviderError",
+          "line": 223
+        },
+        {
+          "name": "ProviderTimeoutErrorOptions",
+          "line": 249
+        },
+        {
+          "name": "ProviderTimeoutError",
+          "line": 260
+        },
+        {
+          "name": "CapabilityMismatchErrorOptions",
+          "line": 292
+        },
+        {
+          "name": "CapabilityMismatchError",
+          "line": 303
+        },
+        {
+          "name": "FallbackAttempt",
+          "line": 332
+        },
+        {
+          "name": "FallbackExhaustedErrorOptions",
+          "line": 338
+        },
+        {
+          "name": "FallbackExhaustedError",
+          "line": 347
+        }
+      ],
+      "imports": [
+        {
+          "module": "./domain_error",
+          "line": 17
+        }
+      ],
+      "all_calls": [],
+      "line_count": 444,
+      "relative_path": "src/errors/routing_errors.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/errors/telemetry_errors.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isTelemetryEmissionError",
+          "full_name": "isTelemetryEmissionError",
+          "line": 83,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isInvalidTelemetryEventError",
+          "full_name": "isInvalidTelemetryEventError",
+          "line": 92,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "TelemetryEmissionErrorOptions",
+          "line": 12
+        },
+        {
+          "name": "TelemetryEmissionError",
+          "line": 23
+        },
+        {
+          "name": "InvalidTelemetryEventErrorOptions",
+          "line": 51
+        },
+        {
+          "name": "InvalidTelemetryEventError",
+          "line": 60
+        }
+      ],
+      "imports": [
+        {
+          "module": "./domain_error",
+          "line": 10
+        }
+      ],
+      "all_calls": [],
+      "line_count": 99,
+      "relative_path": "src/errors/telemetry_errors.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/proxy/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 17,
+      "relative_path": "src/proxy/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/proxy/sse_transformer.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "streamThrough",
+          "full_name": "streamThrough",
+          "line": 31,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "writeStream",
+          "full_name": "writeStream",
+          "line": 684,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "readStream",
+          "full_name": "readStream",
+          "line": 691,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 15
+        }
+      ],
+      "all_calls": [],
+      "line_count": 792,
+      "relative_path": "src/proxy/sse_transformer.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/proxy/sse_transformer.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "extractUsageFromPayload",
+          "full_name": "extractUsageFromPayload",
+          "line": 139,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "StreamUsage",
+          "line": 26
+        },
+        {
+          "name": "SSEEvent",
+          "line": 52
+        },
+        {
+          "name": "name",
+          "line": 53
+        },
+        {
+          "name": "StreamMetadata",
+          "line": 68
+        },
+        {
+          "name": "SSEStreamTransformerOptions",
+          "line": 94
+        },
+        {
+          "name": "SSEStreamTransformer",
+          "line": 345
+        }
+      ],
+      "imports": [
+        {
+          "module": "../router/model_registry",
+          "line": 20
+        }
+      ],
+      "all_calls": [],
+      "line_count": 806,
+      "relative_path": "src/proxy/sse_transformer.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/proxy/upstream_client.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createChunkStream",
+          "full_name": "createChunkStream",
+          "line": 44,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "readStreamToString",
+          "full_name": "readStreamToString",
+          "line": 58,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 17
+        },
+        {
+          "module": "../contracts/key_pool",
+          "line": 34
+        },
+        {
+          "module": "./sse_transformer",
+          "line": 35
+        }
+      ],
+      "all_calls": [],
+      "line_count": 974,
+      "relative_path": "src/proxy/upstream_client.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/proxy/upstream_client.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "parseRetryAfter",
+          "full_name": "parseRetryAfter",
+          "line": 259,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "truncateText",
+          "full_name": "truncateText",
+          "line": 284,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "rewriteHeaders",
+          "full_name": "rewriteHeaders",
+          "line": 302,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "buildProviderUrl",
+          "full_name": "buildProviderUrl",
+          "line": 384,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "mapUpstreamHttpError",
+          "full_name": "mapUpstreamHttpError",
+          "line": 441,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "extractContentFromPayload",
+          "full_name": "extractContentFromPayload",
+          "line": 529,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "extractAndRecordUsage",
+          "full_name": "extractAndRecordUsage",
+          "line": 926,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "UpstreamClientOptions",
+          "line": 105
+        },
+        {
+          "name": "UpstreamRequest",
+          "line": 147
+        },
+        {
+          "name": "UpstreamResponse",
+          "line": 181
+        },
+        {
+          "name": "UpstreamChatRequest",
+          "line": 212
+        },
+        {
+          "name": "UpstreamChatResponse",
+          "line": 240
+        },
+        {
+          "name": "UpstreamClient",
+          "line": 608
+        }
+      ],
+      "imports": [
+        {
+          "module": "../contracts/key_pool",
+          "line": 21
+        }
+      ],
+      "all_calls": [],
+      "line_count": 1135,
+      "relative_path": "src/proxy/upstream_client.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/router/capability_filter.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "X",
+          "full_name": "X",
+          "line": 689,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 16
+        },
+        {
+          "module": "../types/models",
+          "line": 26
+        },
+        {
+          "module": "../errors/routing_errors",
+          "line": 27
+        }
+      ],
+      "all_calls": [],
+      "line_count": 720,
+      "relative_path": "src/router/capability_filter.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/router/capability_filter.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "calling",
+          "full_name": "calling",
+          "line": 9,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "calling",
+          "full_name": "calling",
+          "line": 30,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isRecord",
+          "full_name": "isRecord",
+          "line": 96,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCapabilityRequirements",
+          "full_name": "isCapabilityRequirements",
+          "line": 103,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "calling",
+          "full_name": "calling",
+          "line": 339,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "definition",
+          "full_name": "definition",
+          "line": 655,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "CapabilityRequirements",
+          "line": 25
+        },
+        {
+          "name": "CapabilityCheckResult",
+          "line": 49
+        },
+        {
+          "name": "ModelSortStrategy",
+          "line": 63
+        },
+        {
+          "name": "FilterOptions",
+          "line": 68
+        },
+        {
+          "name": "RequirementExtractionOptions",
+          "line": 78
+        },
+        {
+          "name": "CapabilityFilter",
+          "line": 119
+        }
+      ],
+      "imports": [
+        {
+          "module": "../types/models",
+          "line": 18
+        },
+        {
+          "module": "../errors/routing_errors",
+          "line": 19
+        },
+        {
+          "module": "./model_registry",
+          "line": 20
+        }
+      ],
+      "all_calls": [],
+      "line_count": 719,
+      "relative_path": "src/router/capability_filter.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/router/cascade_router.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createMockUpstreamResponse",
+          "full_name": "createMockUpstreamResponse",
+          "line": 123,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createSuccessfulChatResponse",
+          "full_name": "createSuccessfulChatResponse",
+          "line": 139,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "guards",
+          "line": 724
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 19
+        },
+        {
+          "module": "./capability_filter",
+          "line": 32
+        },
+        {
+          "module": "../contracts/key_pool",
+          "line": 38
+        },
+        {
+          "module": "../types/models",
+          "line": 39
+        }
+      ],
+      "all_calls": [],
+      "line_count": 875,
+      "relative_path": "src/router/cascade_router.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/router/cascade_router.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "calling",
+          "full_name": "calling",
+          "line": 67,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isGenericRoutingKeyword",
+          "full_name": "isGenericRoutingKeyword",
+          "line": 158,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCascadeRouteResponse",
+          "full_name": "isCascadeRouteResponse",
+          "line": 172,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCascadeRouteRequest",
+          "full_name": "isCascadeRouteRequest",
+          "line": 188,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "CascadeRouteRequest",
+          "line": 52
+        },
+        {
+          "name": "CascadeRouteResponse",
+          "line": 101
+        },
+        {
+          "name": "CascadeRouterOptions",
+          "line": 123
+        },
+        {
+          "name": "CascadeRouter",
+          "line": 211
+        }
+      ],
+      "imports": [
+        {
+          "module": "../contracts/router",
+          "line": 22
+        },
+        {
+          "module": "../contracts/key_pool",
+          "line": 23
+        },
+        {
+          "module": "../proxy/sse_transformer",
+          "line": 39
+        },
+        {
+          "module": "../types/models",
+          "line": 40
+        }
+      ],
+      "all_calls": [],
+      "line_count": 595,
+      "relative_path": "src/router/cascade_router.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/router/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 18,
+      "relative_path": "src/router/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/router/model_registry.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 13
+        },
+        {
+          "module": "../types/models",
+          "line": 21
+        }
+      ],
+      "all_calls": [],
+      "line_count": 550,
+      "relative_path": "src/router/model_registry.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/router/model_registry.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "isContextWindowExceededError",
+          "full_name": "isContextWindowExceededError",
+          "line": 92,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "calling",
+          "full_name": "calling",
+          "line": 167,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "toBigIntMicro",
+          "full_name": "toBigIntMicro",
+          "line": 386,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "normalizeModelDef",
+          "full_name": "normalizeModelDef",
+          "line": 401,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "ContextWindowExceededErrorOptions",
+          "line": 41
+        },
+        {
+          "name": "ContextWindowExceededError",
+          "line": 52
+        },
+        {
+          "name": "TokenUsage",
+          "line": 106
+        },
+        {
+          "name": "CostBreakdown",
+          "line": 120
+        },
+        {
+          "name": "ContextValidationResult",
+          "line": 136
+        },
+        {
+          "name": "ModelFilterCriteria",
+          "line": 158
+        },
+        {
+          "name": "ModelRegistryOptions",
+          "line": 178
+        },
+        {
+          "name": "for",
+          "line": 186
+        },
+        {
+          "name": "IModelRegistry",
+          "line": 188
+        },
+        {
+          "name": "ModelRegistry",
+          "line": 420
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 1078,
+      "relative_path": "src/router/model_registry.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/storage/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 9,
+      "relative_path": "src/storage/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/storage/repositories/apiKeys.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "mapRowToAPIKey",
+          "full_name": "mapRowToAPIKey",
+          "line": 180,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "safety",
+          "line": 10
+        },
+        {
+          "name": "APIKeyRow",
+          "line": 51
+        },
+        {
+          "name": "CreateApiKeyInput",
+          "line": 72
+        },
+        {
+          "name": "InsertEncryptedApiKeyInput",
+          "line": 100
+        },
+        {
+          "name": "UpdateApiKeyInput",
+          "line": 136
+        },
+        {
+          "name": "ListApiKeysOptions",
+          "line": 156
+        },
+        {
+          "name": "CountApiKeysOptions",
+          "line": 170
+        },
+        {
+          "name": "ApiKeyRepository",
+          "line": 204
+        },
+        {
+          "name": "ApiKeysRepository",
+          "line": 984
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 984,
+      "relative_path": "src/storage/repositories/apiKeys.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/storage/repositories/authTokens.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "mapRowToAuthTokenRecord",
+          "full_name": "mapRowToAuthTokenRecord",
+          "line": 135,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "safety",
+          "line": 18
+        },
+        {
+          "name": "AuthTokenRow",
+          "line": 36
+        },
+        {
+          "name": "AuthTokenRecord",
+          "line": 53
+        },
+        {
+          "name": "CreateAuthTokenParams",
+          "line": 81
+        },
+        {
+          "name": "AuthTokenRepositoryConfig",
+          "line": 105
+        },
+        {
+          "name": "TokenValidationResult",
+          "line": 113
+        },
+        {
+          "name": "UpdateAuthTokenParams",
+          "line": 125
+        },
+        {
+          "name": "AuthTokensRepository",
+          "line": 178
+        }
+      ],
+      "imports": [
+        {
+          "module": "../../constants/limits",
+          "line": 21
+        },
+        {
+          "module": "../../crypto",
+          "line": 22
+        },
+        {
+          "module": "../../crypto/utils",
+          "line": 23
+        },
+        {
+          "module": "../../errors/auth_errors",
+          "line": 24
+        },
+        {
+          "module": "../../errors/key_errors",
+          "line": 25
+        }
+      ],
+      "all_calls": [],
+      "line_count": 701,
+      "relative_path": "src/storage/repositories/authTokens.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/storage/repositories/costLedger.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "validateMicrodollars",
+          "full_name": "validateMicrodollars",
+          "line": 252,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "formatCalendarDay",
+          "full_name": "formatCalendarDay",
+          "line": 292,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "calculateEventCostMicrodollars",
+          "full_name": "calculateEventCostMicrodollars",
+          "line": 320,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isDailySpendRollup",
+          "full_name": "isDailySpendRollup",
+          "line": 347,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCostLedgerEvent",
+          "full_name": "isCostLedgerEvent",
+          "line": 370,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "CostLedgerError",
+          "line": 24
+        },
+        {
+          "name": "InvalidCostLedgerEventError",
+          "line": 40
+        },
+        {
+          "name": "TenantIsolationViolationError",
+          "line": 56
+        },
+        {
+          "name": "CostLedgerEventInput",
+          "line": 72
+        },
+        {
+          "name": "DailySpendRollup",
+          "line": 107
+        },
+        {
+          "name": "DailySpendRollupInput",
+          "line": 127
+        },
+        {
+          "name": "ListCostEventsOptions",
+          "line": 143
+        },
+        {
+          "name": "ListDailyRollupsOptions",
+          "line": 165
+        },
+        {
+          "name": "TenantSpendSummary",
+          "line": 185
+        },
+        {
+          "name": "representing",
+          "line": 195
+        },
+        {
+          "name": "CostLedgerDbRow",
+          "line": 197
+        },
+        {
+          "name": "representing",
+          "line": 215
+        },
+        {
+          "name": "DailySpendRollupDbRow",
+          "line": 217
+        },
+        {
+          "name": "for",
+          "line": 228
+        },
+        {
+          "name": "AggregateDbRow",
+          "line": 230
+        },
+        {
+          "name": "for",
+          "line": 238
+        },
+        {
+          "name": "ReconcileRollupDbRow",
+          "line": 240
+        },
+        {
+          "name": "CostLedgerRepository",
+          "line": 403
+        }
+      ],
+      "imports": [
+        {
+          "module": "../../constants/financial",
+          "line": 14
+        },
+        {
+          "module": "../../errors/domain_error",
+          "line": 15
+        },
+        {
+          "module": "../../types/models",
+          "line": 16
+        }
+      ],
+      "all_calls": [],
+      "line_count": 1242,
+      "relative_path": "src/storage/repositories/costLedger.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/storage/repositories/modelRegistry.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "calling",
+          "full_name": "calling",
+          "line": 44,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "toDbCost",
+          "full_name": "toDbCost",
+          "line": 117,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "parseAliases",
+          "full_name": "parseAliases",
+          "line": 141,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "rowToModelDef",
+          "full_name": "rowToModelDef",
+          "line": 161,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isModelRegistryRow",
+          "full_name": "isModelRegistryRow",
+          "line": 184,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "ModelRegistryRow",
+          "line": 18
+        },
+        {
+          "name": "ModelFilterOptions",
+          "line": 39
+        },
+        {
+          "name": "ModelCapabilitiesFilter",
+          "line": 67
+        },
+        {
+          "name": "for",
+          "line": 87
+        },
+        {
+          "name": "IModelRegistryRepository",
+          "line": 89
+        },
+        {
+          "name": "ModelRegistryRepository",
+          "line": 241
+        }
+      ],
+      "imports": [
+        {
+          "module": "../../types/models",
+          "line": 12
+        },
+        {
+          "module": "../../errors/routing_errors",
+          "line": 13
+        }
+      ],
+      "all_calls": [],
+      "line_count": 727,
+      "relative_path": "src/storage/repositories/modelRegistry.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/types/api.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createApiRequest",
+          "full_name": "createApiRequest",
+          "line": 138,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createApiResponse",
+          "full_name": "createApiResponse",
+          "line": 157,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createApiErrorResponse",
+          "full_name": "createApiErrorResponse",
+          "line": 170,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isApiRequest",
+          "full_name": "isApiRequest",
+          "line": 189,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isApiResponse",
+          "full_name": "isApiResponse",
+          "line": 203,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isApiErrorResponse",
+          "full_name": "isApiErrorResponse",
+          "line": 220,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "ApiResponseMeta",
+          "line": 15
+        },
+        {
+          "name": "ApiResponse",
+          "line": 38
+        },
+        {
+          "name": "ApiRequestOptions",
+          "line": 48
+        },
+        {
+          "name": "ApiRequest",
+          "line": 60
+        },
+        {
+          "name": "ApiErrorDetail",
+          "line": 80
+        },
+        {
+          "name": "ApiErrorResponse",
+          "line": 89
+        },
+        {
+          "name": "ApiSuccessResponse",
+          "line": 97
+        },
+        {
+          "name": "ApiFailureResponse",
+          "line": 106
+        },
+        {
+          "name": "for",
+          "line": 113
+        },
+        {
+          "name": "ApiResult",
+          "line": 115
+        },
+        {
+          "name": "ApiPaginationMeta",
+          "line": 120
+        },
+        {
+          "name": "PaginatedApiResponse",
+          "line": 131
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 230,
+      "relative_path": "src/types/api.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/types/config.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createTenantConfig",
+          "full_name": "createTenantConfig",
+          "line": 217,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isRoutingStrategy",
+          "full_name": "isRoutingStrategy",
+          "line": 255,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isFallbackTrigger",
+          "full_name": "isFallbackTrigger",
+          "line": 265,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isCircuitBreakerConfig",
+          "full_name": "isCircuitBreakerConfig",
+          "line": 275,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isRateLimitConfig",
+          "full_name": "isRateLimitConfig",
+          "line": 289,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isTenantConfig",
+          "full_name": "isTenantConfig",
+          "line": 300,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "RoutingStrategy",
+          "line": 16
+        },
+        {
+          "name": "KeyRoutingConfig",
+          "line": 36
+        },
+        {
+          "name": "FallbackTrigger",
+          "line": 52
+        },
+        {
+          "name": "FallbackConfig",
+          "line": 70
+        },
+        {
+          "name": "RateLimitConfig",
+          "line": 88
+        },
+        {
+          "name": "CircuitBreakerConfig",
+          "line": 103
+        },
+        {
+          "name": "TenantBudgetConfig",
+          "line": 118
+        },
+        {
+          "name": "TenantConfig",
+          "line": 134
+        },
+        {
+          "name": "TenantConfigOptions",
+          "line": 163
+        }
+      ],
+      "imports": [
+        {
+          "module": "./models",
+          "line": 11
+        }
+      ],
+      "all_calls": [],
+      "line_count": 330,
+      "relative_path": "src/types/config.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/types/index.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 3,
+      "relative_path": "src/types/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/types/models.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "calling",
+          "full_name": "calling",
+          "line": 89,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createModelDef",
+          "full_name": "createModelDef",
+          "line": 240,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isKnownModelProvider",
+          "full_name": "isKnownModelProvider",
+          "line": 257,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isModelProvider",
+          "full_name": "isModelProvider",
+          "line": 267,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isKnownModelAlias",
+          "full_name": "isKnownModelAlias",
+          "line": 274,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isModelAlias",
+          "full_name": "isModelAlias",
+          "line": 284,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isKeyStatus",
+          "full_name": "isKeyStatus",
+          "line": 291,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isModelDef",
+          "full_name": "isModelDef",
+          "line": 301,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isAPIKey",
+          "full_name": "isAPIKey",
+          "line": 326,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "isRouterDecision",
+          "full_name": "isRouterDecision",
+          "line": 349,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "KnownModelProvider",
+          "line": 28
+        },
+        {
+          "name": "ModelProvider",
+          "line": 34
+        },
+        {
+          "name": "KnownModelAlias",
+          "line": 51
+        },
+        {
+          "name": "ModelAlias",
+          "line": 57
+        },
+        {
+          "name": "KeyStatus",
+          "line": 62
+        },
+        {
+          "name": "ModelCapabilities",
+          "line": 88
+        },
+        {
+          "name": "ModelPricing",
+          "line": 103
+        },
+        {
+          "name": "ModelDef",
+          "line": 116
+        },
+        {
+          "name": "APIKey",
+          "line": 153
+        },
+        {
+          "name": "RouterDecision",
+          "line": 189
+        },
+        {
+          "name": "CostLedgerEvent",
+          "line": 206
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 361,
+      "relative_path": "src/types/models.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/worker/auth_middleware.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "extractBearerToken",
+          "full_name": "extractBearerToken",
+          "line": 212,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "formatAuthError",
+          "full_name": "formatAuthError",
+          "line": 262,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "resolveAuthTokensRepository",
+          "full_name": "resolveAuthTokensRepository",
+          "line": 301,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "to",
+          "full_name": "to",
+          "line": 652,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "authenticateRequest",
+          "full_name": "authenticateRequest",
+          "line": 654,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "wrapping",
+          "full_name": "wrapping",
+          "line": 663,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "withAuth",
+          "full_name": "withAuth",
+          "line": 669,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "WorkerEnv",
+          "line": 45
+        },
+        {
+          "name": "AuthenticatedContext",
+          "line": 57
+        },
+        {
+          "name": "AuthMiddlewareOptions",
+          "line": 81
+        },
+        {
+          "name": "AuthMiddlewareSuccess",
+          "line": 112
+        },
+        {
+          "name": "AuthMiddlewareFailure",
+          "line": 122
+        },
+        {
+          "name": "AuthMiddlewareResult",
+          "line": 132
+        },
+        {
+          "name": "InMemoryRateLimiterStorage",
+          "line": 141
+        },
+        {
+          "name": "AuthMiddleware",
+          "line": 340
+        }
+      ],
+      "imports": [
+        {
+          "module": "../contracts/auth",
+          "line": 15
+        },
+        {
+          "module": "../crypto",
+          "line": 20
+        },
+        {
+          "module": "../durable_objects/circuit_breaker",
+          "line": 21
+        },
+        {
+          "module": "../errors/domain_error",
+          "line": 31
+        }
+      ],
+      "all_calls": [],
+      "line_count": 695,
+      "relative_path": "src/worker/auth_middleware.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/worker/index.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "applyCors",
+          "full_name": "applyCors",
+          "line": 85,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "to",
+          "full_name": "to",
+          "line": 203,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createWorker",
+          "full_name": "createWorker",
+          "line": 205,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "HealthResponse",
+          "line": 50
+        },
+        {
+          "name": "WorkerOptions",
+          "line": 71
+        },
+        {
+          "name": "for",
+          "line": 103
+        },
+        {
+          "name": "MainWorker",
+          "line": 105
+        }
+      ],
+      "imports": [],
+      "all_calls": [],
+      "line_count": 262,
+      "relative_path": "src/worker/index.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/worker/router_handler.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "formatRouterError",
+          "full_name": "formatRouterError",
+          "line": 353,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "to",
+          "full_name": "to",
+          "line": 1264,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createRouterHandler",
+          "full_name": "createRouterHandler",
+          "line": 1266,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "to",
+          "full_name": "to",
+          "line": 1276,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "handleRoute",
+          "full_name": "handleRoute",
+          "line": 1278,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "RouterError",
+          "line": 100
+        },
+        {
+          "name": "matching",
+          "line": 110
+        },
+        {
+          "name": "DurableObjectStubLike",
+          "line": 113
+        },
+        {
+          "name": "matching",
+          "line": 128
+        },
+        {
+          "name": "DurableObjectNamespaceLike",
+          "line": 130
+        },
+        {
+          "name": "DurableObjectKeyPoolClient",
+          "line": 139
+        },
+        {
+          "name": "RouterHandlerOptions",
+          "line": 399
+        },
+        {
+          "name": "RouterHandler",
+          "line": 438
+        }
+      ],
+      "imports": [
+        {
+          "module": "../constants/limits",
+          "line": 32
+        },
+        {
+          "module": "../contracts/key_pool",
+          "line": 33
+        },
+        {
+          "module": "../contracts/router",
+          "line": 34
+        },
+        {
+          "module": "../crypto",
+          "line": 35
+        },
+        {
+          "module": "../durable_objects/key_selector",
+          "line": 36
+        },
+        {
+          "module": "../errors/auth_errors",
+          "line": 37
+        },
+        {
+          "module": "../errors/domain_error",
+          "line": 38
+        },
+        {
+          "module": "../router/capability_filter",
+          "line": 62
+        },
+        {
+          "module": "../types/api",
+          "line": 82
+        },
+        {
+          "module": "../types/models",
+          "line": 83
+        }
+      ],
+      "all_calls": [],
+      "line_count": 1287,
+      "relative_path": "src/worker/router_handler.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/src/worker/telemetry_emitter.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "safeParseDouble",
+          "full_name": "safeParseDouble",
+          "line": 64,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "defaultDataPointMapper",
+          "full_name": "defaultDataPointMapper",
+          "line": 92,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "validateTelemetryEvent",
+          "full_name": "validateTelemetryEvent",
+          "line": 132,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createTelemetryEmitter",
+          "full_name": "createTelemetryEmitter",
+          "line": 409,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "matching",
+          "line": 19
+        },
+        {
+          "name": "ExecutionContextLike",
+          "line": 22
+        },
+        {
+          "name": "TelemetryEmitterOptions",
+          "line": 30
+        },
+        {
+          "name": "CreateTelemetryEventParams",
+          "line": 51
+        },
+        {
+          "name": "TelemetryEmitter",
+          "line": 215
+        }
+      ],
+      "imports": [
+        {
+          "module": "../contracts/telemetry",
+          "line": 12
+        }
+      ],
+      "all_calls": [],
+      "line_count": 419,
+      "relative_path": "src/worker/telemetry_emitter.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/durable_objects/circuit_breaker.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "timeProvider",
+          "full_name": "timeProvider",
+          "line": 99,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockDurableObjectStorage",
+          "line": 34
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 15
+        },
+        {
+          "module": "../../src/errors/routing_errors",
+          "line": 29
+        }
+      ],
+      "all_calls": [],
+      "line_count": 505,
+      "relative_path": "test/durable_objects/circuit_breaker.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/durable_objects/index.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 6
+        },
+        {
+          "module": "../../src/durable_objects",
+          "line": 7
+        }
+      ],
+      "all_calls": [],
+      "line_count": 108,
+      "relative_path": "test/durable_objects/index.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/durable_objects/key_pool_do.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createMockDOState",
+          "full_name": "createMockDOState",
+          "line": 107,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        },
+        {
+          "name": "createSampleKeys",
+          "full_name": "createSampleKeys",
+          "line": 126,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockDOStorage",
+          "line": 39
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 19
+        },
+        {
+          "module": "../../src/contracts/key_pool",
+          "line": 20
+        },
+        {
+          "module": "../../src/contracts/telemetry",
+          "line": 21
+        },
+        {
+          "module": "../../src/errors/auth_errors",
+          "line": 29
+        }
+      ],
+      "all_calls": [],
+      "line_count": 673,
+      "relative_path": "test/durable_objects/key_pool_do.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/durable_objects/key_selector.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "timeProvider",
+          "full_name": "timeProvider",
+          "line": 93,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockDurableObjectStorage",
+          "line": 36
+        },
+        {
+          "name": "guard",
+          "line": 616
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 15
+        },
+        {
+          "module": "../../src/constants/limits",
+          "line": 16
+        },
+        {
+          "module": "../../src/contracts/key_pool",
+          "line": 17
+        },
+        {
+          "module": "../../src/durable_objects/rate_limiter",
+          "line": 29
+        },
+        {
+          "module": "../../src/errors/key_errors",
+          "line": 30
+        },
+        {
+          "module": "../../src/types/models",
+          "line": 31
+        }
+      ],
+      "all_calls": [],
+      "line_count": 625,
+      "relative_path": "test/durable_objects/key_selector.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/durable_objects/rate_limiter.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "timeProvider",
+          "full_name": "timeProvider",
+          "line": 110,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockDurableObjectStorage",
+          "line": 40
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 15
+        },
+        {
+          "module": "../../src/durable_objects/circuit_breaker",
+          "line": 35
+        }
+      ],
+      "all_calls": [],
+      "line_count": 643,
+      "relative_path": "test/durable_objects/rate_limiter.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/integration/worker/index.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "makeReq",
+          "full_name": "makeReq",
+          "line": 703,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockExecutionContext",
+          "line": 64
+        },
+        {
+          "name": "MockDurableObjectStub",
+          "line": 79
+        },
+        {
+          "name": "MockDurableObjectNamespace",
+          "line": 154
+        },
+        {
+          "name": "MockD1Database",
+          "line": 178
+        },
+        {
+          "name": "MockD1PreparedStatement",
+          "line": 207
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 26
+        },
+        {
+          "module": "../../../src/index",
+          "line": 35
+        },
+        {
+          "module": "../../../src/contracts/telemetry",
+          "line": 50
+        },
+        {
+          "module": "../../../src/proxy/upstream_client",
+          "line": 51
+        },
+        {
+          "module": "../../../src/storage/repositories/costLedger",
+          "line": 52
+        },
+        {
+          "module": "../../../src/crypto",
+          "line": 58
+        },
+        {
+          "module": "../../../src/router/model_registry",
+          "line": 59
+        }
+      ],
+      "all_calls": [],
+      "line_count": 1088,
+      "relative_path": "test/integration/worker/index.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/unit/worker/auth_middleware.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "timeProvider",
+          "full_name": "timeProvider",
+          "line": 620,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockD1Database",
+          "line": 48
+        },
+        {
+          "name": "MockD1PreparedStatement",
+          "line": 76
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 15
+        },
+        {
+          "module": "../../../src/errors/domain_error",
+          "line": 41
+        },
+        {
+          "module": "../../../src/constants/limits",
+          "line": 42
+        },
+        {
+          "module": "../../../src/crypto",
+          "line": 43
+        }
+      ],
+      "all_calls": [],
+      "line_count": 849,
+      "relative_path": "test/unit/worker/auth_middleware.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/unit/worker/router_handler.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "MockExecutionContext",
+          "line": 74
+        },
+        {
+          "name": "MockDurableObjectStub",
+          "line": 89
+        },
+        {
+          "name": "MockDurableObjectNamespace",
+          "line": 193
+        },
+        {
+          "name": "MockCostLedgerRepository",
+          "line": 217
+        },
+        {
+          "name": "MockAuthTokensRepository",
+          "line": 228
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 26
+        },
+        {
+          "module": "../../../src/worker/telemetry_emitter",
+          "line": 44
+        },
+        {
+          "module": "../../../src/contracts/telemetry",
+          "line": 45
+        },
+        {
+          "module": "../../../src/contracts/key_pool",
+          "line": 46
+        },
+        {
+          "module": "../../../src/router/cascade_router",
+          "line": 47
+        },
+        {
+          "module": "../../../src/router/model_registry",
+          "line": 48
+        },
+        {
+          "module": "../../../src/router/capability_filter",
+          "line": 49
+        },
+        {
+          "module": "../../../src/proxy/upstream_client",
+          "line": 50
+        },
+        {
+          "module": "../../../src/proxy/sse_transformer",
+          "line": 51
+        },
+        {
+          "module": "../../../src/storage/repositories/costLedger",
+          "line": 52
+        },
+        {
+          "module": "../../../src/storage/repositories/authTokens",
+          "line": 53
+        },
+        {
+          "module": "../../../src/errors/auth_errors",
+          "line": 54
+        },
+        {
+          "module": "../../../src/constants/limits",
+          "line": 68
+        },
+        {
+          "module": "../../../src/crypto",
+          "line": 69
+        }
+      ],
+      "all_calls": [],
+      "line_count": 974,
+      "relative_path": "test/unit/worker/router_handler.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/test/unit/worker/telemetry_emitter.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 1
+        },
+        {
+          "module": "../../../src/contracts/telemetry",
+          "line": 9
+        }
+      ],
+      "all_calls": [],
+      "line_count": 411,
+      "relative_path": "test/unit/worker/telemetry_emitter.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/api_types.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "processResult",
+          "full_name": "processResult",
+          "line": 159,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "ChatPayload",
+          "line": 23
+        },
+        {
+          "name": "GenerationResult",
+          "line": 74
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 1
+        }
+      ],
+      "all_calls": [],
+      "line_count": 282,
+      "relative_path": "tests/api_types.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/constants.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 1
+        }
+      ],
+      "all_calls": [],
+      "line_count": 265,
+      "relative_path": "tests/constants.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/errors.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "to",
+          "line": 46
+        },
+        {
+          "name": "TestDomainError",
+          "line": 47
+        },
+        {
+          "name": "guard",
+          "line": 120
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 1
+        }
+      ],
+      "all_calls": [],
+      "line_count": 503,
+      "relative_path": "tests/errors.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/models_and_config_types.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "guard",
+          "line": 160
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 1
+        }
+      ],
+      "all_calls": [],
+      "line_count": 447,
+      "relative_path": "tests/models_and_config_types.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/smoke.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 1
+        },
+        {
+          "module": "../src/index",
+          "line": 2
+        }
+      ],
+      "all_calls": [],
+      "line_count": 35,
+      "relative_path": "tests/smoke.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/crypto/encryption.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [
+        {
+          "name": "AesKeyAlgorithmInfo",
+          "line": 28
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 6
+        },
+        {
+          "module": "../../src/errors/key_errors",
+          "line": 26
+        }
+      ],
+      "all_calls": [],
+      "line_count": 356,
+      "relative_path": "tests/crypto/encryption.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/crypto/hashing.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 6
+        },
+        {
+          "module": "../../src/crypto/utils",
+          "line": 25
+        }
+      ],
+      "all_calls": [],
+      "line_count": 275,
+      "relative_path": "tests/crypto/hashing.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/crypto/utils.test.ts",
+      "language": "typescript",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 6
+        },
+        {
+          "module": "../../src/errors/key_errors",
+          "line": 24
+        }
+      ],
+      "all_calls": [],
+      "line_count": 315,
+      "relative_path": "tests/crypto/utils.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/storage/repositories/apiKeys.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createMeta",
+          "full_name": "createMeta",
+          "line": 62,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockD1Database",
+          "line": 33
+        },
+        {
+          "name": "MockD1PreparedStatement",
+          "line": 74
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 12
+        },
+        {
+          "module": "../../../src/constants/crypto",
+          "line": 13
+        },
+        {
+          "module": "../../../src/crypto/encryption",
+          "line": 14
+        },
+        {
+          "module": "../../../src/types/models",
+          "line": 28
+        }
+      ],
+      "all_calls": [],
+      "line_count": 1003,
+      "relative_path": "tests/storage/repositories/apiKeys.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/storage/repositories/authTokens.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createMeta",
+          "full_name": "createMeta",
+          "line": 30,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockD1Database",
+          "line": 45
+        },
+        {
+          "name": "MockD1PreparedStatement",
+          "line": 73
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 18
+        },
+        {
+          "module": "../../../src/crypto",
+          "line": 26
+        },
+        {
+          "module": "../../../src/errors/auth_errors",
+          "line": 27
+        },
+        {
+          "module": "../../../src/errors/key_errors",
+          "line": 28
+        }
+      ],
+      "all_calls": [],
+      "line_count": 874,
+      "relative_path": "tests/storage/repositories/authTokens.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/storage/repositories/costLedger.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createMeta",
+          "full_name": "createMeta",
+          "line": 33,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockD1PreparedStatement",
+          "line": 48
+        },
+        {
+          "name": "MockD1Database",
+          "line": 460
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 13
+        }
+      ],
+      "all_calls": [],
+      "line_count": 1294,
+      "relative_path": "tests/storage/repositories/costLedger.test.ts"
+    },
+    {
+      "file": "/home/akshit/Projects/Key Collective/tests/storage/repositories/modelRegistry.test.ts",
+      "language": "typescript",
+      "functions": [
+        {
+          "name": "createMeta",
+          "full_name": "createMeta",
+          "line": 21,
+          "complexity": 1,
+          "purity": "\ud83d\udfe1 Unknown",
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockModelRegistryD1",
+          "line": 33
+        },
+        {
+          "name": "MockD1PreparedStatement",
+          "line": 63
+        }
+      ],
+      "imports": [
+        {
+          "module": "vitest",
+          "line": 11
+        },
+        {
+          "module": "../../../src/types/models",
+          "line": 18
+        },
+        {
+          "module": "../../../src/errors/routing_errors",
+          "line": 19
+        }
+      ],
+      "all_calls": [],
+      "line_count": 981,
+      "relative_path": "tests/storage/repositories/modelRegistry.test.ts"
+    }
+  ]
+}
