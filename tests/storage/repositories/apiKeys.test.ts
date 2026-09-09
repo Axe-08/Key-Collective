@@ -337,7 +337,7 @@ describe("ApiKeyRepository (storage-repo-keys)", () => {
   const ALT_MASTER_KEY = "alternative-master-secret-key-32b!";
   const TENANT_A = "tenant-alpha";
   const TENANT_B = "tenant-beta";
-  const SAMPLE_API_KEY = "sk-ant-api03-abcdef1234567890XYZW-998877";
+  const SAMPLE_API_KEY = "sk-ant-test-abcdef123456-998877";
 
   let db: MockD1Database;
   let repo: ApiKeyRepository;

@@ -32,7 +32,7 @@ interface AesKeyAlgorithmInfo {
 
 describe("Web Crypto AES-256-GCM Helpers", () => {
   const TEST_MASTER_KEY = "test-master-secret-passphrase-32bytes!";
-  const TEST_API_KEY = "sk-ant-api03-1234567890abcdefghijklmnopqrstuvwxyz-AAAA";
+  const TEST_API_KEY = "mock-ant-api03-1234567890abcdef-AAAA";
 
   describe("generateNonce & generateNonceB64", () => {
     it("generates a 12-byte (96-bit) nonce", () => {
