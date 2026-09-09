@@ -1,10 +1,10 @@
 {
   "project_name": "key-collective",
-  "version": "1.1.0",
-  "git_commit": "32ae0679ea",
+  "version": "1.0.0",
+  "git_commit": "16cf97aa3a",
   "git_branch": "master",
   "github_base_url": "https://github.com/Axe-08/Key-Collective",
-  "generated_at": "2026-09-09T20:16:10.335124+00:00",
+  "generated_at": "2026-09-09T20:20:00.111928+00:00",
   "stack": {
     "languages": [
       "Go",
@@ -174,10 +174,5 @@
       "estimated_read_time_mins": 25,
       "summary": "Active-recall comprehension quiz, code exploration treasure hunts, and first-feature challenge."
     }
-  ],
-  "last_updated_at": "2026-09-09T20:16:12.634170+00:00",
-  "recent_modified_files": [
-    "docs/study_guide/.tutor_digest.json",
-    "docs/study_guide/syllabus.json"
   ]
 }

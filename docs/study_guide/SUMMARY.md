@@ -1,7 +1,7 @@
-# Key Collective — Zero-to-Hero Study Guide
+# key-collective — Zero-to-Hero Study Guide
 
 - [Preface & Learning Objectives](00_preface_and_syllabus.md)
-- [Part 1: Language Primitives & Toolchain 101 (Go)](01_language_primitives_and_idioms_101.md)
+- [Part 1: Language Primitives & Toolchain 101 (Go, TypeScript)](01_language_primitives_and_idioms_101.md)
 - [Part 2: Architecture Blueprint & Mental Models](02_architecture_and_whys.md)
 - [Part 3: Guided Subsystem Tours](03_subsystem_tours/README.md)
   - [Unit 1: Data Contracts, Schemas & Domain Primitives](03_subsystem_tours/03_1_01_data_contracts_and_models.md)

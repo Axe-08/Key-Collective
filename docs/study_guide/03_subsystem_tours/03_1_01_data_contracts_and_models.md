@@ -1,139 +1,40 @@
 # Unit 1: Data Contracts, Schemas & Domain Primitives
 
-## Overview & Pedagogical Scope
-In high-throughput, edge-native distributed architectures, the bedrock of reliability is the contract layer. Key Collective v2 establishes an immutable contract foundation that eliminates floating-point drift, enforces strict type boundaries across Cloudflare Workers and Durable Objects, and guarantees that sensitive credentials never exist in plaintext beyond ephemeral cryptographic boundaries.
-
-This unit dissects the type definitions, contract interfaces, financial models, and domain error hierarchies that govern all system communication.
+> **What this covers:** Deconstructs the foundational types, schemas, and boundary contracts that govern all inputs and internal state.  
+> **Key Symbols:** `APIKey`, `RequestLog`, `ProxyStats`, `Provider`, `KeyStatus`, `APIKey`, `RequestLog`, `PoolStats`
 
 ---
 
-## 1. Frozen Interface Contracts
-All inter-pod boundaries are governed by four frozen interfaces: `AuthContract`, `KeyPoolContract`, `RouterContract`, and `TelemetryContract`.
+## 🎯 What We Are Building & Why It Matters
+This unit walks through how `key-collective` handles this part of the system. We will explore the real classes, see how data moves, and look at the key design decisions.
 
-```typescript
-// src/contracts/index.ts
-export interface AuthContract {
-  authenticate(request: Request): Promise<AuthContext>;
-}
-
-export interface KeyPoolContract {
-  getKey(req: RouteRequest): Promise<RouterDecision>;
-  recordUsage(decision: RouterDecision, usage: TokenUsage): Promise<void>;
-  recordResult(decision: RouterDecision, success: boolean, statusCode: number): Promise<void>;
-}
-
-export interface RouterContract {
-  resolveRoute(req: CascadeRouteRequest): Promise<CascadeRouteResponse>;
-}
-
-export interface TelemetryContract {
-  emit(event: TelemetryEvent): void;
-}
-```
-
-Standardized API envelope payloads rely on `ApiResponse`, `ApiRequest`, `ApiSuccessResponse`, `ApiFailureResponse`, `ApiErrorResponse`, `ApiErrorDetail`, `ApiResponseMeta`, `ApiPaginationMeta`, `ApiResult`, `PaginatedApiResponse`, `ApiRequestOptions`, `HealthResponse`, `MessageResponse`, `TestKeyResponse`, and `ToastMessage`.
+### 📂 Source Files in this Unit:
+- [internal/domain/contracts.go](https://github.com/Axe-08/Key-Collective/blob/master/internal/domain/contracts.go)
+- [ui/src/lib/types.ts](https://github.com/Axe-08/Key-Collective/blob/master/ui/src/lib/types.ts)
+- [src/contracts/auth.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/contracts/auth.ts)
+- [src/contracts/index.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/contracts/index.ts)
+- [src/contracts/key_pool.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/contracts/key_pool.ts)
+- [src/contracts/router.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/contracts/router.ts)
+- [src/contracts/telemetry.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/contracts/telemetry.ts)
+- [src/router/model_registry.test.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/router/model_registry.test.ts)
+- [src/router/model_registry.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/router/model_registry.ts)
+- [src/storage/repositories/modelRegistry.ts](https://github.com/Axe-08/Key-Collective/blob/master/src/storage/repositories/modelRegistry.ts)
 
 ---
 
-## 2. Authentication & Tenant Data Models
-The tenancy and authentication layer defines the caller identity and financial quotas:
-
-```typescript
-// src/types/api.ts & src/contracts/auth.ts
-export interface AuthToken {
-  id: string;
-  tokenHash: string;
-  tenantId: string;
-  budgetMicrodollars: bigint;
-  spentMicrodollars: bigint;
-  rpmLimit: number;
-  allowedProviders: string[];
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface AuthContext {
-  token: AuthToken;
-  tenantId: string;
-  remainingMicrodollars: bigint;
-}
-```
-
-Additional tenant configuration and persistence models include:
-- `AuthTokenRecord` and `AuthTokenRow`: Represent physical SQLite rows in Cloudflare D1.
-- `AuthenticatedContext`: The fully verified security context attached to downstream requests.
-- `TenantConfig` and `TenantBudgetConfig`: Enforce per-tenant spend caps and provider white-lists.
-- `TenantSpendSummary`: Aggregated usage and budget headroom metrics.
+## 🔍 Code Walkthrough & Real-World Invariants
+Here is how the main classes and functions in this area work, and what rules they follow:
+1. **Clean Input Checks:** Before any real work happens, inputs get validated so broken data fails early.
+2. **Separated Work:** Network calls, disk writes, and database operations are kept apart from pure logic.
 
 ---
 
-## 3. Cryptographic & API Key Domain Primitives
-Every upstream provider key is managed through `APIKey` and `APIKeyRow`.
-
-```typescript
-// src/types/models.ts
-export interface APIKey {
-  id: string;
-  tenantId: string;
-  provider: KnownModelProvider;
-  label: string;
-  encryptedKey: Uint8Array;
-  nonce: Uint8Array;
-  keyPrefix: string;
-  keySuffix: string;
-  priority: number;
-  rpmLimit: number;
-  rpdLimit: number;
-  status: KeyStatus;
-}
-```
-
-Key lifecycle and selection primitives include `KeyInput`, `KeyResponse`, `KeyMetrics`, `KeyStatus`, `KeyTriageItem`, `KeyTriageResult`, `SelectableKey`, and `MaskedKeyParts`.
-
-Cryptographic payloads and buffers utilize strict types: `EncryptedKey`, `EncryptedPayload`, `EncryptedData`, `PlaintextInput`, `CiphertextInput`, and `HashInput`.
+## 🧠 Quick Check
+1. **Question:** What is the primary role of this subsystem in the overall architecture?
+   <details><summary><b>Reveal Answer</b></summary>
+   It keeps domain responsibilities focused in one place, so changes to internal logic do not break external callers.
+   </details>
 
 ---
 
-## 4. Model Registry, Pricing & Capability Schemas
-Models and upstream capabilities are cataloged via:
-- `ModelDef`: Context length, max output tokens, tool/vision/schema flags.
-- `ModelPricing`: Input, output, and cache-read costs denominated strictly in microdollars.
-- `ModelCapabilities`: Bitmasks and boolean capability flags.
-- `ModelAlias`: Logical alias resolution mappings (e.g. `smart-fast`).
-- `ModelProvider`: Upstream provider identifier.
-- `KnownModelAlias` and `KnownModelProvider`: Strongly typed enum unions for supported LLMs.
-- `ModelFilterCriteria`, `ModelFilterOptions`, and `ModelSortStrategy`: Sieve rules for candidate selection.
-
----
-
-## 5. Domain Error Hierarchy
-Key Collective enforces an exhaustive error tree extending `Error`:
-
-```typescript
-// src/errors/index.ts
-export interface DomainErrorOptions {
-  cause?: unknown;
-  code?: string;
-  statusCode?: number;
-}
-export interface DomainErrorJson {
-  error: string;
-  code: string;
-  statusCode: number;
-}
-```
-
-The error catalog comprises:
-- **Authentication & Tenancy:** `AuthenticationError`, `AuthenticationErrorOptions`, `TenantIsolationError`, `TenantIsolationErrorOptions`, `TenantIsolationViolationError`.
-- **Key & Quota Management:** `InvalidKeyError`, `InvalidKeyErrorOptions`, `KeyNotFoundError`, `KeyNotFoundErrorOptions`, `KeyExhaustedError`, `KeyExhaustedErrorOptions`, `QuotaExceededError`, `QuotaExceededErrorOptions`, `RateLimitExceededError`, `RateLimitExceededErrorOptions`.
-- **Fault Tolerance & Circuit Breaking:** `CircuitBreakerTrippedError`, `CircuitBreakerTrippedErrorOptions`.
-- **Model & Routing:** `ContextWindowExceededError`, `ContextWindowExceededErrorOptions`, `CapabilityMismatchError`, `CapabilityMismatchErrorOptions`, `UnknownModelAliasError`, `UnknownModelAliasErrorOptions`, `ModelNotFoundError`, `ModelNotFoundErrorOptions`, `NoAvailableProviderError`, `NoAvailableProviderErrorOptions`, `FallbackExhaustedError`, `FallbackExhaustedErrorOptions`, `ProviderRoutingError`, `ProviderRoutingErrorOptions`, `ProviderTimeoutError`, `ProviderTimeoutErrorOptions`, `RouterError`.
-- **Telemetry & Financial:** `CostLedgerError`, `InvalidCostLedgerEventError`, `TelemetryEmissionError`, `TelemetryEmissionErrorOptions`, `InvalidTelemetryEventError`, `InvalidTelemetryEventErrorOptions`.
-- **Cryptography:** `EncryptionError`, `EncryptionErrorOptions`, `DecryptionError`, `DecryptionErrorOptions`.
-
-### Complexity & Memory Allocation Profile
-| Entity Group | Structural Memory Footprint | Runtime Mutation | Big-O Access |
-|---|---|---|---|
-| Contracts & Schemas | $\mathcal{O}(1)$ allocation | Immutable | $\mathcal{O}(1)$ member access |
-| Domain Error Classes | $\mathcal{O}(1)$ allocation | Prototype chain | $\mathcal{O}(1)$ instantiation |
-| Microdollar Pricing | 64-bit BigInt primitives | Pure value types | $\mathcal{O}(1)$ arithmetic |
+[← Previous: Subsystem Index](README.md) | [Next: Unit 2 →](03_2_02_core_engine_and_logic.md)

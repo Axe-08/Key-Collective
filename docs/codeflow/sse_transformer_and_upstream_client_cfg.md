@@ -1,15 +1,15 @@
 ---
 file: docs/codeflow/sse_transformer_and_upstream_client_cfg.md
-project: Key Collective v2
+project: Key Collective
 purity: [🟡 I/O Bound]
-cyclomatic_avg: 14
+cyclomatic_avg: 5
 date: 2026-09-10
-tags: [type/codeflow, Key Collective v2]
+tags: [type/codeflow, Key Collective]
 ---
 
 # 📄 Codeflow: `docs/codeflow/sse_transformer_and_upstream_client_cfg.md`
 
-> **Module Responsibility:** Manages upstream connections, modifies headers, and streams SSE chunks while extracting token usage telemetry.
+> **Module Responsibility:** Passthrough streaming transformation, usage tracking, and upstream proxy requests.
 > **Purity Profile:** `🟡 I/O Bound`
 
 ---
@@ -18,61 +18,93 @@ tags: [type/codeflow, Key Collective v2]
 ```mermaid
 graph LR
     subgraph Callers
-        KeyPoolDO[KeyPoolDO]
+        RouterHandler[Router Handler]
     end
-    subgraph `src/proxy/`
-        UpstreamClient[upstream_client.ts]
-        SSETransformer[sse_transformer.ts]
+    subgraph `sse_and_upstream`
+        UpstreamClient_forwardRequest[UpstreamClient.forwardRequest]
+        UpstreamClient_rewriteHeaders[UpstreamClient.rewriteHeaders]
+        SSEStreamTransformer_transform[SSEStreamTransformer.transform]
+        SSEStreamTransformer_parseUsageBlock[SSEStreamTransformer.parseUsageBlock]
     end
     subgraph Callees
-        UpstreamLLM[LLM Provider API]
-        Telemetry[Worker Analytics Engine]
+        ProviderAPI[Provider Upstream API]
+        TransformStream[Web Streams API]
     end
-    KeyPoolDO --> UpstreamClient
-    UpstreamClient --> UpstreamLLM
-    UpstreamLLM --> SSETransformer
-    SSETransformer --> Telemetry
+
+    RouterHandler --> UpstreamClient_forwardRequest
+    UpstreamClient_forwardRequest --> UpstreamClient_rewriteHeaders
+    UpstreamClient_forwardRequest --> ProviderAPI
+    UpstreamClient_forwardRequest --> SSEStreamTransformer_transform
+    SSEStreamTransformer_transform --> SSEStreamTransformer_parseUsageBlock
+    SSEStreamTransformer_transform --> TransformStream
 ```
 
 ---
 
 ## 2. 🔍 Function Logic & Control Flow Deep Dive
 
-### `def streamAndTransform(res: Response) -> ReadableStream`
+### `def UpstreamClient.forwardRequest(req, key, provider) -> Response`
 * **Purity:** `🟡 I/O Bound`
-* **Complexity:** Cyclomatic: `12` | Cognitive: `15`
+* **Complexity:** Cyclomatic: `4` | Cognitive: `5`
 
 #### Control Flow Graph (CFG)
 ```mermaid
 flowchart TD
-    A[Upstream request building] --> B[Header rewriting & key injection]
-    B --> C[Fetch Upstream]
-    C --> D[Web TransformStream chunk processing]
-    D --> E[Line splitting on \\n\\n]
-    E --> F{Final SSE chunk?}
-    F -- No --> G[Pass chunk downstream]
-    F -- Yes --> H[Regex parsing for usage blocks]
-    H --> I[Token extraction]
-    I --> J[Emit async telemetry]
-    J --> G
+    Start[Start: forwardRequest] --> RewriteHeaders[Rewrite Headers & Inject Key]
+    RewriteHeaders --> Fetch[Fetch Upstream API]
+    Fetch --> Ok{Is OK?}
+    Ok -- No --> ThrowHttp[Throw ProviderRoutingError]
+    Ok -- Yes --> IsStream{Is Streaming?}
+    IsStream -- No --> ReturnJSON[Return Buffered JSON]
+    IsStream -- Yes --> Transform[Apply SSEStreamTransformer]
+    Transform --> ReturnStream[Return Streaming Response]
 ```
 
 #### Def-Use Data Flow Matrix
 | Parameter / Variable | Origin | Transformations | Mutation / Sinks |
 |---|---|---|---|
-| `chunk` | Upstream Response | Decoded, line split | Sent to client, Regex parsed |
-| `usage_stats` | Final chunk regex match | Parsed to integers | Emitted to telemetry |
+| `req` | Argument | Body cloned, Headers modified | Sent via fetch |
+| `key` | Argument | Injected into Auth header | Sent via fetch |
 
 #### Edge Cases & Exception Audit
-- ⚠️ **Edge Case 1:** Fragmented SSE chunks splitting across network boundaries.
-- ⚠️ **Edge Case 2:** Malformed `usage` block from provider bypassing regex.
+- ⚠️ **Edge Case 1:** Upstream timeout or connection reset.
+- ⚠️ **Edge Case 2:** Malformed upstream SSE payload.
+
+---
+
+### `def SSEStreamTransformer.transform(stream) -> ReadableStream`
+* **Purity:** `🟡 I/O Bound`
+* **Complexity:** Cyclomatic: `6` | Cognitive: `6`
+
+#### Control Flow Graph (CFG)
+```mermaid
+flowchart TD
+    Start[Start: transform] --> ReadChunk[Read Chunk from Upstream]
+    ReadChunk --> EOF{Is EOF?}
+    EOF -- Yes --> CloseStream[Close Outbound Stream]
+    EOF -- No --> ParseLine[Parse SSE Line]
+    ParseLine --> IsUsage{Contains Usage block?}
+    IsUsage -- Yes --> ExtractUsage[Extract Token Usage]
+    IsUsage -- No --> EmitChunk[Emit Chunk Unchanged]
+    ExtractUsage --> EmitChunk
+    EmitChunk --> ReadChunk
+```
+
+#### Def-Use Data Flow Matrix
+| Parameter / Variable | Origin | Transformations | Mutation / Sinks |
+|---|---|---|---|
+| `stream` | Argument | Read chunk-by-chunk | Piped to new stream |
+| `usage` | Local | Parsed from JSON | Yielded to usage callback |
+
+#### Edge Cases & Exception Audit
+- ⚠️ **Edge Case 1:** Split chunks where usage block is broken across TCP packets.
 
 ---
 
 ## 3. 🛠️ Code Review & Optimization Notes
-- **Refactoring:** Pre-compile regexes and ensure `TransformStream` memory efficiency.
-- **Strengths:** Non-blocking telemetry emission, standard Web Streams API.
+- **Refactoring:** Use TextDecoderStream for cleaner chunk processing.
+- **Strengths:** 0ms latency added for streaming text.
 
 ## 🔗 Related Workflows & MOC
-- [[codebase-scribe-workflow]] — Used in Codebase Scribe & Cartographer
-- [[Templates-Index]] — Master Index of Workflows
+- [[codebase-scribe-workflow]]
+- [[Templates-Index]]
