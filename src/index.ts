@@ -16,27 +16,7 @@ export interface HealthResponse {
   timestamp: string;
 }
 
-/**
- * KeyPoolDO — Per-tenant stateful Durable Object
- * Isolates key pool, circuit breaker state, and sliding-window RPM.
- */
-export class KeyPoolDO implements DurableObject {
-  private ctx: DurableObjectState;
-  private env: Env;
-
-  constructor(ctx: DurableObjectState, env: Env) {
-    this.ctx = ctx;
-    this.env = env;
-  }
-
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname === "/health") {
-      return Response.json({ status: "healthy", do: true });
-    }
-    return new Response("Not Found", { status: 404 });
-  }
-}
+export { KeyPoolDO } from "./durable_objects/key_pool_do";
 
 /**
  * Cloudflare Worker Default Fetch Handler
