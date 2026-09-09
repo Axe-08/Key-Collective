@@ -1,0 +1,51 @@
+[
+  {
+    "id": "crypto-helpers",
+    "description": "Implement Web Crypto AES-256-GCM encryption and decryption helpers, including 12-byte random nonce generation.",
+    "files": ["src/crypto/encryption.ts"],
+    "dependencies": [],
+    "test_files": ["tests/crypto/encryption.test.ts"]
+  },
+  {
+    "id": "crypto-hashing",
+    "description": "Implement SHA-256 hashing helpers and timing-safe equality utilities for secure comparisons.",
+    "files": ["src/crypto/hashing.ts", "src/crypto/utils.ts"],
+    "dependencies": [],
+    "test_files": ["tests/crypto/hashing.test.ts", "tests/crypto/utils.test.ts"]
+  },
+  {
+    "id": "storage-schema",
+    "description": "Create D1 Database schema migrations for auth tokens, api keys, model registry, cost ledger, and rollups.",
+    "files": ["src/storage/migrations/0001_initial_schema.sql"],
+    "dependencies": [],
+    "test_files": []
+  },
+  {
+    "id": "storage-repo-auth",
+    "description": "Implement repository layer for Auth Tokens, ensuring tokens are encrypted before storage.",
+    "files": ["src/storage/repositories/authTokens.ts"],
+    "dependencies": ["crypto-helpers", "crypto-hashing", "storage-schema"],
+    "test_files": ["tests/storage/repositories/authTokens.test.ts"]
+  },
+  {
+    "id": "storage-repo-keys",
+    "description": "Implement repository layer for API Keys. Ensure no plaintext keys are stored; use AES-256-GCM.",
+    "files": ["src/storage/repositories/apiKeys.ts"],
+    "dependencies": ["crypto-helpers", "storage-schema"],
+    "test_files": ["tests/storage/repositories/apiKeys.test.ts"]
+  },
+  {
+    "id": "storage-repo-ledger",
+    "description": "Implement repository layer for Cost Ledger and Rollups, handling int64 microdollars for financials.",
+    "files": ["src/storage/repositories/costLedger.ts"],
+    "dependencies": ["storage-schema"],
+    "test_files": ["tests/storage/repositories/costLedger.test.ts"]
+  },
+  {
+    "id": "storage-repo-models",
+    "description": "Implement repository layer for the Model Registry.",
+    "files": ["src/storage/repositories/modelRegistry.ts"],
+    "dependencies": ["storage-schema"],
+    "test_files": ["tests/storage/repositories/modelRegistry.test.ts"]
+  }
+]
