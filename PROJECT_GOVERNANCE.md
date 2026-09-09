@@ -1,13 +1,16 @@
 # Key Collective Governance & Constraints
 
 ## 1. Active Workflows
-- **Codebase Scribe:** Mandatory upon merging significant logic changes to update Codeflow CFGs and Def-Use matrices in `docs/codeflow/`.
-- **PR Gatekeeper:** Mandatory for security checks (specifically verifying no plaintext key logging/storage).
+- **Workflow 2: HIVE:** Active for autonomous hierarchical implementation.
+- **Workflow 4: PR Gatekeeper:** Mandatory for security checks, invariants verification (no plaintext keys), and pre-merge reviews.
+- **Workflow 5: Codebase Scribe:** Mandatory upon merging significant logic changes to update Codeflow CFGs and documentation.
+- **Workflow 6: Continuous Evals:** Active for living evaluation, benchmark assertions, and regression testing.
 
-## 2. Resource Footprint Goal
-- **Target RAM:** < 20MB at idle.
-- **Target Container Size:** < 30MB (Go statically linked binary + embedded static files).
+## 2. Scope Boundaries (v2 Multi-Tenant)
+- **Scope:** Multi-tenant Cloudflare-native LLM router SaaS ("Your own globally-distributed OpenRouter, running on your keys").
+- **Boundaries:** Strict tenant isolation, low latency proxying, and cost-optimal routing with per-tenant budget caps.
+- **Out of Scope (v2):** Route C DO coordinator, Multi-region D1 replicas, Monetization/marketplace, Mobile clients.
 
-## 3. Scope Boundaries
-- **v1 Only:** Single-tenant (Akshit), SQLite, Railway Free Tier ($1/mo credit limit).
-- **Not allowed:** Multi-tenant complexity, external PostgreSQL, payment processing.
+## 3. Verification Rigor
+- **Level:** Standard Production
+- **Gates:** Strict Quality Gate — All changes must pass `make gate` (<10s) before merge.

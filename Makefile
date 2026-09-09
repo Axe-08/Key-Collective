@@ -1,35 +1,25 @@
-.PHONY: all setup build run test clean check
+.PHONY: all setup check typecheck test gate dev clean
 
-BINARY_NAME=key-collective
-
-all: check test build
+all: gate
 
 setup:
-	@echo "Checking for Go installation..."
-	@which go > /dev/null || (echo "Go is not installed. Please install Go 1.23+ from https://go.dev/doc/install" && exit 1)
-	@echo "Checking for Node.js (for Svelte)..."
-	@which npm > /dev/null || (echo "npm is not installed. Please install Node.js." && exit 1)
-	@echo "Setting up UI dependencies..."
-	cd ui && npm install
-
-build: setup
-	@echo "Building UI..."
-	cd ui && npm run build
-	@echo "Building Go binary..."
-	go build -o bin/$(BINARY_NAME) ./cmd/key-collective
-
-run: build
-	@echo "Running Key Collective locally..."
-	./bin/$(BINARY_NAME)
-
-test:
-	go test ./... -v
+	@echo "Installing dependencies..."
+	npm install
 
 check:
-	go fmt ./...
-	go vet ./...
+	@npm run check
+
+typecheck:
+	@npx tsc --noEmit
+
+test:
+	@npx vitest run
+
+gate: typecheck test
+	@echo "🎉 [GATE PASSED] TypeScript typecheck and tests satisfied in <10s."
+
+dev:
+	@npx wrangler dev
 
 clean:
-	go clean
-	rm -rf bin/
-	rm -rf ui/build/
+	@rm -rf node_modules dist .wrangler

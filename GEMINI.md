@@ -1,15 +1,12 @@
-# Key Collective AI Constitution
+# Key Collective AI Constitution (v2)
 
-## 1. Stack & Types
-- **Language:** Go (1.23+) for backend, Svelte 5 (TypeScript) for frontend.
-- **Typing:** Strict typing mandatory. No `interface{}` where a concrete struct or interface applies.
-- **Dependencies:** Standard library preferred for Go (`net/http`, `embed`). Avoid bloated frameworks.
+## 1. Language & Runtime
+- **TypeScript (strict mode, no `any`)** on Cloudflare Workers & Durable Objects.
 
-## 2. Invariants & Forbidden Patterns
-- **No Plaintext Keys at Rest:** All API keys MUST be encrypted via AES-256-GCM before writing to SQLite. Master secret is an environment variable.
-- **No Blocking I/O on Hot Path:** Request logging MUST be asynchronous (pushed to a buffered channel). The main proxy path must never block on a database write.
-- **No Ephemeral State Trust:** In-memory rate limits (minute window) will reset on container restart. The circuit breaker (429 handling) is the ultimate source of truth.
-
-## 3. Toolchain
-- **Build:** `make build` handles both Svelte compilation and Go binary building.
-- **DB:** SQLite with `WAL` mode mandatory.
+## 2. Non-Negotiable Architectural Invariants
+- **No Plaintext Keys:** AES-256-GCM encryption via Web Crypto API with unique 12-byte nonces stored alongside ciphertext in D1.
+- **Per-Tenant DO Isolation:** `env.KEY_POOL.idFromName(tenantId)` ensures strict tenant compute & memory isolation. Zero cross-tenant state.
+- **Fixed-Point Microdollars:** All costs in `int64` microdollars (1 USD = 1,000,000 µ$). Zero floating-point math for financials.
+- **DO Transactional Storage for Hot State:** In-memory circuit breaker and RPM counters must sync to `this.ctx.storage` (survives eviction). D1 is for persistence & rollups.
+- **Non-Blocking Telemetry:** High-frequency telemetry streams to Workers Analytics Engine. Never block the proxy hot path on D1 writes.
+- **Strict Quality Gate:** All changes must pass `make gate` (<10s) before merge.
