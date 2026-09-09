@@ -1,18 +1,40 @@
+```mermaid
 stateDiagram-v2
-    [*] --> Healthy: Key Registered
+    %% API Key States
+    state "API Key States" as APIKeyStates {
+        [*] --> Healthy
+        Healthy --> RateLimited: on 429
+        RateLimited --> HalfOpen: cooldown 60s via DO timer
+        HalfOpen --> Healthy: probe success
+        HalfOpen --> RateLimited: probe fail
+    }
 
-    Healthy --> Healthy: 200 OK (report_success)
-    Healthy --> RateLimited: HTTP 429 / RPM exhausted
-    Healthy --> Exhausted: RPD daily limit reached
-    Healthy --> Invalid: HTTP 401 / 403
-    Healthy --> Disabled: User disables key
+    %% Request States
+    state "Request States" as RequestStates {
+        [*] --> Received
+        Received --> Authenticated
+        Authenticated --> ModelResolved
+        ModelResolved --> KeySelected
+        KeySelected --> Proxied
+        Proxied --> Fallback: on 429/5xx
+        Fallback --> KeySelected: next key
+        Fallback --> Failed: all keys exhausted
+        Proxied --> [*]: success
+    }
 
-    RateLimited --> Healthy: 60s cooldown expires
-    RateLimited --> Exhausted: RPD limit hit during cooldown check
+    %% Container Lifecycle
+    state "Container Lifecycle" as ContainerLifecycle {
+        [*] --> Idle
+        Idle --> Active: on DO dispatch
+        Active --> Sleeping: sleepAfter 10min
+        Sleeping --> Active: DO keepalive ping every 8min
+    }
 
-    Exhausted --> Healthy: Midnight UTC daily reset
-
-    Invalid --> Healthy: User re-validates key
-    Invalid --> Disabled: User acknowledges
-
-    Disabled --> Healthy: User re-enables key
+    %% Tenant Budget States
+    state "Tenant Budget States" as TenantBudgetStates {
+        [*] --> ActiveBudget
+        ActiveBudget --> Warned: at 80%
+        Warned --> Exhausted: at 100%
+        Exhausted --> ActiveBudget: reset on billing cycle
+    }
+```

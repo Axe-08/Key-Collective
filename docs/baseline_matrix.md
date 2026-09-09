@@ -1,10 +1,12 @@
-# Baseline Comparison Matrix
+# Competitive Baseline Matrix
 
-| Metric | Naive (.env hardcoded) | LiteLLM (Self-hosted) | Key Collective (Go) |
-|:-------|:-----------------------|:----------------------|:--------------------|
-| **Setup** | Fast, manual | Medium (Docker, Postgres) | Fast (Single Binary) |
-| **Idle Memory** | 0MB | ~150MB+ | **~15MB** |
-| **Multi-Key Pooling** | ❌ No | ⚠️ Partial (Complex config) | ✅ **Native** |
-| **Circuit Breaking** | ❌ App crashes on 429 | ✅ Yes | ✅ **Yes (60s slide)** |
-| **Cost to Host** | $0 | Requires larger VPS | **$0 (Railway Free)** |
-| **Privacy** | High | High | High (Self-hosted, AES) |
+| Criteria | Key Collective v2 | LiteLLM Proxy | OpenRouter | Portkey.ai | Key Collective v1 |
+| --- | --- | --- | --- | --- | --- |
+| **Cost at 10M req/mo** | <$15 | High (VPS/Cloud) | N/A (per token) | High (SaaS) | Med (Railway) |
+| **Global edge** | Yes (Cloudflare) | No (by default) | Yes | Yes | No (Single region) |
+| **Multi-tenant isolation**| Yes (DO per tenant) | Yes | N/A | Yes | No |
+| **Smart routing** | Yes | Yes | Yes | Yes | Basic |
+| **Open source** | Yes | Yes | No | Yes | Yes |
+| **Cold start latency** | ~0ms (Isolates) | Medium (Docker) | Low | Low | Low (Keepalive) |
+| **Self-hostable** | Yes (Cloudflare) | Yes | No | Yes | Yes |
+| **Bring your own keys** | Yes | Yes | No | Yes | Yes |

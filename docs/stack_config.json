@@ -1,0 +1,24 @@
+[
+  {
+    "stack": "typescript",
+    "config_file": "package.json",
+    "toolchain": {
+      "linter": "eslint",
+      "type_checker": "tsc",
+      "test_runner": "vitest/jest",
+      "fuzzer": "fast-check",
+      "mutator": "stryker"
+    }
+  },
+  {
+    "stack": "go",
+    "config_file": "go.mod",
+    "toolchain": {
+      "linter": "golangci-lint",
+      "type_checker": "go test",
+      "test_runner": "go test",
+      "fuzzer": "go-fuzz",
+      "mutator": "go-mutesting"
+    }
+  }
+]

@@ -1,20 +1,117 @@
-tests:
-  - name: "Successful Routing"
-    condition: "Valid request, multiple healthy keys available."
-    expected: "Selects lowest priority index, increments RPM, returns 200."
-  
-  - name: "Circuit Breaker Trip on 429"
-    condition: "Upstream returns 429 Rate Limit."
-    expected: "Key marked RateLimited, 60s cooldown started, transparently retries next best key."
+cases:
+  - id: "tc-01"
+    name: "Happy path single Gemini key"
+    description: "Simple prompt routed to a single Gemini key with successful 200 response"
+    given: "Valid Bearer token, simple text prompt for gemini-1.5-pro, active tenant with budget"
+    when: "POST /v1/chat/completions"
+    then: "Return HTTP 200, tokens logged accurately, cost_microdollars calculated and stored in ledger"
+    golden_assertions:
+      - "response.status == 200"
+      - "cost_ledger_event.cost_microdollars > 0"
+      - "request_log.completion_tokens > 0"
 
-  - name: "Total Provider Exhaustion"
-    condition: "All Gemini keys are RateLimited or Exhausted."
-    expected: "Cross-provider failover to Groq if model compatibility allows, else 503."
+  - id: "tc-02"
+    name: "Happy path streaming request"
+    description: "Streaming request to model correctly parses terminal usage block"
+    given: "Valid Bearer token, stream=true, Gemini model"
+    when: "POST /v1/chat/completions"
+    then: "SSE chunks forwarded to client, final chunk with usage block parsed, cost logged"
+    golden_assertions:
+      - "response.headers['content-type'] == 'text/event-stream'"
+      - "cost_ledger_event.prompt_tokens == parsed_terminal_chunk.prompt_tokens"
 
-  - name: "Daily Quota Ceiling"
-    condition: "All keys hit their RPD limit."
-    expected: "System safely rejects request with 429 (Proxy level) without invoking upstream."
+  - id: "tc-03"
+    name: "Circuit breaker on 429s"
+    description: "Key hits 429 three times, triggering circuit breaker"
+    given: "Key with 0 remaining RPM/RPD or hitting provider limits"
+    when: "3 consecutive requests fail with HTTP 429"
+    then: "Key status changes to RateLimited, fallback routes to next available key"
+    golden_assertions:
+      - "key.status == 'RateLimited'"
+      - "proxy_request.resolved_key.id != original_key.id"
 
-  - name: "Auth Rejection"
-    condition: "Invalid or missing Bearer token."
-    expected: "401 Unauthorized immediately, no key pool lock acquired."
+  - id: "tc-04"
+    name: "Circuit breaker recovery"
+    description: "After cooldown, key probes successfully and restores to Healthy"
+    given: "Key in RateLimited state, 60s cooldown timer expires"
+    when: "Background DO timer triggers probe request, probe succeeds with HTTP 200"
+    then: "Key status flips to Healthy, key rejoins pool"
+    golden_assertions:
+      - "key.status == 'Healthy'"
+
+  - id: "tc-05"
+    name: "Context window gate"
+    description: "Reject prompt if estimated tokens exceed model context window"
+    given: "Prompt where estimated tokens (100k) > model.context_window (8k)"
+    when: "POST /v1/chat/completions"
+    then: "Return HTTP 400 before attempting network call to provider"
+    golden_assertions:
+      - "response.status == 400"
+      - "cost_ledger_event == null"
+
+  - id: "tc-06"
+    name: "Model alias resolution"
+    description: "Logical model name resolves to canonical provider model"
+    given: "Request requests model 'smart-fast'"
+    when: "ModelDef resolves 'smart-fast' to 'gemini-2.0-flash'"
+    then: "Key pool selects a key for 'gemini-2.0-flash'"
+    golden_assertions:
+      - "proxy_request.resolved_model == 'gemini-2.0-flash'"
+      - "proxy_request.resolved_key.provider == 'google'"
+
+  - id: "tc-07"
+    name: "Capability filter - tools"
+    description: "Request with tools parameter filters out unsupported models"
+    given: "Request includes 'tools' array in body"
+    when: "Router selects model"
+    then: "Text-only models (supports_tools=false) are excluded from candidates"
+    golden_assertions:
+      - "router_decision.capability_filter_passed == true"
+      - "model_def.supports_tools == true"
+
+  - id: "tc-08"
+    name: "Budget exhaustion"
+    description: "Tenant hits budget limit, receives 429"
+    given: "Tenant spent_microdollars >= budget_microdollars"
+    when: "POST /v1/chat/completions"
+    then: "Return HTTP 429 with Retry-After header, request blocked"
+    golden_assertions:
+      - "response.status == 429"
+      - "response.headers['Retry-After'] != null"
+
+  - id: "tc-09"
+    name: "Cost ledger exact calculation"
+    description: "Verify cost is calculated correctly using integer math in microdollars"
+    given: "prompt_tokens=1000, completion_tokens=500, input_cost=150000 micro, output_cost=600000 micro"
+    when: "Request completes and logs cost"
+    then: "cost_microdollars = (1000 * 150000 / 1_000_000) + (500 * 600000 / 1_000_000) = 150 + 300 = 450"
+    golden_assertions:
+      - "cost_ledger_event.cost_microdollars == 450"
+
+  - id: "tc-10"
+    name: "Canary ping detects expired key"
+    description: "Synthetic background ping detects 401 Unauthorized"
+    given: "Key was revoked at provider, status was Healthy"
+    when: "Canary ping fires every 60s, returns HTTP 401"
+    then: "Key status changes to Disabled before real traffic hits it"
+    golden_assertions:
+      - "key.status == 'Disabled'"
+
+  - id: "tc-11"
+    name: "Sunset detection via headers"
+    description: "Provider Sunset header triggers deprecation workflow"
+    given: "Response from provider contains 'Sunset: <date>' header"
+    when: "Proxy parses header"
+    then: "ModelDef.sunset_at is updated in D1, telemetry alert triggered"
+    golden_assertions:
+      - "model_def.sunset_at != null"
+
+  - id: "tc-12"
+    name: "Auth token validation before container"
+    description: "Invalid Bearer token rejected at the Edge by Worker"
+    given: "Missing or invalid Bearer token in Authorization header"
+    when: "Request hits Cloudflare Worker"
+    then: "Return HTTP 401, Go container is not invoked"
+    golden_assertions:
+      - "response.status == 401"
+      - "container_invocation_count == 0"

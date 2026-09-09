@@ -1,0 +1,18 @@
+graph TD
+    subgraph Key Collective v2 Pod Execution DAG
+        P1[Pod 1: contracts-and-types]
+        P2[Pod 2: crypto-and-storage]
+        P3[Pod 3: durable-object-pool]
+        P4[Pod 4: router-and-proxy]
+        P5[Pod 5: edge-worker-auth]
+
+        P1 --> P2
+        P1 --> P3
+        P1 --> P4
+        P1 --> P5
+
+        P2 --> P3
+        P3 --> P4
+        P2 --> P5
+        P4 --> P5
+    end

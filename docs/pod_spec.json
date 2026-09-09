@@ -1,0 +1,67 @@
+{
+  "pods": [
+    {
+      "id": "contracts-and-types",
+      "branch": "hive/contracts-and-types",
+      "description": "Domain types, errors, constants",
+      "scope": [
+        "src/contracts/**",
+        "src/types/**",
+        "src/constants/**",
+        "src/errors/**"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "crypto-and-storage",
+      "branch": "hive/crypto-and-storage",
+      "description": "AES-256-GCM Web Crypto helper, D1 repository queries, token hashing",
+      "scope": [
+        "src/crypto/**",
+        "src/storage/**"
+      ],
+      "dependencies": [
+        "contracts-and-types"
+      ]
+    },
+    {
+      "id": "durable-object-pool",
+      "branch": "hive/durable-object-pool",
+      "description": "KeyPoolDO, circuit breaker state machine, RPM counters, DO transactional storage",
+      "scope": [
+        "src/durable_objects/**"
+      ],
+      "dependencies": [
+        "contracts-and-types",
+        "crypto-and-storage"
+      ]
+    },
+    {
+      "id": "router-and-proxy",
+      "branch": "hive/router-and-proxy",
+      "description": "OpenRouter model registry, capability filter, cascade routing, upstream SSE stream relay",
+      "scope": [
+        "src/router/**",
+        "src/proxy/**"
+      ],
+      "dependencies": [
+        "contracts-and-types",
+        "durable-object-pool"
+      ]
+    },
+    {
+      "id": "edge-worker-auth",
+      "branch": "hive/edge-worker-auth",
+      "description": "Worker fetch handler, Bearer token auth, rate limiting, analytics engine telemetry",
+      "scope": [
+        "src/worker/**"
+      ],
+      "dependencies": [
+        "contracts-and-types",
+        "crypto-and-storage",
+        "durable-object-pool",
+        "router-and-proxy"
+      ]
+    }
+  ]
+}
