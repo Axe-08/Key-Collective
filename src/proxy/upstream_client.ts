@@ -615,7 +615,9 @@ export class UpstreamClient {
   constructor(options: UpstreamClientOptions = {}) {
     this.options = options;
     this.keyPool = options.keyPool;
-    this.fetchFn = options.fetch ?? globalThis.fetch;
+    this.fetchFn = options.fetch
+      ? (options.fetch.bind(globalThis) as typeof fetch)
+      : (...args: Parameters<typeof fetch>) => globalThis.fetch(...args);
     this.timeoutMs = options.defaultTimeoutMs ?? DEFAULT_UPSTREAM_TIMEOUT_MS;
     const mergedBaseUrls: Record<string, string> = {
       ...DEFAULT_PROVIDER_BASE_URLS,
@@ -703,6 +705,9 @@ export class UpstreamClient {
       } else {
         apiKey = poolKey;
       }
+    } else if (apiKey && this.options.keyResolver && (apiKey.startsWith("key_") || (!apiKey.startsWith("AIza") && !apiKey.startsWith("gsk_") && !apiKey.startsWith("sk-")))) {
+      keyId = keyId ?? apiKey;
+      apiKey = await this.options.keyResolver(apiKey, request.provider);
     }
 
     if (!apiKey || apiKey.trim().length === 0) {

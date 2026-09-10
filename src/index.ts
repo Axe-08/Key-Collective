@@ -19,13 +19,9 @@ export interface Env {
   [key: string]: unknown;
 }
 
-export { HealthResponse, WorkerEnv };
+export type { HealthResponse, WorkerEnv, WorkerOptions };
 export { KeyPoolDO } from "./durable_objects/key_pool_do";
 export { createWorker, MainWorker };
-export type { WorkerOptions };
-
-// Re-export all worker module components
-export * from "./worker/index";
 
 // Cloudflare Worker Default Fetch Handler
 export default worker;

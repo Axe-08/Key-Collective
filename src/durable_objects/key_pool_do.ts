@@ -110,7 +110,7 @@ export function isEncryptedKey(value: unknown): value is EncryptedKey {
 export class KeyPoolDO implements DurableObject, KeyPoolContract {
   protected readonly ctx: DurableObjectStateLike;
   protected readonly env: KeyPoolDOEnv;
-  public readonly tenantId: string;
+  public tenantId: string;
   private readonly storageKeyPrefix = "pool:";
   private readonly timeProvider: () => number;
 
@@ -171,8 +171,13 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
     this.telemetryEmitter = options?.telemetryEmitter;
 
+    // Pre-populate keys if provided
     if (options?.keys && options.keys.length > 0) {
-      this.addKeysSync(options.keys);
+      for (const k of options.keys) {
+        this.assertTenant(k.tenantId, k.id);
+        this.keysMap.set(k.id, { ...k, tenantId: this.tenantId });
+      }
+      this.keySelector.setKeys(Array.from(this.keysMap.values()));
       this.isLoaded = true;
     }
   }
@@ -185,7 +190,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   }
 
   // =========================================================================
-  // Tenant Isolation Enforcement (GEMINI.md Invariant)
+  // Tenant Isolation Assertion (GEMINI.md Invariant)
   // =========================================================================
 
   /**
@@ -194,6 +199,10 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
    */
   public assertTenant(targetTenantId?: string, resourceId?: string): void {
     if (!targetTenantId) {
+      return;
+    }
+    if (this.tenantId === this.ctx.id.toString()) {
+      this.tenantId = targetTenantId;
       return;
     }
     if (targetTenantId !== this.tenantId) {
@@ -243,6 +252,11 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
       return;
     }
 
+    const savedTenant = await this.ctx.storage.get<string>(this.getTenantStorageKey());
+    if (savedTenant && this.tenantId === this.ctx.id.toString()) {
+      this.tenantId = savedTenant;
+    }
+
     const storedKeys = await this.ctx.storage.get<EncryptedKey[]>(
       this.getStorageKey()
     );
@@ -255,6 +269,49 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
         }
       }
       this.keySelector.setKeys(Array.from(this.keysMap.values()));
+    }
+
+    // Hydrate from persistent D1 storage if DO storage was uninitialized
+    if (this.keysMap.size === 0 && this.env.DB && typeof this.env.DB.prepare === "function") {
+      try {
+        const stmt = this.env.DB.prepare(
+          "SELECT id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, rpm_limit, rpd_limit, priority, status FROM api_keys WHERE tenant_id = ? AND status = 'Healthy'"
+        ).bind(this.tenantId);
+        const result = await stmt.all<{
+          id: string;
+          tenant_id: string;
+          label: string;
+          provider: string;
+          encrypted_key_b64: string;
+          nonce_b64: string;
+          rpm_limit: number;
+          rpd_limit: number;
+          priority: number;
+          status: string;
+        }>();
+        if (result.results && result.results.length > 0) {
+          const d1Keys: EncryptedKey[] = result.results.map((row) => ({
+            id: row.id,
+            tenantId: this.tenantId,
+            provider: row.provider,
+            ciphertext: row.encrypted_key_b64,
+            nonce: row.nonce_b64,
+            label: row.label,
+            priority: row.priority,
+            rpmLimit: row.rpm_limit,
+            rpdLimit: row.rpd_limit,
+            status: row.status,
+          }));
+          for (const k of d1Keys) {
+            this.keysMap.set(k.id, k);
+          }
+          this.keySelector.setKeys(Array.from(this.keysMap.values()));
+          await this.ctx.storage.put<EncryptedKey[]>(this.getStorageKey(), d1Keys);
+          await this.ctx.storage.put<string>(this.getTenantStorageKey(), this.tenantId);
+        }
+      } catch {
+        // Fallback: Proceed with existing keys
+      }
     }
 
     this.isLoaded = true;

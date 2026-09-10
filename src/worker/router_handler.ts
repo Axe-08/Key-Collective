@@ -59,6 +59,7 @@ import {
   UpstreamClient,
   UpstreamResponse,
 } from "../proxy/upstream_client";
+import { decryptKey } from "../durable_objects/crypto";
 import { CapabilityFilter } from "../router/capability_filter";
 import {
   CascadeRouter,
@@ -67,6 +68,7 @@ import {
   CascadeRouterOptions,
 } from "../router/cascade_router";
 import {
+  ALL_MODEL_DEFINITIONS,
   ContextWindowExceededError,
   IModelRegistry,
   ModelRegistry,
@@ -165,7 +167,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
 
     // Direct DO RPC method invocation if supported
     if (typeof this.stub.getKey === "function") {
-      return this.stub.getKey(provider);
+      try {
+        return await this.stub.getKey(provider);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("does not support RPC")) {
+          throw err;
+        }
+      }
     }
 
     // HTTP fetch RPC fallback
@@ -221,7 +230,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    */
   public async recordUsage(keyId: string, costMicrodollars: bigint): Promise<void> {
     if (typeof this.stub.recordUsage === "function") {
-      return this.stub.recordUsage(keyId, costMicrodollars);
+      try {
+        return await this.stub.recordUsage(keyId, costMicrodollars);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("does not support RPC")) {
+          throw err;
+        }
+      }
     }
 
     await this.stub.fetch("http://key-pool/keys/usage", {
@@ -243,7 +259,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    */
   public async recordResult(keyId: string, success: boolean): Promise<void> {
     if (typeof this.stub.recordResult === "function") {
-      return this.stub.recordResult(keyId, success);
+      try {
+        return await this.stub.recordResult(keyId, success);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("does not support RPC")) {
+          throw err;
+        }
+      }
     }
 
     await this.stub.fetch("http://key-pool/keys/result", {
@@ -265,7 +288,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    */
   public async recordStatusCode(keyId: string, statusCode: number): Promise<void> {
     if (typeof this.stub.recordStatusCode === "function") {
-      return this.stub.recordStatusCode(keyId, statusCode);
+      try {
+        return await this.stub.recordStatusCode(keyId, statusCode);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("does not support RPC")) {
+          throw err;
+        }
+      }
     }
 
     await this.stub.fetch("http://key-pool/keys/status-code", {
@@ -446,7 +476,8 @@ export class RouterHandler {
   constructor(options?: RouterHandlerOptions) {
     this.options = options ?? {};
     this.authMiddleware = this.options.authMiddleware ?? new AuthMiddleware();
-    this.modelRegistry = this.options.modelRegistry ?? new ModelRegistry();
+    this.modelRegistry =
+      this.options.modelRegistry ?? new ModelRegistry(ALL_MODEL_DEFINITIONS);
     this.capabilityFilter =
       this.options.capabilityFilter ?? new CapabilityFilter(this.modelRegistry);
     this.upstreamClient = this.options.upstreamClient ?? new UpstreamClient();
@@ -507,11 +538,51 @@ export class RouterHandler {
       return this.options.router;
     }
 
+    const masterKey =
+      this.options.masterKey ??
+      (env.KC_MASTER_KEY ? String(env.KC_MASTER_KEY) : undefined);
+
+    const client =
+      this.options.upstreamClient ??
+      new UpstreamClient({
+        keyResolver: async (keyOrId: string, provider: string) => {
+          if (
+            keyOrId.startsWith("AIza") ||
+            keyOrId.startsWith("gsk_") ||
+            keyOrId.startsWith("sk-")
+          ) {
+            return keyOrId;
+          }
+
+          if (env.DB && typeof env.DB.prepare === "function" && masterKey) {
+            try {
+              const row = await env.DB.prepare(
+                "SELECT encrypted_key_b64, nonce_b64 FROM api_keys WHERE id = ?"
+              )
+                .bind(keyOrId)
+                .first<{ encrypted_key_b64: string; nonce_b64: string }>();
+
+              if (row && row.encrypted_key_b64 && row.nonce_b64) {
+                return await decryptKey(
+                  row.encrypted_key_b64,
+                  row.nonce_b64,
+                  masterKey
+                );
+              }
+            } catch {
+              // Fallback to keyOrId
+            }
+          }
+
+          return keyOrId;
+        },
+      });
+
     return new CascadeRouter({
       keyPool,
       registry: this.modelRegistry,
       capabilityFilter: this.capabilityFilter,
-      upstreamClient: this.upstreamClient,
+      upstreamClient: client,
     });
   }
 
