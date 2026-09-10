@@ -7,3 +7,5 @@ export * from "./repositories/apiKeys";
 export * from "./repositories/authTokens";
 export * from "./repositories/modelRegistry";
 export * from "./repositories/costLedger";
+export * from "./d1";
+export * from "./do";
