@@ -1,0 +1,77 @@
+name: CI & Dev Staging Deployment
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: dev-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: ⚡ Fast Quality Gate (<10s)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (v22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Root & UI Dependencies
+        run: |
+          npm ci
+          cd ui && npm ci
+
+      - name: Run Strict Quality Gate (TypeScript + 33 Test Suites)
+        run: make gate
+
+      - name: Build UI Static Assets
+        run: cd ui && npm run build
+
+  deploy-dev:
+    name: 🚀 Deploy Dev Environment
+    needs: quality-gate
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          npm ci
+          cd ui && npm ci && npm run build
+
+      - name: Apply D1 Migrations (Dev)
+        run: npx wrangler d1 migrations apply key-collective-d1-dev --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy to Cloudflare Workers (Dev)
+        run: npx wrangler deploy --env dev
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Dev Edge Smoke Test
+        run: |
+          sleep 3
+          curl -f -s https://dev.key-col.axe08.tech/health | grep '"status":"healthy"'

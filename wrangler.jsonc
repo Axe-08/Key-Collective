@@ -3,19 +3,33 @@
   "name": "key-collective",
   "main": "src/index.ts",
   "compatibility_date": "2024-09-09",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "durable_objects": {
     "bindings": [
       {
         "name": "KEY_POOL",
         "class_name": "KeyPoolDO"
+      },
+      {
+        "name": "DEMO_POOL",
+        "class_name": "DemoDO"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["KeyPoolDO"]
+      "new_sqlite_classes": [
+        "KeyPoolDO"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "DemoDO"
+      ]
     }
   ],
   "d1_databases": [
@@ -42,5 +56,73 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
+  },
+  "env": {
+    "dev": {
+      "routes": [
+        {
+          "pattern": "dev.key-col.axe08.tech",
+          "custom_domain": true
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "key-collective-d1-dev",
+          "database_id": "key-collective-d1-dev"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "KEY_POOL",
+            "class_name": "KeyPoolDO"
+          },
+          {
+            "name": "DEMO_POOL",
+            "class_name": "DemoDO"
+          }
+        ]
+      },
+      "analytics_engine_datasets": [
+        {
+          "binding": "TELEMETRY",
+          "dataset": "key_collective_telemetry_dev"
+        }
+      ]
+    },
+    "production": {
+      "routes": [
+        {
+          "pattern": "key-col.axe08.tech",
+          "custom_domain": true
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "key-collective-d1",
+          "database_id": "80e4f4f4-ca62-4273-9880-b0dc8a8b9ee0"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "KEY_POOL",
+            "class_name": "KeyPoolDO"
+          },
+          {
+            "name": "DEMO_POOL",
+            "class_name": "DemoDO"
+          }
+        ]
+      },
+      "analytics_engine_datasets": [
+        {
+          "binding": "TELEMETRY",
+          "dataset": "key_collective_telemetry"
+        }
+      ]
+    }
   }
 }
