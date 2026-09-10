@@ -9,6 +9,7 @@
  * - 3.3 KeySelector (key_selector.ts)
  * - 3.4 KeyPoolDO (key_pool_do.ts)
  * - 3.5 KeyPool (key_pool.ts)
+ * - 3.6 Crypto Helpers (crypto.ts)
  *
  * Invariants (GEMINI.md):
  * - Strict TypeScript (no `any`).
@@ -23,6 +24,14 @@ export * from "./rate_limiter";
 export * from "./key_selector";
 export * from "./key_pool_do";
 export { KeyPool } from "./key_pool";
+export {
+  decryptKey,
+  decryptApiKey,
+  decryptKeyRaw,
+  encryptKey,
+  validateNonce,
+  resolveMasterKey,
+} from "./crypto";
 
 // Explicit re-exports to resolve type export ambiguities across modules
 export type { DurableObjectStorageLike } from "./circuit_breaker";
