@@ -222,7 +222,7 @@ export class CascadeRouter implements RouterContract {
     this.capabilityFilter =
       options.capabilityFilter ?? new CapabilityFilter(this.registry);
     this.keyPool = options.keyPool;
-    this.maxFallbacks = options.maxFallbacks ?? 3;
+    this.maxFallbacks = options.maxFallbacks ?? 5;
     this.upstreamClient =
       options.upstreamClient ??
       new UpstreamClient({

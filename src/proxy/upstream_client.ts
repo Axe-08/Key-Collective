@@ -121,6 +121,23 @@ export interface UpstreamClientOptions {
   defaultTimeoutMs?: number;
 
   /**
+   * Maximum generous ceiling for adaptive timeouts (e.g. 300,000ms / 5 minutes).
+   * Defaults to 300_000ms.
+   */
+  maxTimeoutCeilingMs?: number;
+
+  /**
+   * Minimum floor for adaptive timeouts (e.g. 5,000ms).
+   * Defaults to 5_000ms.
+   */
+  minTimeoutFloorMs?: number;
+
+  /**
+   * Whether to enable adaptive EWMA timeout calculation. Defaults to true.
+   */
+  enableAdaptiveTimeout?: boolean;
+
+  /**
    * Base URL overrides per provider identifier.
    */
   baseUrls?: Partial<Record<string, string>>;
@@ -611,6 +628,13 @@ export class UpstreamClient {
   private readonly fetchFn: typeof fetch;
   private readonly timeoutMs: number;
   private readonly baseUrls: Record<string, string>;
+  private readonly modelLatencyStats = new Map<
+    string,
+    { mean: number; variance: number; count: number }
+  >();
+  private readonly maxTimeoutCeilingMs: number;
+  private readonly minTimeoutFloorMs: number;
+  private readonly enableAdaptiveTimeout: boolean;
 
   constructor(options: UpstreamClientOptions = {}) {
     this.options = options;
@@ -619,6 +643,10 @@ export class UpstreamClient {
       ? (options.fetch.bind(globalThis) as typeof fetch)
       : (...args: Parameters<typeof fetch>) => globalThis.fetch(...args);
     this.timeoutMs = options.defaultTimeoutMs ?? DEFAULT_UPSTREAM_TIMEOUT_MS;
+    this.maxTimeoutCeilingMs = options.maxTimeoutCeilingMs ?? 300_000; // 5 minutes generous ceiling
+    this.minTimeoutFloorMs = options.minTimeoutFloorMs ?? 5_000; // 5 seconds floor
+    this.enableAdaptiveTimeout = options.enableAdaptiveTimeout ?? true;
+
     const mergedBaseUrls: Record<string, string> = {
       ...DEFAULT_PROVIDER_BASE_URLS,
     };
@@ -630,6 +658,59 @@ export class UpstreamClient {
       }
     }
     this.baseUrls = mergedBaseUrls;
+  }
+
+  /**
+   * Resolves the effective adaptive timeout for a given model.
+   * Starts with a generous 5-minute ceiling, adapting dynamically down to mean + 3*sigma.
+   */
+  public getAdaptiveTimeout(modelId?: string, requestedTimeoutMs?: number): number {
+    if (requestedTimeoutMs !== undefined) {
+      return requestedTimeoutMs;
+    }
+    if (!this.enableAdaptiveTimeout || !modelId) {
+      return this.timeoutMs;
+    }
+
+    const stats = this.modelLatencyStats.get(modelId.toLowerCase());
+    if (!stats || stats.count < 3) {
+      // Warm-up phase: generous ceiling (5 minutes for reasoning / deep queries)
+      return this.maxTimeoutCeilingMs;
+    }
+
+    const stdDev = Math.sqrt(stats.variance);
+    // P99 boundary = mean + 3 * stdDev
+    const adaptive = Math.round(stats.mean + 3 * stdDev);
+    return Math.min(this.maxTimeoutCeilingMs, Math.max(this.minTimeoutFloorMs, adaptive));
+  }
+
+  /**
+   * Updates the Exponentially Weighted Moving Average (EWMA) latency profile for a model.
+   */
+  public recordModelLatency(modelId: string, latencyMs: number): void {
+    if (!modelId || latencyMs <= 0) return;
+    const key = modelId.toLowerCase();
+    const current = this.modelLatencyStats.get(key);
+    const alpha = 0.2; // Weighting factor for recent requests
+
+    if (!current) {
+      this.modelLatencyStats.set(key, {
+        mean: latencyMs,
+        variance: 0,
+        count: 1,
+      });
+      return;
+    }
+
+    const delta = latencyMs - current.mean;
+    const newMean = current.mean + alpha * delta;
+    const newVariance = (1 - alpha) * (current.variance + alpha * delta * delta);
+
+    this.modelLatencyStats.set(key, {
+      mean: newMean,
+      variance: newVariance,
+      count: current.count + 1,
+    });
   }
 
   /**
@@ -740,7 +821,10 @@ export class UpstreamClient {
     }
 
     // 4. Setup timeout and cancellation
-    const effectiveTimeoutMs = request.timeoutMs ?? this.timeoutMs;
+    const effectiveTimeoutMs = this.getAdaptiveTimeout(
+      request.model,
+      request.timeoutMs
+    );
     const abortController = new AbortController();
     let isTimedOut = false;
 
@@ -812,6 +896,10 @@ export class UpstreamClient {
     }
 
     clearTimeout(timeoutTimer);
+    const durationMs = Date.now() - startTs;
+    if (rawResponse.ok && request.model) {
+      this.recordModelLatency(request.model, durationMs);
+    }
 
     // 6. Handle HTTP error status codes
     if (!rawResponse.ok) {

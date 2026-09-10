@@ -141,32 +141,47 @@ INSERT OR REPLACE INTO api_keys (
 INSERT OR REPLACE INTO model_registry (
   id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
 ) VALUES (
-  'gemini-2.5-flash', 'google', '["gemini-flash", "google-flash", "flash-2.5"]', 1048576, 8192, 0, 0, 1
+  'gemini-2.5-flash', 'google', '["gemini-flash", "google-flash", "flash-2.5"]', 1048576, 65536, 0, 0, 1
 );
 INSERT OR REPLACE INTO model_registry (
   id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
 ) VALUES (
-  'gemini-2.5-pro', 'google', '["gemini-pro", "google-pro", "pro-2.5"]', 2097152, 8192, 0, 0, 1
+  'gemini-3.5-flash', 'google', '["gemini-3.5", "flash-3.5"]', 1048576, 65536, 0, 0, 1
 );
 INSERT OR REPLACE INTO model_registry (
   id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
 ) VALUES (
-  'gemini-3.8-flash', 'google', '["smart-fast-next", "gemini-3.8", "flash-3.8"]', 1048576, 8192, 0, 0, 1
+  'gemini-3.5-flash-lite', 'google', '["flash-lite", "gemini-lite"]', 1048576, 65536, 0, 0, 1
 );
 INSERT OR REPLACE INTO model_registry (
   id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
 ) VALUES (
-  'llama-3.1-8b-instant', 'groq', '["groq-fast", "llama-8b", "llama-instant"]', 131072, 8192, 0, 0, 1
+  'gemini-3.1-pro-preview', 'google', '["gemini-pro", "gemini-3.1-pro", "pro-3.1"]', 1048576, 65536, 0, 0, 1
 );
 INSERT OR REPLACE INTO model_registry (
   id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
 ) VALUES (
-  'qwen/qwen3.6-27b', 'groq', '["groq-code", "qwen-27b", "qwen/qwen3.8-27b"]', 131072, 8192, 0, 0, 1
+  'gemini-3.8-flash', 'google', '["smart-fast-next", "gemini-3.8", "flash-3.8"]', 1048576, 65536, 0, 0, 1
+);
+INSERT OR REPLACE INTO model_registry (
+  id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
+) VALUES (
+  'qwen/qwen3.6-27b', 'groq', '["groq-code", "qwen-27b"]', 131072, 8192, 0, 0, 1
+);
+INSERT OR REPLACE INTO model_registry (
+  id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
+) VALUES (
+  'qwen/qwen3.8-27b', 'groq', '["qwen-3.8", "groq-qwen"]', 131072, 8192, 0, 0, 1
 );
 INSERT OR REPLACE INTO model_registry (
   id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
 ) VALUES (
   'openai/gpt-oss-120b', 'groq', '["groq-oss", "gpt-oss", "gpt-oss-120b"]', 131072, 65536, 0, 0, 1
+);
+INSERT OR REPLACE INTO model_registry (
+  id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active
+) VALUES (
+  'openai/gpt-oss-20b', 'groq', '["gpt-oss-20b", "groq-fast"]', 131072, 65536, 0, 0, 1
 );
 INSERT OR REPLACE INTO model_registry (
   id, provider, logical_aliases, context_window, max_output_tokens, input_cost_per_mtok_micro, output_cost_per_mtok_micro, is_active

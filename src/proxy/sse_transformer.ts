@@ -250,6 +250,12 @@ export function extractUsageFromPayload(
     } else if (typeof meta.cached_content_token_count === "number") {
       result.cachedTokens = meta.cached_content_token_count;
     }
+
+    if (typeof meta.thoughtsTokenCount === "number") {
+      result.reasoningTokens = meta.thoughtsTokenCount;
+    } else if (typeof meta.thoughts_token_count === "number") {
+      result.reasoningTokens = meta.thoughts_token_count;
+    }
   }
 
   // 3. Anthropic format:
