@@ -2,7 +2,7 @@ name: CI & Dev Staging Deployment
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, master, develop]
   push:
     branches: [develop]
 

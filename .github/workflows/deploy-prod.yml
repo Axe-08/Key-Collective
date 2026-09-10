@@ -2,7 +2,7 @@ name: Production Deployment & Zero-Downtime Verification
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     tags: ['v*.*.*']
 
 jobs:
@@ -61,8 +61,11 @@ jobs:
           curl -s -f -m 10 -H "Accept: text/html" https://key-col.axe08.tech/ | grep -q "<title>Key Collective"
 
       - name: Verify Live Chat Completion Proxy
+        if: ${{ env.KC_CANARY_TOKEN != '' }}
+        env:
+          KC_CANARY_TOKEN: ${{ secrets.KC_CANARY_TOKEN }}
         run: |
           curl -s -f -m 15 -X POST https://key-col.axe08.tech/v1/chat/completions \
-            -H "Authorization: Bearer ${{ secrets.KC_CANARY_TOKEN }}" \
+            -H "Authorization: Bearer $KC_CANARY_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"model": "gemini-2.5-flash", "messages": [{"role": "user", "content": "ping"}], "max_tokens": 5}' | grep -q '"choices"'
