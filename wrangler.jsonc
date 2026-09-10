@@ -15,14 +15,20 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_classes": ["KeyPoolDO"]
+      "new_sqlite_classes": ["KeyPoolDO"]
     }
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "key-collective-d1",
-      "database_id": "local-d1-id"
+      "database_id": "80e4f4f4-ca62-4273-9880-b0dc8a8b9ee0"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "key-col.axe08.tech",
+      "custom_domain": true
     }
   ],
   "analytics_engine_datasets": [

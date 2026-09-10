@@ -141,6 +141,7 @@ export interface DurableObjectNamespaceLike {
 export class DurableObjectKeyPoolClient implements KeyPoolContract {
   public readonly tenantId: string;
   private readonly stub: DurableObjectStubLike;
+  private rpcDisabled = false;
 
   constructor(stub: DurableObjectStubLike, tenantId: string) {
     if (!tenantId || tenantId.trim().length === 0) {
@@ -148,6 +149,16 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
     }
     this.stub = stub;
     this.tenantId = tenantId;
+  }
+
+  private isRpcError(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return (
+      msg.includes("does not support RPC") ||
+      msg.includes("does not implement the method") ||
+      msg.includes("RPC receiver") ||
+      msg.includes("internal error")
+    );
   }
 
   /**
@@ -166,12 +177,13 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
     }
 
     // Direct DO RPC method invocation if supported
-    if (typeof this.stub.getKey === "function") {
+    if (!this.rpcDisabled && typeof this.stub.getKey === "function") {
       try {
         return await this.stub.getKey(provider);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes("does not support RPC")) {
+        if (this.isRpcError(err)) {
+          this.rpcDisabled = true;
+        } else {
           throw err;
         }
       }
@@ -229,12 +241,13 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    * Records token usage and microdollar cost against the key in the tenant's DO.
    */
   public async recordUsage(keyId: string, costMicrodollars: bigint): Promise<void> {
-    if (typeof this.stub.recordUsage === "function") {
+    if (!this.rpcDisabled && typeof this.stub.recordUsage === "function") {
       try {
         return await this.stub.recordUsage(keyId, costMicrodollars);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes("does not support RPC")) {
+        if (this.isRpcError(err)) {
+          this.rpcDisabled = true;
+        } else {
           throw err;
         }
       }
@@ -258,12 +271,13 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    * Informs the tenant DO circuit breaker of upstream success or failure.
    */
   public async recordResult(keyId: string, success: boolean): Promise<void> {
-    if (typeof this.stub.recordResult === "function") {
+    if (!this.rpcDisabled && typeof this.stub.recordResult === "function") {
       try {
         return await this.stub.recordResult(keyId, success);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes("does not support RPC")) {
+        if (this.isRpcError(err)) {
+          this.rpcDisabled = true;
+        } else {
           throw err;
         }
       }
@@ -287,12 +301,13 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    * Records upstream HTTP status code against the key in the tenant's DO.
    */
   public async recordStatusCode(keyId: string, statusCode: number): Promise<void> {
-    if (typeof this.stub.recordStatusCode === "function") {
+    if (!this.rpcDisabled && typeof this.stub.recordStatusCode === "function") {
       try {
         return await this.stub.recordStatusCode(keyId, statusCode);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes("does not support RPC")) {
+        if (this.isRpcError(err)) {
+          this.rpcDisabled = true;
+        } else {
           throw err;
         }
       }
@@ -316,8 +331,16 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    * Queries real-time key metrics from the tenant's DO.
    */
   public async getKeyMetrics(keyId: string): Promise<KeyMetrics> {
-    if (typeof this.stub.getKeyMetrics === "function") {
-      return this.stub.getKeyMetrics(keyId);
+    if (!this.rpcDisabled && typeof this.stub.getKeyMetrics === "function") {
+      try {
+        return await this.stub.getKeyMetrics(keyId);
+      } catch (err: unknown) {
+        if (this.isRpcError(err)) {
+          this.rpcDisabled = true;
+        } else {
+          throw err;
+        }
+      }
     }
 
     const res = await this.stub.fetch(`http://key-pool/metrics?keyId=${encodeURIComponent(keyId)}`, {
