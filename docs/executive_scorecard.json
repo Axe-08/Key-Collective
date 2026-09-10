@@ -3,6 +3,7 @@
   "total_duration_ms": 0.0,
   "stage_breakdown_ms": {
     "0": 0.0,
+    "1": 0.0,
     "stage1": 0.0,
     "2c": 0.0,
     "3": 0.0

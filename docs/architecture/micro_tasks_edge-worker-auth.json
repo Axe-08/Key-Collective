@@ -1,0 +1,131 @@
+[
+  {
+    "task_id": "auth-01",
+    "title": "Define Worker Environment Bindings",
+    "description": "Create src/worker/env.ts defining the WorkerEnv interface with D1Database, DurableObjectNamespace, and AnalyticsEngineDataset bindings.",
+    "contracts": [],
+    "acceptance_criteria": [
+      "WorkerEnv interface is exported.",
+      "Includes D1_DB, KEY_POOL, and ANALYTICS bindings with correct types.",
+      "Passes tsc type checking."
+    ],
+    "dependencies": [],
+    "estimated_complexity": "low",
+    "context_bundle": {
+      "exact_signatures": [
+        "export interface WorkerEnv { D1_DB: D1Database; KEY_POOL: DurableObjectNamespace; ANALYTICS: AnalyticsEngineDataset; }"
+      ],
+      "contract_snippets": [],
+      "implementation_notes": [
+        "Use @cloudflare/workers-types for types like D1Database, DurableObjectNamespace, AnalyticsEngineDataset."
+      ],
+      "test_scenarios": [
+        "Verify types are correctly resolved and file compiles without errors."
+      ],
+      "verify_command": "npx tsc --noEmit src/worker/env.ts"
+    }
+  },
+  {
+    "task_id": "auth-02",
+    "title": "Implement Token Verifier",
+    "description": "Implement the AuthContract in src/worker/auth.ts to hash bearer tokens and verify them against the D1 database, returning an AuthContext.",
+    "contracts": [
+      "src/contracts/auth.ts"
+    ],
+    "acceptance_criteria": [
+      "TokenVerifier class implements AuthContract.",
+      "Tokens are hashed using SHA-256 before DB lookup.",
+      "Returns valid AuthContext (tenantId, isAuthenticated).",
+      "Handles missing or invalid tokens gracefully."
+    ],
+    "dependencies": [
+      "auth-01"
+    ],
+    "estimated_complexity": "medium",
+    "context_bundle": {
+      "exact_signatures": [
+        "export class TokenVerifier implements AuthContract { constructor(private env: WorkerEnv) {} public async verifyToken(bearerToken: string): Promise<AuthContext>; }"
+      ],
+      "contract_snippets": [
+        "export interface AuthContract { verifyToken(bearerToken: string): Promise<AuthContext>; }"
+      ],
+      "implementation_notes": [
+        "Use Web Crypto API (crypto.subtle.digest) for SHA-256 hashing of the token.",
+        "Query D1_DB for the hashed token. Do not store or query plaintext tokens."
+      ],
+      "test_scenarios": [
+        "Valid token returns isAuthenticated: true and correct tenantId.",
+        "Invalid token returns isAuthenticated: false."
+      ],
+      "verify_command": "npx vitest run src/worker/auth.test.ts"
+    }
+  },
+  {
+    "task_id": "auth-03",
+    "title": "Implement Telemetry Emitter",
+    "description": "Implement TelemetryContract in src/worker/telemetry.ts to stream events to Workers Analytics Engine.",
+    "contracts": [
+      "src/contracts/telemetry.ts"
+    ],
+    "acceptance_criteria": [
+      "AnalyticsEmitter class implements TelemetryContract.",
+      "Writes data point to env.ANALYTICS.",
+      "Cost is handled as bigint."
+    ],
+    "dependencies": [
+      "auth-01"
+    ],
+    "estimated_complexity": "low",
+    "context_bundle": {
+      "exact_signatures": [
+        "export class AnalyticsEmitter implements TelemetryContract { constructor(private env: WorkerEnv) {} public emit(event: TelemetryEvent): void; }"
+      ],
+      "contract_snippets": [
+        "export interface TelemetryContract { emit(event: TelemetryEvent): void; }"
+      ],
+      "implementation_notes": [
+        "Use env.ANALYTICS.writeDataPoint({ blobs: [event.tenantId, event.eventType, event.traceId], doubles: [event.latencyMs, Number(event.costMicrodollars)] })."
+      ],
+      "test_scenarios": [
+        "Calling emit writes a formatted data point to the Analytics Engine dataset."
+      ],
+      "verify_command": "npx vitest run src/worker/telemetry.test.ts"
+    }
+  },
+  {
+    "task_id": "auth-04",
+    "title": "Create Worker Entrypoint",
+    "description": "Create src/worker/index.ts implementing the Cloudflare Worker fetch handler to authenticate requests and proxy to the KEY_POOL DO.",
+    "contracts": [],
+    "acceptance_criteria": [
+      "Worker exports a default object with a fetch method.",
+      "Extracts Bearer token and authenticates via TokenVerifier.",
+      "Rejects with 401 if unauthenticated.",
+      "Resolves DO stub using env.KEY_POOL.idFromName(tenantId).",
+      "Proxies the request to the DO stub.",
+      "Calls telemetry asynchronously via ctx.waitUntil."
+    ],
+    "dependencies": [
+      "auth-01",
+      "auth-02",
+      "auth-03"
+    ],
+    "estimated_complexity": "high",
+    "context_bundle": {
+      "exact_signatures": [
+        "export default { async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response>; }"
+      ],
+      "contract_snippets": [],
+      "implementation_notes": [
+        "Ensure DO fetch proxying passes through necessary headers.",
+        "Use ctx.waitUntil() for all background telemetry to ensure zero proxy hot path blocking."
+      ],
+      "test_scenarios": [
+        "Missing auth header returns 401.",
+        "Valid auth routes to correct DO and returns DO response.",
+        "Telemetry is scheduled via ctx.waitUntil."
+      ],
+      "verify_command": "npx vitest run src/worker/index.test.ts"
+    }
+  }
+]

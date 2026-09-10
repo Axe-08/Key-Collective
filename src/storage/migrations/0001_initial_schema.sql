@@ -13,8 +13,7 @@
 --    (1 USD = 1,000,000 µ$). Zero floating-point math for financials.
 -- 3. Per-Tenant Isolation:
 --    All tenant-scoped tables feature explicit `tenant_id` columns with indexing for strict tenant compute & storage boundaries.
-
-PRAGMA journal_mode = WAL;
+-- PRAGMA journal_mode = WAL; (Managed natively by Cloudflare D1)
 
 -- ============================================================================
 -- 1. Authentication Tokens (auth_tokens)

@@ -381,6 +381,124 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
 ];
 
 /**
+ * Additional Cardless Free-Tier Model Definitions (Gemini 2.5/3.8, Groq Llama 3.1, Qwen 3.6, GPT-OSS).
+ * Configured with zero microdollar costs and official provider context limits.
+ */
+export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
+  {
+    id: "gemini-2.5-flash",
+    provider: "google",
+    logicalAliases: ["gemini-flash", "google-flash", "flash-2.5"],
+    contextWindow: 1_048_576,
+    maxOutputTokens: 8192,
+    inputCostPerMTokMicro: 0n,
+    outputCostPerMTokMicro: 0n,
+    cacheReadCostPerMTokMicro: 0n,
+    supportsTools: true,
+    supportsVision: true,
+    supportsJsonSchema: true,
+    deprecatedAt: null,
+    sunsetAt: null,
+    isActive: true,
+    lastSyncedAt: "2026-09-10T00:00:00.000Z",
+  },
+  {
+    id: "gemini-2.5-pro",
+    provider: "google",
+    logicalAliases: ["gemini-pro", "google-pro", "pro-2.5"],
+    contextWindow: 2_097_152,
+    maxOutputTokens: 8192,
+    inputCostPerMTokMicro: 0n,
+    outputCostPerMTokMicro: 0n,
+    cacheReadCostPerMTokMicro: 0n,
+    supportsTools: true,
+    supportsVision: true,
+    supportsJsonSchema: true,
+    deprecatedAt: null,
+    sunsetAt: null,
+    isActive: true,
+    lastSyncedAt: "2026-09-10T00:00:00.000Z",
+  },
+  {
+    id: "gemini-3.8-flash",
+    provider: "google",
+    logicalAliases: ["smart-fast-next", "gemini-3.8", "flash-3.8"],
+    contextWindow: 1_048_576,
+    maxOutputTokens: 8192,
+    inputCostPerMTokMicro: 0n,
+    outputCostPerMTokMicro: 0n,
+    cacheReadCostPerMTokMicro: 0n,
+    supportsTools: true,
+    supportsVision: true,
+    supportsJsonSchema: true,
+    deprecatedAt: null,
+    sunsetAt: null,
+    isActive: true,
+    lastSyncedAt: "2026-09-10T00:00:00.000Z",
+  },
+  {
+    id: "llama-3.1-8b-instant",
+    provider: "groq",
+    logicalAliases: ["groq-fast", "llama-8b", "llama-instant"],
+    contextWindow: 131_072,
+    maxOutputTokens: 8192,
+    inputCostPerMTokMicro: 0n,
+    outputCostPerMTokMicro: 0n,
+    cacheReadCostPerMTokMicro: 0n,
+    supportsTools: true,
+    supportsVision: false,
+    supportsJsonSchema: true,
+    deprecatedAt: null,
+    sunsetAt: null,
+    isActive: true,
+    lastSyncedAt: "2026-09-10T00:00:00.000Z",
+  },
+  {
+    id: "qwen/qwen3.6-27b",
+    provider: "groq",
+    logicalAliases: ["groq-code", "qwen-27b", "qwen/qwen3.8-27b"],
+    contextWindow: 131_072,
+    maxOutputTokens: 8192,
+    inputCostPerMTokMicro: 0n,
+    outputCostPerMTokMicro: 0n,
+    cacheReadCostPerMTokMicro: 0n,
+    supportsTools: true,
+    supportsVision: false,
+    supportsJsonSchema: true,
+    deprecatedAt: null,
+    sunsetAt: null,
+    isActive: true,
+    lastSyncedAt: "2026-09-10T00:00:00.000Z",
+  },
+  {
+    id: "openai/gpt-oss-120b",
+    provider: "groq",
+    logicalAliases: ["groq-oss", "gpt-oss", "gpt-oss-120b"],
+    contextWindow: 131_072,
+    maxOutputTokens: 65536,
+    inputCostPerMTokMicro: 0n,
+    outputCostPerMTokMicro: 0n,
+    cacheReadCostPerMTokMicro: 0n,
+    supportsTools: true,
+    supportsVision: false,
+    supportsJsonSchema: true,
+    deprecatedAt: null,
+    sunsetAt: null,
+    isActive: true,
+    lastSyncedAt: "2026-09-10T00:00:00.000Z",
+  },
+];
+
+/**
+ * All known model definitions combining default paid benchmarks and free-tier models.
+ */
+export const ALL_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
+  ...DEFAULT_MODEL_DEFINITIONS,
+  ...FREE_TIER_MODEL_DEFINITIONS,
+];
+
+
+/**
  * Normalizes input cost to bigint microdollars.
  */
 function toBigIntMicro(value: bigint | number | undefined, defaultValue = 0n): bigint {

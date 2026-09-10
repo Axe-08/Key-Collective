@@ -1,0 +1,79 @@
+[
+  {
+    "id": "contracts-auth",
+    "description": "Define the AuthToken TypeScript interface representing bearer tokens.",
+    "files": ["src/contracts/auth.ts"],
+    "dependencies": [],
+    "test_files": ["tests/contracts/auth.test.ts"],
+    "context_bundle": {
+      "purpose": "Strict type definition for AuthToken to map to D1 schema and edge worker logic.",
+      "rules": ["No 'any' types.", "Include budget_microdollars and spent_microdollars."]
+    }
+  },
+  {
+    "id": "contracts-key-pool",
+    "description": "Define APIKey interface and KeyStatus union type.",
+    "files": ["src/contracts/key_pool.ts"],
+    "dependencies": [],
+    "test_files": ["tests/contracts/key_pool.test.ts"],
+    "context_bundle": {
+      "purpose": "Strict typing for APIKeys managed by the tenant DO.",
+      "rules": ["KeyStatus must be a union: 'Healthy' | 'RateLimited' | 'Degraded' | 'Disabled'.", "encrypted_key_b64 and nonce_b64 must be present."]
+    }
+  },
+  {
+    "id": "contracts-router",
+    "description": "Define ModelDef and RouterDecision interfaces, and Provider union.",
+    "files": ["src/contracts/router.ts"],
+    "dependencies": [],
+    "test_files": ["tests/contracts/router.test.ts"],
+    "context_bundle": {
+      "purpose": "Typings for model registry entities and routing output.",
+      "rules": ["Use microdollars for costs.", "ModelDef includes feature flags like supports_tools."]
+    }
+  },
+  {
+    "id": "contracts-telemetry",
+    "description": "Define CostLedgerEvent and DailySpendRollup interfaces.",
+    "files": ["src/contracts/telemetry.ts"],
+    "dependencies": [],
+    "test_files": ["tests/contracts/telemetry.test.ts"],
+    "context_bundle": {
+      "purpose": "Data structures for metrics sent to Workers Analytics Engine and D1 ledger.",
+      "rules": ["latency_ms and status_code must be numeric.", "Strictly map to D1 schema fields."]
+    }
+  },
+  {
+    "id": "contracts-index",
+    "description": "Export all contract definitions for external consumption.",
+    "files": ["src/contracts/index.ts"],
+    "dependencies": ["contracts-auth", "contracts-key-pool", "contracts-router", "contracts-telemetry"],
+    "test_files": [],
+    "context_bundle": {
+      "purpose": "Centralized export point for src/contracts.",
+      "rules": ["Export * from each contract file."]
+    }
+  },
+  {
+    "id": "constants-core",
+    "description": "Define core system constants such as microdollar multipliers.",
+    "files": ["src/constants/index.ts"],
+    "dependencies": [],
+    "test_files": [],
+    "context_bundle": {
+      "purpose": "Avoid magic numbers and define static configuration.",
+      "rules": ["MICRODOLLAR_MULTIPLIER = 1000000"]
+    }
+  },
+  {
+    "id": "errors-core",
+    "description": "Implement custom domain errors (e.g., AuthError, RateLimitError).",
+    "files": ["src/errors/index.ts"],
+    "dependencies": [],
+    "test_files": ["tests/errors/index.test.ts"],
+    "context_bundle": {
+      "purpose": "Provide typed errors with status codes for the edge worker to catch and format.",
+      "rules": ["Extend standard Error.", "Include HTTP status code property where applicable."]
+    }
+  }
+]

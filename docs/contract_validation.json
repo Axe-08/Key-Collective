@@ -5,11 +5,6 @@
     "error": ""
   },
   {
-    "file": "src/contracts/key_pool.ts",
-    "pass": true,
-    "error": ""
-  },
-  {
     "file": "src/contracts/router.ts",
     "pass": true,
     "error": ""
@@ -21,6 +16,11 @@
   },
   {
     "file": "src/contracts/index.ts",
+    "pass": true,
+    "error": ""
+  },
+  {
+    "file": "src/contracts/key_pool.ts",
     "pass": true,
     "error": ""
   }

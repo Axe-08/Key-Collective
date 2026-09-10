@@ -3,6 +3,8 @@ bin/
 *.db-wal
 *.db-shm
 .env
+.dev.vars
+scripts/seed.sql
 
 # Node / TypeScript / Cloudflare
 node_modules
