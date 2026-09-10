@@ -8,6 +8,7 @@
  * - 3.2 RateLimiter (rate_limiter.ts)
  * - 3.3 KeySelector (key_selector.ts)
  * - 3.4 KeyPoolDO (key_pool_do.ts)
+ * - 3.5 KeyPool (key_pool.ts)
  *
  * Invariants (GEMINI.md):
  * - Strict TypeScript (no `any`).
@@ -21,6 +22,7 @@ export * from "./circuit_breaker";
 export * from "./rate_limiter";
 export * from "./key_selector";
 export * from "./key_pool_do";
+export { KeyPool } from "./key_pool";
 
 // Explicit re-exports to resolve type export ambiguities across modules
 export type { DurableObjectStorageLike } from "./circuit_breaker";
