@@ -85,3 +85,34 @@ flowchart TD
     Upstream -->|"SSE Stream / TransformStream"| Client
     Worker -.->|"Non-Blocking Telemetry"| Analytics["Workers Analytics Engine"]
 ```
+
+---
+
+# Stage 3 Update (Key Collective v3)
+
+## 5-Pod Decomposition & Deliverables (v3)
+All 4 pods were successfully merged into `master`, completing the Key Collective v3 implementation!
+
+### Pod 1: `pod-auth-sybil`
+- Implemented GitHub OAuth PKCE.
+- 5-layer Anti-Sybil scoring engine categorizing users into Builder, Probationary, etc based on repo count and GitHub account age.
+- Ephemeral DemoDO with a 15-minute alarm.
+
+### Pod 2: `pod-do-quota`
+- 7-tier authorization hierarchy implementation.
+- Fixed-point microdollar sub-caps.
+- `TenantQuotaDO` with persistent sliding-window state.
+
+### Pod 3: `pod-ui-workbench`
+- Charcoal/silver glassmorphism dashboard in Svelte.
+- Zero-server markdown/PDF doc export capabilities.
+
+### Pod 4: `pod-cicd-infra`
+- D1 multi-project migrations implemented.
+- `wrangler.jsonc` environment split (staging vs production).
+- Dual-environment CI/CD GitHub action pipelines.
+
+## Verification
+- Quality Gate: `make gate` completed in <10s with 1021 passing tests.
+- PR Gatekeeper Audit: Passed with 0 secret leaks and all constraints met.
+- Executive Scorecard generated.
