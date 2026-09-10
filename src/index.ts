@@ -13,6 +13,7 @@ import type { WorkerEnv } from "./worker/auth_middleware";
 
 export interface Env {
   KEY_POOL: DurableObjectNamespace;
+  DEMO_POOL?: DurableObjectNamespace;
   DB: D1Database;
   TELEMETRY?: AnalyticsEngineDataset;
   KC_MASTER_KEY?: string;
@@ -22,6 +23,7 @@ export interface Env {
 
 export type { HealthResponse, WorkerEnv, WorkerOptions };
 export { KeyPoolDO } from "./durable_objects/key_pool_do";
+export { DemoDO } from "./auth/demo_do";
 export { createWorker, MainWorker };
 
 // Cloudflare Worker Default Fetch Handler
