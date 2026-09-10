@@ -1,0 +1,53 @@
+{
+  "project": "Key Collective",
+  "phase": "2a",
+  "scope": [
+    "ui/src/routes/+page.svelte",
+    "ui/src/lib/Workbench.svelte",
+    "ui/src/lib/MarkdownExport.svelte"
+  ],
+  "tasks": [
+    {
+      "id": "mt-ui-wb-1",
+      "title": "Implement MarkdownExport.svelte",
+      "description": "Create a reusable Svelte component that accepts a data object and generates a downloadable Markdown file. Use Blob and URL.createObjectURL.",
+      "target_file": "ui/src/lib/MarkdownExport.svelte",
+      "dependencies": [],
+      "context_bundle": {
+        "verify_command": "npm run check && npx vitest run --passWithNoTests",
+        "exact_signatures": [
+          "export let data: any;",
+          "export let filename: string;"
+        ]
+      }
+    },
+    {
+      "id": "mt-ui-wb-2",
+      "title": "Implement Workbench.svelte",
+      "description": "Develop the main Workbench interface. Import types from src/contracts/v3_types.ts. Display User Tier, Projects, and Keys. Integrate MarkdownExport for data export.",
+      "target_file": "ui/src/lib/Workbench.svelte",
+      "dependencies": ["mt-ui-wb-1"],
+      "context_bundle": {
+        "verify_command": "npm run check && npx vitest run --passWithNoTests",
+        "exact_signatures": [
+          "export let userAccount: UserAccount;",
+          "export let projects: Project[];",
+          "export let keys: ProjectKey[];"
+        ]
+      }
+    },
+    {
+      "id": "mt-ui-wb-3",
+      "title": "Implement +page.svelte",
+      "description": "Create the root route for the Workbench. Import and render Workbench.svelte with mock or fetched initial user and project data.",
+      "target_file": "ui/src/routes/+page.svelte",
+      "dependencies": ["mt-ui-wb-2"],
+      "context_bundle": {
+        "verify_command": "npm run check",
+        "exact_signatures": [
+          "export let data: PageData;"
+        ]
+      }
+    }
+  ]
+}
