@@ -1,0 +1,82 @@
+[
+  {
+    "task_id": "auth-sybil-01",
+    "title": "Fix OAuth PKCE and Token Exchange Tests",
+    "description": "Fix the 2 failing tests in tests/auth/oauth.test.ts by implementing correct RFC 7636 challenge string calculation and adding the missing access_token test for exchangeCodeForToken.",
+    "contracts": [],
+    "acceptance_criteria": [
+      "RFC 7636 PKCE challenge calculation test passes.",
+      "exchangeCodeForToken correctly handles and tests access_token.",
+      "All tests in tests/auth/oauth.test.ts pass."
+    ],
+    "dependencies": [],
+    "estimated_complexity": "medium",
+    "context_bundle": {
+      "exact_signatures": [],
+      "contract_snippets": [],
+      "implementation_notes": [
+        "Use crypto.subtle.digest('SHA-256') and base64url encoding for PKCE."
+      ],
+      "test_scenarios": [
+        "Calculates correct challenge string for a given code verifier.",
+        "Correctly exchanges code for access_token."
+      ],
+      "verify_command": "npx vitest run tests/auth/oauth.test.ts"
+    }
+  },
+  {
+    "task_id": "auth-sybil-02",
+    "title": "Author Anti-Sybil Tests",
+    "description": "Author tests/auth/sybil.test.ts to verify the 5-layer anti-sybil checks.",
+    "contracts": [],
+    "acceptance_criteria": [
+      "Tests cover all 5 layers of anti-sybil protection.",
+      "Tests successfully mock/simulate bot and legitimate user behaviors.",
+      "All tests pass."
+    ],
+    "dependencies": [],
+    "estimated_complexity": "high",
+    "context_bundle": {
+      "exact_signatures": [],
+      "contract_snippets": [],
+      "implementation_notes": [
+        "Include checks for account age, Turnstile siteverify, rate limiting, IP reputation, etc."
+      ],
+      "test_scenarios": [
+        "Legitimate user passes all 5 layers.",
+        "Bot fails at specific layers."
+      ],
+      "verify_command": "npx vitest run tests/auth/sybil.test.ts"
+    }
+  },
+  {
+    "task_id": "auth-sybil-03",
+    "title": "Implement Demo Durable Object",
+    "description": "Implement src/auth/demo_do.ts and tests/auth/demo_do.test.ts based on the DemoDO design in docs/system_design_v3.md.",
+    "contracts": [],
+    "acceptance_criteria": [
+      "DemoDO implements 15-minute token rotation using DO Alarms.",
+      "Generates tokens with 'kc_demo_' prefix.",
+      "Handles IP sliding windows for rate-limiting.",
+      "Tests in demo_do.test.ts pass and cover token rotation and expiration."
+    ],
+    "dependencies": [],
+    "estimated_complexity": "high",
+    "context_bundle": {
+      "exact_signatures": [
+        "export class DemoDO implements DurableObject { constructor(private readonly ctx: DurableObjectStateLike) {} public async alarm(): Promise<void>; public async getActiveDemoToken(): Promise<{ token: string; expiresAt: number }>; }"
+      ],
+      "contract_snippets": [],
+      "implementation_notes": [
+        "Use this.ctx.storage.setAlarm for scheduling the 15-minute rotation.",
+        "Tokens must have format kc_demo_{timestamp}_{randomSuffix}."
+      ],
+      "test_scenarios": [
+        "Token is generated upon initialization.",
+        "Token rotates after alarm is triggered.",
+        "Expired IP rate limit data is pruned."
+      ],
+      "verify_command": "npx vitest run tests/auth/demo_do.test.ts"
+    }
+  }
+]
