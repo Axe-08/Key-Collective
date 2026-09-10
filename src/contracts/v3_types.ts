@@ -168,3 +168,95 @@ export interface DemoSession {
   readonly requestsToday: number;
   readonly requestsThisMinute: number;
 }
+
+/**
+ * OAuth Provider Configuration for PKCE & Provider Integration.
+ */
+export interface OAuthProviderConfig {
+  readonly provider?: "github" | "google" | string;
+  readonly clientId: string;
+  readonly clientSecret?: string;
+  readonly tokenEndpoint: string;
+  readonly authorizeEndpoint?: string;
+  readonly userInfoEndpoint?: string;
+  readonly redirectUri?: string;
+  readonly codeVerifier?: string;
+  readonly scopes?: readonly string[];
+}
+
+/**
+ * Normalized OAuth User Profile returned by identity providers.
+ */
+export interface OAuthUserProfile {
+  readonly id: string;
+  readonly email: string;
+  readonly username: string;
+  readonly name?: string;
+  readonly avatarUrl?: string;
+}
+
+/**
+ * Raw OAuth Token Response from identity providers.
+ */
+export interface OAuthTokenResponse {
+  readonly access_token: string;
+  readonly token_type?: string;
+  readonly scope?: string;
+  readonly expires_in?: number;
+  readonly refresh_token?: string;
+  readonly id_token?: string;
+  readonly error?: string;
+  readonly error_description?: string;
+}
+
+/**
+ * JWT Payload for authenticated sessions.
+ */
+export interface JWTPayload {
+  readonly sub: string;        // Subject (user/tenant identifier)
+  readonly tenantId: string;
+  readonly email?: string;
+  readonly username?: string;
+  readonly tier?: UserTier;
+  readonly iat?: number;        // Issued at (seconds)
+  readonly exp?: number;        // Expiration (seconds)
+  readonly iss?: string;        // Issuer
+  readonly customClaims?: Record<string, unknown>;
+}
+
+/**
+ * Sybil Score risk evaluation structure.
+ */
+export interface SybilScore {
+  readonly score: number; // 0 (safest) to 100 (highest risk)
+  readonly passed: boolean;
+  readonly tier: UserTier;
+  readonly riskLevel: "low" | "medium" | "high" | "critical";
+  readonly reasons: readonly string[];
+  readonly flags?: {
+    readonly isVpnOrProxy?: boolean;
+    readonly isTor?: boolean;
+    readonly isDisposableEmail?: boolean;
+    readonly rateLimitExceeded?: boolean;
+    readonly abnormalHeaders?: boolean;
+    readonly failedOpen?: boolean;
+    readonly [key: string]: boolean | undefined;
+  };
+  readonly failedOpen?: boolean;
+  readonly ip?: string;
+  readonly details?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Demo Session DO storage schema.
+ */
+export interface DemoSessionState {
+  readonly clientIp: string;
+  readonly sessionToken: string;
+  readonly createdAt: number;
+  readonly expiresAt: number;
+  readonly minuteWindowTimestamp: number;
+  readonly requestsInCurrentMinute: number;
+  readonly dayWindowTimestamp: number;
+  readonly requestsInCurrentDay: number;
+}
