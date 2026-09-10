@@ -31,6 +31,7 @@
   let autoRefresh = $state(true);
   let isRefreshing = $state(false);
   let toasts = $state<ToastMessage[]>([]);
+  let proxyEndpoint = $state('https://key-col.axe08.tech/v1/chat/completions');
 
   function addToast(type: ToastMessage['type'], message: string) {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -107,6 +108,9 @@
   }
 
   onMount(() => {
+    if (typeof window !== 'undefined') {
+      proxyEndpoint = `${window.location.origin}/v1/chat/completions`;
+    }
     loadData();
 
     // 3-second live refresh interval
@@ -156,7 +160,7 @@
         <div class="flex items-center gap-2">
           <span class="text-indigo-400 font-semibold uppercase tracking-wider text-[11px]">Proxy Endpoint:</span>
           <code class="px-2 py-0.5 rounded bg-slate-950 border border-white/10 text-emerald-400 font-mono">
-            http://localhost:8080/v1/chat/completions
+            {proxyEndpoint}
           </code>
         </div>
         <p class="text-slate-400 text-[11px]">

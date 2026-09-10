@@ -47,6 +47,7 @@ export interface WorkerEnv {
   KEY_POOL?: DurableObjectNamespace;
   TELEMETRY?: AnalyticsEngineDataset;
   KC_MASTER_KEY?: string;
+  ASSETS?: { fetch(request: Request | string): Promise<Response> };
   [key: string]: unknown;
 }
 

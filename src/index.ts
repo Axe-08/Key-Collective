@@ -14,8 +14,9 @@ import type { WorkerEnv } from "./worker/auth_middleware";
 export interface Env {
   KEY_POOL: DurableObjectNamespace;
   DB: D1Database;
-  TELEMETRY: AnalyticsEngineDataset;
+  TELEMETRY?: AnalyticsEngineDataset;
   KC_MASTER_KEY?: string;
+  ASSETS?: { fetch(request: Request | string): Promise<Response> };
   [key: string]: unknown;
 }
 

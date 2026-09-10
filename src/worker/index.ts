@@ -172,7 +172,28 @@ export class MainWorker {
       return this.options.cors !== false ? applyCors(res) : res;
     }
 
-    // 3. Root Endpoint Status Probe (Public, backward compatible with smoke tests)
+    // 3. Static Assets & Dashboard SPA Serving (when ASSETS binding is present)
+    if (env.ASSETS && method === "GET") {
+      if (
+        pathname.startsWith("/assets/") ||
+        pathname === "/favicon.ico" ||
+        pathname === "/favicon.svg"
+      ) {
+        return env.ASSETS.fetch(request);
+      }
+      if (pathname === "/dashboard") {
+        const indexUrl = new URL("/", request.url);
+        return env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+      }
+      if (
+        (pathname === "/" || pathname === "") &&
+        request.headers.get("accept")?.includes("text/html")
+      ) {
+        return env.ASSETS.fetch(request);
+      }
+    }
+
+    // 4. Root Endpoint Status Probe (Public, backward compatible with smoke tests)
     if (method === "GET" && (pathname === "/" || pathname === "")) {
       const res = new Response("Key Collective v2 Edge Proxy Ready", {
         status: 200,

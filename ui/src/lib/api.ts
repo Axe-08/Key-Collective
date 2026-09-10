@@ -137,10 +137,25 @@ function generateMockLogs(count = 25): RequestLog[] {
 let memoryKeys: APIKey[] = [...INITIAL_MOCK_KEYS];
 let memoryLogs: RequestLog[] = generateMockLogs(35);
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('kc_auth_token') || 'kc_test_token_local_dev_12345';
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
+
 export const api = {
   async getKeys(): Promise<APIKey[]> {
     try {
-      const res = await fetch('/api/keys');
+      const res = await fetch('/api/keys', {
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -160,7 +175,7 @@ export const api = {
     try {
       const res = await fetch('/api/keys', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -196,6 +211,7 @@ export const api = {
     try {
       const res = await fetch(`/api/keys/${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         memoryKeys = memoryKeys.filter((k) => k.id !== id);
@@ -213,6 +229,7 @@ export const api = {
     try {
       const res = await fetch(`/api/keys/${encodeURIComponent(id)}/test`, {
         method: 'POST',
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         return await res.json();
@@ -232,7 +249,9 @@ export const api = {
 
   async getLogs(): Promise<RequestLog[]> {
     try {
-      const res = await fetch('/api/logs');
+      const res = await fetch('/api/logs', {
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -268,7 +287,9 @@ export const api = {
   async getStats(keys: APIKey[], logs: RequestLog[]): Promise<PoolStats> {
     let backendStats: any = null;
     try {
-      const res = await fetch('/api/stats');
+      const res = await fetch('/api/stats', {
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         backendStats = await res.json();
       }
