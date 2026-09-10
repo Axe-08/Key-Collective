@@ -144,7 +144,7 @@ ${
 
 <div class="space-y-6 text-slate-100 font-sans">
   <!-- Workbench Header & Profile Card -->
-  <div class="rounded-xl bg-slate-900/70 border border-white/[0.08] shadow-xl backdrop-blur-sm p-6">
+  <div class="rounded-xl glass-surface specular-border shadow-xl p-6">
     <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
       <div class="flex items-center gap-4">
         {#if userAccount?.avatarUrl}
@@ -214,7 +214,7 @@ ${
   <!-- Tier Quota Overview Cards -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
     <!-- Tier Card -->
-    <div class="rounded-xl bg-slate-900/60 border border-white/[0.08] p-4 flex flex-col justify-between">
+    <div class="rounded-xl glass-surface specular-border p-4 flex flex-col justify-between">
       <span class="text-xs font-mono uppercase tracking-wider text-slate-400">User Tier</span>
       <div class="mt-2 flex items-baseline justify-between">
         <span class="text-xl font-bold font-mono text-white capitalize">{userAccount?.tier ?? 'Unknown'}</span>
@@ -226,7 +226,7 @@ ${
     </div>
 
     <!-- RPM Limit Card -->
-    <div class="rounded-xl bg-slate-900/60 border border-white/[0.08] p-4 flex flex-col justify-between">
+    <div class="rounded-xl glass-surface specular-border p-4 flex flex-col justify-between">
       <span class="text-xs font-mono uppercase tracking-wider text-slate-400">RPM Limit</span>
       <div class="mt-2 flex items-baseline justify-between">
         <span class="text-xl font-bold font-mono text-indigo-400">
@@ -240,7 +240,7 @@ ${
     </div>
 
     <!-- RPD Limit Card -->
-    <div class="rounded-xl bg-slate-900/60 border border-white/[0.08] p-4 flex flex-col justify-between">
+    <div class="rounded-xl glass-surface specular-border p-4 flex flex-col justify-between">
       <span class="text-xs font-mono uppercase tracking-wider text-slate-400">RPD Limit</span>
       <div class="mt-2 flex items-baseline justify-between">
         <span class="text-xl font-bold font-mono text-emerald-400">
@@ -254,7 +254,7 @@ ${
     </div>
 
     <!-- Projects Capacity Card -->
-    <div class="rounded-xl bg-slate-900/60 border border-white/[0.08] p-4 flex flex-col justify-between">
+    <div class="rounded-xl glass-surface specular-border p-4 flex flex-col justify-between">
       <span class="text-xs font-mono uppercase tracking-wider text-slate-400">Projects Capacity</span>
       <div class="mt-2 flex items-baseline justify-between">
         <span class="text-xl font-bold font-mono text-white">
@@ -271,7 +271,7 @@ ${
   </div>
 
   <!-- Projects Section -->
-  <div class="rounded-xl bg-slate-900/70 border border-white/[0.08] shadow-xl backdrop-blur-sm overflow-hidden">
+  <div class="rounded-xl glass-surface specular-border shadow-xl overflow-hidden">
     <div class="p-4 border-b border-white/[0.08] bg-slate-900/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <h2 class="text-sm font-semibold font-mono uppercase tracking-wider text-slate-200">
@@ -355,7 +355,7 @@ ${
   </div>
 
   <!-- Keys Management Section -->
-  <div class="rounded-xl bg-slate-900/70 border border-white/[0.08] shadow-xl backdrop-blur-sm overflow-hidden">
+  <div class="rounded-xl glass-surface specular-border shadow-xl overflow-hidden">
     <div class="p-4 border-b border-white/[0.08] bg-slate-900/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <h2 class="text-sm font-semibold font-mono uppercase tracking-wider text-slate-200">

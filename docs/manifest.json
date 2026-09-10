@@ -1,0 +1,13 @@
+{
+  "project_name": "Key Collective v3.5 SOTA Glassmorphism & Complete Governance Overhaul",
+  "archetype": "AI Systems & Cloudflare Distributed Proxy",
+  "problem_statement": "Complete overhaul of Key Collective web interface using Stitch Obsidian Edge charcoal & silver glassmorphism, full GitHub OAuth & 5-Layer Anti-Sybil Gate verification, interactive API docs sandbox, multi-project governance, and client-side doc export.",
+  "deliverables": [
+    "docs/PRD_v3_5.md",
+    "docs/system_design_v3_5.md",
+    "docs/adr/003-obsidian-edge-glassmorphism.md",
+    "docs/golden_tests/v3_5_cases.yaml",
+    "docs/threat_model_v3_5.md",
+    "docs/governance_v3_5.md"
+  ]
+}

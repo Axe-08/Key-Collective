@@ -83,9 +83,9 @@
   }
 </script>
 
-<div class="rounded-xl bg-slate-900/70 border border-white/[0.08] shadow-xl backdrop-blur-sm overflow-hidden">
+<div class="glass-surface specular-border rounded-xl shadow-xl overflow-hidden">
   <!-- Table Controls Header -->
-  <div class="p-4 border-b border-white/[0.08] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/50">
+  <div class="p-4 border-b border-white/[0.08] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#0C0F17]/60">
     <div class="flex items-center gap-2">
       <h2 class="text-sm font-semibold font-mono uppercase tracking-wider text-slate-200">
         Managed Keys Pool

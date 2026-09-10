@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Key Collective v3 - Developer API Docs &amp; Playground</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-surface": "#e2e2e9",
+            "error": "#ffb4ab",
+            "error-container": "#93000a",
+            "surface-container": "#1e1f25",
+            "on-tertiary-fixed": "#2a1700",
+            "secondary-container": "#00a572",
+            "secondary-fixed": "#6ffbbe",
+            "on-secondary-fixed": "#002113",
+            "on-primary-fixed": "#07006c",
+            "tertiary-container": "#ca8100",
+            "surface-container-lowest": "#0c0e13",
+            "on-error": "#690005",
+            "surface-container-low": "#1a1b21",
+            "on-primary-fixed-variant": "#2f2ebe",
+            "tertiary": "#ffb95f",
+            "surface-variant": "#33353a",
+            "surface-bright": "#37393f",
+            "on-secondary-fixed-variant": "#005236",
+            "on-primary": "#1000a9",
+            "surface": "#111318",
+            "on-tertiary-container": "#3e2400",
+            "on-background": "#e2e2e9",
+            "secondary": "#4edea3",
+            "background": "#111318",
+            "primary-fixed": "#e1e0ff",
+            "surface-container-high": "#282a2f",
+            "surface-dim": "#111318",
+            "inverse-surface": "#e2e2e9",
+            "primary-fixed-dim": "#c0c1ff",
+            "surface-tint": "#c0c1ff",
+            "surface-container-highest": "#33353a",
+            "outline-variant": "#464554",
+            "inverse-primary": "#494bd6",
+            "on-surface-variant": "#c7c4d7",
+            "tertiary-fixed-dim": "#ffb95f",
+            "primary": "#c0c1ff",
+            "tertiary-fixed": "#ffddb8",
+            "on-secondary-container": "#00311f",
+            "on-secondary": "#003824",
+            "outline": "#908fa0",
+            "on-tertiary-fixed-variant": "#653e00",
+            "secondary-fixed-dim": "#4edea3",
+            "on-tertiary": "#472a00",
+            "on-error-container": "#ffdad6",
+            "primary-container": "#8083ff",
+            "on-primary-container": "#0d0096",
+            "inverse-on-surface": "#2e3036"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "margin-mobile": "1rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "gutter": "1rem",
+            "space-lg": "1.25rem",
+            "margin": "1.5rem",
+            "space-md": "0.75rem",
+            "space-xl": "2rem",
+            "gutter-mobile": "0.75rem"
+          },
+          "fontFamily": {
+            "body-lg": ["Geist"],
+            "code-lg": ["JetBrains Mono"],
+            "headline-sm": ["Geist"],
+            "body-sm": ["Geist"],
+            "headline-lg-mobile": ["Geist"],
+            "code-sm": ["JetBrains Mono"],
+            "headline-xl": ["Geist"],
+            "headline-xl-mobile": ["Geist"],
+            "label-sm": ["JetBrains Mono"],
+            "headline-lg": ["Geist"],
+            "headline-md": ["Geist"],
+            "label-md": ["JetBrains Mono"],
+            "code-md": ["JetBrains Mono"],
+            "body-md": ["Geist"]
+          },
+          "fontSize": {
+            "body-lg": ["15px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "400" }],
+            "code-lg": ["14px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+            "headline-sm": ["18px", { "lineHeight": "26px", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "code-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-xl": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.03em", "fontWeight": "600" }],
+            "headline-xl-mobile": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "label-sm": ["10px", { "lineHeight": "12px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "headline-lg": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.025em", "fontWeight": "600" }],
+            "headline-md": ["22px", { "lineHeight": "30px", "letterSpacing": "-0.015em", "fontWeight": "500" }],
+            "label-md": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "500" }],
+            "code-md": ["12px", { "lineHeight": "18px", "letterSpacing": "-0.005em", "fontWeight": "400" }],
+            "body-md": ["13px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .specular-top {
+      position: relative;
+    }
+    .specular-top::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.16) 50%, transparent 100%);
+      pointer-events: none;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(12, 14, 19, 0.4);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(70, 69, 84, 0.4);
+      border-radius: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(144, 143, 160, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-[#090B10] text-on-surface antialiased selection:bg-primary selection:text-on-primary min-h-screen flex flex-col font-body-md text-body-md">
+<!-- TopNavBar (Shared Component JSON Blueprint) -->
+<header class="docked full-width top-0 sticky z-50 bg-surface-container-lowest/80 dark:bg-surface-container-lowest/80 backdrop-blur-md shadow-sm border-b border-outline-variant/20 dark:border-outline-variant/20">
+<div class="flex justify-between items-center w-full px-space-lg h-14">
+<!-- Left: Logo & Search -->
+<div class="flex items-center gap-space-lg">
+<a class="flex items-center gap-space-xs text-headline-sm font-headline-sm font-semibold tracking-tight text-on-surface dark:text-on-surface" href="#">
+<span class="w-6 h-6 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+</span>
+<span>Key Collective v3</span>
+<span class="text-label-sm font-label-sm px-1.5 py-0.5 rounded bg-surface-container-high border border-outline-variant/30 text-secondary">v3.4.0-edge</span>
+</a>
+<!-- Global Search Bar (search_bar: "on_left") -->
+<div class="relative hidden lg:flex items-center w-72">
+<span class="material-symbols-outlined absolute left-2.5 text-outline pointer-events-none" data-icon="search">search</span>
+<input class="w-full pl-8 pr-12 py-1 text-code-sm font-code-sm rounded-lg bg-surface-container-low border border-outline-variant/30 text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors" placeholder="Search spec, parameters, schemas..." type="text"/>
+<kbd class="absolute right-2 px-1 text-[10px] font-code-sm rounded bg-surface-variant/40 border border-outline-variant/40 text-outline">⌘K</kbd>
+</div>
+</div>
+<!-- Center: Navigation Links -->
+<nav class="hidden md:flex items-center gap-space-lg">
+<a class="text-primary dark:text-primary font-medium border-b-2 border-primary pb-1 text-label-md font-label-md" href="#reference">API Reference</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface transition-colors pb-1 text-label-md font-label-md" href="#virtual-keys">Virtual Keys</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface transition-colors pb-1 text-label-md font-label-md" href="#routing">Routing Topology</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface transition-colors pb-1 text-label-md font-label-md" href="#telemetry">Logs &amp; Telemetry</a>
+</nav>
+<!-- Right: Action Icons & CTA Buttons -->
+<div class="flex items-center gap-space-sm">
+<div class="hidden sm:flex items-center gap-1 border-r border-outline-variant/30 pr-2 mr-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 active:scale-[0.98] transition-all" title="Terminal CLI">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 active:scale-[0.98] transition-all" title="Code SDKs">
+<span class="material-symbols-outlined" data-icon="code">code</span>
+</button>
+<button class="relative p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 active:scale-[0.98] transition-all" title="System Notifications">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 w-1.5 h-1.5 bg-secondary rounded-full animate-pulse"></span>
+</button>
+</div>
+<button class="px-space-md py-1 rounded-lg text-label-md font-label-md text-on-surface bg-surface-container-high/60 border border-outline-variant/40 hover:bg-surface-container-highest/40 active:scale-[0.98] transition-all">
+          Quickstart
+        </button>
+<button class="px-space-md py-1 rounded-lg text-label-md font-label-md font-medium text-on-primary-container bg-primary-container hover:bg-primary-fixed border border-primary/50 shadow-[0_0_12px_rgba(128,131,255,0.25)] active:scale-[0.98] transition-all flex items-center gap-1">
+<span class="material-symbols-outlined" data-icon="rocket_launch">rocket_launch</span>
+<span>Deploy Proxy</span>
+</button>
+<div class="ml-2 pl-2 border-l border-outline-variant/30 flex items-center">
+<div class="w-7 h-7 rounded-full bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-primary text-xs font-bold" title="Developer avatar badge">
+            KC
+          </div>
+</div>
+</div>
+</div>
+</header>
+<!-- Global Workspace Container -->
+<div class="flex-1 flex w-full">
+<!-- SideNavBar (Shared Component JSON Blueprint) -->
+<aside class="hidden xl:flex docked left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-outline-variant/20 dark:border-outline-variant/20 bg-surface-container-low dark:bg-surface-container-low shrink-0 sticky z-40">
+<div class="flex flex-col justify-between h-full p-space-md overflow-y-auto w-full custom-scroll">
+<div class="space-y-4">
+<!-- Cluster Operational Header -->
+<div class="p-space-sm rounded-lg bg-surface-container/60 border border-outline-variant/20 flex items-center gap-2">
+<div class="w-7 h-7 rounded bg-secondary-container/30 border border-secondary/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+</div>
+<div>
+<div class="text-label-md font-label-md font-semibold text-on-surface leading-tight">Core Engine</div>
+<div class="text-[10px] font-code-sm text-outline">v3.4.0-edge (iad-01)</div>
+</div>
+<span class="ml-auto w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_#4edea3]"></span>
+</div>
+<!-- CTA Primary -->
+<button class="w-full py-1.5 px-3 rounded-lg text-label-md font-label-md text-on-primary bg-primary border border-primary/40 flex items-center justify-center gap-1.5 hover:bg-primary-fixed-dim transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+<span>New Virtual Pool</span>
+</button>
+<!-- Navigation Tabs -->
+<div class="space-y-1">
+<div class="px-2 py-1 text-label-sm font-label-sm uppercase tracking-wider text-outline">Platform API</div>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-md font-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-md font-label-md" href="#quickstart">
+<span class="material-symbols-outlined" data-icon="key">key</span>
+<span>Authentication</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-md font-label-md" href="#models">
+<span class="material-symbols-outlined" data-icon="alt_route">alt_route</span>
+<span>Models &amp; Routing</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg bg-surface-container-high text-primary dark:text-primary font-medium text-label-md font-label-md border-l-2 border-primary" href="#chat-completions">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+<span>Virtual Keys</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-md font-label-md" href="#endpoints">
+<span class="material-symbols-outlined" data-icon="dns">dns</span>
+<span>Proxy Endpoints</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-md font-label-md" href="#telemetry-stream">
+<span class="material-symbols-outlined" data-icon="stream">stream</span>
+<span>Telemetry SSE</span>
+<span class="ml-auto text-[9px] px-1 rounded bg-secondary-container/20 text-secondary border border-secondary/30 font-code-sm">LIVE</span>
+</a>
+</div>
+<!-- Pricing & Specs Quick Links -->
+<div class="space-y-1 pt-2 border-t border-outline-variant/20">
+<div class="px-2 py-1 text-label-sm font-label-sm uppercase tracking-wider text-outline">Pricing &amp; Specs</div>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-md font-label-md" href="#pricing-matrix">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Microdollar Units (µ$)</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-md font-label-md" href="#circuit-breaker">
+<span class="material-symbols-outlined" data-icon="shield">shield</span>
+<span>Circuit Breaker</span>
+</a>
+</div>
+</div>
+<!-- Footer Tab Links -->
+<div class="pt-4 border-t border-outline-variant/20 space-y-1">
+<a class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-sm font-label-sm" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span>Documentation</span>
+</a>
+<a class="flex items-center justify-between px-space-md py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors text-label-sm font-label-sm" href="#">
+<span class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined" data-icon="pulse_alert">pulse_alert</span>
+<span>System Status</span>
+</span>
+<span class="text-[10px] text-secondary font-code-sm">99.995%</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas (Split 7 / 5 Grid) -->
+<main class="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 lg:p-8">
+<!-- Top Documentation Bar & Provider Filter Pills -->
+<div class="mb-6 rounded-xl bg-surface-container-low/80 backdrop-blur-xl border border-white/[0.08] p-4 specular-top shadow-xl">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="p-2 rounded-lg bg-primary-container/20 border border-primary/30 text-primary">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h1 class="text-headline-sm font-headline-sm font-semibold text-on-surface">API Documentation &amp; Testing Console</h1>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-label-sm bg-secondary-container/20 border border-secondary/30 text-secondary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Ready
+                </span>
+</div>
+<p class="text-body-sm font-body-sm text-outline">Low-latency unified proxy gateway for dynamic model failover &amp; key pooling</p>
+</div>
+</div>
+<!-- Export API Docs Button & Dropdown Action -->
+<div class="flex items-center gap-2">
+<div class="relative inline-block text-left" id="exportDropdownContainer">
+<button class="px-3 py-1.5 rounded-lg text-label-md font-label-md font-medium text-on-surface bg-surface-container-high border border-outline-variant/40 hover:bg-surface-variant transition-all flex items-center gap-2 active:scale-[0.98]" onclick="document.getElementById('exportMenu').classList.toggle('hidden')">
+<span class="material-symbols-outlined" data-icon="file_download">file_download</span>
+<span>Export API Docs</span>
+<span class="material-symbols-outlined text-outline" data-icon="expand_more">expand_more</span>
+</button>
+<!-- Dropdown Menu -->
+<div class="hidden absolute right-0 mt-2 w-56 rounded-xl bg-surface-container-high/95 backdrop-blur-2xl border border-white/10 shadow-2xl z-50 py-1" id="exportMenu">
+<button class="w-full px-4 py-2 text-left text-label-md font-label-md text-on-surface hover:bg-surface-variant flex items-center gap-2 transition-colors" onclick="alert('Downloading Key_Collective_v3_API_Reference.md'); document.getElementById('exportMenu').classList.add('hidden')">
+<span class="material-symbols-outlined text-primary" data-icon="description">description</span>
+<span>Download Markdown (.md)</span>
+</button>
+<button class="w-full px-4 py-2 text-left text-label-md font-label-md text-on-surface hover:bg-surface-variant flex items-center gap-2 transition-colors" onclick="window.print(); document.getElementById('exportMenu').classList.add('hidden')">
+<span class="material-symbols-outlined text-tertiary" data-icon="picture_as_pdf">picture_as_pdf</span>
+<span>Export PDF</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Filter Pills Bar -->
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2 overflow-x-auto custom-scroll pb-1">
+<span class="text-label-sm font-label-sm uppercase tracking-wider text-outline mr-1">Target Provider:</span>
+<button class="px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-primary/20 border border-primary/50 text-primary font-semibold flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>OpenAI Compatible</span>
+</button>
+<button class="px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container-highest/60 border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
+              Anthropic
+            </button>
+<button class="px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container-highest/60 border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
+              Gemini
+            </button>
+<button class="px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container-highest/60 border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
+              Groq
+            </button>
+<button class="px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container-highest/60 border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
+              DeepSeek
+            </button>
+</div>
+<div class="flex items-center gap-2 text-label-sm font-label-sm text-outline">
+<span class="material-symbols-outlined text-xs" data-icon="speed">speed</span>
+<span>Edge Gateway P99: <strong class="text-secondary font-code-sm">18.4ms</strong></span>
+</div>
+</div>
+</div>
+<!-- Split Layout: 7 Columns Left / 5 Columns Right -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- ================= LEFT COLUMN (7 Cols): Docs & Spec ================= -->
+<div class="lg:col-span-7 space-y-6">
+<!-- 2. Getting Started & Quickstart Guide -->
+<section class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.07] p-5 specular-top" id="quickstart">
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="bolt">bolt</span>
+<h2 class="text-headline-sm font-headline-sm text-on-surface font-semibold">Getting Started &amp; Quickstart</h2>
+</div>
+<span class="text-label-sm font-label-sm text-outline">Authentication Protocol</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant mb-4">
+              All requests are routed through edge proxies deployed at 28 tier-1 exchanges. Route your standard OpenAI, Anthropic, or native SDK calls directly to the Key Collective base URL.
+            </p>
+<!-- Base URL Box -->
+<div class="mb-4">
+<label class="block text-label-sm font-label-sm uppercase tracking-wider text-outline mb-1.5">Universal Gateway Base URL</label>
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 font-code-md text-code-md text-on-surface">
+<span class="text-primary font-medium">https://key-col.axe08.tech/v1</span>
+<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-variant transition-all" onclick="navigator.clipboard.writeText('https://key-col.axe08.tech/v1'); alert('Copied base URL!')" title="Copy URL">
+<span class="material-symbols-outlined" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</div>
+<!-- Headers Specification -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<div class="p-3 rounded-lg bg-surface-container-lowest/80 border border-outline-variant/20">
+<div class="flex items-center justify-between text-label-sm font-label-sm text-outline mb-1">
+<span>Standard Authorization Header</span>
+<span class="text-secondary">Required</span>
+</div>
+<code class="block font-code-sm text-code-sm text-on-surface bg-surface-container-low/80 p-1.5 rounded border border-outline-variant/20">
+                  Authorization: Bearer kc_live_...
+                </code>
+<p class="text-[11px] font-body-sm text-outline mt-1.5">Pass your virtualized project pool master or scoped ephemeral key.</p>
+</div>
+<div class="p-3 rounded-lg bg-surface-container-lowest/80 border border-outline-variant/20">
+<div class="flex items-center justify-between text-label-sm font-label-sm text-outline mb-1">
+<span>Routing Fallback Policy</span>
+<span class="text-primary">Custom Header</span>
+</div>
+<code class="block font-code-sm text-code-sm text-on-surface bg-surface-container-low/80 p-1.5 rounded border border-outline-variant/20">
+                  x-pool-fallback: lenient
+                </code>
+<p class="text-[11px] font-body-sm text-outline mt-1.5">Automatic failover to next provider tier if upstream returns 429 or 503.</p>
+</div>
+</div>
+</section>
+<!-- 3. Complete Endpoint Documentation -->
+<section class="space-y-4" id="endpoints">
+<div class="flex items-center justify-between">
+<h2 class="text-headline-sm font-headline-sm text-on-surface font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="dns">dns</span>
+<span>Virtual Edge Endpoints</span>
+</h2>
+<span class="text-label-sm font-label-sm text-outline">REST &amp; Streaming SSE</span>
+</div>
+<!-- Endpoint 1: POST /v1/chat/completions (Expanded Detail) -->
+<div class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] overflow-hidden specular-top" id="chat-completions">
+<div class="p-4 border-b border-outline-variant/20 flex flex-wrap items-center justify-between gap-2 bg-surface-container-low/90">
+<div class="flex items-center gap-2.5">
+<span class="px-2 py-0.5 rounded text-code-sm font-code-sm font-semibold bg-primary-container text-on-primary-container">POST</span>
+<code class="font-code-md text-code-md text-on-surface font-semibold">/v1/chat/completions</code>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-label-sm bg-secondary-container/20 text-secondary border border-secondary/30">SSE Supported</span>
+</div>
+<span class="text-label-sm font-label-sm text-outline">OpenAI Compliant</span>
+</div>
+<div class="p-4 space-y-4">
+<p class="text-body-md font-body-md text-on-surface-variant">
+                  Creates a completion request routed dynamically across virtualized pools. Automatically decrypts and alternates real upstream API keys, handling rate-limit backoff under 20ms.
+                </p>
+<!-- Parameter Table -->
+<div>
+<div class="text-label-sm font-label-sm uppercase tracking-wider text-outline mb-2">Request Body Parameters</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-body-sm font-body-sm border-collapse">
+<thead>
+<tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+<th class="py-2 pr-3">Field</th>
+<th class="py-2 px-3">Type</th>
+<th class="py-2 px-3">Default</th>
+<th class="py-2 pl-3">Description</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+<tr>
+<td class="py-2.5 pr-3 font-semibold text-primary">
+                            model <span class="text-[10px] text-error font-body-sm">*req</span>
+</td>
+<td class="py-2.5 px-3 text-outline">string</td>
+<td class="py-2.5 px-3 text-outline">—</td>
+<td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">
+                            Aggregated alias (e.g. <code class="text-secondary">gemini-2.5-flash</code>, <code class="text-secondary">groq-llama-3.3-70b</code>) or wildcard <code class="text-primary">auto-fastest</code>.
+                          </td>
+</tr>
+<tr>
+<td class="py-2.5 pr-3 font-semibold text-primary">
+                            messages <span class="text-[10px] text-error font-body-sm">*req</span>
+</td>
+<td class="py-2.5 px-3 text-outline">array[obj]</td>
+<td class="py-2.5 px-3 text-outline">—</td>
+<td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">
+                            Array of role-content message objects conforming to standard Chat format.
+                          </td>
+</tr>
+<tr>
+<td class="py-2.5 pr-3 text-on-surface">stream</td>
+<td class="py-2.5 px-3 text-outline">boolean</td>
+<td class="py-2.5 px-3 text-secondary">false</td>
+<td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">
+                            If true, streams partial message deltas formatted as standard Server-Sent Events (SSE).
+                          </td>
+</tr>
+<tr>
+<td class="py-2.5 pr-3 text-on-surface">fallback_cascade</td>
+<td class="py-2.5 px-3 text-outline">array[str]</td>
+<td class="py-2.5 px-3 text-outline">["auto"]</td>
+<td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">
+                            Priority list of fallback models executed when first model encounters downstream outage or 429 quota exhaustion.
+                          </td>
+</tr>
+<tr>
+<td class="py-2.5 pr-3 text-on-surface">temperature</td>
+<td class="py-2.5 px-3 text-outline">float</td>
+<td class="py-2.5 px-3 text-outline">0.7</td>
+<td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">
+                            Sampling temperature between 0.0 and 2.0.
+                          </td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Endpoint 2: GET /v1/models -->
+<div class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] p-4 specular-top" id="models">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2.5">
+<span class="px-2 py-0.5 rounded text-code-sm font-code-sm font-semibold bg-secondary-container/80 text-on-secondary-fixed">GET</span>
+<code class="font-code-md text-code-md text-on-surface font-semibold">/v1/models</code>
+</div>
+<span class="text-label-sm font-label-sm text-outline">Model Discovery</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+                Lists all unified active models configured across connected provider pools (Gemini, Groq, Cerebras, DeepSeek, OpenAI) with current load metrics and cost parameters.
+              </p>
+</div>
+<!-- Endpoint 3: GET /v1/projects -->
+<div class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] p-4 specular-top">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2.5">
+<span class="px-2 py-0.5 rounded text-code-sm font-code-sm font-semibold bg-secondary-container/80 text-on-secondary-fixed">GET</span>
+<code class="font-code-md text-code-md text-on-surface font-semibold">/v1/projects</code>
+</div>
+<span class="text-label-sm font-label-sm text-outline">Multi-Tenant Quotas</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+                Inspects workspace hierarchy, team quotas, remaining microdollar balances (µ$), and rate-limit tier thresholds.
+              </p>
+</div>
+<!-- Endpoint 4: POST /v1/projects/:id/keys -->
+<div class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] p-4 specular-top">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2.5">
+<span class="px-2 py-0.5 rounded text-code-sm font-code-sm font-semibold bg-primary-container text-on-primary-container">POST</span>
+<code class="font-code-md text-code-md text-on-surface font-semibold">/v1/projects/:id/keys</code>
+</div>
+<span class="text-label-sm font-label-sm text-outline">Key Rotation</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+                Generates a new project-scoped virtual key with custom TTL, model white-lists, and max token expenditure ceilings.
+              </p>
+</div>
+<!-- Endpoint 5: Health & Telemetry -->
+<div class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] p-4 specular-top" id="circuit-breaker">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2.5">
+<span class="px-2 py-0.5 rounded text-code-sm font-code-sm font-semibold bg-secondary-container/80 text-on-secondary-fixed">GET</span>
+<code class="font-code-md text-code-md text-on-surface font-semibold">/v1/health &amp; /v1/telemetry</code>
+</div>
+<span class="text-label-sm font-label-sm text-secondary">Real-Time Circuit</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+                Retrieves live health status across all upstream nodes, active circuit breaker trips, and 60-second moving average edge latency per geographical region.
+              </p>
+</div>
+</section>
+<!-- 5. Fixed-Point Microdollar Pricing Reference ($1 = 1,000,000 µ$) -->
+<section class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] p-5 specular-top" id="pricing-matrix">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+<div>
+<h3 class="text-headline-sm font-headline-sm text-on-surface font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary" data-icon="toll">toll</span>
+<span>Fixed-Point Microdollar Pricing (µ$)</span>
+</h3>
+<p class="text-body-sm font-body-sm text-outline">Zero floating-point rounding errors. 1.00 USD = exactly 1,000,000 µ$.</p>
+</div>
+<div class="px-3 py-1 rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-code-sm font-code-sm text-tertiary">
+                Base: 1 µ$ = $0.000001 USD
+              </div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-body-sm font-body-sm border-collapse">
+<thead>
+<tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+<th class="py-2.5 pr-3">Model</th>
+<th class="py-2.5 px-3">Input / 1K Tokens</th>
+<th class="py-2.5 px-3">Output / 1K Tokens</th>
+<th class="py-2.5 px-3">Effective USD / 1M</th>
+<th class="py-2.5 pl-3">Routing Engine</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+<tr class="hover:bg-white/[0.02] transition-colors">
+<td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span>Gemini 2.5 Flash</span>
+</td>
+<td class="py-3 px-3 text-secondary">75 µ$</td>
+<td class="py-3 px-3 text-secondary">300 µ$</td>
+<td class="py-3 px-3 text-on-surface">$0.075 / $0.30</td>
+<td class="py-3 pl-3 text-outline">Google Edge Direct</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors">
+<td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span>Groq LLaMA 3.3 (70B)</span>
+</td>
+<td class="py-3 px-3 text-primary">590 µ$</td>
+<td class="py-3 px-3 text-primary">790 µ$</td>
+<td class="py-3 px-3 text-on-surface">$0.59 / $0.79</td>
+<td class="py-3 pl-3 text-outline">LPU Ultrafast</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors">
+<td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span>DeepSeek V3</span>
+</td>
+<td class="py-3 px-3 text-tertiary">140 µ$</td>
+<td class="py-3 px-3 text-tertiary">280 µ$</td>
+<td class="py-3 px-3 text-on-surface">$0.14 / $0.28</td>
+<td class="py-3 pl-3 text-outline">Multi-Head Latent</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Conversion Helper Note -->
+<div class="mt-4 p-3 rounded-lg bg-surface-container-lowest/60 border border-outline-variant/20 flex items-start gap-2.5">
+<span class="material-symbols-outlined text-outline text-sm mt-0.5" data-icon="info">info</span>
+<p class="text-body-sm font-body-sm text-outline">
+                Tokens consumed per request are calculated synchronously at proxy termination and deducted in microdollars. Headers <code class="text-primary font-code-sm">x-balance-remaining-micros</code> and <code class="text-primary font-code-sm">x-request-cost-micros</code> accompany every 200 OK stream terminator.
+              </p>
+</div>
+</section>
+</div>
+<!-- ================= RIGHT COLUMN (5 Cols): Sticky Playground & Code Console ================= -->
+<div class="lg:col-span-5 space-y-6 lg:sticky lg:top-20">
+<!-- 1. Interactive API Sandbox / Test Console -->
+<div class="rounded-xl bg-surface-container-low/85 backdrop-blur-2xl border border-white/[0.12] p-5 shadow-2xl specular-top">
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant/25">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary shadow-[0_0_8px_#4edea3]"></span>
+<h3 class="text-headline-sm font-headline-sm text-on-surface font-semibold">Interactive Sandbox</h3>
+</div>
+<span class="text-label-sm font-label-sm font-code-sm text-secondary bg-secondary-container/20 px-2 py-0.5 rounded border border-secondary/30">
+                PROD GATEWAY
+              </span>
+</div>
+<div class="mt-4 space-y-4">
+<!-- Endpoint Selector -->
+<div>
+<label class="block text-label-sm font-label-sm uppercase tracking-wider text-outline mb-1">Target Endpoint</label>
+<div class="flex rounded-lg border border-outline-variant/40 overflow-hidden bg-surface-container-lowest">
+<span class="px-2.5 py-1.5 bg-primary-container text-on-primary-container font-code-sm text-code-sm font-semibold flex items-center">
+                    POST
+                  </span>
+<input class="w-full bg-transparent px-3 py-1.5 font-code-sm text-code-sm text-on-surface border-none focus:ring-0" readonly="" type="text" value="/v1/chat/completions"/>
+</div>
+</div>
+<!-- Auth Token Input with demo prefill -->
+<div>
+<div class="flex justify-between items-center mb-1">
+<label class="block text-label-sm font-label-sm uppercase tracking-wider text-outline">Bearer Token</label>
+<span class="text-[10px] text-secondary font-code-sm">SANDBOX PREFILL</span>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-sm" data-icon="key">key</span>
+<input class="w-full pl-8 pr-8 py-1.5 text-code-sm font-code-sm rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none" id="bearerInput" type="text" value="kc_proj_live_9f83a00c82de19a"/>
+<button class="absolute right-2 top-2 text-outline hover:text-on-surface" onclick="navigator.clipboard.writeText(document.getElementById('bearerInput').value); alert('Key copied!')">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</div>
+<!-- Model Selector & Streaming Toggle Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<div>
+<label class="block text-label-sm font-label-sm uppercase tracking-wider text-outline mb-1">Virtualized Model</label>
+<select class="w-full py-1.5 px-2.5 text-code-sm font-code-sm rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none" id="modelSelect">
+<option value="gemini-2.5-flash">gemini-2.5-flash</option>
+<option value="groq-llama-3.3-70b">groq-llama-3.3-70b</option>
+<option value="cerebras-llama-3.3">cerebras-llama-3.3</option>
+<option value="deepseek-v3">deepseek-v3</option>
+</select>
+</div>
+<!-- Stream Toggle Switch -->
+<div>
+<label class="block text-label-sm font-label-sm uppercase tracking-wider text-outline mb-1">Streaming (SSE)</label>
+<div class="flex items-center justify-between h-[34px] px-3 rounded-lg bg-surface-container-lowest border border-outline-variant/40">
+<span class="text-label-sm font-label-sm text-secondary flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span>SSE ACTIVE</span>
+</span>
+<input checked="" class="rounded bg-surface-container border-outline-variant/50 text-secondary focus:ring-0 cursor-pointer" id="streamToggle" type="checkbox"/>
+</div>
+</div>
+</div>
+<!-- JSON Request Body Editor -->
+<div>
+<div class="flex items-center justify-between mb-1">
+<label class="text-label-sm font-label-sm uppercase tracking-wider text-outline">JSON Payload</label>
+<span class="text-[10px] font-code-sm text-outline">application/json</span>
+</div>
+<div class="rounded-lg bg-surface-container-lowest border border-outline-variant/40 p-3 font-code-sm text-code-sm overflow-x-auto relative">
+<pre class="text-on-surface leading-5"><code><span class="text-outline">1</span> {
+<span class="text-outline">2</span>   <span class="text-primary">"model"</span>: <span class="text-secondary">"gemini-2.5-flash"</span>,
+<span class="text-outline">3</span>   <span class="text-primary">"messages"</span>: [
+<span class="text-outline">4</span>     { <span class="text-primary">"role"</span>: <span class="text-tertiary">"system"</span>, <span class="text-primary">"content"</span>: <span class="text-secondary">"You are an edge AI router."</span> },
+<span class="text-outline">5</span>     { <span class="text-primary">"role"</span>: <span class="text-tertiary">"user"</span>, <span class="text-primary">"content"</span>: <span class="text-secondary">"Verify proxy handshake status."</span> }
+<span class="text-outline">6</span>   ],
+<span class="text-outline">7</span>   <span class="text-primary">"stream"</span>: <span class="text-tertiary">true</span>,
+<span class="text-outline">8</span>   <span class="text-primary">"temperature"</span>: <span class="text-tertiary">0.3</span>
+<span class="text-outline">9</span> }</code></pre>
+</div>
+</div>
+</div>
+<!-- Code Snippet Tabs (cURL, TS, Python) -->
+<div class="mt-4 pt-3 border-t border-outline-variant/20">
+<div class="flex items-center justify-between mb-2">
+<div class="flex gap-2">
+<button class="px-2.5 py-1 rounded text-label-sm font-label-sm bg-surface-container-high text-primary font-medium border border-primary/30" id="tab-curl" onclick="switchTab('curl')">
+                    cURL
+                  </button>
+<button class="px-2.5 py-1 rounded text-label-sm font-label-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" id="tab-ts" onclick="switchTab('ts')">
+                    TypeScript (SDK)
+                  </button>
+<button class="px-2.5 py-1 rounded text-label-sm font-label-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" id="tab-py" onclick="switchTab('py')">
+                    Python (OpenAI)
+                  </button>
+</div>
+<button class="p-1 rounded text-outline hover:text-on-surface" onclick="copyCurrentSnippet()" title="Copy snippet">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+<!-- Snippet Views -->
+<div class="rounded-lg bg-surface-container-lowest border border-outline-variant/30 p-2.5 text-code-sm font-code-sm text-on-surface overflow-x-auto" id="snippet-curl">
+<pre class="leading-relaxed"><code class="text-outline">curl https://key-col.axe08.tech/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer kc_proj_live_9f83a00c82de19a" \
+  -d '{
+    "model": "gemini-2.5-flash",
+    "messages": [{"role": "user", "content": "Ping!"}],
+    "stream": true
+  }'</code></pre>
+</div>
+<div class="hidden rounded-lg bg-surface-container-lowest border border-outline-variant/30 p-2.5 text-code-sm font-code-sm text-on-surface overflow-x-auto" id="snippet-ts">
+<pre class="leading-relaxed"><code>import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: 'kc_proj_live_9f83a00c82de19a',
+  baseURL: 'https://key-col.axe08.tech/v1'
+});
+
+const response = await client.chat.completions.create({
+  model: 'gemini-2.5-flash',
+  messages: [{ role: 'user', content: 'Ping!' }],
+  stream: true,
+});</code></pre>
+</div>
+<div class="hidden rounded-lg bg-surface-container-lowest border border-outline-variant/30 p-2.5 text-code-sm font-code-sm text-on-surface overflow-x-auto" id="snippet-py">
+<pre class="leading-relaxed"><code>from openai import OpenAI
+
+client = OpenAI(
+    api_key="kc_proj_live_9f83a00c82de19a",
+    base_url="https://key-col.axe08.tech/v1"
+)
+
+stream = client.chat.completions.create(
+    model="gemini-2.5-flash",
+    messages=[{"role": "user", "content": "Ping!"}],
+    stream=True
+)</code></pre>
+</div>
+</div>
+<!-- Action: Send Request Button & Live Response Pane -->
+<div class="mt-4 pt-4 border-t border-outline-variant/25 space-y-3">
+<button class="w-full py-2.5 rounded-lg bg-primary text-on-primary font-label-md font-label-md font-semibold hover:bg-primary-fixed-dim transition-all shadow-[0_0_20px_rgba(192,193,255,0.25)] flex items-center justify-center gap-2 active:scale-[0.98]" onclick="simulateExecution()">
+<span class="material-symbols-outlined" data-icon="play_arrow">play_arrow</span>
+<span>Send Request (Cmd + Enter)</span>
+</button>
+<!-- Response Box with SSE Stream Tokens -->
+<div class="rounded-lg bg-surface-container-lowest border border-outline-variant/40 p-3">
+<div class="flex items-center justify-between pb-2 border-b border-outline-variant/20 mb-2">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-sm bg-secondary-container/20 text-secondary border border-secondary/40 font-semibold">
+                      200 OK
+                    </span>
+<span class="text-label-sm font-label-sm text-outline">Chunked SSE</span>
+</div>
+<div class="flex items-center gap-2 text-label-sm font-label-sm font-code-sm">
+<span class="text-outline">Latency:</span>
+<span class="text-secondary font-semibold" id="latencyIndicator">18ms</span>
+</div>
+</div>
+<div class="space-y-1 font-code-sm text-code-sm custom-scroll max-h-48 overflow-y-auto" id="terminalOutput">
+<div class="text-outline text-[10px]">data: {"id":"chatcmpl-94k2","object":"chat.completion.chunk","created":17109210,"model":"gemini-2.5-flash","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}</div>
+<div class="text-secondary">data: {"choices":[{"delta":{"content":"Handshake"}}]}</div>
+<div class="text-secondary">data: {"choices":[{"delta":{"content":" verified."}}]}</div>
+<div class="text-secondary">data: {"choices":[{"delta":{"content":" Edge proxy"}}]}</div>
+<div class="text-secondary">data: {"choices":[{"delta":{"content":" route nominal."}}]}</div>
+<div class="text-on-surface-variant text-[11px] pt-1">
+<span class="text-primary font-semibold">Summary:</span> Handshake verified. Edge proxy route nominal. Zero failover cascades required.
+                  </div>
+<div class="text-outline text-[10px] pt-1 border-t border-outline-variant/20">
+                    data: [DONE]  •  <span class="text-tertiary">cost: 21 µ$</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Export Action Buttons -->
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between gap-2">
+<button class="flex-1 py-1.5 px-2 rounded-lg bg-surface-container-high hover:bg-surface-variant border border-outline-variant/30 text-label-sm font-label-sm text-on-surface flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98]" onclick="alert('Downloading Key_Collective_v3_API_Reference.md')">
+<span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+<span>Download API Reference (.md)</span>
+</button>
+<button class="py-1.5 px-3 rounded-lg bg-surface-container-high hover:bg-surface-variant border border-outline-variant/30 text-label-sm font-label-sm text-on-surface flex items-center gap-1 transition-colors active:scale-[0.98]" onclick="window.print()" title="Print to PDF">
+<span class="material-symbols-outlined text-sm" data-icon="print">print</span>
+<span>PDF</span>
+</button>
+</div>
+</div>
+<!-- Quick Telemetry Micro Card -->
+<div class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] p-4 flex items-center justify-between specular-top">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-secondary-container/20 border border-secondary/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="network_check">network_check</span>
+</div>
+<div>
+<div class="text-label-md font-label-md text-on-surface font-semibold">Active Pool Quota</div>
+<div class="text-[11px] font-body-sm text-outline">Virtual Key Pool #3 (Tier-Edge)</div>
+</div>
+</div>
+<div class="text-right">
+<div class="text-code-md font-code-md text-secondary font-semibold">849,210 µ$</div>
+<div class="text-[10px] font-label-sm text-outline">Balance remaining</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Interactive Sandbox Script Logic -->
+<script>
+    function switchTab(type) {
+      const tabs = ['curl', 'ts', 'py'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('tab-' + t);
+        const view = document.getElementById('snippet-' + t);
+        if (t === type) {
+          btn.className = "px-2.5 py-1 rounded text-label-sm font-label-sm bg-surface-container-high text-primary font-medium border border-primary/30";
+          view.classList.remove('hidden');
+        } else {
+          btn.className = "px-2.5 py-1 rounded text-label-sm font-label-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors";
+          view.classList.add('hidden');
+        }
+      });
+    }
+
+    function copyCurrentSnippet() {
+      const curl = document.getElementById('snippet-curl');
+      const ts = document.getElementById('snippet-ts');
+      const py = document.getElementById('snippet-py');
+      let text = "";
+      if (!curl.classList.contains('hidden')) text = curl.innerText;
+      else if (!ts.classList.contains('hidden')) text = ts.innerText;
+      else if (!py.classList.contains('hidden')) text = py.innerText;
+
+      navigator.clipboard.writeText(text);
+      alert('Code snippet copied to clipboard!');
+    }
+
+    function simulateExecution() {
+      const model = document.getElementById('modelSelect').value;
+      const latencyElem = document.getElementById('latencyIndicator');
+      const terminal = document.getElementById('terminalOutput');
+      
+      latencyElem.textContent = '...';
+      terminal.innerHTML = '<div class="text-outline text-[11px] animate-pulse">Establishing edge websocket tunnel to ' + model + '...</div>';
+
+      setTimeout(() => {
+        const simulatedMs = Math.floor(Math.random() * 15) + 14;
+        latencyElem.textContent = simulatedMs + 'ms';
+        terminal.innerHTML = `
+          <div class="text-outline text-[10px]">data: {"id":"chatcmpl-live","model":"${model}","router_node":"iad-01"}</div>
+          <div class="text-secondary">data: {"choices":[{"delta":{"content":"Live"}}]}</div>
+          <div class="text-secondary">data: {"choices":[{"delta":{"content":" synthesis"}}]}</div>
+          <div class="text-secondary">data: {"choices":[{"delta":{"content":" complete."}}]}</div>
+          <div class="text-on-surface-variant text-[11px] pt-1">
+            <span class="text-primary font-semibold">Response:</span> Live synthesis complete via <strong>${model}</strong> in ${simulatedMs}ms.
+          </div>
+          <div class="text-outline text-[10px] pt-1 border-t border-outline-variant/20">
+            data: [DONE] &nbsp;•&nbsp; <span class="text-tertiary">deducted: 18 µ$</span>
+          </div>
+        `;
+      }, 400);
+    }
+
+    // Keyboard shortcut (Cmd + Enter or Ctrl + Enter)
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        simulateExecution();
+      }
+    });
+
+    // Close export dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('exportDropdownContainer');
+      const menu = document.getElementById('exportMenu');
+      if (container && !container.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+  </script>
+</body></html>

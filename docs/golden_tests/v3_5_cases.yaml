@@ -1,0 +1,39 @@
+cases:
+  - id: CASE-UI-001
+    name: "Obsidian Edge Theme Tokens Injection"
+    description: "Verify that app.css contains core Obsidian Edge color, glassmorphic surface, and typography variables"
+    assertions:
+      - file: "ui/src/app.css"
+        contains:
+          - "#090B10"
+          - "glass-surface"
+          - "specular-border"
+
+  - id: CASE-UI-002
+    name: "SPA Navigation & View Switching"
+    description: "Verify that App.svelte supports all 4 primary views: dashboard, workbench, docs, and sybil gate modal"
+    assertions:
+      - file: "ui/src/App.svelte"
+        contains:
+          - "currentTab"
+          - "dashboard"
+          - "workbench"
+          - "docs"
+          - "showSybilModal"
+
+  - id: CASE-UI-003
+    name: "API Sandbox SSE Streaming Preview"
+    description: "Verify that ApiDocs.svelte provides interactive sandbox with SSE token delta streaming preview"
+    assertions:
+      - file: "ui/src/components/ApiDocs.svelte"
+        contains:
+          - "event: completion"
+          - "curl"
+          - "python"
+          - "exportPdf"
+
+  - id: CASE-UI-004
+    name: "Quality Gate Verification"
+    description: "Verify that make gate passes without errors"
+    command: "make gate"
+    expected_exit_code: 0

@@ -57,6 +57,7 @@ Downstream agents should refer to these files for detailed contracts:
 - `docs/adr/001-cloudflare-native-architecture.md`: 001-cloudflare-native-architecture
 - `docs/adr/002-key-encryption-and-logging.md`: 002-key-encryption-and-logging
 - `docs/adr/003-multi-project-tiered-architecture.md`: 003-multi-project-tiered-architecture
+- `docs/adr/003-obsidian-edge-glassmorphism.md`: 003-obsidian-edge-glassmorphism
 
 ---
 

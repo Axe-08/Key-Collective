@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Key Collective — Edge-Native Virtual AI Key Pool &amp; Latency Shield</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Typography (Geist & JetBrains Mono) -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Injected Tailwind Theme Configuration -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "primary-fixed": "#e1e0ff",
+            "on-background": "#e2e2e9",
+            "inverse-surface": "#e2e2e9",
+            "on-tertiary": "#472a00",
+            "surface-container-highest": "#33353a",
+            "tertiary": "#ffb95f",
+            "on-error-container": "#ffdad6",
+            "error-container": "#93000a",
+            "on-tertiary-fixed": "#2a1700",
+            "primary-fixed-dim": "#c0c1ff",
+            "on-secondary-fixed": "#002113",
+            "tertiary-fixed": "#ffddb8",
+            "on-primary-fixed-variant": "#2f2ebe",
+            "on-primary-container": "#0d0096",
+            "on-error": "#690005",
+            "on-primary": "#1000a9",
+            "inverse-on-surface": "#2e3036",
+            "on-surface": "#e2e2e9",
+            "on-secondary-container": "#00311f",
+            "secondary-fixed": "#6ffbbe",
+            "background": "#111318",
+            "secondary-fixed-dim": "#4edea3",
+            "surface-variant": "#33353a",
+            "secondary": "#4edea3",
+            "primary": "#c0c1ff",
+            "surface-container-low": "#1a1b21",
+            "tertiary-container": "#ca8100",
+            "outline": "#908fa0",
+            "primary-container": "#8083ff",
+            "error": "#ffb4ab",
+            "surface-bright": "#37393f",
+            "surface-container-lowest": "#0c0e13",
+            "surface-tint": "#c0c1ff",
+            "surface-container": "#1e1f25",
+            "on-tertiary-container": "#3e2400",
+            "secondary-container": "#00a572",
+            "inverse-primary": "#494bd6",
+            "on-secondary-fixed-variant": "#005236",
+            "on-tertiary-fixed-variant": "#653e00",
+            "outline-variant": "#464554",
+            "surface-container-high": "#282a2f",
+            "on-primary-fixed": "#07006c",
+            "surface": "#111318",
+            "on-secondary": "#003824",
+            "surface-dim": "#111318",
+            "tertiary-fixed-dim": "#ffb95f",
+            "on-surface-variant": "#c7c4d7"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "gutter-mobile": "0.75rem",
+            "margin-mobile": "1rem",
+            "space-xl": "2rem",
+            "gutter": "1rem",
+            "space-sm": "0.5rem",
+            "space-md": "0.75rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.25rem",
+            "margin": "1.5rem"
+          },
+          "fontFamily": {
+            "label-md": ["JetBrains Mono"],
+            "code-sm": ["JetBrains Mono"],
+            "headline-lg": ["Geist"],
+            "body-lg": ["Geist"],
+            "headline-xl": ["Geist"],
+            "label-sm": ["JetBrains Mono"],
+            "code-lg": ["JetBrains Mono"],
+            "body-sm": ["Geist"],
+            "body-md": ["Geist"],
+            "headline-md": ["Geist"],
+            "code-md": ["JetBrains Mono"],
+            "headline-lg-mobile": ["Geist"],
+            "headline-xl-mobile": ["Geist"],
+            "headline-sm": ["Geist"]
+          },
+          "fontSize": {
+            "label-md": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "500" }],
+            "code-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-lg": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.025em", "fontWeight": "600" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "400" }],
+            "headline-xl": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.03em", "fontWeight": "600" }],
+            "label-sm": ["10px", { "lineHeight": "12px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "code-lg": ["14px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "body-md": ["13px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-md": ["22px", { "lineHeight": "30px", "letterSpacing": "-0.015em", "fontWeight": "500" }],
+            "code-md": ["12px", { "lineHeight": "18px", "letterSpacing": "-0.005em", "fontWeight": "400" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "headline-xl-mobile": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "headline-sm": ["18px", { "lineHeight": "26px", "letterSpacing": "-0.01em", "fontWeight": "500" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    /* Specular chiseled edge reflection and atmospheric glass */
+    .specular-border {
+      position: relative;
+    }
+    .specular-border::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10%;
+      right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+      pointer-events: none;
+    }
+    .glow-radial-indigo {
+      background: radial-gradient(circle 500px at 20% 0%, rgba(128, 131, 255, 0.08), transparent 70%),
+                  radial-gradient(circle 400px at 80% 20%, rgba(78, 222, 163, 0.04), transparent 60%);
+    }
+    /* Pulse dot animation */
+    @keyframes subtle-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.92); }
+    }
+    .status-pulse {
+      animation: subtle-pulse 2.2s infinite ease-in-out;
+    }
+    /* Subtle scanline on console */
+    .terminal-screen {
+      background-image: linear-gradient(rgba(17, 19, 24, 0) 50%, rgba(12, 14, 19, 0.5) 50%);
+      background-size: 100% 4px;
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased min-h-screen relative selection:bg-primary-container selection:text-on-primary-container font-body-md text-body-md overflow-x-hidden">
+<!-- Atmospheric Background Glow Elements -->
+<div class="fixed inset-0 glow-radial-indigo pointer-events-none z-0"></div>
+<!-- Shared Component: TopNavBar (Exact structural & style matching from Shared Components JSON) -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm">
+<!-- Left Section: Brand & Search bar on left -->
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-primary shadow-inner">
+<span class="material-symbols-outlined text-primary text-[19px]" data-icon="shield">shield</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-headline-sm font-headline-sm font-semibold tracking-tight text-on-surface">Key Collective</span>
+<span class="text-label-sm font-label-sm px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/30">v3.0 Edge</span>
+</div>
+</div>
+<!-- Edge status badge -->
+<div class="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/40">
+<span class="w-2 h-2 rounded-full bg-secondary status-pulse shadow-[0_0_8px_#4edea3]"></span>
+<span class="text-label-sm font-label-sm text-secondary">Operational • 12ms (SIN-01)</span>
+</div>
+<!-- Search on left -->
+<div class="relative hidden xl:block w-64">
+<span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[16px]" data-icon="search">search</span>
+<input class="w-full pl-8 pr-12 py-1.5 bg-surface-container-low border border-outline-variant/30 rounded-lg text-code-sm font-code-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors" placeholder="Search keys, models, routes..." type="text"/>
+<kbd class="absolute right-2 top-1/2 -translate-y-1/2 text-label-sm font-label-sm text-outline-variant bg-surface-container-high px-1.5 py-0.5 rounded border border-outline-variant/20">⌘K</kbd>
+</div>
+</div>
+<!-- Center Navigation Links (from JSON: ["Telemetry", "Virtual Pools", "Routing Rules", "Logs", "Docs"]) -->
+<!-- Active context: Virtual Pools is the current dashboard screen -->
+<nav class="hidden md:flex items-center gap-6 h-full pt-3">
+<a class="text-on-surface-variant hover:text-on-surface pb-3 text-label-md font-label-md transition-colors" href="#telemetry">Telemetry</a>
+<a class="text-primary font-medium border-b-2 border-primary pb-3 text-label-md font-label-md" href="#pools">Virtual Pools</a>
+<a class="text-on-surface-variant hover:text-on-surface pb-3 text-label-md font-label-md transition-colors" href="#routing">Routing Rules</a>
+<a class="text-on-surface-variant hover:text-on-surface pb-3 text-label-md font-label-md transition-colors" href="#logs">Logs</a>
+<a class="text-on-surface-variant hover:text-on-surface pb-3 text-label-md font-label-md transition-colors" href="#docs">Docs</a>
+</nav>
+<!-- Trailing Section (Actions + Icons + Avatar) -->
+<div class="flex items-center gap-3">
+<!-- Trailing Primary & Secondary Buttons from JSON -->
+<button class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest/60 text-on-surface border border-outline-variant/40 text-label-md font-label-md active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[15px]" data-icon="add">add</span>
+        Add Provider Key
+      </button>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-container text-on-primary font-medium text-label-md font-label-md active:scale-[0.98] shadow-[0_0_12px_rgba(128,131,255,0.35)] transition-all">
+<span class="material-symbols-outlined text-[15px]" data-icon="bolt">bolt</span>
+        Deploy Proxy
+      </button>
+<!-- Trailing Icon Actions: notifications, terminal, settings -->
+<div class="flex items-center gap-1 border-l border-outline-variant/30 pl-2 text-on-surface-variant">
+<button class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors" title="Logs Terminal">
+<span class="material-symbols-outlined text-[18px]" data-icon="terminal">terminal</span>
+</button>
+<button class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors relative" title="Notifications">
+<span class="material-symbols-outlined text-[18px]" data-icon="notifications">notifications</span>
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary absolute top-1.5 right-1.5"></span>
+</button>
+<button class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors" title="Settings">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings">settings</span>
+</button>
+</div>
+<!-- Profile Avatar with Sybil trust verification ring from JSON -->
+<div class="relative pl-1">
+<div class="w-8 h-8 rounded-full p-0.5 bg-gradient-to-tr from-secondary to-primary flex items-center justify-center" title="Sybil Trust Score: 92/100 (Verified Builder)">
+<div class="w-full h-full rounded-full bg-surface-container-lowest flex items-center justify-center text-primary font-code-sm text-code-sm font-semibold">
+            KC
+          </div>
+</div>
+</div>
+</div>
+</header>
+<!-- Shared Component: SideNavBar (Strictly adhering to JSON keys & structural rules) -->
+<aside class="fixed top-14 left-0 bottom-0 w-64 z-40 flex flex-col justify-between p-4 bg-surface-container-low/90 backdrop-blur-xl border-r border-outline-variant/30 hidden md:flex">
+<!-- Edge Node Header Block -->
+<div class="space-y-4">
+<div class="flex items-center gap-3 p-2.5 rounded-lg bg-surface-container-lowest/60 border border-outline-variant/30">
+<div class="w-9 h-9 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="hub">hub</span>
+</div>
+<div class="flex flex-col">
+<span class="text-headline-sm font-headline-sm font-semibold text-on-surface text-[14px] leading-tight">SIN-01 Edge</span>
+<span class="text-label-sm font-label-sm text-secondary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+            Operational • 12ms
+          </span>
+</div>
+</div>
+<!-- Side Nav CTA from JSON -->
+<button class="w-full py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest/60 text-primary border border-primary/20 flex items-center justify-center gap-2 text-label-md font-label-md font-medium transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-[16px]" data-icon="add_circle">add_circle</span>
+        + New Virtual Pool
+      </button>
+<!-- Primary Tabs from JSON: Overview, Key Inventory, Failover Topologies, Usage & Quotas, Audit Trail -->
+<!-- Active intent mapping: Key Inventory is selected for the current key manager dashboard -->
+<div class="space-y-1 pt-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors active:scale-[0.98]" href="#overview">
+<span class="material-symbols-outlined text-[18px]" data-icon="dashboard">dashboard</span>
+<span class="text-label-md font-label-md">Overview</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-high text-primary font-medium border-l-2 border-primary active:scale-[0.98]" href="#inventory">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="key">key</span>
+<span class="text-label-md font-label-md">Key Inventory</span>
+<span class="ml-auto text-label-sm font-label-sm px-1.5 py-0.2 rounded bg-surface-container text-on-surface-variant">12</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors active:scale-[0.98]" href="#topologies">
+<span class="material-symbols-outlined text-[18px]" data-icon="alt_route">alt_route</span>
+<span class="text-label-md font-label-md">Failover Topologies</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors active:scale-[0.98]" href="#quotas">
+<span class="material-symbols-outlined text-[18px]" data-icon="data_usage">data_usage</span>
+<span class="text-label-md font-label-md">Usage &amp; Quotas</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors active:scale-[0.98]" href="#audit">
+<span class="material-symbols-outlined text-[18px]" data-icon="history">history</span>
+<span class="text-label-md font-label-md">Audit Trail</span>
+</a>
+</div>
+</div>
+<!-- SideNavBar Footer Tabs from JSON: Documentation, Proxy Status, Support -->
+<div class="pt-4 border-t border-outline-variant/30 space-y-1">
+<div class="px-3 py-2 mb-2 rounded bg-surface-container-lowest/80 border border-outline-variant/20 flex flex-col gap-1.5">
+<div class="flex justify-between text-label-sm font-label-sm text-outline">
+<span>Shield Quota</span>
+<span class="text-on-surface">42%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-gradient-to-r from-primary to-secondary h-full rounded-full" style="width: 42%;"></div>
+</div>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 text-label-md font-label-md transition-colors" href="#docs">
+<span class="material-symbols-outlined text-[18px]" data-icon="menu_book">menu_book</span>
+<span>Documentation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 text-label-md font-label-md transition-colors" href="#proxy-status">
+<span class="material-symbols-outlined text-[18px]" data-icon="sensors">sensors</span>
+<span>Proxy Status</span>
+<span class="w-2 h-2 rounded-full bg-secondary ml-auto"></span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 text-label-md font-label-md transition-colors" href="#support">
+<span class="material-symbols-outlined text-[18px]" data-icon="help_center">help_center</span>
+<span>Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas Container with Left Sidebar Offset -->
+<main class="md:ml-64 pt-16 min-h-screen px-4 md:px-8 pb-24 relative z-10">
+<!-- Top Context & Header Banner -->
+<div class="py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant/20 mb-6">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-label-sm font-label-sm uppercase tracking-wider text-primary">Pool: Gemini &amp; Groq Burst Shield</span>
+<span class="px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-secondary/10 border border-secondary/30 text-secondary">Active Virtualizer</span>
+</div>
+<h1 class="text-headline-lg font-headline-lg text-on-surface font-semibold tracking-tight flex items-center gap-3">
+          Virtual Key Inventory &amp; Routing Shield
+        </h1>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1">
+          Autonomous rate-limit shielding via round-robin key rotation and sub-15ms edge rerouting.
+        </p>
+</div>
+<!-- Top Right Status Quick-Controls -->
+<div class="flex items-center gap-3">
+<div class="px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center gap-3">
+<div class="flex flex-col text-right">
+<span class="text-label-sm font-label-sm text-outline">Shield Status</span>
+<span class="text-label-md font-label-md text-secondary font-medium">Automatic Intercept ON</span>
+</div>
+<button class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-transform active:rotate-180 duration-300" id="refreshDataBtn" title="Synchronize Pool Edge Nodes">
+<span class="material-symbols-outlined text-[18px]" data-icon="refresh">refresh</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 1. KPI Metric Cards (Grid of 4 Glassmorphism Cards) -->
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+<!-- Card 1: Total Managed Keys -->
+<div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+<div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+<span>TOTAL MANAGED KEYS</span>
+<span class="material-symbols-outlined text-[16px] text-primary" data-icon="vpn_key">vpn_key</span>
+</div>
+<div class="flex items-baseline gap-2 mb-3">
+<span class="text-headline-lg font-headline-lg font-semibold text-on-surface">12</span>
+<span class="text-label-md font-label-md text-secondary font-normal">Active</span>
+</div>
+<div class="flex items-center gap-2 pt-2 border-t border-outline-variant/20">
+<span class="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary text-label-sm font-label-sm">8 Gemini</span>
+<span class="px-2 py-0.5 rounded bg-tertiary/10 border border-tertiary/20 text-tertiary text-label-sm font-label-sm">4 Groq</span>
+<span class="ml-auto text-label-sm font-label-sm text-outline">100% synced</span>
+</div>
+</div>
+<!-- Card 2: Rate-Limit Shield -->
+<div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+<div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+<span>RATE-LIMIT SHIELD</span>
+<span class="w-2 h-2 rounded-full bg-tertiary status-pulse" title="1 key in cooldown"></span>
+</div>
+<div class="flex items-baseline gap-2 mb-3">
+<span class="text-headline-lg font-headline-lg font-semibold text-on-surface">10</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Ready, 2 Cooling</span>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant/20">
+<div class="flex items-center gap-1.5 text-label-sm font-label-sm text-tertiary">
+<span class="material-symbols-outlined text-[14px]" data-icon="timer">timer</span>
+<span id="cooldownTimer">00:28s cooldown</span>
+</div>
+<span class="text-label-sm font-label-sm text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20">Failover Armed</span>
+</div>
+</div>
+<!-- Card 3: Pool RPM Headroom -->
+<div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+<div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+<span>POOL RPM HEADROOM</span>
+<span class="material-symbols-outlined text-[16px] text-outline" data-icon="speed">speed</span>
+</div>
+<div class="flex items-baseline gap-2 mb-3">
+<span class="text-headline-lg font-headline-lg font-semibold text-on-surface">280</span>
+<span class="text-label-md font-label-md text-outline">RPM Cap</span>
+</div>
+<div class="space-y-1.5 pt-2 border-t border-outline-variant/20">
+<div class="flex justify-between text-label-sm font-label-sm">
+<span class="text-on-surface-variant">190.4 RPM load</span>
+<span class="text-primary font-medium">68% allocated</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-gradient-to-r from-primary to-secondary h-full rounded-full" style="width: 68%;"></div>
+</div>
+</div>
+</div>
+<!-- Card 4: P95 Upstream Latency -->
+<div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+<div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+<span>P95 UPSTREAM LATENCY</span>
+<span class="material-symbols-outlined text-[16px] text-secondary" data-icon="network_check">network_check</span>
+</div>
+<div class="flex items-baseline gap-2 mb-3">
+<span class="text-headline-lg font-headline-lg font-semibold text-on-surface">142<span class="text-headline-sm font-headline-sm text-outline">ms</span></span>
+<span class="px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-secondary/15 text-secondary border border-secondary/30">Ultra Fast</span>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 text-label-sm font-label-sm">
+<span class="text-secondary flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_down">trending_down</span>
+            -18ms vs Direct
+          </span>
+<span class="text-outline">SIN Route Optimized</span>
+</div>
+</div>
+</section>
+<!-- 2. Main Content Grid: Key Inventory (Left 8 cols) + Real-time Telemetry (Right 4 cols) -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6">
+<!-- Key Pool Management Section (Col span 8) -->
+<div class="xl:col-span-8 space-y-4">
+<!-- Table Toolbar & Filters -->
+<div class="specular-border bg-surface-container-low/80 backdrop-blur-xl rounded-xl border border-outline-variant/30 p-4">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-outline-variant/20">
+<!-- Filter Pills -->
+<div class="flex items-center gap-2 flex-wrap">
+<button class="px-3 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-primary text-label-md font-label-md font-medium">All (12)</button>
+<button class="px-3 py-1 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-label-md font-label-md transition-colors">Gemini (8)</button>
+<button class="px-3 py-1 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-label-md font-label-md transition-colors">Groq (4)</button>
+<button class="px-3 py-1 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-high text-tertiary text-label-md font-label-md transition-colors flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                Cooling Down (2)
+              </button>
+</div>
+<!-- Primary Action Button -->
+<button class="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary font-medium text-label-md font-label-md hover:bg-primary-container/90 transition-all active:scale-[0.98] shadow-[0_0_16px_rgba(128,131,255,0.3)]">
+<span class="material-symbols-outlined text-[16px]" data-icon="add">add</span>
+              + Add Provider Key
+            </button>
+</div>
+<!-- Developer Data Table -->
+<div class="overflow-x-auto mt-3">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant/20 text-label-sm font-label-sm text-outline uppercase tracking-wider">
+<th class="py-2.5 px-3">Provider &amp; Label</th>
+<th class="py-2.5 px-3">Masked API Key</th>
+<th class="py-2.5 px-3">RPM Gauge</th>
+<th class="py-2.5 px-3">Daily Quota</th>
+<th class="py-2.5 px-3">Status</th>
+<th class="py-2.5 px-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10 text-code-sm font-code-sm">
+<!-- Row 1: Gemini Flash Primary -->
+<tr class="hover:bg-surface-container-high/30 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]" data-icon="token">token</span>
+</div>
+<div>
+<div class="text-on-surface font-body-md text-body-md font-medium">Gemini 2.5 Flash #01</div>
+<div class="text-label-sm font-label-sm text-outline">Weight: 40 • Google AI</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-code-sm bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/20">AIzaSy...7B9x</span>
+<button class="copy-btn text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors" data-copy="AIzaSyA8849Fk920239487B9x" title="Copy Key">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-medium">42 / 60</span>
+<div class="w-12 bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 70%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="w-24">
+<div class="flex justify-between text-label-sm font-label-sm text-outline mb-1">
+<span>14.2k</span>
+<span>47%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 47%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/10 border border-secondary/30 text-secondary text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      Healthy
+                    </span>
+</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1 rounded text-outline hover:text-primary hover:bg-surface-container transition-colors" title="Ping Test">
+<span class="material-symbols-outlined text-[16px]" data-icon="network_ping">network_ping</span>
+</button>
+<button class="p-1 rounded text-outline hover:text-error hover:bg-surface-container transition-colors" title="Revoke Key">
+<span class="material-symbols-outlined text-[16px]" data-icon="do_not_disturb_on">do_not_disturb_on</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Gemini 1.5 Pro (Rate Limited / Cooldown) -->
+<tr class="hover:bg-surface-container-high/30 transition-colors group bg-tertiary/5">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-tertiary/10 border border-tertiary/30 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[16px]" data-icon="token">token</span>
+</div>
+<div>
+<div class="text-on-surface font-body-md text-body-md font-medium">Gemini 1.5 Pro #01</div>
+<div class="text-label-sm font-label-sm text-tertiary">Cooldown Active • Google AI</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-code-sm bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/20">AIzaSy...4Kp1</span>
+<button class="copy-btn text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors" data-copy="AIzaSyD8491Kz11938204Kp1" title="Copy Key">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-tertiary font-medium">0 / 15</span>
+<div class="w-12 bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full" style="width: 100%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="w-24">
+<div class="flex justify-between text-label-sm font-label-sm text-tertiary mb-1">
+<span>4.8k</span>
+<span>96%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full" style="width: 96%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-tertiary/10 border border-tertiary/30 text-tertiary text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary status-pulse"></span>
+                      429 Cooling [00:28s]
+                    </span>
+</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1 rounded text-outline hover:text-primary hover:bg-surface-container transition-colors" title="Ping Test">
+<span class="material-symbols-outlined text-[16px]" data-icon="network_ping">network_ping</span>
+</button>
+<button class="p-1 rounded text-outline hover:text-error hover:bg-surface-container transition-colors" title="Revoke Key">
+<span class="material-symbols-outlined text-[16px]" data-icon="do_not_disturb_on">do_not_disturb_on</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Groq LLaMA 3.3 70B -->
+<tr class="hover:bg-surface-container-high/30 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-tertiary/10 border border-tertiary/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[16px]" data-icon="bolt">bolt</span>
+</div>
+<div>
+<div class="text-on-surface font-body-md text-body-md font-medium">Groq LLaMA 3.3 70B</div>
+<div class="text-label-sm font-label-sm text-outline">Weight: 35 • Groq Cloud</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-code-sm bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/20">gsk_...9F3q</span>
+<button class="copy-btn text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors" data-copy="gsk_p092a83hfd8923hfd9F3q" title="Copy Key">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-medium">18 / 30</span>
+<div class="w-12 bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 60%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="w-24">
+<div class="flex justify-between text-label-sm font-label-sm text-outline mb-1">
+<span>8.9k</span>
+<span>31%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 31%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/10 border border-secondary/30 text-secondary text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      Healthy
+                    </span>
+</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1 rounded text-outline hover:text-primary hover:bg-surface-container transition-colors" title="Ping Test">
+<span class="material-symbols-outlined text-[16px]" data-icon="network_ping">network_ping</span>
+</button>
+<button class="p-1 rounded text-outline hover:text-error hover:bg-surface-container transition-colors" title="Revoke Key">
+<span class="material-symbols-outlined text-[16px]" data-icon="do_not_disturb_on">do_not_disturb_on</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4: Gemini 2.5 Flash Backup #02 -->
+<tr class="hover:bg-surface-container-high/30 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]" data-icon="token">token</span>
+</div>
+<div>
+<div class="text-on-surface font-body-md text-body-md font-medium">Gemini 2.5 Flash #02</div>
+<div class="text-label-sm font-label-sm text-outline">Weight: 25 • Google AI</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-code-sm bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/20">AIzaSy...0W3e</span>
+<button class="copy-btn text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors" data-copy="AIzaSyK10984Nm2910480W3e" title="Copy Key">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-medium">28 / 60</span>
+<div class="w-12 bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 46%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="w-24">
+<div class="flex justify-between text-label-sm font-label-sm text-outline mb-1">
+<span>11.3k</span>
+<span>38%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 38%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/10 border border-secondary/30 text-secondary text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      Healthy
+                    </span>
+</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1 rounded text-outline hover:text-primary hover:bg-surface-container transition-colors" title="Ping Test">
+<span class="material-symbols-outlined text-[16px]" data-icon="network_ping">network_ping</span>
+</button>
+<button class="p-1 rounded text-outline hover:text-error hover:bg-surface-container transition-colors" title="Revoke Key">
+<span class="material-symbols-outlined text-[16px]" data-icon="do_not_disturb_on">do_not_disturb_on</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5: Groq Mixtral 8x7B -->
+<tr class="hover:bg-surface-container-high/30 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-tertiary/10 border border-tertiary/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[16px]" data-icon="bolt">bolt</span>
+</div>
+<div>
+<div class="text-on-surface font-body-md text-body-md font-medium">Groq Mixtral 8x7B</div>
+<div class="text-label-sm font-label-sm text-outline">Weight: 20 • Groq Cloud</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-code-sm bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/20">gsk_...33Kz</span>
+<button class="copy-btn text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors" data-copy="gsk_923kjdslk387192333Kz" title="Copy Key">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-medium">12 / 30</span>
+<div class="w-12 bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 40%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="w-24">
+<div class="flex justify-between text-label-sm font-label-sm text-outline mb-1">
+<span>3.2k</span>
+<span>12%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 12%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/10 border border-secondary/30 text-secondary text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      Healthy
+                    </span>
+</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1 rounded text-outline hover:text-primary hover:bg-surface-container transition-colors" title="Ping Test">
+<span class="material-symbols-outlined text-[16px]" data-icon="network_ping">network_ping</span>
+</button>
+<button class="p-1 rounded text-outline hover:text-error hover:bg-surface-container transition-colors" title="Revoke Key">
+<span class="material-symbols-outlined text-[16px]" data-icon="do_not_disturb_on">do_not_disturb_on</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Live Telemetry Stream (Edge Request Stream Console) (Col span 4) -->
+<div class="xl:col-span-4 flex flex-col">
+<div class="specular-border bg-surface-container-low/90 backdrop-blur-xl rounded-xl border border-outline-variant/30 flex-1 flex flex-col overflow-hidden h-full">
+<!-- Terminal Header -->
+<div class="p-3.5 border-b border-outline-variant/20 bg-surface-container-lowest/70 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary status-pulse"></span>
+<span class="text-label-md font-label-md font-medium text-on-surface">Live Telemetry Stream</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-label-sm font-label-sm text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20 font-code-sm">240 req/min</span>
+<button class="text-label-sm font-label-sm text-outline hover:text-on-surface px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/30" id="toggleScrollBtn">
+                Auto-scroll: ON
+              </button>
+</div>
+</div>
+<!-- Terminal Content Viewport -->
+<div class="p-3.5 font-code-sm text-code-sm space-y-2.5 overflow-y-auto max-h-[380px] xl:max-h-[460px] terminal-screen text-on-surface-variant flex-1 select-text" id="telemetryStream">
+<!-- Log item 1 -->
+<div class="p-2 rounded bg-surface-container-lowest/80 border border-outline-variant/20 space-y-1">
+<div class="flex items-center justify-between text-label-sm font-label-sm">
+<span class="text-outline">14:02:18.421</span>
+<span class="text-secondary font-medium px-1 rounded bg-secondary/10">200 OK</span>
+</div>
+<div class="text-on-surface flex items-center gap-1.5 flex-wrap">
+<span class="text-primary font-medium">gemini-2.5-flash</span>
+<span class="text-outline">→</span>
+<span class="text-on-surface">Key #03 (SIN-Edge)</span>
+</div>
+<div class="flex items-center justify-between text-label-sm font-label-sm text-outline pt-0.5">
+<span>142ms</span>
+<span>prompt: 812 tok • comp: 310 tok</span>
+</div>
+</div>
+<!-- Log item 2: Shield Intercept Rate Limit -->
+<div class="p-2 rounded bg-tertiary/10 border border-tertiary/30 space-y-1">
+<div class="flex items-center justify-between text-label-sm font-label-sm">
+<span class="text-outline">14:02:17.890</span>
+<span class="text-tertiary font-medium px-1 rounded bg-tertiary/20">429 LIMIT</span>
+</div>
+<div class="text-tertiary font-medium flex items-center gap-1.5 flex-wrap">
+<span>gemini-1.5-pro</span>
+<span class="text-outline">→</span>
+<span class="text-on-surface">Key #01</span>
+</div>
+<div class="text-label-sm font-label-sm text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="shield">shield</span>
+<span>Auto-rerouted to Key #04 in 8ms (Shield Intercept)</span>
+</div>
+</div>
+<!-- Log item 3: Groq LLaMA -->
+<div class="p-2 rounded bg-surface-container-lowest/80 border border-outline-variant/20 space-y-1">
+<div class="flex items-center justify-between text-label-sm font-label-sm">
+<span class="text-outline">14:02:16.104</span>
+<span class="text-secondary font-medium px-1 rounded bg-secondary/10">200 OK</span>
+</div>
+<div class="text-on-surface flex items-center gap-1.5 flex-wrap">
+<span class="text-tertiary font-medium">llama-3.3-70b-versatile</span>
+<span class="text-outline">→</span>
+<span class="text-on-surface">Key #09 (Groq)</span>
+</div>
+<div class="flex items-center justify-between text-label-sm font-label-sm text-outline pt-0.5">
+<span>98ms</span>
+<span>prompt: 1.2k tok • stream</span>
+</div>
+</div>
+<!-- Log item 4 -->
+<div class="p-2 rounded bg-surface-container-lowest/80 border border-outline-variant/20 space-y-1">
+<div class="flex items-center justify-between text-label-sm font-label-sm">
+<span class="text-outline">14:02:14.772</span>
+<span class="text-secondary font-medium px-1 rounded bg-secondary/10">200 OK</span>
+</div>
+<div class="text-on-surface flex items-center gap-1.5 flex-wrap">
+<span class="text-primary font-medium">gemini-2.5-flash</span>
+<span class="text-outline">→</span>
+<span class="text-on-surface">Key #02 (SIN-Edge)</span>
+</div>
+<div class="flex items-center justify-between text-label-sm font-label-sm text-outline pt-0.5">
+<span>138ms</span>
+<span>prompt: 410 tok • comp: 89 tok</span>
+</div>
+</div>
+<!-- Log item 5 -->
+<div class="p-2 rounded bg-surface-container-lowest/80 border border-outline-variant/20 space-y-1">
+<div class="flex items-center justify-between text-label-sm font-label-sm">
+<span class="text-outline">14:02:13.209</span>
+<span class="text-secondary font-medium px-1 rounded bg-secondary/10">200 OK</span>
+</div>
+<div class="text-on-surface flex items-center gap-1.5 flex-wrap">
+<span class="text-tertiary font-medium">llama-3.1-8b-instant</span>
+<span class="text-outline">→</span>
+<span class="text-on-surface">Key #11 (Groq)</span>
+</div>
+<div class="flex items-center justify-between text-label-sm font-label-sm text-outline pt-0.5">
+<span>45ms</span>
+<span>prompt: 250 tok</span>
+</div>
+</div>
+</div>
+<!-- Console Footer Quick Command -->
+<div class="p-2.5 bg-surface-container-lowest border-t border-outline-variant/20 flex items-center justify-between text-label-sm font-label-sm">
+<span class="text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]" data-icon="terminal">terminal</span>
+              Edge Router: sin-edge-01.axe08.internal
+            </span>
+<button class="text-outline hover:text-on-surface transition-colors" id="clearStreamBtn">Clear</button>
+</div>
+</div>
+</div>
+</div>
+<!-- 3. Quick Drop-in Proxy Reference Banner -->
+<section class="specular-border bg-surface-container-low/90 backdrop-blur-xl rounded-xl border border-outline-variant/30 p-4 md:p-5 relative">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+<!-- Left: Drop-in description -->
+<div class="space-y-1 max-w-xl">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="integration_instructions">integration_instructions</span>
+<span class="text-label-md font-label-md font-medium text-on-surface">Drop-in OpenAI &amp; Anthropic SDK Compatible Endpoint</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+            Zero code modification required. Simply change your client base URL. Key Collective dynamically rotates keys and translates schema payloads.
+          </p>
+</div>
+<!-- Right: Code endpoint box & copy button -->
+<div class="flex items-center gap-2 flex-1 lg:max-w-xl">
+<div class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/30">
+<div class="flex items-center gap-2 overflow-hidden">
+<span class="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-code-sm text-code-sm font-semibold">POST</span>
+<span class="font-code-sm text-code-sm text-on-surface truncate" id="endpointUrl">https://key-col.axe08.tech/v1/chat/completions</span>
+</div>
+<button class="ml-2 flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-primary text-label-sm font-label-sm font-medium border border-outline-variant/30 transition-all active:scale-95 whitespace-nowrap" id="copyEndpointBtn">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span>
+<span id="copyBtnText">Copy Endpoint</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Syntax Tabs preview -->
+<div class="mt-3 pt-3 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2 text-label-sm font-label-sm">
+<div class="flex items-center gap-3 text-outline">
+<span class="text-on-surface">Snippet:</span>
+<button class="text-primary border-b border-primary pb-0.5">Python (OpenAI client)</button>
+<button class="hover:text-on-surface transition-colors">TypeScript / Node</button>
+<button class="hover:text-on-surface transition-colors">cURL</button>
+</div>
+<div class="flex items-center gap-1.5 text-outline">
+<span class="material-symbols-outlined text-[14px]" data-icon="lock">lock</span>
+<span>Pass virtual pool token in <code class="text-primary font-code-sm">Bearer Authorization</code> header</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Interactive Inline Micro-interactions & Handlers -->
+<script>
+    // Copy Key and Copy Endpoint Interactions
+    document.querySelectorAll('.copy-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const textToCopy = button.getAttribute('data-copy');
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          const icon = button.querySelector('.material-symbols-outlined');
+          const originalText = icon.textContent;
+          icon.textContent = 'check';
+          icon.classList.add('text-secondary');
+          setTimeout(() => {
+            icon.textContent = originalText;
+            icon.classList.remove('text-secondary');
+          }, 1500);
+        });
+      });
+    });
+
+    const copyEndpointBtn = document.getElementById('copyEndpointBtn');
+    const endpointUrl = document.getElementById('endpointUrl').textContent;
+    const copyBtnText = document.getElementById('copyBtnText');
+
+    copyEndpointBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(endpointUrl).then(() => {
+        copyBtnText.textContent = 'Copied!';
+        copyEndpointBtn.classList.add('bg-secondary/15', 'text-secondary');
+        setTimeout(() => {
+          copyBtnText.textContent = 'Copy Endpoint';
+          copyEndpointBtn.classList.remove('bg-secondary/15', 'text-secondary');
+        }, 1800);
+      });
+    });
+
+    // Clear console simulation
+    const clearStreamBtn = document.getElementById('clearStreamBtn');
+    const telemetryStream = document.getElementById('telemetryStream');
+    clearStreamBtn.addEventListener('click', () => {
+      telemetryStream.innerHTML = `
+        <div class="p-2 rounded bg-surface-container-lowest/50 text-outline text-label-sm font-label-sm">
+          -- Telemetry viewport cleared. Listening for incoming proxy requests... --
+        </div>
+      `;
+    });
+
+    // Cooldown timer simulation
+    let secondsLeft = 28;
+    const cooldownTimerEl = document.getElementById('cooldownTimer');
+    setInterval(() => {
+      if (secondsLeft > 0) {
+        secondsLeft--;
+        const formatted = String(secondsLeft).padStart(2, '0');
+        cooldownTimerEl.textContent = `00:${formatted}s cooldown`;
+      } else {
+        secondsLeft = 30; // reset simulation loop
+      }
+    }, 1000);
+
+    // Refresh simulation
+    const refreshDataBtn = document.getElementById('refreshDataBtn');
+    refreshDataBtn.addEventListener('click', () => {
+      refreshDataBtn.classList.add('animate-spin');
+      setTimeout(() => {
+        refreshDataBtn.classList.remove('animate-spin');
+      }, 750);
+    });
+  </script>
+</body></html>
