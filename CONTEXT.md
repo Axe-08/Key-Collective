@@ -10,7 +10,22 @@ Problem statement pending PRD definition.
 ---
 
 ## 🔬 2. SOTA Research & Competitive Landscape
-Live research landscape pending.
+# 🌐 Landscape & Competitive Intelligence: Free-Tier LLM Multi-Key Aggregation
+
+> **Inception Stage:** Round 0.5 Deliverable  
+> **Target Project:** Key Collective (v2 Cloudflare Native — Free-Tier Key Multiplexer & Pooling Edition)  
+> **Authors:** Competitive Intel Analyst & Systems Researcher  
+> **Canonical Path:** `docs/research/landscape.md`  
+> **Source Files:** [`free_tier_provider_landscape.md`](file:///home/akshit/Projects/Key%20Collective/docs/research/free_tier_provider_landscape.md) & [`oss_key_rotators_and_benchmarks.md`](file:///home/akshit/Projects/Key%20Collective/docs/research/oss_key_rotators_and_benchmarks.md)
+
+---
+
+## 1. Executive Summary & Market Paradox
+
+Commercial LLM gateways (LiteLLM, Portkey, Cloudflare AI Gateway) assume users manage **paid API accounts** with credit cards. They focus on spend control, cost optimization, and virtual balance deductions.
+
+Meanwhile, open-weights and frontier lab providers offer **generous, zero-credit-card Free Tiers** (Google 
+...(see docs/research/landscape.md for full landscape)
 
 ---
 
@@ -41,6 +56,7 @@ Downstream agents should refer to these files for detailed contracts:
 - `docs/adr/001-architecture-selection.md`: 001-architecture-selection
 - `docs/adr/001-cloudflare-native-architecture.md`: 001-cloudflare-native-architecture
 - `docs/adr/002-key-encryption-and-logging.md`: 002-key-encryption-and-logging
+- `docs/adr/003-multi-project-tiered-architecture.md`: 003-multi-project-tiered-architecture
 
 ---
 

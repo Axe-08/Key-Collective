@@ -1,0 +1,96 @@
+version: "3.0"
+description: "Key Collective v3 Golden Evaluation Benchmark Test Suite"
+cases:
+  - id: "tc-v3-01"
+    name: "GitHub OAuth Happy Path & Anti-Sybil Verification"
+    description: "Verifies an authentic GitHub profile (>30d old, verified email, >=1 public repo, >=5 contributions) receives Builder tier."
+    input:
+      mock_profile:
+        created_at: "2025-01-01T00:00:00Z"
+        public_repos: 4
+        primary_email: "developer@example.com"
+        is_email_verified: true
+        total_contributions: 42
+      turnstile_token: "valid_turnstile_response"
+    expected:
+      tier: "builder"
+      rpm_limit: 20
+      rpd_limit: 2000
+      max_projects: 3
+      status_code: 200
+
+  - id: "tc-v3-02"
+    name: "Anti-Sybil Quarantine (Young Account / Burner Email)"
+    description: "Verifies an account <30 days old is quarantined to Probationary sandbox tier with strictly throttled limits."
+    input:
+      mock_profile:
+        created_at: "2026-09-01T00:00:00Z"
+        public_repos: 0
+        primary_email: "bot992@temp-mail.org"
+        is_email_verified: false
+        total_contributions: 0
+      turnstile_token: "valid_turnstile_response"
+    expected:
+      tier: "probationary"
+      rpm_limit: 2
+      rpd_limit: 50
+      max_projects: 1
+      status_code: 200
+
+  - id: "tc-v3-03"
+    name: "Multi-Project Shared Quota Enforcement"
+    description: "Two projects under the same Builder user share a 20 RPM ceiling. Combined 21st request across projects receives 429."
+    input:
+      user_tier: "builder"
+      project_a_requests: 12
+      project_b_requests: 8
+      subsequent_request_project: "project_a"
+    expected:
+      status_code: 429
+      error_code: "USER_QUOTA_EXHAUSTED"
+      retry_after_seconds: 60
+
+  - id: "tc-v3-04"
+    name: "Project-Level Sub-Cap Enforcement"
+    description: "Project A has a configured sub-cap of 5 RPM. The 6th request to Project A returns 429 even though the root user has 15 RPM remaining."
+    input:
+      user_tier: "builder"
+      project_a_sub_cap: 5
+      project_a_requests: 5
+      subsequent_request_project: "project_a"
+    expected:
+      status_code: 429
+      error_code: "PROJECT_SUB_CAP_EXCEEDED"
+      retry_after_seconds: 60
+
+  - id: "tc-v3-05"
+    name: "Instant Project Key Revocation SLA (<10ms)"
+    description: "Revoking a project key immediately invalidates subsequent edge requests with HTTP 401 without affecting sibling keys."
+    input:
+      revoked_key: "kc_proj_rag_8Yk2Lw9P"
+      sibling_key: "kc_proj_rag_34fd91aa"
+    expected:
+      revoked_key_status: 401
+      sibling_key_status: 200
+      revocation_propagation_ms: 10
+
+  - id: "tc-v3-06"
+    name: "Demo Tier Ephemeral IP Throttling"
+    description: "Unauthenticated playground visitor exceeding 3 RPM is throttled with HTTP 429 with invitation to sign in."
+    input:
+      client_ip: "203.0.113.42"
+      burst_count: 4
+      token: "kc_demo_1741604400_a8f9"
+    expected:
+      status_code: 429
+      error_code: "DEMO_IP_QUOTA_EXCEEDED"
+      message_contains: "Sign in with GitHub for full Builder tier access"
+
+  - id: "tc-v3-07"
+    name: "Demo Token Expiry (15-Minute DO Alarm Invalidation)"
+    description: "Demo token issued >15 minutes ago is rejected with HTTP 401 prompt to refresh."
+    input:
+      token_issued_at_ms: "now - 16 * 60 * 1000"
+    expected:
+      status_code: 401
+      error_code: "DEMO_TOKEN_EXPIRED"

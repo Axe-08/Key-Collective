@@ -1,65 +1,52 @@
-[
-  {
-    "pod_id": "contracts-and-types",
-    "branch": "hive/contracts-and-types",
-    "description": "Domain types, errors, constants",
-    "scope": [
-      "src/contracts/**",
-      "src/types/**",
-      "src/constants/**",
-      "src/errors/**"
-    ],
-    "dependencies": []
-  },
-  {
-    "pod_id": "crypto-and-storage",
-    "branch": "hive/crypto-and-storage",
-    "description": "AES-256-GCM Web Crypto helper, D1 repository queries, token hashing",
-    "scope": [
-      "src/crypto/**",
-      "src/storage/**"
-    ],
-    "dependencies": [
-      "contracts-and-types"
-    ]
-  },
-  {
-    "pod_id": "durable-object-pool",
-    "branch": "hive/durable-object-pool",
-    "description": "KeyPoolDO, circuit breaker state machine, RPM counters, DO transactional storage",
-    "scope": [
-      "src/durable_objects/**"
-    ],
-    "dependencies": [
-      "contracts-and-types",
-      "crypto-and-storage"
-    ]
-  },
-  {
-    "pod_id": "router-and-proxy",
-    "branch": "hive/router-and-proxy",
-    "description": "OpenRouter model registry, capability filter, cascade routing, upstream SSE stream relay",
-    "scope": [
-      "src/router/**",
-      "src/proxy/**"
-    ],
-    "dependencies": [
-      "contracts-and-types",
-      "durable-object-pool"
-    ]
-  },
-  {
-    "pod_id": "edge-worker-auth",
-    "branch": "hive/edge-worker-auth",
-    "description": "Worker fetch handler, Bearer token auth, rate limiting, analytics engine telemetry",
-    "scope": [
-      "src/worker/**"
-    ],
-    "dependencies": [
-      "contracts-and-types",
-      "crypto-and-storage",
-      "durable-object-pool",
-      "router-and-proxy"
-    ]
-  }
-]
+{
+  "pods": [
+    {
+      "id": "pod-auth-sybil",
+      "files": [
+        "src/auth/oauth.ts",
+        "src/auth/sybil.ts",
+        "src/auth/demo_do.ts"
+      ],
+      "contracts": [
+        "src/contracts/v3_types.ts"
+      ],
+      "description": "Implements GitHub OAuth, Turnstile, Sybil Scoring, and Demo DO"
+    },
+    {
+      "id": "pod-do-quota",
+      "files": [
+        "src/quota/tenant_do.ts",
+        "src/quota/limits.ts"
+      ],
+      "contracts": [
+        "src/contracts/v3_types.ts"
+      ],
+      "description": "Implements TenantDO, Quota Enforcement, and Sub-cap math"
+    },
+    {
+      "id": "pod-ui-workbench",
+      "files": [
+        "ui/src/routes/+page.svelte",
+        "ui/src/lib/Workbench.svelte",
+        "ui/src/lib/MarkdownExport.svelte"
+      ],
+      "contracts": [
+        "src/contracts/v3_types.ts"
+      ],
+      "description": "Implements Svelte 5 Dashboard, 1-Click Docs, and API Explorer"
+    },
+    {
+      "id": "pod-cicd-infra",
+      "files": [
+        ".github/workflows/ci-dev.yml",
+        ".github/workflows/deploy-prod.yml",
+        "migrations/0002_v3_multi_project.sql",
+        "wrangler.jsonc"
+      ],
+      "contracts": [
+        "src/contracts/v3_types.ts"
+      ],
+      "description": "Implements GitHub Actions pipelines, D1 Migrations, and Wrangler configurations"
+    }
+  ]
+}

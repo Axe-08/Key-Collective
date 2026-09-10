@@ -5,6 +5,16 @@
     "error": ""
   },
   {
+    "file": "src/contracts/key_pool.ts",
+    "pass": true,
+    "error": ""
+  },
+  {
+    "file": "src/contracts/index.ts",
+    "pass": true,
+    "error": ""
+  },
+  {
     "file": "src/contracts/router.ts",
     "pass": true,
     "error": ""
@@ -15,12 +25,7 @@
     "error": ""
   },
   {
-    "file": "src/contracts/index.ts",
-    "pass": true,
-    "error": ""
-  },
-  {
-    "file": "src/contracts/key_pool.ts",
+    "file": "src/contracts/v3_types.ts",
     "pass": true,
     "error": ""
   }

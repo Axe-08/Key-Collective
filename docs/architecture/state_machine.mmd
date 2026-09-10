@@ -1,0 +1,57 @@
+flowchart TD
+    %% Key Collective v3 State Machine & Execution Flows
+    
+    subgraph AuthFlow["1. Developer Ingress & Anti-Sybil Triage State Machine"]
+        StartAuth([User Clicks 'Sign in with GitHub']) --> TurnstileCheck{Turnstile Challenge Valid?}
+        TurnstileCheck -- Failed / Bot --> BotReject[HTTP 403: Bot Detected]
+        TurnstileCheck -- Passed --> SubnetCheck{IP Subnet Rate Check}
+        SubnetCheck -- Exceeded >1 per /24 subnet --> SubnetReject[HTTP 429: Subnet Quota Exceeded]
+        SubnetCheck -- OK --> GHOAuth[Redirect to GitHub OAuth]
+        GHOAuth --> Callback[OAuth Callback with Code]
+        Callback --> EvalProfile[Query GitHub Profile, Verified Email & Contributions]
+        
+        EvalProfile --> SybilScore{Anti-Sybil Evaluation}
+        SybilScore -- Score >= 65 & Age >= 30d & Repos >= 1 --> BuilderTier[Assign 'Builder' Tier (20 RPM / 2,000 RPD)]
+        SybilScore -- Score 40-64 (New Account / 0 Repos) --> ProbationaryTier[Assign 'Probationary' Tier (2 RPM / 50 RPD)]
+        SybilScore -- Score < 40 (Burner / Disposable) --> Rejection[HTTP 403: Disposable Identity Rejected]
+        
+        BuilderTier & ProbationaryTier --> ProvisionDO[Provision Tenant Durable Object: env.KEY_POOL.idFromName tenantId]
+        ProvisionDO --> AuthReady([User Authenticated & Session Ready])
+    end
+
+    subgraph ProxyFlow["2. Multi-Project Proxy & Quota Enforcement"]
+        Req[Inbound Request with Bearer Token kc_proj_...] --> EdgeHash[Edge Worker: Compute SHA-256 Hash <0.2ms]
+        EdgeHash --> KeyResolve{Token Active & Valid in D1/Cache?}
+        KeyResolve -- Missing / Revoked --> Err401[HTTP 401 Unauthorized]
+        KeyResolve -- Valid --> DispatchDO[Dispatch to Tenant DO: env.KEY_POOL.idFromName tenantId]
+        
+        DispatchDO --> DOCheck{In-Memory Quota & Tier Check}
+        DOCheck -- User Tier RPM Ceiling Exceeded --> Err429Root[HTTP 429: User Quota Ceiling Exceeded]
+        DOCheck -- Project Sub-Cap Exceeded --> Err429Proj[HTTP 429: Project Sub-Cap Exceeded]
+        DOCheck -- Within Quotas --> KeySelect[KeySelector: Select Healthiest Pooled Upstream Key]
+        
+        KeySelect --> UpstreamFetch[Dispatch to Upstream LLM: Gemini / Groq]
+        UpstreamFetch --> SSEStream[SSEStreamTransformer: Pipe Chunks with 0ms Delay]
+        SSEStream --> PostUsage[Final Chunk: Record Usage & Microdollar Spend]
+        PostUsage --> AsyncTelemetry[Non-Blocking Workers Analytics Engine & D1 Write via ctx.waitUntil]
+    end
+
+    subgraph DemoFlow["3. Ephemeral Demo Playground & 15-Minute Token Rotation"]
+        DemoVisitor([Unauthenticated Visitor Opens Playground]) --> FetchDemoToken[GET /api/demo/token]
+        FetchDemoToken --> DemoDOStub[Global Demo DO: idFromName global_demo_pool]
+        DemoDOStub --> IssueToken[Issue Ephemeral Token: kc_demo_timestamp_hash]
+        
+        DemoReq[Visitor Sends Prompt with kc_demo_...] --> CheckDemoExpiry{Token Timestamp < 15 Minutes Old?}
+        CheckDemoExpiry -- Expired --> Err401Demo[HTTP 401: Demo Token Expired. Refreshing in UI]
+        CheckDemoExpiry -- Valid --> CheckDemoIP{Visitor IP Under 3 RPM & 25 RPD?}
+        CheckDemoIP -- Exceeded --> Err429Demo[HTTP 429: IP Demo Quota Exceeded. Please Sign In]
+        CheckDemoIP -- Within Limit --> CheckGlobalDemoPool{Global Demo Pool Under 20 RPM?}
+        CheckGlobalDemoPool -- Exceeded --> Err429Pool[HTTP 429: Demo Pool Saturated. Try again in 30s]
+        CheckGlobalDemoPool -- Within Limit --> ExecDemo[Execute Prompt via Sandboxed Upstream Pool]
+        
+        subgraph AlarmLoop["DO Alarm 15-Minute Cycle"]
+            AlarmTrigger([DO Alarm Fires: setAlarm]) --> RotateSecret[Generate Fresh 32-byte Rotating Secret]
+            RotateSecret --> PurgeExpiredIPs[Prune Inactive IP Sliding Windows]
+            PurgeExpiredIPs --> RescheduleAlarm[this.ctx.storage.setAlarm Date.now + 15 * 60 * 1000]
+        end
+    end
