@@ -1,0 +1,38 @@
+{
+  "pod_id": "pod-do-quota",
+  "context_bundle": {
+    "contracts": [
+      "src/contracts/v3_types.ts"
+    ],
+    "invariants": [
+      "No Plaintext Keys: AES-256-GCM encryption with 12-byte nonces",
+      "Per-Tenant DO Isolation: TenantQuotaDO uses idFromName(tenantId)",
+      "Fixed-Point Microdollars: integer math only",
+      "DO Transactional Storage for Hot State: In-memory circuit breaker and RPM counters sync to this.ctx.storage"
+    ]
+  },
+  "micro_tasks": [
+    {
+      "task_id": "mt-do-quota-1",
+      "file": "src/quota/limits.ts",
+      "description": "Implement getTierLimits(tier: UserTier) and calculateProjectQuota(tenantTier: UserTier, projectMaxSubCap?: number). calculateProjectQuota must ensure the project limit does not exceed the root limit of the tenant tier.",
+      "acceptance_criteria": [
+        "Strict TypeScript with no 'any'",
+        "getTierLimits returns correct TierLimits from TIER_LIMITS_MAP",
+        "calculateProjectQuota applies Math.min(tenantLimit, projectMaxSubCap) logic correctly",
+        "Exports both functions"
+      ]
+    },
+    {
+      "task_id": "mt-do-quota-2",
+      "file": "src/quota/tenant_do.ts",
+      "description": "Implement TenantQuotaDO class extending DurableObject. Add in-memory RPM and RPD counters. Implement fetch() interface to evaluate consumeQuota requests, responding with HTTP 429 if quota exceeded. Sync state to this.ctx.storage.",
+      "acceptance_criteria": [
+        "Uses int64 microdollars if tracking cost",
+        "Implements strict per-tenant compute isolation",
+        "In-memory counters sync to DO storage for survival across evictions",
+        "fetch() correctly returns 429 status on limit breach"
+      ]
+    }
+  ]
+}
