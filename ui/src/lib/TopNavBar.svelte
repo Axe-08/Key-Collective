@@ -69,7 +69,7 @@
     <!-- Edge status badge -->
     <div class="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/40">
       <span class="w-2 h-2 rounded-full bg-secondary status-pulse shadow-[0_0_8px_#4edea3]"></span>
-      <span class="text-label-sm font-label-sm text-secondary font-mono">Operational • 12ms (SIN-01)</span>
+      <span class="text-label-sm font-label-sm text-secondary font-mono">Edge Network Active • Latency Nominal</span>
     </div>
 
     <!-- Search on left -->
@@ -85,69 +85,8 @@
     </div>
   </div>
 
-  <!-- Center Navigation Links (Matching Stitch Navigation) -->
-  <nav class="hidden md:flex items-center gap-6 h-full pt-3">
-    <button
-      type="button"
-      onclick={() => handleTabClick('pool')}
-      class="pb-3 text-label-md font-label-md transition-colors cursor-pointer {activeTab === 'pool' ? 'text-primary font-medium border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}"
-    >
-      Virtual Pools
-    </button>
-    <button
-      type="button"
-      onclick={() => handleTabClick('workbench')}
-      class="pb-3 text-label-md font-label-md transition-colors cursor-pointer flex items-center gap-1.5 {activeTab === 'workbench' ? 'text-primary font-medium border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}"
-    >
-      <span>Developer Workbench</span>
-      {#if userAccount?.tier}
-        <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border {getTierBadgeColor(userAccount.tier)}">
-          {userAccount.tier}
-        </span>
-      {/if}
-    </button>
-    <button
-      type="button"
-      onclick={() => handleTabClick('docs')}
-      class="pb-3 text-label-md font-label-md transition-colors cursor-pointer {activeTab === 'docs' ? 'text-primary font-medium border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}"
-    >
-      API Docs
-    </button>
-    {#if userAccount?.tier === 'admin'}
-      <button
-        type="button"
-        onclick={() => handleTabClick('admin')}
-        class="pb-3 text-label-md font-label-md transition-colors cursor-pointer flex items-center gap-1.5 {activeTab === 'admin' ? 'text-primary font-medium border-b-2 border-primary' : 'text-on-surface-variant hover:text-on-surface'}"
-      >
-        <span>Admin Panel</span>
-        <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">ROOT</span>
-      </button>
-    {/if}
-  </nav>
-
   <!-- Trailing Section (Actions + Icons + Avatar) -->
   <div class="flex items-center gap-3">
-    <!-- Add Provider Key CTA -->
-    <button
-      type="button"
-      onclick={onOpenAddModal}
-      class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest/60 text-on-surface border border-outline-variant/40 text-label-md font-label-md active:scale-[0.98] transition-all cursor-pointer"
-    >
-      <span class="material-symbols-outlined text-[15px]" data-icon="add">add</span>
-      <span>Add Provider Key</span>
-    </button>
-
-    <!-- Deploy Proxy / Live Refresh Button -->
-    <button
-      type="button"
-      onclick={onRefresh}
-      disabled={isRefreshing}
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-container text-on-primary font-medium text-label-md font-label-md active:scale-[0.98] shadow-[0_0_12px_rgba(128,131,255,0.35)] transition-all cursor-pointer disabled:opacity-50"
-    >
-      <span class="material-symbols-outlined text-[15px] {isRefreshing ? 'animate-spin' : ''}" data-icon="bolt">bolt</span>
-      <span>{isRefreshing ? 'Syncing...' : 'Deploy Proxy'}</span>
-    </button>
-
     <!-- Trailing Icon Actions -->
     <div class="flex items-center gap-1 border-l border-outline-variant/30 pl-2 text-on-surface-variant">
       <button
