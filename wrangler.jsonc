@@ -43,6 +43,18 @@
     {
       "pattern": "key-col.axe08.tech",
       "custom_domain": true
+    },
+    {
+      "pattern": "api.key-col.axe08.tech",
+      "custom_domain": true
+    },
+    {
+      "pattern": "console.key-col.axe08.tech",
+      "custom_domain": true
+    },
+    {
+      "pattern": "admin.key-col.axe08.tech",
+      "custom_domain": true
     }
   ],
   "analytics_engine_datasets": [
@@ -95,6 +107,18 @@
       "routes": [
         {
           "pattern": "key-col.axe08.tech",
+          "custom_domain": true
+        },
+        {
+          "pattern": "api.key-col.axe08.tech",
+          "custom_domain": true
+        },
+        {
+          "pattern": "console.key-col.axe08.tech",
+          "custom_domain": true
+        },
+        {
+          "pattern": "admin.key-col.axe08.tech",
           "custom_domain": true
         }
       ],
