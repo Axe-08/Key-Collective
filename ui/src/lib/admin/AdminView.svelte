@@ -15,7 +15,7 @@
   } = $props();
 
   // Admin sub-navigation view mode
-  let adminTab = $state<'all' | 'surveillance' | 'velocity' | 'circuits'>('all');
+  let adminTab = $state<'all' | 'surveillance' | 'velocity' | 'circuits'>('surveillance');
 
   // Edge host & cluster identification
   const edgeHost = 'admin.key-col.axe08.tech';
@@ -394,12 +394,6 @@
             <span>{edgeHost}</span>
           </div>
 
-          <!-- DO Isolation Status Badge -->
-          <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-container-high border border-outline-variant/40 font-mono text-[11px] text-outline">
-            <span class="w-2 h-2 rounded-full bg-secondary status-pulse shadow-[0_0_8px_#4edea3]"></span>
-            <span>{edgeNodeId} • DO Isolated Hot State</span>
-          </div>
-
           <!-- Zero-Knowledge 404 Guard Indicator -->
           <div class="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-mono text-[10px]" title="Non-admin requests receive HTTP 404 Not Found at edge isolate">
             <span class="material-symbols-outlined text-[12px] text-primary">visibility_off</span>
@@ -528,17 +522,7 @@
   <!-- 3. Admin View Navigation Sub-Tabs Bar -->
   <div class="flex items-center justify-between border-b border-outline-variant/30 pb-2">
     <div class="flex items-center gap-2">
-      <!-- Tab 1: All Operations -->
-      <button
-        type="button"
-        onclick={() => (adminTab = 'all')}
-        class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-mono text-label-md transition-all cursor-pointer {adminTab === 'all' ? 'bg-primary/15 text-primary border border-primary/30 font-semibold' : 'text-outline hover:text-on-surface hover:bg-surface-container/40'}"
-      >
-        <span class="material-symbols-outlined text-[16px]">grid_view</span>
-        <span>Unified Control Center</span>
-      </button>
-
-      <!-- Tab 2: Tenant Surveillance -->
+      <!-- Tab 1: Tenant Surveillance -->
       <button
         type="button"
         onclick={() => (adminTab = 'surveillance')}
@@ -584,7 +568,7 @@
   </div>
 
   <!-- 4. Tab Views -->
-  {#if adminTab === 'all' || adminTab === 'velocity'}
+  {#if adminTab === 'velocity'}
     <!-- Velocity Dials Component Section -->
     <section class="space-y-4">
       <VelocityDials
@@ -600,7 +584,7 @@
     </section>
   {/if}
 
-  {#if adminTab === 'all' || adminTab === 'circuits'}
+  {#if adminTab === 'circuits'}
     <!-- Circuit Breaker & Emergency Controls Component Section -->
     <section class="space-y-4">
       <CircuitBreakerControls
@@ -614,7 +598,7 @@
     </section>
   {/if}
 
-  {#if adminTab === 'all' || adminTab === 'surveillance'}
+  {#if adminTab === 'surveillance'}
     <!-- Tenant Surveillance & Abuse Sentinel Component Section -->
     <section class="space-y-4">
       <TenantSurveillance
