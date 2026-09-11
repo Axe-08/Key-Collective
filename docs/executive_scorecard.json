@@ -6,7 +6,8 @@
     "1": 0.0,
     "stage1": 0.0,
     "2c": 0.0,
-    "3": 0.0
+    "3": 0.0,
+    "2": 0.0
   },
   "pods": {
     "router-and-proxy": {
@@ -16,6 +17,36 @@
       "commits": 0
     },
     "edge-worker-auth": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-auth-sybil": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-cicd-infra": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-admin-backend": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-auth-subdomains": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-ui-stitch-overhaul": {
       "tasks": 0,
       "pass_rate": 100.0,
       "escalations": 0,

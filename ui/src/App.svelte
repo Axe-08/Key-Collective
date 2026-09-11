@@ -12,6 +12,7 @@
   import AddKeyModal from './lib/AddKeyModal.svelte';
   import Workbench from './lib/Workbench.svelte';
   import ApiDocs from './lib/ApiDocs.svelte';
+  import AdminView from './lib/admin/AdminView.svelte';
   import OAuthModal from './lib/OAuthModal.svelte';
   import Toast from './lib/Toast.svelte';
 
@@ -218,6 +219,15 @@
   onMount(() => {
     if (typeof window !== 'undefined') {
       proxyEndpoint = `${window.location.origin}/v1/chat/completions`;
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('tab') === 'admin' || window.location.hostname.startsWith('admin.')) {
+        userAccount = {
+          ...userAccount,
+          tier: 'admin',
+          primaryEmail: 'admin@keycollective.io',
+        };
+        activeTab = 'admin';
+      }
     }
     loadData();
 
@@ -389,6 +399,14 @@
     <!-- TAB 3: API Documentation & Code Snippets -->
     {#if activeTab === 'docs'}
       <ApiDocs {proxyEndpoint} />
+    {/if}
+
+    <!-- TAB 4: Admin Surveillance Panel (admin.key-col.axe08.tech) -->
+    {#if activeTab === 'admin'}
+      <AdminView
+        adminEmail={userAccount.primaryEmail}
+        onNavigate={(tab) => (activeTab = tab as any)}
+      />
     {/if}
   </main>
 
