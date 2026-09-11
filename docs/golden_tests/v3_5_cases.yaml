@@ -1,39 +1,95 @@
+version: "3.5"
+suite: "Key Collective v3.5 Identity, Hidden Tiers & Admin Surveillance Suite"
+
 cases:
-  - id: CASE-UI-001
-    name: "Obsidian Edge Theme Tokens Injection"
-    description: "Verify that app.css contains core Obsidian Edge color, glassmorphic surface, and typography variables"
-    assertions:
-      - file: "ui/src/app.css"
-        contains:
-          - "#090B10"
-          - "glass-surface"
-          - "specular-border"
+  - id: TC-AUTH-01
+    description: "Email ingress assigns probationary tier with 2 RPM ceiling"
+    input:
+      action: "REGISTER_EMAIL"
+      email: "developer@example.com"
+      turnstile_token: "mock_turnstile_valid"
+    expected:
+      status: 200
+      tier: "probationary"
+      rpm_limit: 2
+      rpd_limit: 50
+      max_budget_microdollars: 50000
 
-  - id: CASE-UI-002
-    name: "SPA Navigation & View Switching"
-    description: "Verify that App.svelte supports all 4 primary views: dashboard, workbench, docs, and sybil gate modal"
-    assertions:
-      - file: "ui/src/App.svelte"
-        contains:
-          - "currentTab"
-          - "dashboard"
-          - "workbench"
-          - "docs"
-          - "showSybilModal"
+  - id: TC-AUTH-02
+    description: "GitHub OAuth PKCE with aged active account promotes to builder tier"
+    input:
+      action: "ELEVATE_GITHUB"
+      user_id: "usr_test_01"
+      github_profile:
+        id: 12345678
+        created_at: "2024-01-01T00:00:00Z" # > 90 days
+        public_repos: 5
+        annual_commits: 45
+        email: "verified_dev@github.com"
+    expected:
+      status: 200
+      tier: "builder"
+      rpm_limit: 20
+      rpd_limit: 2000
+      is_github_verified: true
+      sybil_score_gte: 80
 
-  - id: CASE-UI-003
-    name: "API Sandbox SSE Streaming Preview"
-    description: "Verify that ApiDocs.svelte provides interactive sandbox with SSE token delta streaming preview"
-    assertions:
-      - file: "ui/src/components/ApiDocs.svelte"
-        contains:
-          - "event: completion"
-          - "curl"
-          - "python"
-          - "exportPdf"
+  - id: TC-AUTH-03
+    description: "Sybil Duplicate Defense: Reject duplicate GitHub ID binding"
+    input:
+      action: "ELEVATE_GITHUB"
+      user_id: "usr_test_02"
+      github_profile:
+        id: 12345678 # Already bound to usr_test_01
+    expected:
+      status: 409
+      error_code: "SYBIL_COLLISION_DETECTED"
+      quarantined: true
 
-  - id: CASE-UI-004
-    name: "Quality Gate Verification"
-    description: "Verify that make gate passes without errors"
-    command: "make gate"
-    expected_exit_code: 0
+  - id: TC-TIER-01
+    description: "Public tier list strips Ultra and Admin completely"
+    input:
+      method: "GET"
+      endpoint: "/v1/tiers"
+      caller_tier: "builder"
+    expected:
+      status: 200
+      tiers_visible: ["probationary", "builder", "max"]
+      tiers_forbidden: ["ultra", "admin"]
+
+  - id: TC-TIER-02
+    description: "Client attempt to self-upgrade to Ultra is rejected"
+    input:
+      method: "POST"
+      endpoint: "/v1/user/tier"
+      body:
+        tier: "ultra"
+    expected:
+      status: 400
+      error_message_contains: "Invalid tier"
+
+  - id: TC-ADMIN-01
+    description: "Non-admin access to admin.key-col.axe08.tech returns 404 zero-knowledge denial"
+    input:
+      host: "admin.key-col.axe08.tech"
+      method: "GET"
+      path: "/"
+      auth_header: "Bearer kc_builder_token"
+    expected:
+      status: 404
+      body: "Not Found"
+
+  - id: TC-ADMIN-02
+    description: "Admin successfully overrides tenant tier to Ultra"
+    input:
+      host: "admin.key-col.axe08.tech"
+      method: "POST"
+      path: "/api/admin/tenants/usr_test_01/tier"
+      auth_header: "Bearer kc_admin_master_token"
+      body:
+        new_tier: "ultra"
+        reason: "VIP Partner Provisioning"
+    expected:
+      status: 200
+      target_tenant_tier: "ultra"
+      audit_logged: true

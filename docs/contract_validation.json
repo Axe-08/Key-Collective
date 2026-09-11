@@ -28,5 +28,10 @@
     "file": "src/contracts/v3_types.ts",
     "pass": true,
     "error": ""
+  },
+  {
+    "file": "src/contracts/v3_5_types.ts",
+    "pass": true,
+    "error": ""
   }
 ]

@@ -1,36 +1,44 @@
-# Threat Model & Chaos Defense (v3.5)
-## Key Collective: Frontend Attack Vectors & Sybil Mitigations
+# Threat Model — Key Collective v3.5 (STRIDE & Anti-Sybil Defense)
 
-**Author:** Red-Team Critic (Inception Board)  
-**Status:** Approved by User  
+> **Document Status:** Verified  
+> **System:** Key Collective v3.5  
+> **Methodology:** STRIDE + Zero-Trust Edge Threat Modeling  
 
 ---
 
-## 1. Attack Vectors & Defensive Mitigations
+## 1. Threat Surface Inventory
 
-### 1.1 Sybil Key Farming & Multi-Account Rotation
-- **Threat:** Automated botnets spawn thousands of fresh GitHub accounts to bypass the 1-Person-1-Account quota limit and aggregate free tier calls.
-- **Defense:** 
-  - Mandatory minimum GitHub account age (>90 days).
-  - Minimum 15 public contributions in the preceding 12 months.
-  - Cloudflare Turnstile token validation on both client and server before key minting.
-  - Per-subnet and per-IP velocity ratelimiting (max 1 registration per IP per 24 hours).
+| Asset | Criticality | Storage / Location | Primary Threat Vector |
+| :--- | :--- | :--- | :--- |
+| **AES-256-GCM Encrypted Provider Keys** | Critical | D1 SQLite (Encrypted) + DO Memory (Decrypted) | Exfiltration, memory inspection, unauthorized proxy routing |
+| **Shared Free-Tier LLM Quotas** | High | Upstream Provider Endpoints (Gemini / Groq) | Sybil botnet quota farming, 429 exhaustion attacks |
+| **Admin Surveillance & Control Panel** | Critical | `admin.key-col.axe08.tech` | Credential stuffing, privilege escalation, unauthenticated access |
+| **Tenancy Isolation Boundary** | Critical | Cloudflare Durable Objects (`idFromName(tenantId)`) | Cross-tenant memory leaks, noisy neighbor starvation |
 
-### 1.2 Client-Side Injection & XSS in Code Snippets
-- **Threat:** Malicious payload injected into the interactive API sandbox response pane causes XSS execution in the developer's browser.
-- **Defense:** 
-  - Strict DOM text escaping in Svelte 5.
-  - No use of raw `{@html}` on untrusted API responses.
-  - Content Security Policy (CSP) headers disallowing unsafe inline eval.
+---
 
-### 1.3 Ephemeral Sandbox Resource Exhaustion (DemoDO Bombing)
-- **Threat:** An attacker hammers the "Launch Ephemeral Sandbox" button to instantiate millions of Durable Object isolates.
-- **Defense:**
-  - IP-based singleton mapping for DemoDO instances.
-  - Hard 15-minute `storage.setAlarm` self-destruction.
-  - 15 RPM rate ceiling per demo session.
+## 2. STRIDE Threat Analysis & Mitigations
 
-### 1.4 API Doc Exfiltration & PDF Denial of Service
-- **Threat:** Abusing the PDF export button to crash the browser tab with deep recursive rendering.
-- **Defense:**
-  - Pure native CSS `@media print` styling triggering the browser's native print engine. Zero server roundtrips, zero client memory leaks.
+### 2.1 Spoofing Identity
+* **Threat:** Malicious actor creates 100 fake Google accounts to harvest free LLM proxy quotas.
+* **Mitigation:** Two-phase elevation gate. Initial Google accounts are locked into the `probationary` sandbox (2 RPM, 50 RPD, 50,000 µ$ budget cap). Elevating to developer quotas requires linking an aged ($\ge 60$d), active ($\ge 15$ commits) GitHub account. D1 enforces `UNIQUE(github_user_id)`.
+
+### 2.2 Tampering with Data
+* **Threat:** Client sends `{"tier": "ultra"}` or `{"tier": "admin"}` in user update or registration requests.
+* **Mitigation:** Strict schema validation in `AuthMiddleware`. `ultra` and `admin` are completely stripped from public types. Any client payload containing internal tier values is rejected with `HTTP 400 Bad Request`.
+
+### 2.3 Repudiation
+* **Threat:** Rogue administrator downgrades or quarantines a high-volume tenant without trace evidence.
+* **Mitigation:** Immutable `admin_audit_logs` table in D1 recording `admin_email`, `action`, `target_tenant_id`, `details_json`, `ip_address`, and `created_at`.
+
+### 2.4 Information Disclosure
+* **Threat:** External attacker discovers `admin.key-col.axe08.tech` and enumerates endpoints or extracts database schemas from client source maps.
+* **Mitigation:** Zero-knowledge edge denial. Non-admin requests receive `HTTP 404 Not Found` (never 401/403). Admin JavaScript chunks are isolated and edge-gated by the Worker.
+
+### 2.5 Denial of Service
+* **Threat:** Upstream provider experiences a sudden 429 rate limit burst or 500 internal server outage.
+* **Mitigation:** DO-managed `CircuitBreaker` with 60s quarantine and automatic sub-4ms cascade failover to secondary providers (e.g. Gemini $\rightarrow$ Groq $\rightarrow$ Cerebras).
+
+### 2.6 Elevation of Privilege
+* **Threat:** Tenant creates a project with `maxRpmSubCap = 1000` to exceed their account ceiling.
+* **Mitigation:** Deterministic clamping inside `KeyPoolDO`: `effectiveRpm = min(project.subCap, tierLimits[user.tier].rpmLimit)`. The Durable Object enforces the account ceiling regardless of project configuration.

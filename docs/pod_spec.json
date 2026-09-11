@@ -1,52 +1,63 @@
 {
   "pods": [
     {
-      "id": "pod-auth-sybil",
+      "id": "pod-auth-subdomains",
       "files": [
+        "src/worker/index.ts",
         "src/auth/oauth.ts",
         "src/auth/sybil.ts",
-        "src/auth/demo_do.ts"
+        "migrations/0003_v3_5_governance.sql",
+        "tests/auth/two_phase_auth.test.ts"
       ],
       "contracts": [
-        "src/contracts/v3_types.ts"
+        "src/contracts/v3_types.ts",
+        "src/contracts/v3_5_types.ts"
       ],
-      "description": "Implements GitHub OAuth, Turnstile, Sybil Scoring, and Demo DO"
+      "description": "Subdomain host routing (api, console, admin), two-phase identity (email probationary, GitHub OAuth PKCE builder promotion), 5-layer sybil engine, and D1 migration 0003."
     },
     {
-      "id": "pod-do-quota",
+      "id": "pod-admin-backend",
       "files": [
-        "src/quota/tenant_do.ts",
-        "src/quota/limits.ts"
+        "src/admin/admin_router.ts",
+        "tests/admin/admin_router.test.ts"
       ],
       "contracts": [
-        "src/contracts/v3_types.ts"
+        "src/contracts/v3_5_types.ts"
       ],
-      "description": "Implements TenantDO, Quota Enforcement, and Sub-cap math"
+      "description": "Admin surveillance endpoints, role mutation, quarantine actions, key pool health, and circuit breaker overrides."
     },
     {
-      "id": "pod-ui-workbench",
+      "id": "pod-ui-stitch-overhaul",
       "files": [
-        "ui/src/routes/+page.svelte",
+        "ui/index.html",
+        "ui/src/app.css",
+        "ui/src/App.svelte",
+        "ui/src/lib/TopNavBar.svelte",
+        "ui/src/lib/SideNavBar.svelte",
+        "ui/src/lib/MetricCards.svelte",
+        "ui/src/lib/KeysTable.svelte",
+        "ui/src/lib/TelemetryLogs.svelte",
         "ui/src/lib/Workbench.svelte",
-        "ui/src/lib/MarkdownExport.svelte"
+        "ui/src/lib/OAuthModal.svelte",
+        "ui/src/lib/ApiDocs.svelte",
+        "ui/src/lib/admin/AdminView.svelte"
       ],
       "contracts": [
-        "src/contracts/v3_types.ts"
+        "src/contracts/v3_types.ts",
+        "src/contracts/v3_5_types.ts"
       ],
-      "description": "Implements Svelte 5 Dashboard, 1-Click Docs, and API Explorer"
+      "description": "100% Svelte 5 Native-DOM visual overhaul matching Stitch designs (Material 3 tokens, dual-rail shell, 8/4 dashboard grid, 7/5 docs with live streaming response pane, wide 7/5 OAuth modal, and dedicated AdminView.svelte)."
     },
     {
-      "id": "pod-cicd-infra",
+      "id": "pod-qa-automation",
       "files": [
-        ".github/workflows/ci-dev.yml",
-        ".github/workflows/deploy-prod.yml",
-        "migrations/0002_v3_multi_project.sql",
+        "scratch/visual_regression_check.js",
         "wrangler.jsonc"
       ],
       "contracts": [
-        "src/contracts/v3_types.ts"
+        "src/contracts/v3_5_types.ts"
       ],
-      "description": "Implements GitHub Actions pipelines, D1 Migrations, and Wrangler configurations"
+      "description": "Multi-domain routing config in wrangler.jsonc and automated headless Chrome visual inspection script capturing all views for validation."
     }
   ]
 }

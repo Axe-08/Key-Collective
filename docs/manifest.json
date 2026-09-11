@@ -1,13 +1,17 @@
 {
-  "project_name": "Key Collective v3.5 SOTA Glassmorphism & Complete Governance Overhaul",
+  "project_name": "Key Collective v3.5 SOTA Inception Bundle",
   "archetype": "AI Systems & Cloudflare Distributed Proxy",
-  "problem_statement": "Complete overhaul of Key Collective web interface using Stitch Obsidian Edge charcoal & silver glassmorphism, full GitHub OAuth & 5-Layer Anti-Sybil Gate verification, interactive API docs sandbox, multi-project governance, and client-side doc export.",
+  "problem_statement": "Complete overhaul of Key Collective featuring Clean Edge Triple-Subdomain routing (api, console, admin), Two-Phase Identity Ingress (Email Probationary -> GitHub Builder), Hidden Governance Tiers (Ultra obscured), Obsidian Edge Admin Surveillance Panel, and 100% Svelte 5 Native-DOM visual parity with Stitch designs.",
   "deliverables": [
     "docs/PRD_v3_5.md",
     "docs/system_design_v3_5.md",
-    "docs/adr/003-obsidian-edge-glassmorphism.md",
-    "docs/golden_tests/v3_5_cases.yaml",
+    "docs/adr/001-v3-5-architecture-selection.md",
     "docs/threat_model_v3_5.md",
-    "docs/governance_v3_5.md"
+    "docs/golden_tests/v3_5_cases.yaml",
+    "docs/research/identity_governance_and_admin_landscape.md",
+    "docs/research/frontend_stack_and_stitch_fidelity.md",
+    "docs/architecture/auth_and_tier_state_machine.mmd",
+    "docs/architecture/v3_5_data_contracts.ts",
+    "CONTEXT.md"
   ]
 }

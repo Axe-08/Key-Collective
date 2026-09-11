@@ -1,52 +1,68 @@
-# Product Requirements Document (PRD v3.5)
-## Key Collective: SOTA Obsidian Edge Glassmorphism & Complete Governance Overhaul
+# Product Requirements Document (PRD) — Key Collective v3.5
+## Two-Phase Identity, Hidden Governance Tiers & Obsidian Edge Admin Surveillance
 
-**Author:** Product Engineer (Inception Board)  
-**Status:** Approved by User  
-**Target Release:** v3.5 Production  
-**Target Repository:** `Axe-08/Key-Collective` (`master`)  
-
----
-
-## 1. Executive Summary & Why Now
-Key Collective provides an edge-native, zero-cold-start AI key virtualizer and quota multiplexer running on Cloudflare Workers and Durable Objects. 
-
-While the backend actor routing, Web Crypto AES-256-GCM encryption, and fixed-point microdollar financial accounting are battle-tested, the frontend user experience suffered from:
-1. Flat, generic styling without real glassmorphism lighting (diffused shadows, specular border highlights, radial backdrop blur).
-2. Routing mismatch between SvelteKit conventions and the Vite SPA runtime (`main.ts` mounting `App.svelte`).
-3. Incomplete API documentation without an interactive sandbox or multi-language code snippets.
-4. Non-integrated GitHub OAuth PKCE flow and 5-layer anti-sybil verification gate in the UI.
-
-Version 3.5 bridges this gap by directly porting the Stitch-generated **"Obsidian Edge"** design system across all 4 core screens, establishing complete parity with modern developer tooling benchmarks (Stripe, Resend, Google AI Studio).
+> **Version:** 3.5.0  
+> **Status:** Approved (Inception Board v2.0)  
+> **Lead Architect:** User  
+> **Target Date:** September 2026  
 
 ---
 
-## 2. Core User Personas
-1. **The Autonomous AI Systems Developer:** Needs reliable, uninterrupted multi-model API access across free & paid tiers (Gemini Flash, Groq LLaMA 3.3, Cerebras, DeepSeek) with sub-25ms routing latency and zero plaintext key exposure.
-2. **The Engineering Lead / Team Admin:** Requires strict multi-project hierarchy (`User -> Projects -> Scoped Keys`), microdollar spend caps, and 7-tier role-based access control.
-3. **The Guest / Evaluator:** Wants to test the edge router immediately via a 15-minute ephemeral sandbox (`DemoDO`) without OAuth or credit card friction.
+## 1. Problem Statement & Product Vision
+Key Collective multiplexes free-tier LLM API keys (Gemini, Groq, Cerebras, DeepSeek) through a Cloudflare Edge isolate mesh with hardware Web Crypto AES-256-GCM encryption and fixed-point microdollar accounting ($1.00 = 1,000,000 µ$). 
+
+While the underlying proxy mechanics are robust, the platform faces two critical vulnerabilities:
+1. **Sybil Quota Exhaustion:** Unchecked free API access without credit cards invites automated botnets to drain shared key quotas.
+2. **Visual Drift & Control Invisibility:** The previous deployment lost the Stitch desktop dual-rail geometry (`SideNavBar`), used mock authentication, and lacked an administrative control plane.
+
+**Product Vision for v3.5:** Establish a production-grade developer platform featuring frictionless two-phase evaluation (Email Probationary $\rightarrow$ GitHub Builder), strict hidden tier RBAC (Ultra/Admin obscured), a dedicated Admin Surveillance Panel on `admin.key-col.axe08.tech`, and 100% pixel-perfect fidelity with the Stitch designs.
 
 ---
 
-## 3. The Scope Guillotine (Strict Boundary Invariant)
+## 2. Core Functional Requirements
 
-### In-Scope (v3.5)
-- **Obsidian Edge Design System:** Complete injection of charcoal black `#090B10`, specular silver highlights `rgba(255, 255, 255, 0.08)`, frosted glass cards (`backdrop-blur-xl`), and typography (`Geist` + `JetBrains Mono`).
-- **Screen 1 (Dashboard / Key Pool):** Real-time key health badges, pool RPM telemetry, obfuscated key table with copy actions, manual key drawer, and live log stream.
-- **Screen 2 (Developer Workbench):** Multi-project hierarchy cards, 7-tier role matrix, project-scoped key provisioning, and budget sub-caps.
-- **Screen 3 (GitHub OAuth & 5-Layer Anti-Sybil Gate):** Modal with GitHub OAuth PKCE challenge, real-time trust score meter, 5-layer verification breakdown, and 15-minute ephemeral sandbox trigger.
-- **Screen 4 (API Docs & Playground):** Split 7/5 layout, full endpoint specs, parameter tables, fixed-point microdollar pricing matrix ($1 = 1,000,000 µ$), interactive request sandbox with SSE stream preview, multi-language snippets (cURL, TS, Python), and client-side doc export (Markdown `.md` + Print to PDF).
+### 2.1 Subdomain Host Routing
+- `api.key-col.axe08.tech`: Dedicated LLM proxy hot path. High-speed passthrough to `KeyPoolDO`.
+- `console.key-col.axe08.tech`: Developer Console SPA (Pool & Shield, Developer Workbench, Sybil Gate Modal, API Console).
+- `admin.key-col.axe08.tech`: Admin Surveillance Panel. Non-admin requests receive HTTP 404 Not Found at the edge isolate.
+- `key-col.axe08.tech`: Apex redirect to `console.key-col.axe08.tech`.
 
-### Out-of-Scope (Deferred to v4.0)
-- Native Stripe billing integration for paid microdollar credit top-ups (handled via manual token limits in v3.5).
-- WebSockets bidirectional streaming proxy (SSE HTTP streaming satisfies all v3.5 LLM chat models).
-- Self-hosted multi-region Kubernetes deployments (strictly Cloudflare Workers & Durable Objects edge-native).
+### 2.2 Two-Phase Identity & Tier Promotion
+- **Phase 1 (Probationary Ingress):** User registers with Email or Google OAuth $\rightarrow$ assigned `tier = 'probationary'` (2 RPM, 50 RPD, 50,000 µ$ budget cap, Cloudflare Turnstile bot check).
+- **Phase 2 (Elevation Gate):** User links GitHub account via OAuth 2.0 PKCE $\rightarrow$ backend checks:
+  - Account age $\ge 60$ days
+  - Public commits $\ge 15$ in past year
+  - Verified non-disposable primary email
+  - `UNIQUE(github_user_id)` constraint in D1
+  - Passing promotes account to `tier = 'builder'` (20 RPM, 2,000 RPD) or `tier = 'max'` (60 RPM, 10,000 RPD).
+
+### 2.3 Hidden Tiers & Security by Obscurity
+- `ultra` (unlimited RPM/RPD) and `admin` are completely stripped from public schemas and client bundles.
+- Client attempts to set `tier: "ultra"` return HTTP 400.
+- Only an administrator can assign `ultra` to a tenant.
+
+### 2.4 Admin Surveillance Panel (`admin.key-col.axe08.tech`)
+- **Tenant Surveillance Table:** Real-time RPM velocity, today's spend ($1 = 1,000,000 µ$), auth provider, tier badge, active keys.
+- **Role Control:** 1-click tier override (promote to `ultra`, downgrade, or reset quotas).
+- **Abuse Quarantine:** 1-click freeze that flips `is_quarantined = 1` in D1 and evicts the tenant from DO isolate memory within 5ms.
+- **Key Pool Telemetry:** Status badges for all AES-256-GCM encrypted keys with rotation fairness metrics.
+- **Provider Circuit Breakers:** Global kill switch and per-provider manual overrides (trip Gemini, trip Groq).
+- **Bootstrapping:** The initial developer account is seeded as Admin; `ADMIN_EMAILS` secret provides runtime authorization.
+
+### 2.5 100% Stitch Design System Parity
+- Restore fixed 256px `SideNavBar` with live cluster status (`SIN-01 Edge Operational • 12ms`) and `+ New Virtual Pool` CTA.
+- Restore Top Navigation Header with search bar (`⌘K`) and brand pill.
+- Restore Screen 1 8/4 grid (`KeysTable` 8 cols / `TelemetryLogs` 4 cols).
+- Restore Screen 2 4/3/5 identity card with circular SVG trust gauge (92/100).
+- Restore Screen 3 wide 7/5 two-column split OAuth modal.
+- Restore Screen 4 7/5 API docs split with the live streaming Response Viewer panel.
+- Inject Material 3 tokens into Tailwind v4 `@theme` in `ui/src/app.css`.
 
 ---
 
-## 4. EDD Golden Benchmark Criteria
-1. **Visual Fidelity SLA:** 100% component fidelity with Stitch designs in `docs/stitch_designs/`.
-2. **Single-Page Bundle Performance:** Total SPA bundle size < 250 KB gzip, initial load < 200ms on global edge CDN.
-3. **Interactive Sandbox Latency:** Sandbox requests to `/v1/chat/completions` execute with < 30ms proxy overhead.
-4. **Client-Side Export SLA:** Zero server roundtrips for Markdown download and PDF export generation.
-5. **Quality Gate:** Passes `make gate` (lint, typecheck, test suites) in < 10 seconds.
+## 3. Non-Functional Invariants
+- **Strict TypeScript (No `any`):** Cloudflare Workers & Durable Objects.
+- **Zero Plaintext Keys:** AES-256-GCM encryption with 12-byte CSPRNG nonces in D1.
+- **Fixed-Point Microdollars:** 64-bit integer microdollars ($1.00 = 1,000,000 µ$). Zero floating-point math.
+- **Edge Latency SLA:** Total proxy routing overhead <20ms, cold starts 0ms.
+- **Bundle Size Budget:** Frontend total gzipped bundle <45KB.

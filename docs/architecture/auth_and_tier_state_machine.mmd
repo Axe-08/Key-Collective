@@ -1,0 +1,57 @@
+stateDiagram-v2
+    [*] --> Ingress: User visits console.key-col.axe08.tech
+
+    state Ingress {
+        [*] --> Anonymous
+        Anonymous --> EmailLogin: Submits Email / Magic Link
+        Anonymous --> EphemeralDemo: Clicks "Launch 15-Min Sandbox"
+    }
+
+    state Probationary {
+        EmailLogin --> ProbationaryActive: Cloudflare Turnstile Passed
+        EphemeralDemo --> DemoDOActive: 15-Min Isolated DO Alarm
+        ProbationaryActive --> QuotaExceeded: Spend >= 50,000 µ$ (2 RPM / 50 RPD)
+    }
+
+    state ElevationGate {
+        ProbationaryActive --> GitHubOAuthPKCE: User clicks "Verify with GitHub"
+        GitHubOAuthPKCE --> SybilAssessment: GitHub Code Exchange & API Profile Fetch
+
+        state SybilAssessment {
+            [*] --> CheckAccountAge
+            CheckAccountAge --> CheckCommits: Age >= 60 Days
+            CheckAccountAge --> FlaggedUnderage: Age < 60 Days
+            CheckCommits --> CheckEmailDomain: Commits >= 15 / Year
+            CheckCommits --> FlaggedInactive: Commits < 15
+            CheckEmailDomain --> CheckCollision: Non-Disposable & Verified
+            CheckEmailDomain --> FlaggedDisposable: Disposable Domain Blocklist
+            CheckCollision --> SybilPass: UNIQUE(github_user_id) in D1
+            CheckCollision --> FlaggedDuplicate: GitHub ID already bound to another tenant
+        }
+
+        FlaggedUnderage --> ProbationaryActive: Stays in Probationary
+        FlaggedInactive --> ProbationaryActive: Stays in Probationary
+        FlaggedDisposable --> Quarantined: HTTP 403 Forbidden
+        FlaggedDuplicate --> Quarantined: Sybil Botnet Flag
+    }
+
+    state BuilderTier {
+        SybilPass --> BuilderActive: Promoted (20 RPM, 2,000 RPD)
+        BuilderActive --> MaxActive: Verified High Activity (60 RPM, 10,000 RPD)
+    }
+
+    state HiddenTiers {
+        BuilderActive --> UltraTier: Assigned ONLY by Admin (admin.key-col.axe08.tech)
+        MaxActive --> UltraTier: Assigned ONLY by Admin
+        note right of UltraTier: Hidden from public API schemas, zero self-upgrade paths
+    }
+
+    state AdminSurveillance {
+        AdminLogin --> AdminActive: Verified Email in env.ADMIN_EMAILS or D1 seed
+        AdminActive --> QuarantineAction: Freezes Tenant & Evicts DO Memory
+        AdminActive --> PromoteAction: Grants Ultra / Overrides Sub-Caps
+        AdminActive --> CircuitTrip: Trips Upstream Provider (Gemini / Groq)
+    }
+
+    QuotaExceeded --> ElevationGate: Prompt to Connect GitHub
+    Quarantined --> [*]: Evicted from Edge Memory

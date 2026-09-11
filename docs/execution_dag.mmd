@@ -1,11 +1,30 @@
-flowchart TD
-    S0[Stage 0: Prerequisite Validation & Stack Detection] --> S1[Stage 1: DAG Decomposition, Contract Freezing & Branch Provisioning]
-    S1 --> P1[pod-auth-sybil]
-    S1 --> P2[pod-do-quota]
-    S1 --> P3[pod-ui-workbench]
-    S1 --> P4[pod-cicd-infra]
-    
-    P1 --> S3[Stage 3: Integration, Benchmarking & Scorecard Delivery]
-    P2 --> S3
-    P3 --> S3
-    P4 --> S3
+graph TD
+    subgraph Contracts ["Frozen Interface Contracts"]
+        C1["src/contracts/v3_types.ts"]
+        C2["src/contracts/v3_5_types.ts"]
+    end
+
+    subgraph Pods ["Parallel Implementation Pods"]
+        P1["pod-auth-subdomains<br/>(Subdomain Dispatch, Two-Phase Ingress, Sybil Engine)"]
+        P2["pod-admin-backend<br/>(Admin Surveillance API, Quarantine, Role Mutation)"]
+        P3["pod-ui-stitch-overhaul<br/>(Svelte 5 100% Stitch Parity, Dual-Rail Shell, AdminView)"]
+        P4["pod-qa-automation<br/>(Wrangler Subdomain Routes, Visual Regression Suite)"]
+    end
+
+    subgraph Integration ["Stage 3 Integration & Release Gate"]
+        INT["Sequential Rebase-Merge & 5-Tier Verification"]
+        GATE["PR Gatekeeper Audit & Headless Chrome Screenshot Verification"]
+    end
+
+    C1 --> P1
+    C2 --> P1
+    C2 --> P2
+    C1 --> P3
+    C2 --> P3
+    C2 --> P4
+
+    P1 --> INT
+    P2 --> INT
+    P3 --> INT
+    P4 --> INT
+    INT --> GATE
