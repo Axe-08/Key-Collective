@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "pod": "pod-auth-subdomains",
+  "tasks": [
+    {
+      "task_id": "AUTH-01",
+      "title": "Database Schema Migration",
+      "file": "migrations/0003_v3_5_governance.sql",
+      "instructions": "Write D1 compatible SQL to update `users` table adding `sybil_score` (INT), `auth_phase` (INT), `role` (TEXT). Create `audit_logs` table.",
+      "context_bundle": {
+        "description": "Requires D1 SQLite syntax. `users` table exists and needs `ALTER TABLE`. `audit_logs` should track user_id, action, ip_address, and timestamp.",
+        "verify_command": "npm run test:db"
+      }
+    },
+    {
+      "task_id": "AUTH-02",
+      "title": "Anti-Sybil Engine",
+      "file": "src/auth/sybil.ts",
+      "instructions": "Implement a 5-layer sybil scoring function checking: Turnstile bot score, IP velocity, disposable email domain, GitHub account age (>30 days), and GitHub activity (>5 repos or >20 contributions).",
+      "context_bundle": {
+        "description": "Export a single function `calculateSybilScore(user, req)`. Use TypeScript strictly without `any`. Leverage fetch for GitHub API checks.",
+        "verify_command": "npm run test src/auth/sybil.test.ts"
+      }
+    },
+    {
+      "task_id": "AUTH-03",
+      "title": "Subdomain Routing",
+      "file": "src/worker/index.ts",
+      "instructions": "Implement routing based on `Host` header. `api.*` -> proxy hot path, `console.*` -> SPA static delivery, `admin.*` -> admin surveillance router (returns 404 for non-admins).",
+      "context_bundle": {
+        "description": "The entrypoint must parse `request.headers.get('host')`. Ensure zero cross-tenant state and strict isolation. Admin routing requires zero-knowledge denial.",
+        "verify_command": "npm run test src/worker/index.test.ts"
+      }
+    },
+    {
+      "task_id": "AUTH-04",
+      "title": "Two-Phase Auth Tests",
+      "file": "tests/auth/two_phase_auth.test.ts",
+      "instructions": "Write comprehensive unit and integration tests for the two-phase auth flow, sybil checks, and subdomain routing.",
+      "context_bundle": {
+        "description": "Target tests against worker router and sybil.ts. Must mock GitHub API responses and Turnstile checks.",
+        "verify_command": "npm run test tests/auth/two_phase_auth.test.ts"
+      }
+    }
+  ]
+}

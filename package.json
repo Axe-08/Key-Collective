@@ -9,7 +9,8 @@
     "test": "vitest run",
     "gate": "npm run typecheck && npm test",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test:db": "vitest run tests/storage/migrations.test.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240909.0",
