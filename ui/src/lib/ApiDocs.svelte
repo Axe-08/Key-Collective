@@ -127,7 +127,7 @@ data: [DONE]`;
     }, 450);
   }
 
-  const apiDocsMarkdown = `# Key Collective v3.5 — Developer API Reference
+  let apiDocsMarkdown = $derived(`# Key Collective v3.5 — Developer API Reference
 
 **Base URL:** \`${proxyEndpoint.replace(/\/chat\/completions$/, '')}\`  
 **Authentication:** Bearer Token (\`Authorization: Bearer kc_proj_...\`)  
@@ -153,7 +153,7 @@ data: [DONE]`;
 ### 3. Project & Quota Governance
 - **Route:** \`GET /v1/projects\`
 - **Route:** \`POST /v1/projects/:id/keys\`
-`;
+`);
 </script>
 
 <div class="space-y-6 text-slate-100 font-sans">
@@ -262,7 +262,7 @@ data: [DONE]`;
                 <td class="py-1.5 text-slate-200 font-semibold">messages</td>
                 <td class="py-1.5 text-indigo-300">array</td>
                 <td class="py-1.5">required</td>
-                <td class="py-1.5">Array of chat objects ({`role`, `content`})</td>
+                <td class="py-1.5">Array of chat objects (&lbrace;role, content&rbrace;)</td>
               </tr>
               <tr>
                 <td class="py-1.5 text-slate-200 font-semibold">stream</td>
