@@ -13,9 +13,10 @@ describe("Database Migration 0003_v3_5_governance.sql", () => {
   });
 
   it("should execute migration cleanly on SQLite D1 schema", () => {
+    const migrationSql = fs.readFileSync(migrationPath, "utf-8");
     const commands = [
       "CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE, tier TEXT DEFAULT 'probationary', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);",
-      `.read ${migrationPath}`,
+      migrationSql,
       "PRAGMA table_info(users);",
       "PRAGMA table_info(audit_logs);",
       "INSERT INTO users (id, email, sybil_score, auth_phase, role) VALUES ('usr_001', 'dev@keycol.internal', 85, 2, 'builder');",

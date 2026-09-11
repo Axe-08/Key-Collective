@@ -158,7 +158,9 @@ class MockD1PreparedStatement implements D1PreparedStatement {
     return this.executeQuery<T>();
   }
 
-  raw<T = unknown[]>(_options?: unknown): Promise<unknown> {
+  raw<T = unknown[]>(options: { columnNames: true }): Promise<[string[], ...T[]]>;
+  raw<T = unknown[]>(options?: { columnNames?: false }): Promise<T[]>;
+  async raw<T = unknown[]>(_options?: { columnNames?: boolean }): Promise<[string[], ...T[]] | T[]> {
     throw new Error("not implemented in mock");
   }
 
