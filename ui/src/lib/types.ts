@@ -60,3 +60,15 @@ export interface ToastMessage {
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 }
+
+export type Microdollars = number; // int64 microdollars: 1 USD = 1,000,000 µ$
+
+export function formatMicrodollars(amount: Microdollars): string {
+  const usd = amount / 1_000_000;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  }).format(usd);
+}
