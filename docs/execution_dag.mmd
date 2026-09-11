@@ -1,30 +1,21 @@
 graph TD
-    subgraph Contracts ["Frozen Interface Contracts"]
-        C1["src/contracts/v3_types.ts"]
-        C2["src/contracts/v3_5_types.ts"]
+    subgraph Stage1["Stage 1: Contracts & Scoping"]
+        Contracts["Frozen Contracts (v3_types.ts & v3_5_types.ts)"]
+        Spec["Pod Spec (docs/pod_spec.json)"]
     end
 
-    subgraph Pods ["Parallel Implementation Pods"]
-        P1["pod-auth-subdomains<br/>(Subdomain Dispatch, Two-Phase Ingress, Sybil Engine)"]
-        P2["pod-admin-backend<br/>(Admin Surveillance API, Quarantine, Role Mutation)"]
-        P3["pod-ui-stitch-overhaul<br/>(Svelte 5 100% Stitch Parity, Dual-Rail Shell, AdminView)"]
-        P4["pod-qa-automation<br/>(Wrangler Subdomain Routes, Visual Regression Suite)"]
+    subgraph Stage2["Stage 2: Pod Implementation"]
+        PodUI["Pod UI Cleanup (pod-ui-cleanup-ux)<br/>• TopNavBar deduplication<br/>• SideNavBar button routing & labels<br/>• ApiDocs text de-bloating<br/>• AdminView 3-tab simplification"]
     end
 
-    subgraph Integration ["Stage 3 Integration & Release Gate"]
-        INT["Sequential Rebase-Merge & 5-Tier Verification"]
-        GATE["PR Gatekeeper Audit & Headless Chrome Screenshot Verification"]
+    subgraph Stage3["Stage 3: Integration & Quality Gate"]
+        RebaseMerge["Rebase-Merge onto master"]
+        Gate["make gate (tsc + vitest) & UI build check"]
+        Scorecard["Scorecard & Walkthrough"]
     end
 
-    C1 --> P1
-    C2 --> P1
-    C2 --> P2
-    C1 --> P3
-    C2 --> P3
-    C2 --> P4
-
-    P1 --> INT
-    P2 --> INT
-    P3 --> INT
-    P4 --> INT
-    INT --> GATE
+    Contracts --> PodUI
+    Spec --> PodUI
+    PodUI --> RebaseMerge
+    RebaseMerge --> Gate
+    Gate --> Scorecard
