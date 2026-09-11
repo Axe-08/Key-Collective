@@ -1,0 +1,37 @@
+{
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Implement Admin Surveillance Router",
+      "description": "Create the router for admin endpoints. Implement strict zero-knowledge denial middleware (returns 404 if role is not admin). Add endpoints: GET /admin/api/tenants, POST /admin/api/tenants/:id/role, POST /admin/api/tenants/:id/quarantine, GET /admin/api/pool/health, POST /admin/api/pool/circuit-breaker/reset.",
+      "files": [
+        "src/admin/admin_router.ts"
+      ],
+      "dependencies": [],
+      "contracts": [
+        "Strict role checking (role === 'admin')",
+        "Zero-knowledge denial (404 Not Found if not admin)"
+      ],
+      "context_bundle": {
+        "project_name": "pod-admin-backend",
+        "exact_signatures": "export const adminRouter = Router();\nexport const verifyAdmin = (req: Request, res: Response, next: NextFunction) => void;"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Implement Admin Router Unit Tests",
+      "description": "Write comprehensive unit tests for the admin router endpoints. Verify zero-knowledge denial returns 404 for non-admins, and ensure all endpoints correctly map parameters and handle expected success/error paths.",
+      "files": [
+        "tests/admin/admin_router.test.ts"
+      ],
+      "dependencies": [
+        "T1"
+      ],
+      "contracts": [],
+      "context_bundle": {
+        "project_name": "pod-admin-backend",
+        "exact_signatures": "describe('Admin Router', () => { /* tests */ });"
+      }
+    }
+  ]
+}
