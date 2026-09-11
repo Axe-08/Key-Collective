@@ -1,63 +1,61 @@
-{
-  "pods": [
-    {
-      "id": "pod-auth-subdomains",
-      "files": [
-        "src/worker/index.ts",
-        "src/auth/oauth.ts",
-        "src/auth/sybil.ts",
-        "migrations/0003_v3_5_governance.sql",
-        "tests/auth/two_phase_auth.test.ts"
-      ],
-      "contracts": [
-        "src/contracts/v3_types.ts",
-        "src/contracts/v3_5_types.ts"
-      ],
-      "description": "Subdomain host routing (api, console, admin), two-phase identity (email probationary, GitHub OAuth PKCE builder promotion), 5-layer sybil engine, and D1 migration 0003."
-    },
-    {
-      "id": "pod-admin-backend",
-      "files": [
-        "src/admin/admin_router.ts",
-        "tests/admin/admin_router.test.ts"
-      ],
-      "contracts": [
-        "src/contracts/v3_5_types.ts"
-      ],
-      "description": "Admin surveillance endpoints, role mutation, quarantine actions, key pool health, and circuit breaker overrides."
-    },
-    {
-      "id": "pod-ui-stitch-overhaul",
-      "files": [
-        "ui/index.html",
-        "ui/src/app.css",
-        "ui/src/App.svelte",
-        "ui/src/lib/TopNavBar.svelte",
-        "ui/src/lib/SideNavBar.svelte",
-        "ui/src/lib/MetricCards.svelte",
-        "ui/src/lib/KeysTable.svelte",
-        "ui/src/lib/TelemetryLogs.svelte",
-        "ui/src/lib/Workbench.svelte",
-        "ui/src/lib/OAuthModal.svelte",
-        "ui/src/lib/ApiDocs.svelte",
-        "ui/src/lib/admin/AdminView.svelte"
-      ],
-      "contracts": [
-        "src/contracts/v3_types.ts",
-        "src/contracts/v3_5_types.ts"
-      ],
-      "description": "100% Svelte 5 Native-DOM visual overhaul matching Stitch designs (Material 3 tokens, dual-rail shell, 8/4 dashboard grid, 7/5 docs with live streaming response pane, wide 7/5 OAuth modal, and dedicated AdminView.svelte)."
-    },
-    {
-      "id": "pod-qa-automation",
-      "files": [
-        "scratch/visual_regression_check.js",
-        "wrangler.jsonc"
-      ],
-      "contracts": [
-        "src/contracts/v3_5_types.ts"
-      ],
-      "description": "Multi-domain routing config in wrangler.jsonc and automated headless Chrome visual inspection script capturing all views for validation."
-    }
-  ]
-}
+[
+  {
+    "pod_id": "pod-auth-subdomains",
+    "files": [
+      "src/worker/index.ts",
+      "src/auth/oauth.ts",
+      "src/auth/sybil.ts",
+      "migrations/0003_v3_5_governance.sql",
+      "tests/auth/two_phase_auth.test.ts"
+    ],
+    "contracts": [
+      "src/contracts/v3_types.ts",
+      "src/contracts/v3_5_types.ts"
+    ],
+    "description": "Subdomain host routing (api, console, admin), two-phase identity (email probationary, GitHub OAuth PKCE builder promotion), 5-layer sybil engine, and D1 migration 0003."
+  },
+  {
+    "pod_id": "pod-admin-backend",
+    "files": [
+      "src/admin/admin_router.ts",
+      "tests/admin/admin_router.test.ts"
+    ],
+    "contracts": [
+      "src/contracts/v3_5_types.ts"
+    ],
+    "description": "Admin surveillance endpoints, role mutation, quarantine actions, key pool health, and circuit breaker overrides."
+  },
+  {
+    "pod_id": "pod-ui-stitch-overhaul",
+    "files": [
+      "ui/index.html",
+      "ui/src/app.css",
+      "ui/src/App.svelte",
+      "ui/src/lib/TopNavBar.svelte",
+      "ui/src/lib/SideNavBar.svelte",
+      "ui/src/lib/MetricCards.svelte",
+      "ui/src/lib/KeysTable.svelte",
+      "ui/src/lib/TelemetryLogs.svelte",
+      "ui/src/lib/Workbench.svelte",
+      "ui/src/lib/OAuthModal.svelte",
+      "ui/src/lib/ApiDocs.svelte",
+      "ui/src/lib/admin/AdminView.svelte"
+    ],
+    "contracts": [
+      "src/contracts/v3_types.ts",
+      "src/contracts/v3_5_types.ts"
+    ],
+    "description": "100% Svelte 5 Native-DOM visual overhaul matching Stitch designs (Material 3 tokens, dual-rail shell, 8/4 dashboard grid, 7/5 docs with live streaming response pane, wide 7/5 OAuth modal, and dedicated AdminView.svelte)."
+  },
+  {
+    "pod_id": "pod-qa-automation",
+    "files": [
+      "scratch/visual_regression_check.js",
+      "wrangler.jsonc"
+    ],
+    "contracts": [
+      "src/contracts/v3_5_types.ts"
+    ],
+    "description": "Multi-domain routing config in wrangler.jsonc and automated headless Chrome visual inspection script capturing all views for validation."
+  }
+]

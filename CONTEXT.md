@@ -55,6 +55,7 @@ Downstream agents should refer to these files for detailed contracts:
 ### Key Architectural Decisions:
 - `docs/adr/001-architecture-selection.md`: 001-architecture-selection
 - `docs/adr/001-cloudflare-native-architecture.md`: 001-cloudflare-native-architecture
+- `docs/adr/001-v3-5-architecture-selection.md`: 001-v3-5-architecture-selection
 - `docs/adr/002-key-encryption-and-logging.md`: 002-key-encryption-and-logging
 - `docs/adr/003-multi-project-tiered-architecture.md`: 003-multi-project-tiered-architecture
 - `docs/adr/003-obsidian-edge-glassmorphism.md`: 003-obsidian-edge-glassmorphism
