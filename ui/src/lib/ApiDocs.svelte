@@ -209,7 +209,7 @@ stream = client.chat.completions.create(
 
 ## 1. Quickstart & Headers
 
-Send all requests through edge proxies deployed at 28 tier-1 exchanges.
+API requests are routed through regional edge proxies for minimal latency.
 
 ### Request Headers
 - \`Authorization: Bearer <key>\` (Required) — Master or scoped ephemeral key.
@@ -395,7 +395,7 @@ ${pySnippet}
           <span class="text-label-sm font-label-sm text-outline">Authentication Protocol</span>
         </div>
         <p class="text-body-md font-body-md text-on-surface-variant mb-4">
-          All requests are routed through edge proxies deployed at 28 tier-1 exchanges. Route your standard OpenAI, Anthropic, or native SDK calls directly to the Key Collective base URL.
+          API requests are routed through regional edge proxies for minimal latency. Route your standard OpenAI, Anthropic, or native SDK calls directly to the Key Collective base URL.
         </p>
 
         <!-- Base URL Box -->
