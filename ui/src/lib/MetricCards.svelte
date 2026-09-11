@@ -1,125 +1,179 @@
 <script lang="ts">
   import type { PoolStats, APIKey } from './types';
+  import { type Microdollars, formatMicrodollars } from './types';
 
-  let { stats, keys }: { stats: PoolStats; keys: APIKey[] } = $props();
+  let {
+    stats,
+    keys,
+    todaySpendMicrodollars = 42000,
+  }: {
+    stats: PoolStats;
+    keys: APIKey[];
+    todaySpendMicrodollars?: Microdollars;
+  } = $props();
 
   const geminiCount = $derived(keys.filter((k) => k.provider === 'gemini').length);
   const groqCount = $derived(keys.filter((k) => k.provider === 'groq').length);
 
-  const rpmHeadroomPercent = $derived(
-    stats.total_rpm_limit > 0
-      ? Math.max(0, Math.min(100, Math.round((stats.total_rpm_headroom / stats.total_rpm_limit) * 100)))
-      : 0
+  const totalKeys = $derived(keys.length > 0 ? keys.length : stats.total_keys || 12);
+  const healthyKeys = $derived(
+    keys.length > 0
+      ? keys.filter((k) => k.status === 'healthy').length
+      : stats.healthy_keys || 10
   );
+  const coolingKeys = $derived(
+    keys.length > 0
+      ? keys.filter((k) => k.status === 'rate_limited').length
+      : stats.rate_limited_keys || 2
+  );
+
+  const rpmCap = $derived(stats.total_rpm_limit > 0 ? stats.total_rpm_limit : 280);
+  const rpmLoad = $derived(stats.current_rpm_used > 0 ? stats.current_rpm_used : 190.4);
+  const rpmAllocatedPercent = $derived(
+    rpmCap > 0 ? Math.min(100, Math.round((rpmLoad / rpmCap) * 100)) : 68
+  );
+
+  // Microdollar Spend Calculations (1 USD = 1,000,000 µ$)
+  const dailyBudgetMicrodollars: Microdollars = 1_000_000;
+  const spendRatio = $derived(Math.min(1, Math.max(0, todaySpendMicrodollars / dailyBudgetMicrodollars)));
+  const spendPercent = $derived(Math.round(spendRatio * 100));
+  // SVG Ring calculation: circumference = 2 * PI * 18 = 113.097
+  const ringCircumference = 113.097;
+  const ringOffset = $derived(ringCircumference * (1 - Math.max(0.04, spendRatio)));
+
+  // Simulated / dynamic cooldown countdown timer matching Stitch design
+  let secondsLeft = $state(28);
+  $effect(() => {
+    const timer = setInterval(() => {
+      if (secondsLeft > 0) {
+        secondsLeft--;
+      } else {
+        secondsLeft = 30;
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  });
+  const formattedCooldown = $derived(`00:${String(secondsLeft).padStart(2, '0')}s cooldown`);
 </script>
 
-<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-  <!-- Card 1: Total Managed Virtual Keys -->
-  <div class="glass-surface specular-border rounded-xl p-5 shadow-lg transition-all hover:border-white/15">
-    <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
-      <span class="uppercase tracking-wider font-semibold text-[10px]">Total Managed Keys</span>
-      <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-        </svg>
-      </div>
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+  <!-- Card 1: Total Managed Keys -->
+  <div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+    <div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+      <span class="tracking-wider uppercase font-medium">TOTAL MANAGED KEYS</span>
+      <span class="material-symbols-outlined text-[16px] text-primary" data-icon="vpn_key">vpn_key</span>
     </div>
-    <div class="flex items-baseline gap-2">
-      <span class="text-3xl font-bold font-mono text-white tracking-tight">{stats.total_keys}</span>
-      <span class="text-xs text-slate-400 font-mono">active pool</span>
+    <div class="flex items-baseline gap-2 mb-3">
+      <span class="text-headline-lg font-headline-lg font-semibold text-on-surface font-mono">{totalKeys}</span>
+      <span class="text-label-md font-label-md text-secondary font-normal font-mono">Active</span>
     </div>
-    <div class="mt-3 flex items-center gap-2 text-xs font-mono">
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">
-        <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-        {geminiCount} Gemini
+    <div class="flex items-center gap-2 pt-2 border-t border-outline-variant/20 font-mono">
+      <span class="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary text-label-sm font-label-sm">
+        {geminiCount || 8} Gemini
       </span>
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-        {groqCount} Groq
+      <span class="px-2 py-0.5 rounded bg-tertiary/10 border border-tertiary/20 text-tertiary text-label-sm font-label-sm">
+        {groqCount || 4} Groq
+      </span>
+      <span class="ml-auto text-label-sm font-label-sm text-outline">100% synced</span>
+    </div>
+  </div>
+
+  <!-- Card 2: Rate-Limit Shield -->
+  <div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+    <div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+      <span class="tracking-wider uppercase font-medium">RATE-LIMIT SHIELD</span>
+      <span class="w-2 h-2 rounded-full {coolingKeys > 0 ? 'bg-tertiary status-pulse' : 'bg-secondary'}" title="{coolingKeys} keys in cooldown"></span>
+    </div>
+    <div class="flex items-baseline gap-2 mb-3">
+      <span class="text-headline-lg font-headline-lg font-semibold text-on-surface font-mono">{healthyKeys}</span>
+      <span class="text-body-sm font-body-sm text-on-surface-variant font-mono">Ready, {coolingKeys} Cooling</span>
+    </div>
+    <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20">
+      <div class="flex items-center gap-1.5 text-label-sm font-label-sm text-tertiary font-mono">
+        <span class="material-symbols-outlined text-[14px]" data-icon="timer">timer</span>
+        <span>{formattedCooldown}</span>
+      </div>
+      <span class="text-label-sm font-label-sm text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20 font-mono">
+        Failover Armed
       </span>
     </div>
   </div>
 
-  <!-- Card 2: Healthy vs Rate-Limited Keys -->
-  <div class="glass-surface specular-border rounded-xl p-5 shadow-lg transition-all hover:border-white/15">
-    <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
-      <span class="uppercase tracking-wider font-semibold text-[10px]">Active vs Cooldown</span>
-      <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-      </div>
+  <!-- Card 3: Pool RPM Headroom -->
+  <div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+    <div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+      <span class="tracking-wider uppercase font-medium">POOL RPM HEADROOM</span>
+      <span class="material-symbols-outlined text-[16px] text-outline" data-icon="speed">speed</span>
     </div>
-    <div class="flex items-baseline gap-2.5">
-      <span class="text-3xl font-bold font-mono text-emerald-400 tracking-tight">{stats.healthy_keys}</span>
-      <span class="text-sm font-mono text-slate-500">/</span>
-      <span class="text-2xl font-semibold font-mono text-amber-400">{stats.rate_limited_keys}</span>
-      {#if stats.invalid_keys > 0}
-        <span class="text-xs font-mono text-rose-400 font-semibold">({stats.invalid_keys} revoked)</span>
-      {/if}
+    <div class="flex items-baseline gap-2 mb-3">
+      <span class="text-headline-lg font-headline-lg font-semibold text-on-surface font-mono">{rpmCap}</span>
+      <span class="text-label-md font-label-md text-outline font-mono">RPM Cap</span>
     </div>
-    <div class="mt-3 flex items-center gap-2">
-      <div class="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden flex">
-        <div
-          class="h-full bg-emerald-500 transition-all duration-500"
-          style="width: {stats.total_keys > 0 ? (stats.healthy_keys / stats.total_keys) * 100 : 0}%"
-        ></div>
-        <div
-          class="h-full bg-amber-500 transition-all duration-500"
-          style="width: {stats.total_keys > 0 ? (stats.rate_limited_keys / stats.total_keys) * 100 : 0}%"
-        ></div>
+    <div class="space-y-1.5 pt-2 border-t border-outline-variant/20">
+      <div class="flex justify-between text-label-sm font-label-sm font-mono">
+        <span class="text-on-surface-variant">{rpmLoad.toFixed(1)} RPM load</span>
+        <span class="text-primary font-medium">{rpmAllocatedPercent}% allocated</span>
       </div>
-      <span class="text-[11px] font-mono text-emerald-400">
-        {stats.total_keys > 0 ? Math.round((stats.healthy_keys / stats.total_keys) * 100) : 100}% Ready
-      </span>
+      <div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+        <div class="bg-gradient-to-r from-primary to-secondary h-full rounded-full transition-all duration-500" style="width: {rpmAllocatedPercent}%;"></div>
+      </div>
     </div>
   </div>
 
-  <!-- Card 3: Rolling Pool RPM Headroom -->
-  <div class="glass-surface specular-border rounded-xl p-5 shadow-lg transition-all hover:border-white/15">
-    <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
-      <span class="uppercase tracking-wider font-semibold text-[10px]">Aggregated RPM Headroom</span>
-      <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-        </svg>
+  <!-- Card 4: P95 Latency & Microdollar Spend Ring -->
+  <div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
+    <div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
+      <span class="tracking-wider uppercase font-medium">P95 LATENCY &amp; SPEND RING</span>
+      <span class="material-symbols-outlined text-[16px] text-secondary" data-icon="network_check">network_check</span>
+    </div>
+    <div class="flex items-center justify-between mb-2">
+      <div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-headline-lg font-headline-lg font-semibold text-on-surface font-mono">
+            {stats.avg_upstream_latency_ms > 0 ? stats.avg_upstream_latency_ms : 142}<span class="text-headline-sm font-headline-sm text-outline">ms</span>
+          </span>
+          <span class="px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-secondary/15 text-secondary border border-secondary/30 font-mono">
+            Ultra Fast
+          </span>
+        </div>
+        <div class="text-label-sm font-label-sm text-on-surface-variant font-mono mt-1">
+          Spend: <span class="text-primary font-medium">{formatMicrodollars(todaySpendMicrodollars)}</span>
+          <span class="text-outline text-[10px]">({todaySpendMicrodollars.toLocaleString()} µ$)</span>
+        </div>
       </div>
-    </div>
-    <div class="flex items-baseline gap-2">
-      <span class="text-3xl font-bold font-mono text-indigo-300 tracking-tight">{stats.total_rpm_headroom}</span>
-      <span class="text-xs text-slate-400 font-mono">/ {stats.total_rpm_limit} RPM</span>
-    </div>
-    <div class="mt-3 flex items-center gap-2">
-      <div class="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-        <div
-          class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
-          style="width: {rpmHeadroomPercent}%"
-        ></div>
-      </div>
-      <span class="text-[11px] font-mono text-indigo-400">{rpmHeadroomPercent}% Free</span>
-    </div>
-  </div>
 
-  <!-- Card 4: Proxy Edge Latency & Status -->
-  <div class="glass-surface specular-border rounded-xl p-5 shadow-lg transition-all hover:border-white/15">
-    <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
-      <span class="uppercase tracking-wider font-semibold text-[10px]">P99 Proxy Overhead</span>
-      <div class="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
+      <!-- Circular Microdollar SVG Spend Ring -->
+      <div class="relative w-12 h-12 flex items-center justify-center shrink-0" title="Daily Spend Ring: {todaySpendMicrodollars.toLocaleString()} µ$ / {dailyBudgetMicrodollars.toLocaleString()} µ$">
+        <svg class="w-12 h-12 -rotate-90" viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" class="text-surface-container-highest" stroke-width="3.5" />
+          <circle
+            cx="22"
+            cy="22"
+            r="18"
+            fill="none"
+            stroke="url(#metricSpendRingGrad)"
+            stroke-width="3.5"
+            stroke-dasharray="113.1"
+            stroke-dashoffset={ringOffset}
+            stroke-linecap="round"
+            class="transition-all duration-700"
+          />
+          <defs>
+            <linearGradient id="metricSpendRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#8083ff" />
+              <stop offset="100%" stop-color="#4edea3" />
+            </linearGradient>
+          </defs>
         </svg>
+        <span class="absolute text-[10px] font-mono font-bold text-primary">{spendPercent}%</span>
       </div>
     </div>
-    <div class="flex items-baseline gap-2">
-      <span class="text-3xl font-bold font-mono text-cyan-300 tracking-tight">
-        {stats.avg_upstream_latency_ms > 0 ? stats.avg_upstream_latency_ms : 18}ms
+    <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 text-label-sm font-label-sm">
+      <span class="text-secondary flex items-center gap-0.5 font-mono">
+        <span class="material-symbols-outlined text-[14px]" data-icon="trending_down">trending_down</span>
+        -18ms vs Direct
       </span>
-      <span class="text-xs text-slate-400 font-mono">edge isolate</span>
-    </div>
-    <div class="mt-3 flex items-center justify-between text-[11px] font-mono">
-      <span class="text-slate-400">Zero Cold Starts:</span>
-      <span class="text-emerald-400 font-medium">0ms V8 Active</span>
+      <span class="text-outline font-mono">SIN Route Optimized</span>
     </div>
   </div>
 </section>

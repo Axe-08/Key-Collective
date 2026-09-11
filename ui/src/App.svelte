@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from './lib/api';
-  import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, ToastMessage } from './lib/types';
+  import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, ToastMessage, Microdollars } from './lib/types';
   import type { UserAccount, Project, ProjectKey, UserTier } from '../../src/contracts/v3_types';
 
-  import Header from './lib/Header.svelte';
+  import TopNavBar from './lib/TopNavBar.svelte';
+  import SideNavBar from './lib/SideNavBar.svelte';
   import MetricCards from './lib/MetricCards.svelte';
   import KeysTable from './lib/KeysTable.svelte';
   import TelemetryLogs from './lib/TelemetryLogs.svelte';
@@ -14,8 +15,8 @@
   import OAuthModal from './lib/OAuthModal.svelte';
   import Toast from './lib/Toast.svelte';
 
-  // Navigation state
-  let activeTab = $state<'pool' | 'workbench' | 'docs'>('pool');
+  // Navigation state (Stitch multi-screen routing)
+  let activeTab = $state<'pool' | 'workbench' | 'docs' | 'admin'>('pool');
 
   // Svelte 5 reactive state for pool
   let keys = $state<APIKey[]>([]);
@@ -33,6 +34,9 @@
     daily_quota_limit: 50000,
     proxy_status: 'healthy',
   });
+
+  // Microdollar Accounting State (1 USD = 1,000,000 µ$)
+  let todaySpendMicrodollars = $state<Microdollars>(42000);
 
   // User Account & Multi-Project Hierarchy (v3 State)
   let userAccount = $state<UserAccount>({
@@ -106,6 +110,7 @@
   let isRefreshing = $state(false);
   let toasts = $state<ToastMessage[]>([]);
   let proxyEndpoint = $state('https://key-col.axe08.tech/v1/chat/completions');
+  let isEndpointCopied = $state(false);
 
   function addToast(type: ToastMessage['type'], message: string) {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -201,6 +206,15 @@
     addToast('success', `Authenticated as @${username} (${tier.toUpperCase()})`);
   }
 
+  function handleCopyEndpoint() {
+    navigator.clipboard.writeText(proxyEndpoint);
+    isEndpointCopied = true;
+    addToast('success', 'Proxy endpoint URL copied to clipboard');
+    setTimeout(() => {
+      isEndpointCopied = false;
+    }, 2000);
+  }
+
   onMount(() => {
     if (typeof window !== 'undefined') {
       proxyEndpoint = `${window.location.origin}/v1/chat/completions`;
@@ -218,65 +232,149 @@
   });
 </script>
 
-<div class="min-h-screen bg-[#090b10] text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
-  <!-- Top Navigation / Header with Tabs & OAuth Profile Card -->
-  <Header
+<div class="min-h-screen bg-surface-container-lowest text-on-surface antialiased relative selection:bg-primary-container selection:text-on-primary-container font-body-md text-body-md overflow-x-hidden">
+  <!-- Atmospheric Background Glow Elements matching Stitch Design -->
+  <div class="fixed inset-0 glow-radial-indigo pointer-events-none z-0"></div>
+
+  <!-- Shared Component: TopNavBar (Fixed top 0, left 0, right 0, h-14, z-50) -->
+  <TopNavBar
     {stats}
     {activeTab}
-    onSelectTab={(tab) => (activeTab = tab)}
+    onSelectTab={(tab) => (activeTab = tab as any)}
     {userAccount}
     onOpenAddModal={() => (isAddModalOpen = true)}
     onOpenOAuthModal={() => (isOAuthModalOpen = true)}
     onRefresh={loadData}
     {isRefreshing}
+    {todaySpendMicrodollars}
   />
 
-  <!-- Main Content Dashboard Container -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-    <!-- TAB 1: Pool & Shield View -->
+  <!-- Shared Component: SideNavBar (Fixed top 14, left 0, bottom 0, w-64, z-40) -->
+  <SideNavBar
+    {activeTab}
+    onSelectTab={(tab) => (activeTab = tab as any)}
+    {stats}
+    {keys}
+    {userAccount}
+    onOpenAddModal={() => (isAddModalOpen = true)}
+    {todaySpendMicrodollars}
+  />
+
+  <!-- Main Canvas Container with Left Sidebar Offset (Exact matching Stitch screen1_dashboard.html) -->
+  <main class="md:ml-64 pt-16 min-h-screen px-4 md:px-8 pb-24 relative z-10">
+    <!-- TAB 1: Virtual Key Inventory & Routing Shield Dashboard -->
     {#if activeTab === 'pool'}
-      <!-- 4 High-Density Metric Cards -->
-      <MetricCards {stats} {keys} />
-
-      <!-- Tabular Keys Management View -->
-      <KeysTable
-        {keys}
-        onDeleteKey={handleDeleteKey}
-        onTestKey={handleTestKey}
-      />
-
-      <!-- Live Request Telemetry Log Stream -->
-      <TelemetryLogs
-        {logs}
-        {autoRefresh}
-        onToggleAutoRefresh={handleToggleAutoRefresh}
-        onManualRefresh={loadData}
-        {isRefreshing}
-      />
-
-      <!-- Developer Quick Integration Reference -->
-      <div class="rounded-xl bg-slate-900/40 border border-white/[0.06] p-4 text-xs font-mono flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="text-indigo-400 font-semibold uppercase tracking-wider text-[11px]">Proxy Endpoint:</span>
-            <code class="px-2 py-0.5 rounded bg-slate-950 border border-white/10 text-emerald-400 font-mono">
-              {proxyEndpoint}
-            </code>
+      <!-- Top Context & Header Banner -->
+      <div class="py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant/20 mb-6">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-label-sm font-label-sm uppercase tracking-wider text-primary font-mono">Pool: Gemini &amp; Groq Burst Shield</span>
+            <span class="px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-secondary/10 border border-secondary/30 text-secondary font-mono">Active Virtualizer</span>
           </div>
-          <p class="text-slate-400 text-[11px]">
-            Drop-in OpenAI/Gemini/Groq routing replacement. Load balances across all healthy pool keys with automatic rate-limit cooldown.
+          <h1 class="text-headline-lg font-headline-lg text-on-surface font-semibold tracking-tight flex items-center gap-3">
+            Virtual Key Inventory &amp; Routing Shield
+          </h1>
+          <p class="text-body-md font-body-md text-on-surface-variant mt-1">
+            Autonomous rate-limit shielding via round-robin key rotation and sub-15ms edge rerouting.
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            onclick={() => (activeTab = 'docs')}
-            class="px-3 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] transition-colors cursor-pointer"
-          >
-            View Full Docs &rarr;
-          </button>
+
+        <!-- Top Right Status Quick-Controls -->
+        <div class="flex items-center gap-3">
+          <div class="px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center gap-3">
+            <div class="flex flex-col text-right">
+              <span class="text-label-sm font-label-sm text-outline">Shield Status</span>
+              <span class="text-label-md font-label-md text-secondary font-medium font-mono">Automatic Intercept ON</span>
+            </div>
+            <button
+              type="button"
+              onclick={loadData}
+              class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-transform active:rotate-180 duration-300 cursor-pointer"
+              title="Synchronize Pool Edge Nodes"
+            >
+              <span class="material-symbols-outlined text-[18px] {isRefreshing ? 'animate-spin' : ''}" data-icon="refresh">refresh</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      <!-- 1. KPI Metric Cards (Grid of 4 Glassmorphism Cards with Microdollar Spend Rings) -->
+      <MetricCards {stats} {keys} {todaySpendMicrodollars} />
+
+      <!-- 2. Main Content Grid: Key Inventory (Left 8 cols) + Real-time Telemetry (Right 4 cols) -->
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6">
+        <!-- Key Pool Management Section (Col span 8) -->
+        <div class="xl:col-span-8 space-y-4">
+          <KeysTable
+            {keys}
+            onDeleteKey={handleDeleteKey}
+            onTestKey={handleTestKey}
+            onOpenAddModal={() => (isAddModalOpen = true)}
+          />
+        </div>
+
+        <!-- Live Telemetry Stream (Edge Request Stream Console) (Col span 4) -->
+        <div class="xl:col-span-4 flex flex-col">
+          <TelemetryLogs
+            {logs}
+            {autoRefresh}
+            onToggleAutoRefresh={handleToggleAutoRefresh}
+            onManualRefresh={loadData}
+            {isRefreshing}
+          />
+        </div>
+      </div>
+
+      <!-- 3. Quick Drop-in Proxy Reference Banner -->
+      <section class="specular-border bg-surface-container-low/90 backdrop-blur-xl rounded-xl border border-outline-variant/30 p-4 md:p-5 relative">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <!-- Left: Drop-in description -->
+          <div class="space-y-1 max-w-xl">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[18px]" data-icon="integration_instructions">integration_instructions</span>
+              <span class="text-label-md font-label-md font-medium text-on-surface">Drop-in OpenAI &amp; Anthropic SDK Compatible Endpoint</span>
+            </div>
+            <p class="text-body-sm font-body-sm text-on-surface-variant">
+              Zero code modification required. Simply change your client base URL. Key Collective dynamically rotates keys and translates schema payloads.
+            </p>
+          </div>
+
+          <!-- Right: Code endpoint box & copy button -->
+          <div class="flex items-center gap-2 flex-1 lg:max-w-xl">
+            <div class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/30">
+              <div class="flex items-center gap-2 overflow-hidden font-mono">
+                <span class="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-code-sm text-code-sm font-semibold">POST</span>
+                <span class="font-code-sm text-code-sm text-on-surface truncate" id="endpointUrl">{proxyEndpoint}</span>
+              </div>
+              <button
+                type="button"
+                onclick={handleCopyEndpoint}
+                class="ml-2 flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-primary text-label-sm font-label-sm font-medium border border-outline-variant/30 transition-all active:scale-95 whitespace-nowrap cursor-pointer {isEndpointCopied ? 'bg-secondary/15 text-secondary' : ''}"
+                id="copyEndpointBtn"
+              >
+                <span class="material-symbols-outlined text-[14px] {isEndpointCopied ? 'text-secondary' : ''}" data-icon={isEndpointCopied ? 'check' : 'content_copy'}>
+                  {isEndpointCopied ? 'check' : 'content_copy'}
+                </span>
+                <span id="copyBtnText">{isEndpointCopied ? 'Copied!' : 'Copy Endpoint'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Syntax Tabs preview -->
+        <div class="mt-3 pt-3 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2 text-label-sm font-label-sm font-mono">
+          <div class="flex items-center gap-3 text-outline">
+            <span class="text-on-surface">Snippet:</span>
+            <button type="button" onclick={() => (activeTab = 'docs')} class="text-primary border-b border-primary pb-0.5 cursor-pointer">Python (OpenAI client)</button>
+            <button type="button" onclick={() => (activeTab = 'docs')} class="hover:text-on-surface transition-colors cursor-pointer">TypeScript / Node</button>
+            <button type="button" onclick={() => (activeTab = 'docs')} class="hover:text-on-surface transition-colors cursor-pointer">cURL</button>
+          </div>
+          <div class="flex items-center gap-1.5 text-outline">
+            <span class="material-symbols-outlined text-[14px]" data-icon="lock">lock</span>
+            <span>Pass virtual pool token in <code class="text-primary font-code-sm">Bearer Authorization</code> header</span>
+          </div>
+        </div>
+      </section>
     {/if}
 
     <!-- TAB 2: Developer Workbench (v3 Multi-Project & 7-Tier Authorization) -->

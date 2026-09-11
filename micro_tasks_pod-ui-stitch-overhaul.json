@@ -1,0 +1,121 @@
+{
+  "tasks": [
+    {
+      "id": "T01-setup-theme",
+      "title": "Setup Base HTML and Theme",
+      "description": "Configure ui/index.html fonts (Geist, JetBrains Mono, Material Symbols) and ui/src/app.css for Tailwind v4 theme with specular glass gradients and silver borders.",
+      "context_bundle": {
+        "fonts": [
+          "Geist",
+          "JetBrains Mono",
+          "Material Symbols Outlined"
+        ],
+        "tailwind_version": "v4",
+        "theme": "charcoal background, border-white/[0.08]",
+        "exact_signatures": [
+          "Microdollars"
+        ]
+      },
+      "ui_components": [
+        "ui/index.html",
+        "ui/src/app.css"
+      ]
+    },
+    {
+      "id": "T02-layout",
+      "title": "Implement Dual-Rail Layout",
+      "description": "Build SideNavBar (docked rail) and TopNavBar (header) for the main shell layout.",
+      "context_bundle": {
+        "layout_type": "dual-rail",
+        "exact_signatures": [
+          "Microdollars"
+        ]
+      },
+      "ui_components": [
+        "SideNavBar.svelte",
+        "TopNavBar.svelte"
+      ]
+    },
+    {
+      "id": "T03-dashboard",
+      "title": "Implement Dashboard (8/4 Grid)",
+      "description": "Dashboard layout matching 8/4 grid, displaying microdollar spend rings, keys table, and telemetry.",
+      "context_bundle": {
+        "grid": "8/4",
+        "exact_signatures": [
+          "Microdollars"
+        ]
+      },
+      "ui_components": [
+        "Dashboard.svelte",
+        "SpendRings.svelte",
+        "LiveKeysTable.svelte",
+        "TelemetryFeed.svelte"
+      ]
+    },
+    {
+      "id": "T04-dev-workbench",
+      "title": "Implement Developer Workbench",
+      "description": "Build workbench with project cards, tier selectors (probationary, builder, max), and API keys management.",
+      "context_bundle": {
+        "exact_signatures": [
+          "Microdollars"
+        ]
+      },
+      "ui_components": [
+        "DeveloperWorkbench.svelte",
+        "ProjectCard.svelte",
+        "TierSelector.svelte",
+        "KeyManager.svelte"
+      ]
+    },
+    {
+      "id": "T05-oauth-modal",
+      "title": "Implement OAuth Modal (7/5 Split)",
+      "description": "Wide OAuth Modal with PKCE redirect initiation, 5-layer anti-sybil trust score meter, and email/github progression state.",
+      "context_bundle": {
+        "grid": "7/5",
+        "exact_signatures": [
+          "Microdollars"
+        ]
+      },
+      "ui_components": [
+        "OAuthModal.svelte",
+        "TrustScoreMeter.svelte"
+      ]
+    },
+    {
+      "id": "T06-api-docs",
+      "title": "Implement API Docs & Playground",
+      "description": "Build 7/5 split docs with code snippet tabs, interactive playground, live streaming response pane, and PDF/MD export triggers.",
+      "context_bundle": {
+        "grid": "7/5",
+        "exact_signatures": [
+          "Microdollars"
+        ]
+      },
+      "ui_components": [
+        "ApiDocs.svelte",
+        "CodeTabs.svelte",
+        "Playground.svelte",
+        "ResponsePane.svelte"
+      ]
+    },
+    {
+      "id": "T07-admin-panel",
+      "title": "Implement Admin Panel",
+      "description": "Build AdminView.svelte mapped to admin.key-col.axe08.tech, integrating tenant surveillance, velocity dials, and circuit breaker overrides.",
+      "context_bundle": {
+        "exact_signatures": [
+          "Microdollars"
+        ]
+      },
+      "ui_components": [
+        "AdminView.svelte",
+        "TenantSurveillance.svelte",
+        "VelocityDials.svelte",
+        "CircuitBreakerControls.svelte"
+      ]
+    }
+  ]
+}
