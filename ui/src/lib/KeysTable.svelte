@@ -5,15 +5,16 @@
     keys,
     onDeleteKey,
     onTestKey,
+    onOpenAddModal,
   }: {
     keys: APIKey[];
     onDeleteKey: (id: string) => Promise<void>;
     onTestKey: (id: string) => Promise<void>;
+    onOpenAddModal?: () => void;
   } = $props();
 
   let searchQuery = $state('');
-  let providerFilter = $state<string>('all');
-  let statusFilter = $state<string>('all');
+  let activeFilter = $state<'all' | 'gemini' | 'groq' | 'cooling'>('all');
 
   let testingKeyId = $state<string | null>(null);
   let deletingKeyId = $state<string | null>(null);
@@ -34,10 +35,16 @@
     return diff > 0 ? diff : 0;
   }
 
+  const geminiCount = $derived(keys.filter((k) => k.provider === 'gemini').length);
+  const groqCount = $derived(keys.filter((k) => k.provider === 'groq').length);
+  const coolingCount = $derived(keys.filter((k) => k.status === 'rate_limited').length);
+
   const filteredKeys = $derived(
     keys.filter((key) => {
-      if (providerFilter !== 'all' && key.provider !== providerFilter) return false;
-      if (statusFilter !== 'all' && key.status !== statusFilter) return false;
+      if (activeFilter === 'gemini' && key.provider !== 'gemini') return false;
+      if (activeFilter === 'groq' && key.provider !== 'groq') return false;
+      if (activeFilter === 'cooling' && key.status !== 'rate_limited') return false;
+
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
         return (
@@ -62,7 +69,7 @@
   }
 
   async function handleDelete(id: string, label: string) {
-    if (!confirm(`Are you sure you want to remove the key "${label}" (${id}) from the pool?`)) {
+    if (!confirm(`Are you sure you want to revoke key "${label}" (${id}) from the pool?`)) {
       return;
     }
     deletingKeyId = id;
@@ -73,247 +80,226 @@
     }
   }
 
-  function copyKeyMask(key: APIKey) {
+  function copyKey(key: APIKey) {
     const mask = `${key.key_prefix}...${key.key_suffix}`;
     navigator.clipboard.writeText(mask);
     copiedKeyId = key.id;
     setTimeout(() => {
       if (copiedKeyId === key.id) copiedKeyId = null;
-    }, 1800);
+    }, 1500);
   }
 </script>
 
-<div class="glass-surface specular-border rounded-xl shadow-xl overflow-hidden">
-  <!-- Table Controls Header -->
-  <div class="p-4 border-b border-white/[0.08] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#0C0F17]/60">
-    <div class="flex items-center gap-2">
-      <h2 class="text-sm font-semibold font-mono uppercase tracking-wider text-slate-200">
-        Managed Keys Pool
-      </h2>
-      <span class="px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-slate-800 text-slate-300 border border-white/10">
-        {filteredKeys.length} of {keys.length}
-      </span>
+<div class="specular-border bg-surface-container-low/80 backdrop-blur-xl rounded-xl border border-outline-variant/30 p-4">
+  <!-- Table Toolbar & Filters -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-outline-variant/20">
+    <!-- Filter Pills -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <button
+        type="button"
+        onclick={() => (activeFilter = 'all')}
+        class="px-3 py-1 rounded-lg text-label-md font-label-md font-medium transition-colors cursor-pointer {activeFilter === 'all' ? 'bg-surface-container-high border border-outline-variant/40 text-primary' : 'bg-surface-container-lowest/60 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface'}"
+      >
+        All ({keys.length})
+      </button>
+
+      <button
+        type="button"
+        onclick={() => (activeFilter = 'gemini')}
+        class="px-3 py-1 rounded-lg text-label-md font-label-md font-medium transition-colors cursor-pointer {activeFilter === 'gemini' ? 'bg-surface-container-high border border-outline-variant/40 text-primary' : 'bg-surface-container-lowest/60 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface'}"
+      >
+        Gemini ({geminiCount})
+      </button>
+
+      <button
+        type="button"
+        onclick={() => (activeFilter = 'groq')}
+        class="px-3 py-1 rounded-lg text-label-md font-label-md font-medium transition-colors cursor-pointer {activeFilter === 'groq' ? 'bg-surface-container-high border border-outline-variant/40 text-primary' : 'bg-surface-container-lowest/60 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface'}"
+      >
+        Groq ({groqCount})
+      </button>
+
+      <button
+        type="button"
+        onclick={() => (activeFilter = 'cooling')}
+        class="px-3 py-1 rounded-lg text-label-md font-label-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 {activeFilter === 'cooling' ? 'bg-surface-container-high border border-outline-variant/40 text-tertiary' : 'bg-surface-container-lowest/60 hover:bg-surface-container-high text-tertiary'}"
+      >
+        <span class="w-1.5 h-1.5 rounded-full bg-tertiary status-pulse"></span>
+        Cooling Down ({coolingCount})
+      </button>
     </div>
 
-    <!-- Filters and Search -->
-    <div class="flex flex-wrap items-center gap-2">
-      <!-- Search -->
-      <div class="relative min-w-[180px] flex-1 sm:flex-initial">
-        <svg class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-        </svg>
+    <!-- Right Controls: Search & Primary Action -->
+    <div class="flex items-center gap-2.5">
+      <!-- Search Input -->
+      <div class="relative w-48 sm:w-56">
+        <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[14px]">search</span>
         <input
           type="text"
           bind:value={searchQuery}
-          placeholder="Filter label or key..."
-          class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+          placeholder="Filter keys..."
+          class="w-full pl-8 pr-3 py-1 bg-surface-container-lowest/80 border border-outline-variant/30 rounded-lg text-code-sm font-code-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors"
         />
       </div>
 
-      <!-- Provider Filter -->
-      <select
-        bind:value={providerFilter}
-        class="py-1.5 px-2.5 rounded-lg bg-slate-950/70 border border-white/10 text-xs font-mono text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-        aria-label="Filter keys by provider"
-      >
-        <option value="all">All Providers</option>
-        <option value="gemini">Gemini</option>
-        <option value="groq">Groq</option>
-      </select>
-
-      <!-- Status Filter -->
-      <select
-        bind:value={statusFilter}
-        class="py-1.5 px-2.5 rounded-lg bg-slate-950/70 border border-white/10 text-xs font-mono text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-        aria-label="Filter keys by status"
-      >
-        <option value="all">All Statuses</option>
-        <option value="healthy">Healthy</option>
-        <option value="rate_limited">Rate Limited</option>
-        <option value="invalid">Invalid</option>
-      </select>
+      <!-- Add Provider Key Button -->
+      {#if onOpenAddModal}
+        <button
+          type="button"
+          onclick={onOpenAddModal}
+          class="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary font-medium text-label-md font-label-md hover:bg-primary-container/90 transition-all active:scale-[0.98] shadow-[0_0_16px_rgba(128,131,255,0.3)] cursor-pointer whitespace-nowrap"
+        >
+          <span class="material-symbols-outlined text-[16px]" data-icon="add">add</span>
+          <span>+ Add Provider Key</span>
+        </button>
+      {/if}
     </div>
   </div>
 
-  <!-- Keys Data Table -->
-  <div class="overflow-x-auto">
-    <table class="w-full text-left text-xs font-mono border-collapse">
+  <!-- Developer Data Table -->
+  <div class="overflow-x-auto mt-3">
+    <table class="w-full text-left border-collapse">
       <thead>
-        <tr class="border-b border-white/[0.08] bg-slate-950/40 text-slate-400 uppercase tracking-wider text-[11px]">
-          <th class="py-3 px-4 font-semibold">Provider</th>
-          <th class="py-3 px-4 font-semibold">Label</th>
-          <th class="py-3 px-4 font-semibold">Key Token</th>
-          <th class="py-3 px-4 font-semibold">Status</th>
-          <th class="py-3 px-4 font-semibold">Priority</th>
-          <th class="py-3 px-4 font-semibold min-w-[160px]">RPM Usage</th>
-          <th class="py-3 px-4 font-semibold">RPD Usage</th>
-          <th class="py-3 px-4 font-semibold text-right">Actions</th>
+        <tr class="border-b border-outline-variant/20 text-label-sm font-label-sm text-outline uppercase tracking-wider font-mono">
+          <th class="py-2.5 px-3 font-medium">Provider &amp; Label</th>
+          <th class="py-2.5 px-3 font-medium">Masked API Key</th>
+          <th class="py-2.5 px-3 font-medium">RPM Gauge</th>
+          <th class="py-2.5 px-3 font-medium">Daily Quota</th>
+          <th class="py-2.5 px-3 font-medium">Status</th>
+          <th class="py-2.5 px-3 font-medium text-right">Actions</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-white/[0.05]">
+      <tbody class="divide-y divide-outline-variant/10 text-code-sm font-code-sm">
         {#if filteredKeys.length === 0}
           <tr>
-            <td colspan="8" class="py-10 text-center text-slate-500 font-mono">
-              No API keys matching the current filters.
+            <td colspan="6" class="py-8 text-center text-outline font-mono">
+              No API keys matching the current selection.
             </td>
           </tr>
         {:else}
           {#each filteredKeys as key (key.id)}
             {@const rpmUsed = key.requests_this_min || 0}
-            {@const rpmPct = Math.min(100, Math.round((rpmUsed / key.rpm_limit) * 100))}
+            {@const rpmLimit = key.rpm_limit || 60}
+            {@const rpmPct = Math.min(100, Math.round((rpmUsed / rpmLimit) * 100))}
             {@const rpdUsed = key.requests_today || 0}
-            {@const rpdPct = Math.min(100, Math.round((rpdUsed / key.rpd_limit) * 100))}
+            {@const rpdLimit = key.rpd_limit || 10000}
+            {@const rpdPct = Math.min(100, Math.round((rpdUsed / rpdLimit) * 100))}
             {@const cooldownSec = getCooldownSeconds(key.cooldown_until)}
 
-            <tr class="hover:bg-slate-800/30 transition-colors group">
-              <!-- Provider Badge -->
-              <td class="py-3 px-4">
-                {#if key.provider === 'gemini'}
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/25">
-                    <svg class="w-3 h-3 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
-                    </svg>
-                    Gemini
-                  </span>
-                {:else}
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/25">
-                    <svg class="w-3 h-3 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
-                    Groq
-                  </span>
-                {/if}
-              </td>
-
-              <!-- Label -->
-              <td class="py-3 px-4">
-                <div class="flex items-center gap-1.5 font-medium text-slate-200">
-                  <span class="truncate max-w-[170px]" title={key.label}>{key.label}</span>
-                </div>
-                <span class="text-[10px] text-slate-500 font-mono">{key.id}</span>
-              </td>
-
-              <!-- Masked Key -->
-              <td class="py-3 px-4">
-                <button
-                  type="button"
-                  onclick={() => copyKeyMask(key)}
-                  class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-950/60 border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all active:scale-95 group/btn cursor-pointer"
-                  title="Click to copy masked key"
-                >
-                  <span class="font-mono text-[11px] tracking-wider text-slate-400 group-hover/btn:text-slate-200">
-                    {key.key_prefix}...{key.key_suffix}
-                  </span>
-                  {#if copiedKeyId === key.id}
-                    <svg class="w-3 h-3 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                    </svg>
-                  {:else}
-                    <svg class="w-3 h-3 text-slate-500 group-hover/btn:text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                  {/if}
-                </button>
-              </td>
-
-              <!-- Status -->
-              <td class="py-3 px-4">
-                {#if key.status === 'healthy'}
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Healthy
-                  </span>
-                {:else if key.status === 'rate_limited'}
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/25" title="Rate limit cooldown">
-                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                    Rate Limited
-                    {#if cooldownSec > 0}
-                      <span class="font-mono text-[10px] text-amber-300 font-bold bg-amber-500/20 px-1 rounded">{cooldownSec}s</span>
-                    {/if}
-                  </span>
-                {:else if key.status === 'invalid'}
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/25">
-                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                    Invalid Key
-                  </span>
-                {:else}
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
-                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                    {key.status}
-                  </span>
-                {/if}
-              </td>
-
-              <!-- Priority -->
-              <td class="py-3 px-4">
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold {key.priority === 0 ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30' : key.priority === 1 ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30' : 'bg-slate-800 text-slate-400 border border-white/10'}">
-                  P{key.priority}
-                </span>
-              </td>
-
-              <!-- RPM Usage Bar -->
-              <td class="py-3 px-4">
-                <div class="flex flex-col gap-1">
-                  <div class="flex items-center justify-between text-[11px]">
-                    <span class="font-semibold text-slate-300">{rpmUsed} <span class="text-slate-500 font-normal">/ {key.rpm_limit}</span></span>
-                    <span class="text-[10px] {rpmPct >= 90 ? 'text-rose-400 font-bold' : rpmPct >= 70 ? 'text-amber-400' : 'text-slate-400'}">
-                      {rpmPct}%
+            <tr class="hover:bg-surface-container-high/30 transition-colors group {key.status === 'rate_limited' ? 'bg-tertiary/5' : ''}">
+              <!-- Provider & Label -->
+              <td class="py-3 px-3">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded {key.provider === 'gemini' ? 'bg-primary/10 border border-primary/20 text-primary' : 'bg-tertiary/10 border border-tertiary/20 text-tertiary'} flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[16px]" data-icon={key.provider === 'gemini' ? 'token' : 'bolt'}>
+                      {key.provider === 'gemini' ? 'token' : 'bolt'}
                     </span>
                   </div>
-                  <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-white/5">
+                  <div>
+                    <div class="text-on-surface font-body-md text-body-md font-medium leading-tight">
+                      {key.label}
+                    </div>
+                    <div class="text-label-sm font-label-sm text-outline font-mono mt-0.5">
+                      Weight: {key.priority === 0 ? '40' : key.priority === 1 ? '35' : '25'} • {key.provider === 'gemini' ? 'Google AI' : 'Groq Cloud'}
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Masked API Key with copy interaction -->
+              <td class="py-3 px-3">
+                <div class="flex items-center gap-2 font-mono">
+                  <span class="text-on-surface font-code-sm text-code-sm bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/20">
+                    {key.key_prefix}...{key.key_suffix}
+                  </span>
+                  <button
+                    type="button"
+                    onclick={() => copyKey(key)}
+                    class="copy-btn text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors cursor-pointer"
+                    title="Copy Key Mask"
+                  >
+                    <span class="material-symbols-outlined text-[14px] {copiedKeyId === key.id ? 'text-secondary' : ''}" data-icon={copiedKeyId === key.id ? 'check' : 'content_copy'}>
+                      {copiedKeyId === key.id ? 'check' : 'content_copy'}
+                    </span>
+                  </button>
+                </div>
+              </td>
+
+              <!-- RPM Gauge -->
+              <td class="py-3 px-3">
+                <div class="flex items-center gap-2 font-mono">
+                  <span class="{key.status === 'rate_limited' ? 'text-tertiary font-medium' : 'text-on-surface font-medium'}">
+                    {rpmUsed} / {rpmLimit}
+                  </span>
+                  <div class="w-12 bg-surface-container-highest h-1 rounded-full overflow-hidden">
                     <div
-                      class="h-full rounded-full transition-all duration-300 {rpmPct >= 90 ? 'bg-rose-500' : rpmPct >= 70 ? 'bg-amber-500' : 'bg-emerald-400'}"
-                      style="width: {rpmPct}%"
+                      class="{key.status === 'rate_limited' ? 'bg-tertiary' : rpmPct >= 80 ? 'bg-primary' : 'bg-secondary'} h-full transition-all duration-300"
+                      style="width: {rpmPct}%;"
                     ></div>
                   </div>
                 </div>
               </td>
 
-              <!-- RPD Usage -->
-              <td class="py-3 px-4">
-                <div class="flex flex-col">
-                  <span class="text-slate-300 font-medium">{rpdUsed.toLocaleString()} <span class="text-slate-500 text-[10px]">/ {key.rpd_limit.toLocaleString()}</span></span>
-                  <span class="text-[10px] text-slate-500">{rpdPct}% day used</span>
+              <!-- Daily Quota -->
+              <td class="py-3 px-3">
+                <div class="w-24 font-mono">
+                  <div class="flex justify-between text-label-sm font-label-sm {key.status === 'rate_limited' ? 'text-tertiary' : 'text-outline'} mb-1">
+                    <span>{rpdUsed >= 1000 ? (rpdUsed / 1000).toFixed(1) + 'k' : rpdUsed}</span>
+                    <span>{rpdPct}%</span>
+                  </div>
+                  <div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+                    <div
+                      class="{key.status === 'rate_limited' ? 'bg-tertiary' : 'bg-secondary'} h-full transition-all duration-300"
+                      style="width: {rpdPct}%;"
+                    ></div>
+                  </div>
                 </div>
               </td>
 
+              <!-- Status Badge -->
+              <td class="py-3 px-3 font-mono">
+                {#if key.status === 'healthy'}
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/10 border border-secondary/30 text-secondary text-label-sm font-label-sm font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                    Healthy
+                  </span>
+                {:else if key.status === 'rate_limited'}
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-tertiary/10 border border-tertiary/30 text-tertiary text-label-sm font-label-sm font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-tertiary status-pulse"></span>
+                    429 Cooling [{cooldownSec > 0 ? cooldownSec + 's' : '00:28s'}]
+                  </span>
+                {:else if key.status === 'invalid'}
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container/40 border border-error/30 text-error text-label-sm font-label-sm font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                    Invalid
+                  </span>
+                {:else}
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-container-high border border-outline-variant/30 text-on-surface-variant text-label-sm font-label-sm font-medium">
+                    {key.status}
+                  </span>
+                {/if}
+              </td>
+
               <!-- Actions -->
-              <td class="py-3 px-4 text-right">
-                <div class="flex items-center justify-end gap-1.5">
-                  <!-- Test Button -->
+              <td class="py-3 px-3 text-right">
+                <div class="flex items-center justify-end gap-1">
                   <button
                     type="button"
                     onclick={() => handleTest(key.id)}
                     disabled={testingKeyId === key.id}
-                    class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 transition-all active:scale-95 disabled:opacity-50 text-[11px] cursor-pointer"
-                    title="Run live latency and authorization test"
+                    class="p-1 rounded text-outline hover:text-primary hover:bg-surface-container transition-colors cursor-pointer disabled:opacity-50"
+                    title="Ping Test"
                   >
-                    {#if testingKeyId === key.id}
-                      <span class="inline-flex items-center gap-1 text-indigo-400">
-                        <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                        </svg>
-                        Testing
-                      </span>
-                    {:else}
-                      Test
-                    {/if}
+                    <span class="material-symbols-outlined text-[16px] {testingKeyId === key.id ? 'animate-spin text-primary' : ''}" data-icon="network_ping">network_ping</span>
                   </button>
-
-                  <!-- Delete Button -->
                   <button
                     type="button"
                     onclick={() => handleDelete(key.id, key.label)}
                     disabled={deletingKeyId === key.id}
-                    class="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-800/40 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                    title="Delete key"
-                    aria-label="Delete key"
+                    class="p-1 rounded text-outline hover:text-error hover:bg-surface-container transition-colors cursor-pointer disabled:opacity-50"
+                    title="Revoke Key"
                   >
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
+                    <span class="material-symbols-outlined text-[16px]" data-icon="do_not_disturb_on">do_not_disturb_on</span>
                   </button>
                 </div>
               </td>
