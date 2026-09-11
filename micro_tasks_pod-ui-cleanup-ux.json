@@ -1,0 +1,52 @@
+{
+  "tasks": [
+    {
+      "task_id": "top_nav_bar_cleanup",
+      "description": "Clean up TopNavBar UX, remove duplicate navigation and actions.",
+      "instructions": "In `ui/src/lib/TopNavBar.svelte`:\n1. Remove the `<nav>` element containing the duplicate center tabs (Virtual Pools, Developer Workbench, API Docs, Admin Panel).\n2. Remove the \"Deploy Proxy\" button.\n3. Remove the \"Add Provider Key\" button.\n4. Update the edge status badge text from \"Operational \u2022 12ms (SIN-01)\" to \"Edge Network Active \u2022 Latency Nominal\".",
+      "dependencies": [],
+      "context_bundle": {
+        "files": [
+          "ui/src/lib/TopNavBar.svelte"
+        ]
+      },
+      "ui_components": []
+    },
+    {
+      "task_id": "side_nav_bar_cleanup",
+      "description": "Streamline SideNavBar navigation and simplify UI.",
+      "instructions": "In `ui/src/lib/SideNavBar.svelte`:\n1. Rename the \"+ New Virtual Pool\" button text to \"+ Add Provider Key\".\n2. Remove the static \"SIN-01 Edge\" header block at the top of the sidebar.\n3. Consolidate navigation items to exactly 4 distinct tabs: \"Overview\" (activeTab = \"pool\"), \"Developer Workbench\" (activeTab = \"workbench\"), \"API Documentation\" (activeTab = \"docs\"), and \"Admin Panel\" (activeTab = \"admin\", conditional on `userAccount?.tier === \"admin\"`).\n4. Remove the redundant buttons: \"Key Inventory\", \"Failover Topologies\", \"Usage & Quotas\", \"Audit Trail\". Note: Keep exactly the 4 distinct routes requested.\n5. In the quota card, rename \"Shield Quota\" to \"Daily Quota Limit\".",
+      "dependencies": [],
+      "context_bundle": {
+        "files": [
+          "ui/src/lib/SideNavBar.svelte"
+        ]
+      },
+      "ui_components": []
+    },
+    {
+      "task_id": "api_docs_cleanup",
+      "description": "Refine API documentation copy for a technical audience.",
+      "instructions": "In `ui/src/lib/ApiDocs.svelte`:\n1. Replace marketing buzzwords like \"All requests are routed through edge proxies deployed at 28 tier-1 exchanges.\" with clean, developer-focused technical copy (e.g., \"API requests are routed through regional edge proxies for minimal latency.\"). Apply this change both in the Markdown export string block and the rendered HTML block.\n2. Ensure the interactive sandbox and Markdown/PDF export functionalities remain completely intact and functional.",
+      "dependencies": [],
+      "context_bundle": {
+        "files": [
+          "ui/src/lib/ApiDocs.svelte"
+        ]
+      },
+      "ui_components": []
+    },
+    {
+      "task_id": "admin_view_cleanup",
+      "description": "Organize AdminView into distinct mutually exclusive tabs.",
+      "instructions": "In `ui/src/lib/admin/AdminView.svelte`:\n1. Change the default `adminTab` state from \"all\" to \"surveillance\".\n2. Remove the \"Unified Control Center\" button from the sub-navigation bar.\n3. Update the `{#if adminTab === \"all\" || ...}` conditions to strictly `{#if adminTab === \"surveillance\"}` (or corresponding tab) so views are mutually exclusive.\n4. Remove the \"SIN-01 \u2022 DO Isolated Hot State\" badge text from the top banner area.",
+      "dependencies": [],
+      "context_bundle": {
+        "files": [
+          "ui/src/lib/admin/AdminView.svelte"
+        ]
+      },
+      "ui_components": []
+    }
+  ]
+}
