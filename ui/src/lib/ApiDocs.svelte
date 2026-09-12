@@ -259,7 +259,22 @@ Retrieves live health status across all upstream nodes, active circuit breaker t
 
 ---
 
-## 4. Code Examples
+## 4. Error Codes
+
+The API returns standard HTTP status codes along with a structured JSON error response.
+
+| Status | Code | Description |
+|---|---|---|
+| `400` | `bad_request` | Invalid parameters or malformed JSON payload. |
+| `401` | `unauthorized` | Missing, invalid, or expired Bearer token. |
+| `402` | `payment_required` | Project quota exceeded or insufficient microdollar balance. |
+| `429` | `rate_limit_exceeded` | Too many requests. Respect the `Retry-After` header. |
+| `500` | `internal_error` | Unexpected edge gateway or routing failure. |
+| `503` | `upstream_unavailable`| All configured fallback providers are currently unreachable. |
+
+---
+
+## 5. Code Examples
 
 ### cURL
 \`\`\`bash
@@ -276,6 +291,101 @@ ${tsSnippet}
 ${pySnippet}
 \`\`\`
 `);
+
+  const openApiJson = $derived(JSON.stringify({
+    openapi: "3.1.0",
+    info: {
+      title: "Key Collective v3 API",
+      version: "3.0.0",
+      description: "Low-latency unified proxy gateway for dynamic model failover & key pooling"
+    },
+    servers: [{ url: baseUrl }],
+    paths: {
+      "/v1/chat/completions": {
+        post: {
+          summary: "Create chat completion",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["model", "messages"],
+                  properties: {
+                    model: { type: "string" },
+                    messages: { type: "array", items: { type: "object" } },
+                    stream: { type: "boolean", default: false },
+                    fallback_cascade: { type: "array", items: { type: "string" } },
+                    temperature: { type: "number", default: 0.7 }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            "200": { description: "Successful response" }
+          }
+        }
+      },
+      "/v1/models": {
+        get: {
+          summary: "List models",
+          security: [{ bearerAuth: [] }],
+          responses: { "200": { description: "Successful response" } }
+        }
+      },
+      "/v1/projects": {
+        get: {
+          summary: "List projects",
+          security: [{ bearerAuth: [] }],
+          responses: { "200": { description: "Successful response" } }
+        }
+      },
+      "/v1/projects/{id}/keys": {
+        post: {
+          summary: "Generate project key",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          responses: { "200": { description: "Successful response" } }
+        }
+      },
+      "/v1/health": {
+        get: {
+          summary: "Health status",
+          responses: { "200": { description: "Successful response" } }
+        }
+      },
+      "/v1/telemetry": {
+        get: {
+          summary: "Telemetry",
+          security: [{ bearerAuth: [] }],
+          responses: { "200": { description: "Successful response" } }
+        }
+      }
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer"
+        }
+      }
+    }
+  }, null, 2));
+
+  function downloadOpenAPI() {
+    const blob = new Blob([openApiJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'openapi.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    exportMenuOpen = false;
+  }
 
   function downloadMarkdown() {
     const blob = new Blob([apiDocsMarkdown], { type: 'text/markdown;charset=utf-8' });
@@ -340,6 +450,14 @@ ${pySnippet}
               >
                 <span class="material-symbols-outlined text-primary" data-icon="description">description</span>
                 <span>Download Markdown (.md)</span>
+              </button>
+              <button
+                type="button"
+                class="w-full px-4 py-2 text-left text-label-md font-label-md text-on-surface hover:bg-surface-variant flex items-center gap-2 transition-colors cursor-pointer"
+                onclick={downloadOpenAPI}
+              >
+                <span class="material-symbols-outlined text-secondary" data-icon="data_object">data_object</span>
+                <span>Export OpenAPI 3.1 JSON</span>
               </button>
               <button
                 type="button"
@@ -890,6 +1008,15 @@ ${pySnippet}
           >
             <span class="material-symbols-outlined text-sm" data-icon="print">print</span>
             <span>PDF</span>
+          </button>
+          <button
+            type="button"
+            class="py-1.5 px-3 rounded-lg bg-surface-container-high hover:bg-surface-variant border border-outline-variant/30 text-label-sm font-label-sm text-on-surface flex items-center gap-1 transition-colors active:scale-[0.98] cursor-pointer"
+            onclick={downloadOpenAPI}
+            title="Download OpenAPI JSON"
+          >
+            <span class="material-symbols-outlined text-sm text-secondary" data-icon="data_object">data_object</span>
+            <span>OpenAPI</span>
           </button>
         </div>
       </div>
