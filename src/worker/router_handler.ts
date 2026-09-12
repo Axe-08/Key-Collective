@@ -684,6 +684,14 @@ export class RouterHandler {
       });
     }
 
+    if (method === "GET" && pathname === "/openapi.json") {
+      return Response.json({
+        openapi: "3.1.0",
+        info: { title: "Key Collective API", version: "0.2.0" },
+        paths: {}
+      });
+    }
+
     // 2. Resolve trace ID from request headers or generate fresh UUID
     const traceId =
       request.headers.get("x-kc-trace-id") ??
@@ -1255,6 +1263,8 @@ export class RouterHandler {
 
     // 5. GET /api/logs
     if (method === "GET" && pathname === "/api/logs") {
+      const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+      this.getKeyPool(targetTenantId, env);
       if (!env.DB || typeof env.DB.prepare !== "function") {
         return Response.json([]);
       }
@@ -1318,6 +1328,8 @@ export class RouterHandler {
 
     // 6. GET /api/stats
     if (method === "GET" && pathname === "/api/stats") {
+      const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+      this.getKeyPool(targetTenantId, env);
       let totalKeys = 0;
       let healthyKeys = 0;
       let rateLimitedKeys = 0;

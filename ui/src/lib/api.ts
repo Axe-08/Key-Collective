@@ -100,42 +100,8 @@ const INITIAL_MOCK_KEYS: APIKey[] = [
   },
 ];
 
-function generateMockLogs(count = 25): RequestLog[] {
-  const providers: ('gemini' | 'groq')[] = ['gemini', 'groq'];
-  const geminiModels = ['gemini-1.5-pro', 'gemini-1.5-flash'];
-  const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
-  const statusCodes = [200, 200, 200, 200, 200, 200, 429, 200, 500];
-
-  const logs: RequestLog[] = [];
-  const now = Date.now();
-
-  for (let i = 0; i < count; i++) {
-    const prov = providers[Math.floor(Math.random() * providers.length)];
-    const code = statusCodes[Math.floor(Math.random() * statusCodes.length)];
-    const isGemini = prov === 'gemini';
-    const latencyBase = isGemini ? 220 : 90;
-    const latency = code === 429 ? Math.floor(Math.random() * 40 + 20) : Math.floor(latencyBase + Math.random() * 320);
-    const key = prov === 'gemini' ? (Math.random() > 0.5 ? 'key_01jh9x81m' : 'key_01jh9x82p') : (Math.random() > 0.5 ? 'key_01jh9x83q' : 'key_01jh9x86t');
-
-    logs.push({
-      id: `log_${(now - i * 1400).toString(36)}_${i}`,
-      key_id: key,
-      provider: prov,
-      status_code: code,
-      latency_ms: latency,
-      bytes_in: Math.floor(640 + Math.random() * 4500),
-      bytes_out: code === 200 ? Math.floor(1200 + Math.random() * 8500) : 180,
-      created_at: new Date(now - i * 2800 - Math.random() * 1500).toISOString(),
-      model: isGemini ? geminiModels[Math.floor(Math.random() * geminiModels.length)] : groqModels[Math.floor(Math.random() * groqModels.length)],
-    });
-  }
-
-  return logs;
-}
-
 // In-memory state for fallback/mock simulation
 let memoryKeys: APIKey[] = [...INITIAL_MOCK_KEYS];
-let memoryLogs: RequestLog[] = generateMockLogs(35);
 
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
@@ -271,26 +237,7 @@ export const api = {
       // Fallback
     }
 
-    // Push simulated new request periodically
-    if (Math.random() > 0.4) {
-      const prov: 'gemini' | 'groq' = Math.random() > 0.45 ? 'groq' : 'gemini';
-      const code = Math.random() > 0.12 ? 200 : (Math.random() > 0.5 ? 429 : 500);
-      const isGemini = prov === 'gemini';
-      const freshLog: RequestLog = {
-        id: `log_${Date.now().toString(36)}`,
-        key_id: prov === 'gemini' ? 'key_01jh9x81m' : 'key_01jh9x83q',
-        provider: prov,
-        status_code: code,
-        latency_ms: code === 429 ? 34 : Math.floor((isGemini ? 210 : 85) + Math.random() * 210),
-        bytes_in: Math.floor(400 + Math.random() * 2400),
-        bytes_out: code === 200 ? Math.floor(1500 + Math.random() * 6000) : 150,
-        created_at: new Date().toISOString(),
-        model: isGemini ? 'gemini-1.5-flash' : 'llama-3.3-70b-versatile',
-      };
-      memoryLogs = [freshLog, ...memoryLogs.slice(0, 49)];
-    }
-
-    return memoryLogs.slice(0, 50);
+    return [];
   },
 
   async getStats(keys: APIKey[], logs: RequestLog[]): Promise<PoolStats> {
