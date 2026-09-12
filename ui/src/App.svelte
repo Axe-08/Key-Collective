@@ -208,6 +208,11 @@
   }
 
   function handleLogout() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('kc_auth_token');
+      localStorage.removeItem('kc_user');
+      document.cookie = 'kc_auth_token=; path=/; Max-Age=0; SameSite=Lax; Secure';
+    }
     userAccount = {
       id: '',
       githubId: 0,
@@ -222,7 +227,10 @@
       createdAt: '',
       updatedAt: '',
     };
-    addToast('info', 'Logged out successfully');
+    keys = [];
+    logs = [];
+    addToast('info', 'Session invalidated. You have been logged out.');
+    loadData();
   }
 
   onMount(() => {

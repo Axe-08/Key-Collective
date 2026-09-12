@@ -265,12 +265,12 @@ The API returns standard HTTP status codes along with a structured JSON error re
 
 | Status | Code | Description |
 |---|---|---|
-| `400` | `bad_request` | Invalid parameters or malformed JSON payload. |
-| `401` | `unauthorized` | Missing, invalid, or expired Bearer token. |
-| `402` | `payment_required` | Project quota exceeded or insufficient microdollar balance. |
-| `429` | `rate_limit_exceeded` | Too many requests. Respect the `Retry-After` header. |
-| `500` | `internal_error` | Unexpected edge gateway or routing failure. |
-| `503` | `upstream_unavailable`| All configured fallback providers are currently unreachable. |
+| \`400\` | \`bad_request\` | Invalid parameters or malformed JSON payload. |
+| \`401\` | \`unauthorized\` | Missing, invalid, or expired Bearer token. |
+| \`402\` | \`payment_required\` | Project quota exceeded or insufficient microdollar balance. |
+| \`429\` | \`rate_limit_exceeded\` | Too many requests. Respect the \`Retry-After\` header. |
+| \`500\` | \`internal_error\` | Unexpected edge gateway or routing failure. |
+| \`503\` | \`upstream_unavailable\`| All configured fallback providers are currently unreachable. |
 
 ---
 

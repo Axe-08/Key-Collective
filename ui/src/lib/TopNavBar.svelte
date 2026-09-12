@@ -177,11 +177,36 @@
 </header>
 
 {#if isSettingsOpen}
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onclick={() => isSettingsOpen = false}>
-    <div class="bg-surface-container p-6 rounded-xl border border-outline-variant/30 min-w-96" onclick={e => e.stopPropagation()}>
-      <h2 class="text-headline-sm mb-4">Settings</h2>
-      <p class="mb-4 text-on-surface-variant">Settings configuration goes here.</p>
-      <button onclick={() => isSettingsOpen = false} class="px-4 py-2 bg-primary text-on-primary rounded-lg">Close</button>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4" onclick={() => (isSettingsOpen = false)}>
+    <div class="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/30 max-w-md w-full shadow-2xl space-y-4" onclick={e => e.stopPropagation()}>
+      <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">settings</span>
+          <h2 class="text-headline-sm font-semibold text-on-surface">Developer Preferences</h2>
+        </div>
+        <button type="button" onclick={() => (isSettingsOpen = false)} class="text-outline hover:text-on-surface cursor-pointer">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="space-y-3 font-sans text-xs text-on-surface-variant">
+        <div>
+          <label class="block font-mono text-[11px] text-outline mb-1" for="pref-endpoint">Edge Proxy Gateway</label>
+          <input id="pref-endpoint" type="text" readonly value="https://key-col.axe08.tech/v1/chat/completions" class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface select-all" />
+        </div>
+        <div>
+          <label class="block font-mono text-[11px] text-outline mb-1" for="pref-telemetry">Telemetry Poll Frequency</label>
+          <input id="pref-telemetry" type="text" readonly value="3,000ms (High-Frequency Adaptive Edge)" class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface" />
+        </div>
+        <div class="p-2.5 rounded-lg bg-surface-container border border-outline-variant/15 flex items-center justify-between font-mono text-[11px]">
+          <span>Security Isolates</span>
+          <span class="text-secondary font-medium">AES-256-GCM / Web Crypto</span>
+        </div>
+      </div>
+      <div class="flex justify-end pt-3 border-t border-outline-variant/20">
+        <button type="button" onclick={() => (isSettingsOpen = false)} class="px-4 py-2 bg-primary text-on-primary rounded-lg font-mono text-xs font-semibold hover:opacity-90 cursor-pointer">Close</button>
+      </div>
     </div>
   </div>
 {/if}

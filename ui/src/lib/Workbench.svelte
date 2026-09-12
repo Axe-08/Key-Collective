@@ -199,6 +199,42 @@
   let showProjectSettingsModal = $state<ExtendedProject | null>(null);
   let copiedKeyId = $state<string | null>(null);
 
+  let showNewKeyModal = $state(false);
+  let newKeyName = $state('');
+  let newKeyProjectId = $state('');
+  let openKeyDropdownId = $state<string | null>(null);
+
+  $effect(() => {
+    if (showNewKeyModal && !newKeyProjectId && localProjects.length > 0) {
+      newKeyProjectId = localProjects[0].id;
+    }
+  });
+
+  function handleCreateNewKey(): void {
+    if (!newKeyName.trim() || !newKeyProjectId) return;
+    
+    const keySuffix = Math.random().toString(36).substring(2, 9);
+    const newKey = {
+      id: `key_${Date.now()}`,
+      projectId: newKeyProjectId,
+      tenantId: account.id,
+      name: newKeyName.trim(),
+      tokenPrefix: `kc_proj_live_${keySuffix}`,
+      tokenHashSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      fullSecret: `kc_proj_live_${keySuffix}1198f3`,
+      displayTime: 'Just now',
+      displayCreated: `Created ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      isRevoked: false,
+      lastUsedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    localKeys = [newKey, ...localKeys];
+
+    newKeyName = '';
+    showNewKeyModal = false;
+  }
+
+
   // New Project Form State
   let newProjectName = $state('');
   let newProjectSlug = $state('');
@@ -692,6 +728,14 @@ ${localKeys
 
           <div>
             <div class="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onclick={() => (showNewKeyModal = true)}
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
+        >
+          <span class="material-symbols-outlined text-[16px]">key</span>
+          <span>Create Key</span>
+        </button>
               <h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">
                 @{account.githubUsername}
               </h2>
@@ -793,6 +837,7 @@ ${localKeys
   </section>
 
   <!-- 2. 7-Tier Authorization & Quota Hierarchy (Horizontal Matrix View) -->
+  {#if account.tier === 'admin'}
   <section class="space-y-3">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
@@ -869,6 +914,7 @@ ${localKeys
       {/each}
     </div>
   </section>
+  {/if}
 
   <!-- 3. Multi-Project Management Section -->
   <section class="space-y-4">
@@ -910,7 +956,7 @@ ${localKeys
         class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-container text-on-primary-container font-label-md text-label-md font-semibold hover:opacity-90 transition-opacity shadow-[0_0_12px_rgba(128,131,255,0.2)] cursor-pointer font-mono"
       >
         <span class="material-symbols-outlined text-[16px]">add</span>
-        <span>+ Create New Project</span>
+        <span>Create New Project</span>
       </button>
     </div>
 
@@ -925,6 +971,14 @@ ${localKeys
           <div class="flex items-start justify-between">
             <div>
               <div class="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onclick={() => (showNewKeyModal = true)}
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
+        >
+          <span class="material-symbols-outlined text-[16px]">key</span>
+          <span>Create Key</span>
+        </button>
                 <h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">
                   {project.name}
                 </h3>
@@ -1023,6 +1077,14 @@ ${localKeys
 
       <!-- Search & Project Select Filters -->
       <div class="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onclick={() => (showNewKeyModal = true)}
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
+        >
+          <span class="material-symbols-outlined text-[16px]">key</span>
+          <span>Create Key</span>
+        </button>
         <div class="relative">
           <span class="material-symbols-outlined text-outline text-[16px] absolute left-3 top-2.5">
             search
@@ -1157,12 +1219,30 @@ ${localKeys
                           Revoke
                         </button>
                       {/if}
-                      <button
-                        type="button"
-                        class="p-1 rounded hover:bg-surface-container text-outline hover:text-on-surface transition-colors cursor-pointer"
-                      >
-                        <span class="material-symbols-outlined text-[16px]">more_horiz</span>
-                      </button>
+                      <div class="relative">
+                        <button
+                          type="button"
+                          onclick={() => openKeyDropdownId = openKeyDropdownId === key.id ? null : key.id}
+                          class="p-1 rounded hover:bg-surface-container text-outline hover:text-on-surface transition-colors cursor-pointer"
+                        >
+                          <span class="material-symbols-outlined text-[16px]">more_horiz</span>
+                        </button>
+                        {#if openKeyDropdownId === key.id}
+                          <!-- svelte-ignore a11y_click_events_have_key_events -->
+                          <!-- svelte-ignore a11y_no_static_element_interactions -->
+                          <div class="fixed inset-0 z-10" onclick={() => openKeyDropdownId = null}></div>
+                          <div class="absolute right-0 mt-1 w-36 rounded-lg bg-surface-container-highest border border-outline-variant/30 shadow-xl z-20 p-1">
+                            <button
+                              type="button"
+                              onclick={() => { openKeyDropdownId = null; handleDeleteKey(key.id); }}
+                              class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                            >
+                              <span class="material-symbols-outlined text-[14px]">delete</span>
+                              Force Delete
+                            </button>
+                          </div>
+                        {/if}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -1179,12 +1259,12 @@ ${localKeys
     <div class="flex items-center gap-4 flex-wrap">
       <div class="flex items-center gap-2">
         <span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_rgba(78,222,163,0.6)]"></span>
-        <span>Edge Virtualizer: <span class="text-on-surface font-semibold">NOMINAL</span></span>
+        <span>System Status: <span class="text-on-surface font-semibold">NOMINAL</span></span>
       </div>
       <span class="text-outline">•</span>
-      <div>Sybil Consensus: <span class="text-secondary font-medium">Synced (Layer 5/5)</span></div>
+      <div>Security: <span class="text-secondary font-medium">Verified (Web Crypto)</span></div>
       <span class="text-outline">•</span>
-      <div>Active Proxy Node: <span class="text-primary font-medium">iad-edge-01.keycollective.net</span></div>
+      <div>Cloudflare Edge: <span class="text-secondary font-medium">Protected • Latency Nominal</span></div>
     </div>
     <div class="flex items-center gap-2 text-outline">
       <span>{currentUtcString || 'UTC 2024-11-14 08:34:11'}</span>
@@ -1343,6 +1423,81 @@ ${localKeys
             class="px-4 py-1.5 rounded-lg bg-primary text-on-primary font-mono text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
           >
             Create Project
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+
+<!-- Create New Key Modal -->
+{#if showNewKeyModal}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+    onclick={() => (showNewKeyModal = false)}
+  >
+    <div
+      class="rounded-xl bg-surface-container-low border border-outline-variant/30 p-6 max-w-md w-full space-y-4 specular-card shadow-2xl"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">key</span>
+          <h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">
+            Create New Project Key
+          </h3>
+        </div>
+        <button
+          type="button"
+          onclick={() => (showNewKeyModal = false)}
+          class="text-outline hover:text-on-surface transition-colors cursor-pointer"
+        >
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <form onsubmit={(e) => { e.preventDefault(); handleCreateNewKey(); }} class="space-y-3 font-sans">
+        <div>
+          <label class="block font-mono text-xs text-outline mb-1" for="nk-name">Key Name</label>
+          <input
+            id="nk-name"
+            type="text"
+            bind:value={newKeyName}
+            placeholder="e.g., prod-gateway-v3"
+            required
+            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label class="block font-mono text-xs text-outline mb-1" for="nk-proj">Select Project</label>
+          <select
+            id="nk-proj"
+            bind:value={newKeyProjectId}
+            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-code-sm text-code-sm font-mono focus:outline-none focus:border-primary cursor-pointer"
+          >
+            {#each localProjects as proj}
+              <option value={proj.id}>{proj.name}</option>
+            {/each}
+          </select>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-outline-variant/20">
+          <button
+            type="button"
+            onclick={() => (showNewKeyModal = false)}
+            class="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface font-mono text-xs transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-1.5 rounded-lg bg-primary text-on-primary font-mono text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            Create Key
           </button>
         </div>
       </form>
