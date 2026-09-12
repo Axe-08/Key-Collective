@@ -27,6 +27,11 @@
     todaySpendMicrodollars?: Microdollars;
   } = $props();
 
+  
+  let isNotificationsOpen = $state(false);
+  let isSettingsOpen = $state(false);
+  let isProfileMenuOpen = $state(false);
+
   function getTierBadgeColor(tier?: UserTier): string {
     switch (tier) {
       case 'admin':
@@ -91,7 +96,7 @@
     <div class="flex items-center gap-1 border-l border-outline-variant/30 pl-2 text-on-surface-variant">
       <button
         type="button"
-        onclick={() => handleTabClick('pool')}
+        onclick={() => { handleTabClick('pool'); setTimeout(() => document.getElementById('telemetry-logs')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
         class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors cursor-pointer"
         title="Logs Terminal"
       >
@@ -101,13 +106,22 @@
         type="button"
         class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors relative cursor-pointer"
         title="Notifications"
+        onclick={() => isNotificationsOpen = !isNotificationsOpen}
       >
         <span class="material-symbols-outlined text-[18px]" data-icon="notifications">notifications</span>
         <span class="w-1.5 h-1.5 rounded-full bg-tertiary absolute top-1.5 right-1.5"></span>
+      
+        {#if isNotificationsOpen}
+          <div class="absolute right-0 top-10 w-64 bg-surface-container-high border border-outline-variant/30 rounded-lg shadow-lg p-3 z-50">
+            <h3 class="text-label-md font-bold mb-2">Notifications</h3>
+            <p class="text-body-sm text-on-surface-variant">No new notifications.</p>
+          </div>
+        {/if}
+
       </button>
       <button
         type="button"
-        onclick={() => handleTabClick('docs')}
+        onclick={() => isSettingsOpen = true}
         class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors cursor-pointer"
         title="Settings & Docs"
       >
@@ -118,8 +132,8 @@
     <!-- Profile Avatar with Sybil trust verification ring from Stitch -->
     <button
       type="button"
-      onclick={onOpenOAuthModal}
-      class="flex items-center gap-2.5 pl-1 rounded-lg hover:bg-surface-container-high/40 transition-all cursor-pointer text-left"
+      onclick={() => isProfileMenuOpen = !isProfileMenuOpen}
+      class="flex items-center gap-2.5 pl-1 rounded-lg hover:bg-surface-container-high/40 transition-all cursor-pointer text-left relative"
     >
       <div class="relative">
         <div
@@ -151,4 +165,24 @@
       </div>
     </button>
   </div>
+
+{#if isProfileMenuOpen}
+  <div class="absolute right-6 top-14 w-48 bg-surface-container-high border border-outline-variant/30 rounded-lg shadow-lg py-2 z-50">
+    <button onclick={onOpenOAuthModal} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Login</button>
+    <button onclick={onOpenOAuthModal} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Register</button>
+    <button onclick={() => document.dispatchEvent(new CustomEvent('logout'))} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-error">Logout</button>
+  </div>
+{/if}
+
 </header>
+
+{#if isSettingsOpen}
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onclick={() => isSettingsOpen = false}>
+    <div class="bg-surface-container p-6 rounded-xl border border-outline-variant/30 min-w-96" onclick={e => e.stopPropagation()}>
+      <h2 class="text-headline-sm mb-4">Settings</h2>
+      <p class="mb-4 text-on-surface-variant">Settings configuration goes here.</p>
+      <button onclick={() => isSettingsOpen = false} class="px-4 py-2 bg-primary text-on-primary rounded-lg">Close</button>
+    </div>
+  </div>
+{/if}
+

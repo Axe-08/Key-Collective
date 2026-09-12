@@ -207,6 +207,30 @@
     addToast('success', `Authenticated as @${username} (${tier.toUpperCase()})`);
   }
 
+  function handleLogout() {
+    userAccount = {
+      id: '',
+      githubId: 0,
+      githubUsername: '',
+      primaryEmail: '',
+      tier: 'demo',
+      avatarUrl: '',
+      isEmailVerified: false,
+      githubCreatedAt: '',
+      sybilScore: 0,
+      registrationIp: '',
+      createdAt: '',
+      updatedAt: '',
+    };
+    addToast('info', 'Logged out successfully');
+  }
+
+  onMount(() => {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('logout', handleLogout);
+    }
+  });
+
   function handleCopyEndpoint() {
     navigator.clipboard.writeText(proxyEndpoint);
     isEndpointCopied = true;
