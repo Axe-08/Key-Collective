@@ -393,9 +393,30 @@ describe("Subdomain Routing (AUTH-03)", () => {
       expect(res.headers.get("content-type")).toContain("application/javascript");
       expect(await res.text()).toBe("console.log(\"app\");");
     });
+
+    it("routes /api/keys on console.* to routerHandler instead of returning SPA html", async () => {
+      const req = new Request("https://console.key-col.axe08.tech/api/keys", {
+        method: "GET",
+        headers: { host: "console.key-col.axe08.tech" },
+      });
+      const res = await worker.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toContain("application/json");
+      const data = await res.json();
+      expect(Array.isArray(data)).toBe(true);
+    });
   });
 
   describe("Subdomain 3: admin.* -> Admin Surveillance Router with Zero-Knowledge Denial", () => {
+    it("allows browser access to admin.* with ?token= query parameter", async () => {
+      const req = new Request(`https://admin.key-col.axe08.tech/?token=${adminToken}`, {
+        method: "GET",
+        headers: { host: "admin.key-col.axe08.tech" },
+      });
+      const res = await worker.fetch(req, env);
+      expect(res.status).toBe(200);
+    });
+
     it("TC-ADMIN-01: Non-admin access returns 404 zero-knowledge denial", async () => {
       // Golden Test TC-ADMIN-01
       const req = new Request("https://admin.key-col.axe08.tech/", {

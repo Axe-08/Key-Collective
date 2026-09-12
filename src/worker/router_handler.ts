@@ -871,12 +871,47 @@ export class RouterHandler {
       tenantId = headerTenant.trim();
     }
 
-    // Optional auth token verification if Authorization header is provided
-    const authHeader = request.headers.get("authorization");
+    // Auth token extraction (Authorization header, ?token= / ?admin_token=, or cookie)
+    let rawToken: string | undefined;
+    const authHeader =
+      request.headers.get("authorization") ||
+      request.headers.get("Authorization");
     if (authHeader && authHeader.startsWith("Bearer ")) {
+      rawToken = authHeader.substring(7).trim();
+    }
+
+    if (!rawToken) {
       try {
-        const authContext = await this.authMiddleware.authenticate(request, env);
-        tenantId = authContext.tenantId;
+        const u = new URL(request.url);
+        const queryToken = u.searchParams.get("token") || u.searchParams.get("admin_token");
+        if (queryToken && queryToken.trim().length > 0) {
+          rawToken = queryToken.trim();
+        }
+      } catch {}
+    }
+
+    if (!rawToken) {
+      const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
+      if (cookieHeader) {
+        const match = cookieHeader.match(/(?:^|;\s*)kc_auth_token=([^;]+)/);
+        if (match && match[1]) {
+          rawToken = decodeURIComponent(match[1].trim());
+        }
+      }
+    }
+
+    if (rawToken && masterKey && rawToken === masterKey) {
+      tenantId = headerTenant || "admin";
+    } else if (rawToken) {
+      try {
+        const authReq = new Request(request.url, {
+          headers: new Headers({
+            ...Object.fromEntries(request.headers.entries()),
+            authorization: `Bearer ${rawToken}`,
+          }),
+        });
+        const authContext = await this.authMiddleware.authenticate(authReq, env);
+        tenantId = headerTenant || authContext.tenantId;
       } catch {
         if (method !== "GET") {
           return new Response(
@@ -902,35 +937,64 @@ export class RouterHandler {
         return Response.json([]);
       }
 
-      const keysResult = await env.DB.prepare(
-        `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at
-         FROM api_keys
-         WHERE tenant_id = ?
-         ORDER BY priority ASC, created_at DESC`
-      ).bind(tenantId).all<{
-        id: string;
-        label: string;
-        provider: string;
-        key_prefix: string;
-        key_suffix: string;
-        rpm_limit: number;
-        rpd_limit: number;
-        priority: number;
-        status: string;
-        circuit_open_until: string | null;
-        created_at: string;
-      }>();
+      const isGlobal = tenantId === "admin";
+      const keysQuery = isGlobal
+        ? `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at
+           FROM api_keys
+           ORDER BY priority ASC, created_at DESC`
+        : `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at
+           FROM api_keys
+           WHERE tenant_id = ?
+           ORDER BY priority ASC, created_at DESC`;
 
-      const metricsResult = await env.DB.prepare(
-        `SELECT key_id, COUNT(*) as total_reqs, AVG(latency_ms) as avg_lat
-         FROM cost_ledger
-         WHERE tenant_id = ?
-         GROUP BY key_id`
-      ).bind(tenantId).all<{
-        key_id: string;
-        total_reqs: number;
-        avg_lat: number | null;
-      }>();
+      const keysResult = isGlobal
+        ? await env.DB.prepare(keysQuery).all<{
+            id: string;
+            label: string;
+            provider: string;
+            key_prefix: string;
+            key_suffix: string;
+            rpm_limit: number;
+            rpd_limit: number;
+            priority: number;
+            status: string;
+            circuit_open_until: string | null;
+            created_at: string;
+          }>()
+        : await env.DB.prepare(keysQuery).bind(tenantId).all<{
+            id: string;
+            label: string;
+            provider: string;
+            key_prefix: string;
+            key_suffix: string;
+            rpm_limit: number;
+            rpd_limit: number;
+            priority: number;
+            status: string;
+            circuit_open_until: string | null;
+            created_at: string;
+          }>();
+
+      const metricsQuery = isGlobal
+        ? `SELECT key_id, COUNT(*) as total_reqs, AVG(latency_ms) as avg_lat
+           FROM cost_ledger
+           GROUP BY key_id`
+        : `SELECT key_id, COUNT(*) as total_reqs, AVG(latency_ms) as avg_lat
+           FROM cost_ledger
+           WHERE tenant_id = ?
+           GROUP BY key_id`;
+
+      const metricsResult = isGlobal
+        ? await env.DB.prepare(metricsQuery).all<{
+            key_id: string;
+            total_reqs: number;
+            avg_lat: number | null;
+          }>()
+        : await env.DB.prepare(metricsQuery).bind(tenantId).all<{
+            key_id: string;
+            total_reqs: number;
+            avg_lat: number | null;
+          }>();
 
       const metricsMap = new Map<string, { total_reqs: number; avg_lat: number }>();
       if (metricsResult.results) {
@@ -1012,6 +1076,8 @@ export class RouterHandler {
 
       const { ciphertextB64, nonceB64 } = await encrypt(rawKey, masterKey);
 
+      const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+
       await env.DB.prepare(
         `INSERT INTO api_keys (
           id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
@@ -1019,7 +1085,7 @@ export class RouterHandler {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy')`
       ).bind(
         keyId,
-        tenantId,
+        targetTenantId,
         label,
         provider,
         ciphertextB64,
@@ -1034,15 +1100,15 @@ export class RouterHandler {
       try {
         const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
         if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
-          const doId = keyPoolNamespace.idFromName(tenantId);
+          const doId = keyPoolNamespace.idFromName(targetTenantId);
           const stub = keyPoolNamespace.get(doId);
           await stub.fetch("http://key-pool/keys", {
             method: "POST",
-            headers: { "content-type": "application/json", "x-tenant-id": tenantId },
+            headers: { "content-type": "application/json", "x-tenant-id": targetTenantId },
             body: JSON.stringify({
               key: {
                 id: keyId,
-                tenantId,
+                tenantId: targetTenantId,
                 provider,
                 ciphertext: ciphertextB64,
                 nonce: nonceB64,
@@ -1087,19 +1153,24 @@ export class RouterHandler {
       }
 
       if (env.DB && typeof env.DB.prepare === "function") {
-        await env.DB.prepare(
-          "DELETE FROM api_keys WHERE id = ? AND tenant_id = ?"
-        ).bind(keyId, tenantId).run();
+        if (tenantId === "admin") {
+          await env.DB.prepare("DELETE FROM api_keys WHERE id = ?").bind(keyId).run();
+        } else {
+          await env.DB.prepare(
+            "DELETE FROM api_keys WHERE id = ? AND tenant_id = ?"
+          ).bind(keyId, tenantId).run();
+        }
       }
 
       try {
+        const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
         const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
         if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
-          const doId = keyPoolNamespace.idFromName(tenantId);
+          const doId = keyPoolNamespace.idFromName(targetTenantId);
           const stub = keyPoolNamespace.get(doId);
           await stub.fetch(`http://key-pool/keys/${encodeURIComponent(keyId)}`, {
             method: "DELETE",
-            headers: { "x-tenant-id": tenantId },
+            headers: { "x-tenant-id": targetTenantId },
           });
         }
       } catch {
@@ -1122,13 +1193,21 @@ export class RouterHandler {
         throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
       }
 
-      const row = await env.DB.prepare(
-        "SELECT provider, encrypted_key_b64, nonce_b64 FROM api_keys WHERE id = ? AND tenant_id = ?"
-      ).bind(keyId, tenantId).first<{
-        provider: string;
-        encrypted_key_b64: string;
-        nonce_b64: string;
-      }>();
+      const row = tenantId === "admin"
+        ? await env.DB.prepare(
+            "SELECT provider, encrypted_key_b64, nonce_b64 FROM api_keys WHERE id = ?"
+          ).bind(keyId).first<{
+            provider: string;
+            encrypted_key_b64: string;
+            nonce_b64: string;
+          }>()
+        : await env.DB.prepare(
+            "SELECT provider, encrypted_key_b64, nonce_b64 FROM api_keys WHERE id = ? AND tenant_id = ?"
+          ).bind(keyId, tenantId).first<{
+            provider: string;
+            encrypted_key_b64: string;
+            nonce_b64: string;
+          }>();
 
       if (!row) {
         throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
@@ -1180,26 +1259,47 @@ export class RouterHandler {
         return Response.json([]);
       }
 
-      const logsResult = await env.DB.prepare(
-        `SELECT id, key_id, provider, status_code, latency_ms,
-                (prompt_tokens * 4) as bytes_in,
-                (completion_tokens * 4) as bytes_out,
-                created_at, model_id as model
-         FROM cost_ledger
-         WHERE tenant_id = ?
-         ORDER BY created_at DESC
-         LIMIT 50`
-      ).bind(tenantId).all<{
-        id: string;
-        key_id: string;
-        provider: string;
-        status_code: number;
-        latency_ms: number;
-        bytes_in: number;
-        bytes_out: number;
-        created_at: string;
-        model: string;
-      }>();
+      const isGlobal = tenantId === "admin";
+      const logsQuery = isGlobal
+        ? `SELECT id, key_id, provider, status_code, latency_ms,
+                  (prompt_tokens * 4) as bytes_in,
+                  (completion_tokens * 4) as bytes_out,
+                  created_at, model_id as model
+           FROM cost_ledger
+           ORDER BY created_at DESC
+           LIMIT 50`
+        : `SELECT id, key_id, provider, status_code, latency_ms,
+                  (prompt_tokens * 4) as bytes_in,
+                  (completion_tokens * 4) as bytes_out,
+                  created_at, model_id as model
+           FROM cost_ledger
+           WHERE tenant_id = ?
+           ORDER BY created_at DESC
+           LIMIT 50`;
+
+      const logsResult = isGlobal
+        ? await env.DB.prepare(logsQuery).all<{
+            id: string;
+            key_id: string;
+            provider: string;
+            status_code: number;
+            latency_ms: number;
+            bytes_in: number;
+            bytes_out: number;
+            created_at: string;
+            model: string;
+          }>()
+        : await env.DB.prepare(logsQuery).bind(tenantId).all<{
+            id: string;
+            key_id: string;
+            provider: string;
+            status_code: number;
+            latency_ms: number;
+            bytes_in: number;
+            bytes_out: number;
+            created_at: string;
+            model: string;
+          }>();
 
       const formattedLogs = (logsResult.results || []).map((l) => ({
         id: l.id,
@@ -1227,25 +1327,45 @@ export class RouterHandler {
       let dailyQuotaUsed = 0;
       let avgLatency = 245;
 
+      const isGlobal = tenantId === "admin";
+
       if (env.DB && typeof env.DB.prepare === "function") {
-        const keyStats = await env.DB.prepare(
-          `SELECT 
-             COUNT(*) as total_count,
-             SUM(CASE WHEN status = 'Healthy' THEN 1 ELSE 0 END) as healthy_count,
-             SUM(CASE WHEN status = 'RateLimited' THEN 1 ELSE 0 END) as rate_limited_count,
-             SUM(CASE WHEN status NOT IN ('Healthy', 'RateLimited') THEN 1 ELSE 0 END) as invalid_count,
-             SUM(rpm_limit) as rpm_sum,
-             SUM(rpd_limit) as rpd_sum
-           FROM api_keys
-           WHERE tenant_id = ?`
-        ).bind(tenantId).first<{
-          total_count: number;
-          healthy_count: number;
-          rate_limited_count: number;
-          invalid_count: number;
-          rpm_sum: number | null;
-          rpd_sum: number | null;
-        }>();
+        const statsQuery = isGlobal
+          ? `SELECT 
+               COUNT(*) as total_count,
+               SUM(CASE WHEN status = 'Healthy' THEN 1 ELSE 0 END) as healthy_count,
+               SUM(CASE WHEN status = 'RateLimited' THEN 1 ELSE 0 END) as rate_limited_count,
+               SUM(CASE WHEN status NOT IN ('Healthy', 'RateLimited') THEN 1 ELSE 0 END) as invalid_count,
+               SUM(rpm_limit) as rpm_sum,
+               SUM(rpd_limit) as rpd_sum
+             FROM api_keys`
+          : `SELECT 
+               COUNT(*) as total_count,
+               SUM(CASE WHEN status = 'Healthy' THEN 1 ELSE 0 END) as healthy_count,
+               SUM(CASE WHEN status = 'RateLimited' THEN 1 ELSE 0 END) as rate_limited_count,
+               SUM(CASE WHEN status NOT IN ('Healthy', 'RateLimited') THEN 1 ELSE 0 END) as invalid_count,
+               SUM(rpm_limit) as rpm_sum,
+               SUM(rpd_limit) as rpd_sum
+             FROM api_keys
+             WHERE tenant_id = ?`;
+
+        const keyStats = isGlobal
+          ? await env.DB.prepare(statsQuery).first<{
+              total_count: number;
+              healthy_count: number;
+              rate_limited_count: number;
+              invalid_count: number;
+              rpm_sum: number | null;
+              rpd_sum: number | null;
+            }>()
+          : await env.DB.prepare(statsQuery).bind(tenantId).first<{
+              total_count: number;
+              healthy_count: number;
+              rate_limited_count: number;
+              invalid_count: number;
+              rpm_sum: number | null;
+              rpd_sum: number | null;
+            }>();
 
         if (keyStats) {
           totalKeys = keyStats.total_count || 0;
@@ -1256,14 +1376,23 @@ export class RouterHandler {
           dailyQuotaLimit = keyStats.rpd_sum || 50000;
         }
 
-        const costStats = await env.DB.prepare(
-          `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat
-           FROM cost_ledger
-           WHERE tenant_id = ? AND date(created_at) = date('now')`
-        ).bind(tenantId).first<{
-          requests_today: number;
-          avg_lat: number | null;
-        }>();
+        const costQuery = isGlobal
+          ? `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat
+             FROM cost_ledger
+             WHERE date(created_at) = date('now')`
+          : `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat
+             FROM cost_ledger
+             WHERE tenant_id = ? AND date(created_at) = date('now')`;
+
+        const costStats = isGlobal
+          ? await env.DB.prepare(costQuery).first<{
+              requests_today: number;
+              avg_lat: number | null;
+            }>()
+          : await env.DB.prepare(costQuery).bind(tenantId).first<{
+              requests_today: number;
+              avg_lat: number | null;
+            }>();
 
         if (costStats) {
           dailyQuotaUsed = costStats.requests_today || 0;

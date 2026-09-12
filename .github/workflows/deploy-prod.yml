@@ -58,7 +58,8 @@ jobs:
 
       - name: Verify Live Web Dashboard HTML
         run: |
-          curl -s -f -m 10 -H "Accept: text/html" https://key-col.axe08.tech/ | grep -q "<title>Key Collective"
+          curl -s -L -f -m 10 -H "Accept: text/html" https://key-col.axe08.tech/ | grep -q "<title>Key Collective"
+          curl -s -f -m 10 -H "Accept: text/html" https://console.key-col.axe08.tech/ | grep -q "<title>Key Collective"
 
       - name: Verify Live Chat Completion Proxy
         if: ${{ env.KC_CANARY_TOKEN != '' }}

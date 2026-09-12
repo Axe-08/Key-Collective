@@ -142,6 +142,15 @@ function getAuthHeaders(): Record<string, string> {
     'Content-Type': 'application/json',
   };
   if (typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryToken = urlParams.get('token') || urlParams.get('admin_token');
+      if (queryToken && queryToken.trim().length > 0) {
+        localStorage.setItem('kc_auth_token', queryToken.trim());
+      }
+    } catch {
+      // ignore
+    }
     const token = localStorage.getItem('kc_auth_token') || 'kc_test_token_local_dev_12345';
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -158,7 +167,7 @@ export const api = {
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           return data;
         }
       }
@@ -254,7 +263,7 @@ export const api = {
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           return data;
         }
       }

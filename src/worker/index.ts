@@ -197,13 +197,38 @@ export class MainWorker {
     request: Request,
     env: WorkerEnv
   ): Promise<boolean> {
+    let rawToken: string | undefined;
+
     const authHeader =
       request.headers.get("authorization") ||
       request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return false;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      rawToken = authHeader.substring(7).trim();
     }
-    const rawToken = authHeader.substring(7).trim();
+
+    // Support browser address bar navigation via ?token= or ?admin_token= or cookie
+    if (!rawToken) {
+      try {
+        const url = new URL(request.url);
+        const queryToken = url.searchParams.get("token") || url.searchParams.get("admin_token");
+        if (queryToken && queryToken.trim().length > 0) {
+          rawToken = queryToken.trim();
+        }
+      } catch {
+        // ignore url parsing error
+      }
+    }
+
+    if (!rawToken) {
+      const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
+      if (cookieHeader) {
+        const match = cookieHeader.match(/(?:^|;\s*)kc_auth_token=([^;]+)/);
+        if (match && match[1]) {
+          rawToken = decodeURIComponent(match[1].trim());
+        }
+      }
+    }
+
     if (!rawToken) {
       return false;
     }
@@ -483,12 +508,46 @@ export class MainWorker {
       return this.options.cors !== false ? applyCors(res) : res;
     }
 
-    // 4. Static Admin Assets (when ASSETS binding is present)
-    if (env.ASSETS && method === "GET") {
-      return env.ASSETS.fetch(request);
+    // 4. Other API endpoints (e.g. /api/keys, /api/stats, /api/logs)
+    if (pathname.startsWith("/api/") && !pathname.startsWith("/api/admin/")) {
+      return this.routerHandler.handle(request, env, ctx);
     }
 
-    // 5. Default Admin Surveillance Status Probe
+    // 5. Static Admin Assets & SPA Serving (when ASSETS binding is present)
+    if (env.ASSETS && (method === "GET" || method === "HEAD")) {
+      let assetRes: Response;
+      if (
+        pathname.startsWith("/assets/") ||
+        pathname === "/favicon.ico" ||
+        pathname === "/favicon.svg" ||
+        /\.[a-zA-Z0-9]+$/.test(pathname)
+      ) {
+        assetRes = await env.ASSETS.fetch(request);
+        if (assetRes.status !== 404) {
+          return this.options.cors !== false ? applyCors(assetRes) : assetRes;
+        }
+      }
+
+      const indexUrl = new URL("/", request.url);
+      assetRes = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+
+      const queryToken = url.searchParams.get("token") || url.searchParams.get("admin_token");
+      if (queryToken) {
+        const headers = new Headers(assetRes.headers);
+        headers.append(
+          "Set-Cookie",
+          `kc_auth_token=${encodeURIComponent(queryToken)}; Path=/; SameSite=Lax; Secure`
+        );
+        assetRes = new Response(assetRes.body, {
+          status: assetRes.status,
+          statusText: assetRes.statusText,
+          headers,
+        });
+      }
+      return this.options.cors !== false ? applyCors(assetRes) : assetRes;
+    }
+
+    // 6. Default Admin Surveillance Status Probe
     const res = Response.json({
       service: "Key Collective Admin Surveillance",
       status: "authorized",
@@ -539,7 +598,22 @@ export class MainWorker {
 
       // SPA navigation fallback
       const indexUrl = new URL("/", request.url);
-      return env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+      let res = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+
+      const queryToken = url.searchParams.get("token") || url.searchParams.get("admin_token");
+      if (queryToken) {
+        const headers = new Headers(res.headers);
+        headers.append(
+          "Set-Cookie",
+          `kc_auth_token=${encodeURIComponent(queryToken)}; Path=/; SameSite=Lax; Secure`
+        );
+        res = new Response(res.body, {
+          status: res.status,
+          statusText: res.statusText,
+          headers,
+        });
+      }
+      return res;
     }
 
     // Default SPA HTML delivery when ASSETS binding is absent
@@ -603,8 +677,17 @@ export class MainWorker {
       return this.handleAdmin(request, env, ctx);
     }
 
-    // 4. Developer Console SPA Static Delivery (console.*)
+    // 4. Developer Console SPA Static Delivery & API Handling (console.*)
     if (route.subdomain === "console") {
+      if (pathname.startsWith("/api/") || pathname.startsWith("/v1/")) {
+        try {
+          const res = await this.routerHandler.handle(request, env, ctx);
+          return this.options.cors !== false ? applyCors(res) : res;
+        } catch (err: unknown) {
+          const errorRes = formatRouterError(err);
+          return this.options.cors !== false ? applyCors(errorRes) : errorRes;
+        }
+      }
       return this.handleConsole(request, env);
     }
 

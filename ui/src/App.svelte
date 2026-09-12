@@ -220,6 +220,10 @@
     if (typeof window !== 'undefined') {
       proxyEndpoint = `${window.location.origin}/v1/chat/completions`;
       const urlParams = new URLSearchParams(window.location.search);
+      const queryToken = urlParams.get('token') || urlParams.get('admin_token');
+      if (queryToken && queryToken.trim().length > 0) {
+        localStorage.setItem('kc_auth_token', queryToken.trim());
+      }
       if (urlParams.get('tab') === 'admin' || window.location.hostname.startsWith('admin.')) {
         userAccount = {
           ...userAccount,
