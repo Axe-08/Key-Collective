@@ -96,6 +96,7 @@ import {
   ExecutionContextLike,
   TelemetryEmitter,
 } from "./telemetry_emitter";
+import { OPENAPI_SPEC } from "./openapi_spec";
 
 /**
  * Concrete domain error for edge routing failures.
@@ -684,11 +685,12 @@ export class RouterHandler {
       });
     }
 
-    if (method === "GET" && pathname === "/openapi.json") {
-      return Response.json({
-        openapi: "3.1.0",
-        info: { title: "Key Collective API", version: "0.2.0" },
-        paths: {}
+    if (method === "GET" && (pathname === "/openapi.json" || pathname === "/v1/openapi.json")) {
+      return Response.json(OPENAPI_SPEC, {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+        },
       });
     }
 

@@ -679,7 +679,11 @@ export class MainWorker {
 
     // 4. Developer Console SPA Static Delivery & API Handling (console.*)
     if (route.subdomain === "console") {
-      if (pathname.startsWith("/api/") || pathname.startsWith("/v1/")) {
+      if (
+        pathname.startsWith("/api/") ||
+        pathname.startsWith("/v1/") ||
+        pathname === "/openapi.json"
+      ) {
         try {
           const res = await this.routerHandler.handle(request, env, ctx);
           return this.options.cors !== false ? applyCors(res) : res;
