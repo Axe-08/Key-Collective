@@ -1,13 +1,62 @@
-# HIVE Executive Scorecard
-**Verdict:** PASS
-**Total Duration:** 0.00s
-
-## Pod Summaries
-- **router-and-proxy**: 0 tasks, 0 escalations
-- **edge-worker-auth**: 0 tasks, 0 escalations
-- **pod-auth-sybil**: 0 tasks, 0 escalations
-- **pod-cicd-infra**: 0 tasks, 0 escalations
-- **pod-admin-backend**: 0 tasks, 0 escalations
-- **pod-auth-subdomains**: 0 tasks, 0 escalations
-- **pod-ui-stitch-overhaul**: 0 tasks, 0 escalations
-- **pod-ui-cleanup-ux**: 0 tasks, 0 escalations
+{
+  "verdict": "PASS",
+  "total_duration_ms": 0.0,
+  "stage_breakdown_ms": {
+    "0": 0.0,
+    "1": 0.0,
+    "stage1": 0.0,
+    "2c": 0.0,
+    "3": 0.0,
+    "2": 0.0
+  },
+  "pods": {
+    "router-and-proxy": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "edge-worker-auth": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-auth-sybil": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-cicd-infra": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-admin-backend": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-auth-subdomains": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-ui-stitch-overhaul": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-ui-cleanup-ux": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    }
+  }
+}
