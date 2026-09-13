@@ -36,12 +36,13 @@
   let currentNonce = $state("0x9f4a7c2e...b82c19d4");
 
   // Derived Account Status
+  const isAuthenticated = $derived(!!userAccount);
   const currentTier: UserTier = $derived(userAccount?.tier ?? "probationary");
-  const isProbationary = $derived(currentTier === "probationary");
+  const isProbationary = $derived(isAuthenticated && currentTier === "probationary");
   const isBuilderOrHigher = $derived(
-    currentTier === "builder" || currentTier === "max" || currentTier === "ultra" || currentTier === "admin"
+    isAuthenticated && (currentTier === "builder" || currentTier === "max" || currentTier === "ultra" || currentTier === "admin")
   );
-  const isDemo = $derived(currentTier === "demo");
+  const isDemo = $derived(isAuthenticated && currentTier === "demo");
 
   // Dynamic Trust Score calculation
   const trustScore = $derived(
@@ -129,7 +130,8 @@
     emailSuccess = "";
 
     const email = emailInput.trim();
-    if (!email || !email.includes("@") || !email.includes(".")) {
+    const rfc5321Regex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    if (!email || !rfc5321Regex.test(email)) {
       emailError = "Please provide a valid developer email address.";
       return;
     }
@@ -158,7 +160,7 @@
   }
 
   // Phase 2: Real PKCE Redirect Initiation & Verification Flow
-  async function handleGithubPKCEAuth(mode: "real_redirect" | "instant_simulation" = "instant_simulation") {
+  async function handleGithubPKCEAuth(mode: "real_redirect" | "instant_simulation" = "real_redirect") {
     isVerifying = true;
     emailError = "";
 
@@ -391,7 +393,7 @@
               <div class="space-y-2">
                 <button
                   type="button"
-                  onclick={() => handleGithubPKCEAuth("instant_simulation")}
+                  onclick={() => handleGithubPKCEAuth("real_redirect")}
                   disabled={isVerifying}
                   class="w-full shimmer-btn bg-[#1a1e28] hover:bg-[#222836] border border-white/20 hover:border-white/40 text-white font-medium py-3.5 px-5 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-black/40 active:scale-[0.99] group-hover:border-indigo-400/50 cursor-pointer disabled:opacity-50"
                 >
@@ -413,9 +415,10 @@
                   {/if}
                 </button>
 
-                <!-- Google OAuth Button -->
+                <!-- Google Auth Button -->
                 <button
                   type="button"
+                  onclick={() => { emailError = "Google Auth coming soon. Please use GitHub."; }}
                   class="w-full shimmer-btn bg-[#ffffff] hover:bg-[#f8f9fa] border border-white/20 text-gray-800 font-medium py-3.5 px-5 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-black/40 active:scale-[0.99] cursor-pointer"
                 >
                   <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">

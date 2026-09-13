@@ -881,6 +881,46 @@ export class RouterHandler {
       tenantId = headerTenant.trim();
     }
 
+    // 0. OAuth GitHub Callback
+    if (method === "GET" && pathname === "/api/auth/github/callback") {
+      const u = new URL(request.url);
+      const code = u.searchParams.get("code");
+      const state = u.searchParams.get("state");
+      
+      if (!code) {
+        return new Response("Missing code parameter", { status: 400 });
+      }
+
+      // Simulate token generation and elevation for Builder Tier
+      const mockToken = "kc_bld_" + crypto.randomUUID().replace(/-/g, "") + "9a8f";
+      
+      // In a real implementation we would exchange the code for an access token,
+      // verify the state parameter for PKCE/CSRF, and query the GitHub API
+      // to establish Sybil score (account age, commits, etc.).
+      
+      // Return an HTML page that passes the token back to the parent window
+      const html = `<!DOCTYPE html>
+<html>
+<head><title>Authentication Successful</title></head>
+<body>
+<p>Authentication successful. Redirecting...</p>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({ type: "OAUTH_CALLBACK", token: "${mockToken}", tier: "builder" }, "*");
+    window.close();
+  } else {
+    // If not opened in a popup, redirect to the app root with token in hash or query
+    window.location.href = "/?token=${mockToken}";
+  }
+</script>
+</body>
+</html>`;
+      return new Response(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
     // Auth token extraction (Authorization header, ?token= / ?admin_token=, or cookie)
     let rawToken: string | undefined;
     const authHeader =
