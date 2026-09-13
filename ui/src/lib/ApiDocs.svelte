@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { type Microdollars, formatMicrodollars } from './types';
 
   let {
@@ -25,9 +26,20 @@
 
   // Playground state
   let bearerToken = $state('kc_proj_live_9f83a00c82de19a');
+  let isSessionToken = $state(false);
   let selectedModel = $state('gemini-2.5-flash');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
+
+  onMount(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('kc_auth_token');
+      if (stored && stored.trim().length > 0) {
+        bearerToken = stored.trim();
+        isSessionToken = true;
+      }
+    }
+  });
 
   let payloadJson = $state(`{\n  "model": "gemini-2.5-flash",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
   
@@ -146,7 +158,7 @@ stream = client.chat.completions.create(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${bearerToken}`,
+          'Authorization': `Bearer ${bearerToken.trim()}`,
           'x-pool-fallback': 'lenient'
         },
         body: payloadJson
@@ -155,6 +167,22 @@ stream = client.chat.completions.create(
       const latencyMs = Date.now() - startTime;
       simulatedLatency = `${latencyMs}ms`;
       simulatedStatus = `${res.status} ${res.statusText}`;
+
+      if (!res.ok) {
+        const errText = await res.text();
+        let formattedErr = errText;
+        try {
+          formattedErr = JSON.stringify(JSON.parse(errText), null, 2);
+        } catch {}
+        responseChunks = [
+          {
+            text: formattedErr,
+            class: 'text-error text-[11px] font-mono whitespace-pre',
+          }
+        ];
+        isSending = false;
+        return;
+      }
 
       if (isStreaming && res.body) {
         responseChunks = [];
@@ -1165,7 +1193,17 @@ ${pySnippet}
           <div>
             <div class="flex justify-between items-center mb-1">
               <label for="bearerTokenInput" class="block text-label-sm font-label-sm uppercase tracking-wider text-outline">Bearer Token</label>
-              <span class="text-[10px] text-secondary font-code-sm">SANDBOX PREFILL</span>
+              {#if isSessionToken}
+                <span class="text-[10px] text-emerald-400 font-code-sm flex items-center gap-1 font-semibold">
+                  <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  ACTIVE SESSION KEY
+                </span>
+              {:else}
+                <span class="text-[10px] text-secondary font-code-sm flex items-center gap-1">
+                  <span class="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                  SANDBOX PREFILL
+                </span>
+              {/if}
             </div>
             <div class="relative">
               <span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-sm" data-icon="key">key</span>

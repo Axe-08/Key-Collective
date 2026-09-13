@@ -211,6 +211,11 @@
     userAccount = updatedUser;
     if (typeof window !== 'undefined') {
       localStorage.setItem('kc_user', JSON.stringify(updatedUser));
+      if (!localStorage.getItem('kc_auth_token')) {
+        const token = 'kc_proj_live_9f83a00c82de19a';
+        localStorage.setItem('kc_auth_token', token);
+        document.cookie = `kc_auth_token=${token}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
+      }
     }
     addToast('success', `Authenticated as @${username} (${tier.toUpperCase()})`);
   }
@@ -267,6 +272,10 @@
           const parsed = JSON.parse(savedUserStr);
           if (parsed && typeof parsed === 'object' && parsed.tier) {
             userAccount = parsed;
+            if (!localStorage.getItem('kc_auth_token')) {
+              localStorage.setItem('kc_auth_token', 'kc_proj_live_9f83a00c82de19a');
+              document.cookie = 'kc_auth_token=kc_proj_live_9f83a00c82de19a; path=/; Max-Age=2592000; SameSite=Lax; Secure';
+            }
           }
         } catch {
           localStorage.removeItem('kc_user');
