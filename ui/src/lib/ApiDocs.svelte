@@ -29,6 +29,26 @@
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
 
+  let payloadJson = $state(`{\n  "model": "gemini-2.5-flash",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
+  
+  $effect(() => {
+    try {
+      const parsed = JSON.parse(payloadJson);
+      let changed = false;
+      if (parsed.model !== selectedModel) {
+        parsed.model = selectedModel;
+        changed = true;
+      }
+      if (parsed.stream !== isStreaming) {
+        parsed.stream = isStreaming;
+        changed = true;
+      }
+      if (changed) {
+        payloadJson = JSON.stringify(parsed, null, 2);
+      }
+    } catch (e) {}
+  });
+
   // Request execution & response state
   let isSending = $state(false);
   let simulatedLatency = $state('18ms');
@@ -109,7 +129,7 @@ stream = client.chat.completions.create(
     }
   }
 
-  function handleSendRequest() {
+  async function handleSendRequest() {
     if (isSending) return;
     isSending = true;
     simulatedLatency = '...';
@@ -120,68 +140,62 @@ stream = client.chat.completions.create(
       },
     ];
 
-    setTimeout(() => {
-      const latencyMs = Math.floor(Math.random() * 15) + 14;
+    const startTime = Date.now();
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${bearerToken}`,
+          'x-pool-fallback': 'lenient'
+        },
+        body: payloadJson
+      });
+      
+      const latencyMs = Date.now() - startTime;
       simulatedLatency = `${latencyMs}ms`;
-      simulatedStatus = '200 OK';
+      simulatedStatus = `${res.status} ${res.statusText}`;
 
-      if (isStreaming) {
-        responseChunks = [
-          {
-            text: `data: {"id":"chatcmpl-live","model":"${selectedModel}","router_node":"iad-01"}`,
-            class: 'text-outline text-[10px]',
-          },
-          { text: 'data: {"choices":[{"delta":{"content":"Live"}}]}', class: 'text-secondary' },
-          { text: 'data: {"choices":[{"delta":{"content":" synthesis"}}]}', class: 'text-secondary' },
-          { text: 'data: {"choices":[{"delta":{"content":" complete."}}]}', class: 'text-secondary' },
-          {
-            text: `Summary: Live synthesis complete via ${selectedModel} in ${latencyMs}ms.`,
-            class: 'text-on-surface-variant text-[11px] pt-1 font-sans',
-          },
-          {
-            text: 'data: [DONE]   •   deducted: 18 µ$',
-            class: 'text-outline text-[10px] pt-1 border-t border-outline-variant/20',
-          },
-        ];
+      if (isStreaming && res.body) {
+        responseChunks = [];
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunkStr = decoder.decode(value);
+          const lines = chunkStr.split('\n');
+          for (const line of lines) {
+            if (line.trim()) {
+              responseChunks = [...responseChunks, { text: line, class: 'text-secondary' }];
+            }
+          }
+        }
       } else {
+        const data = await res.text();
+        let formattedData = data;
+        try {
+          formattedData = JSON.stringify(JSON.parse(data), null, 2);
+        } catch(e) {}
+        
         responseChunks = [
           {
-            text: JSON.stringify(
-              {
-                id: 'chatcmpl-live-sync',
-                object: 'chat.completion',
-                created: Math.floor(Date.now() / 1000),
-                model: selectedModel,
-                choices: [
-                  {
-                    index: 0,
-                    message: {
-                      role: 'assistant',
-                      content: `Handshake verified. Response synthesized via ${selectedModel} edge router.`,
-                    },
-                    finish_reason: 'stop',
-                  },
-                ],
-                usage: {
-                  prompt_tokens: 12,
-                  completion_tokens: 14,
-                  total_tokens: 26,
-                  cost_microdollars: 18,
-                },
-              },
-              null,
-              2
-            ),
+            text: formattedData,
             class: 'text-secondary text-[11px] whitespace-pre',
-          },
-          {
-            text: 'status: complete   •   deducted: 18 µ$',
-            class: 'text-outline text-[10px] pt-1 border-t border-outline-variant/20',
-          },
+          }
         ];
       }
-      isSending = false;
-    }, 420);
+    } catch (error) {
+      simulatedStatus = 'Error';
+      responseChunks = [
+        {
+          text: String(error),
+          class: 'text-error text-[11px]',
+        }
+      ];
+    }
+    
+    isSending = false;
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -901,20 +915,16 @@ ${pySnippet}
           <!-- JSON Request Body Editor -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <span class="text-label-sm font-label-sm uppercase tracking-wider text-outline">JSON Payload</span>
+              <label for="payloadTextarea" class="block text-label-sm font-label-sm uppercase tracking-wider text-outline">JSON Payload</label>
               <span class="text-[10px] font-code-sm text-outline">application/json</span>
             </div>
-            <div class="rounded-lg bg-surface-container-lowest border border-outline-variant/40 p-3 font-code-sm text-code-sm overflow-x-auto relative">
-              <pre class="text-on-surface leading-5"><code><span class="text-outline">1</span> &#123;
-<span class="text-outline">2</span>   <span class="text-primary">"model"</span>: <span class="text-secondary">"{selectedModel}"</span>,
-<span class="text-outline">3</span>   <span class="text-primary">"messages"</span>: [
-<span class="text-outline">4</span>     &#123; <span class="text-primary">"role"</span>: <span class="text-tertiary">"system"</span>, <span class="text-primary">"content"</span>: <span class="text-secondary">"You are an edge AI router."</span> &#125;,
-<span class="text-outline">5</span>     &#123; <span class="text-primary">"role"</span>: <span class="text-tertiary">"user"</span>, <span class="text-primary">"content"</span>: <span class="text-secondary">"Verify proxy handshake status."</span> &#125;
-<span class="text-outline">6</span>   ],
-<span class="text-outline">7</span>   <span class="text-primary">"stream"</span>: <span class="text-tertiary">{isStreaming}</span>,
-<span class="text-outline">8</span>   <span class="text-primary">"temperature"</span>: <span class="text-tertiary">0.3</span>
-<span class="text-outline">9</span> &#125;</code></pre>
-            </div>
+            <textarea
+              id="payloadTextarea"
+              bind:value={payloadJson}
+              rows="8"
+              class="w-full p-3 text-code-sm font-code-sm rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none resize-y"
+              spellcheck="false"
+            ></textarea>
           </div>
         </div>
 
