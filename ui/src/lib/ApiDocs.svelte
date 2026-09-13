@@ -664,6 +664,40 @@ ${pySnippet}
                   </tbody>
                 </table>
               </div>
+              <div class="text-label-sm font-label-sm uppercase tracking-wider text-outline mb-2 mt-4">Response Body Parameters</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-body-sm font-body-sm border-collapse">
+                  <thead>
+                    <tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+                      <th class="py-2 pr-3">Field</th>
+                      <th class="py-2 px-3">Type</th>
+                      <th class="py-2 pl-3">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">id</td>
+                      <td class="py-2.5 px-3 text-outline">string</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Unique identifier for the chat completion.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 text-on-surface">object</td>
+                      <td class="py-2.5 px-3 text-outline">string</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Object type, usually <code class="text-secondary">chat.completion</code> or <code class="text-secondary">chat.completion.chunk</code>.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 text-on-surface">choices</td>
+                      <td class="py-2.5 px-3 text-outline">array[obj]</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">A list of chat completion choices.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 text-on-surface">usage</td>
+                      <td class="py-2.5 px-3 text-outline">object</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Usage statistics including <code class="text-secondary">cost_microdollars</code>.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
