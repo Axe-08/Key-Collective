@@ -20,17 +20,49 @@
     onSelectTab?: (tab: string) => void;
     userAccount?: UserAccount;
     onOpenAddModal?: () => void;
-    onOpenOAuthModal?: () => void;
+    onOpenOAuthModal?: (mode: 'login' | 'register') => void;
     onRefresh?: () => void;
     isRefreshing?: boolean;
     searchQuery?: string;
     todaySpendMicrodollars?: Microdollars;
   } = $props();
 
+  import { onMount } from 'svelte';
   
   let isNotificationsOpen = $state(false);
   let isSettingsOpen = $state(false);
   let isProfileMenuOpen = $state(false);
+  let devDisplayName = $state('');
+  let devAvatarUrl = $state('');
+  let telemetryPollFreq = $state('3s');
+
+  let editDisplayName = $state('');
+  let editAvatarUrl = $state('');
+
+  onMount(() => {
+    devDisplayName = localStorage.getItem('devDisplayName') || '';
+    devAvatarUrl = localStorage.getItem('devAvatarUrl') || '';
+    telemetryPollFreq = localStorage.getItem('telemetryPollFreq') || '3s';
+  });
+
+  let displayUsername = $derived(devDisplayName || userAccount?.githubUsername || 'collective-dev');
+  let displayAvatarUrl = $derived(devAvatarUrl || userAccount?.avatarUrl || '');
+
+  function openSettings() {
+    editDisplayName = devDisplayName;
+    editAvatarUrl = devAvatarUrl;
+    isSettingsOpen = true;
+  }
+
+  function saveSettings() {
+    localStorage.setItem('devDisplayName', editDisplayName);
+    localStorage.setItem('devAvatarUrl', editAvatarUrl);
+    localStorage.setItem('telemetryPollFreq', telemetryPollFreq);
+    devDisplayName = editDisplayName;
+    devAvatarUrl = editAvatarUrl;
+    window.dispatchEvent(new Event('settings-updated'));
+    isSettingsOpen = false;
+  }
 
   function getTierBadgeColor(tier?: UserTier): string {
     switch (tier) {
@@ -121,7 +153,7 @@
       </button>
       <button
         type="button"
-        onclick={() => isSettingsOpen = true}
+        onclick={() => openSettings()}
         class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors cursor-pointer"
         title="Settings & Docs"
       >
@@ -140,11 +172,11 @@
           class="w-8 h-8 rounded-full p-0.5 bg-gradient-to-tr from-secondary to-primary flex items-center justify-center shadow-sm"
           title="Sybil Trust Score: {userAccount?.sybilScore ?? 92}/100 ({userAccount?.tier?.toUpperCase() || 'BUILDER'})"
         >
-          {#if userAccount?.avatarUrl}
-            <img src={userAccount.avatarUrl} alt="Avatar" class="w-full h-full rounded-full object-cover" />
+          {#if displayAvatarUrl}
+            <img src={displayAvatarUrl} alt="Avatar" class="w-full h-full rounded-full object-cover" />
           {:else}
             <div class="w-full h-full rounded-full bg-surface-container-lowest flex items-center justify-center text-primary font-code-sm text-code-sm font-semibold">
-              {userAccount?.githubUsername ? userAccount.githubUsername.substring(0, 2).toUpperCase() : 'KC'}
+              {displayUsername ? displayUsername.substring(0, 2).toUpperCase() : 'KC'}
             </div>
           {/if}
         </div>
@@ -153,7 +185,7 @@
       <div class="hidden xl:flex flex-col">
         <div class="flex items-center gap-1.5">
           <span class="font-code-sm text-code-sm text-on-surface font-semibold leading-tight">
-            @{userAccount?.githubUsername || 'collective-dev'}
+            @{displayUsername}
           </span>
           <span class="font-label-sm text-[9px] px-1 rounded bg-primary/10 text-primary border border-primary/20 uppercase font-mono">
             {userAccount?.tier || 'builder'}
@@ -168,9 +200,9 @@
 
 {#if isProfileMenuOpen}
   <div class="absolute right-6 top-14 w-48 bg-surface-container-high border border-outline-variant/30 rounded-lg shadow-lg py-2 z-50">
-    <button onclick={onOpenOAuthModal} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Login</button>
-    <button onclick={onOpenOAuthModal} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Register</button>
-    <button onclick={() => document.dispatchEvent(new CustomEvent('logout'))} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-error">Logout</button>
+    <button onclick={() => { isProfileMenuOpen = false; onOpenOAuthModal?.('login'); }} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Login</button>
+    <button onclick={() => { isProfileMenuOpen = false; onOpenOAuthModal?.('register'); }} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Register</button>
+    <button onclick={() => { isProfileMenuOpen = false; document.dispatchEvent(new CustomEvent('logout')); }} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-error">Logout</button>
   </div>
 {/if}
 
@@ -193,19 +225,50 @@
       <div class="space-y-3 font-sans text-xs text-on-surface-variant">
         <div>
           <label class="block font-mono text-[11px] text-outline mb-1" for="pref-endpoint">Edge Proxy Gateway</label>
-          <input id="pref-endpoint" type="text" readonly value="https://key-col.axe08.tech/v1/chat/completions" class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface select-all" />
+          <div class="flex items-center gap-2">
+            <span class="px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface flex-1 truncate select-all">
+              https://key-col.axe08.tech/v1/chat/completions
+            </span>
+            <button
+              type="button"
+              class="p-2 rounded-lg bg-surface-container border border-outline-variant/30 hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
+              onclick={() => navigator.clipboard.writeText('https://key-col.axe08.tech/v1/chat/completions')}
+              title="Copy endpoint"
+            >
+              <span class="material-symbols-outlined text-[16px]">content_copy</span>
+            </button>
+          </div>
         </div>
         <div>
           <label class="block font-mono text-[11px] text-outline mb-1" for="pref-telemetry">Telemetry Poll Frequency</label>
-          <input id="pref-telemetry" type="text" readonly value="3,000ms (High-Frequency Adaptive Edge)" class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface" />
+          <select
+            id="pref-telemetry"
+            bind:value={telemetryPollFreq}
+            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface focus:outline-none focus:border-primary"
+          >
+            <option value="5s">5s</option>
+            <option value="10s">10s</option>
+            <option value="30s">30s</option>
+            <option value="60s">60s</option>
+          </select>
         </div>
-        <div class="p-2.5 rounded-lg bg-surface-container border border-outline-variant/15 flex items-center justify-between font-mono text-[11px]">
-          <span>Security Isolates</span>
-          <span class="text-secondary font-medium">AES-256-GCM / Web Crypto</span>
+        <div class="pt-2 border-t border-outline-variant/10">
+          <h3 class="text-[12px] font-semibold text-on-surface mb-2">Developer Profile</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block font-mono text-[11px] text-outline mb-1" for="pref-display-name">Display Name</label>
+              <input id="pref-display-name" type="text" bind:value={editDisplayName} class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-sans text-xs text-on-surface focus:outline-none focus:border-primary" placeholder="Enter display name..." />
+            </div>
+            <div>
+              <label class="block font-mono text-[11px] text-outline mb-1" for="pref-avatar">Avatar Image URL</label>
+              <input id="pref-avatar" type="text" bind:value={editAvatarUrl} class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface focus:outline-none focus:border-primary" placeholder="https://example.com/avatar.png" />
+            </div>
+          </div>
         </div>
       </div>
-      <div class="flex justify-end pt-3 border-t border-outline-variant/20">
-        <button type="button" onclick={() => (isSettingsOpen = false)} class="px-4 py-2 bg-primary text-on-primary rounded-lg font-mono text-xs font-semibold hover:opacity-90 cursor-pointer">Close</button>
+      <div class="flex justify-end gap-2 pt-3 border-t border-outline-variant/20">
+        <button type="button" onclick={() => (isSettingsOpen = false)} class="px-4 py-2 bg-transparent text-on-surface rounded-lg font-mono text-xs hover:bg-surface-container hover:opacity-90 cursor-pointer">Cancel</button>
+        <button type="button" onclick={saveSettings} class="px-4 py-2 bg-primary text-on-primary rounded-lg font-mono text-xs font-semibold hover:opacity-90 cursor-pointer">Save Changes</button>
       </div>
     </div>
   </div>

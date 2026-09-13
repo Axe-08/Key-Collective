@@ -107,6 +107,7 @@
 
   let isAddModalOpen = $state(false);
   let isOAuthModalOpen = $state(false);
+  let oauthMode = $state<'login' | 'register'>('login');
   let autoRefresh = $state(true);
   let isRefreshing = $state(false);
   let toasts = $state<ToastMessage[]>([]);
@@ -267,14 +268,32 @@
     }
     loadData();
 
-    // 3-second live refresh interval
-    const interval = setInterval(() => {
-      if (autoRefresh && activeTab === 'pool') {
-        loadData();
-      }
-    }, 3000);
+    let pollIntervalId: ReturnType<typeof setInterval>;
+    
+    function updatePollInterval() {
+      if (pollIntervalId) clearInterval(pollIntervalId);
+      let freqStr = localStorage.getItem('telemetryPollFreq') || '3s';
+      let freqMs = parseInt(freqStr.replace('s', '')) * 1000;
+      if (isNaN(freqMs)) freqMs = 3000;
 
-    return () => clearInterval(interval);
+      pollIntervalId = setInterval(() => {
+        if (autoRefresh && activeTab === 'pool') {
+          loadData();
+        }
+      }, freqMs);
+    }
+
+    updatePollInterval();
+
+    const handleStorage = () => updatePollInterval();
+    window.addEventListener('settings-updated', handleStorage);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      clearInterval(pollIntervalId);
+      window.removeEventListener('settings-updated', handleStorage);
+      window.removeEventListener('storage', handleStorage);
+    };
   });
 </script>
 
@@ -289,7 +308,10 @@
     onSelectTab={(tab) => (activeTab = tab as any)}
     {userAccount}
     onOpenAddModal={() => (isAddModalOpen = true)}
-    onOpenOAuthModal={() => (isOAuthModalOpen = true)}
+    onOpenOAuthModal={(mode) => {
+      oauthMode = mode;
+      isOAuthModalOpen = true;
+    }}
     onRefresh={loadData}
     {isRefreshing}
     {todaySpendMicrodollars}
@@ -456,6 +478,7 @@
   <!-- OAuth & Tier Selection Modal -->
   <OAuthModal
     isOpen={isOAuthModalOpen}
+    authMode={oauthMode}
     {userAccount}
     onClose={() => (isOAuthModalOpen = false)}
     onSelectTier={handleSelectTier}
