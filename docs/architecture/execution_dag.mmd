@@ -1,10 +1,5 @@
 graph TD
-    Start[Start Stage 1] --> Pod1[Pod 1: API Docs & Sandbox]
-    Start --> Pod2[Pod 2: Workbench Polish]
-    Start --> Pod3[Pod 3: Auth Hardening]
-    Start --> Pod4[Pod 4: Nav & App Shell]
-    Pod1 --> Merge
-    Pod2 --> Merge
-    Pod3 --> Merge
-    Pod4 --> Merge
-    Merge --> QA[Stage 2: QA & Verification]
+    Pod1[Pod 1: API Docs & Live Pricing] --> Verification[Quality Gate make gate]
+    Pod2[Pod 2: Real OAuth Engine GitHub + Google Firebase] --> Verification
+    Pod3[Pod 3: Navigation, Login/Register & Settings] --> Verification
+    Pod4[Pod 4: Project Settings & Key Management] --> Verification

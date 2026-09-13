@@ -179,18 +179,16 @@
         const clientId =
           typeof window !== "undefined" && (window as any).__GITHUB_CLIENT_ID__
             ? (window as any).__GITHUB_CLIENT_ID__
-            : "Ov23liKeyCollectiveEdge";
+            : "Ov23lijtT90CwzFc8jcy";
         const redirectUri =
           typeof window !== "undefined" ? `${window.location.origin}/api/auth/github/callback` : "";
         const scope = encodeURIComponent("read:user user:email");
 
         const authorizeUrl = `https://github.com/login/oauth/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${encodeURIComponent(bundle.stateToken)}&code_challenge=${encodeURIComponent(bundle.challenge)}&code_challenge_method=S256`;
 
-        // If in standard browser environment, redirect or trigger callback
-        if (typeof window !== "undefined" && (window as any).__ENABLE_REAL_OAUTH_REDIRECT__) {
-          window.location.href = authorizeUrl;
-          return;
-        }
+        // Redirect to real OAuth
+        window.location.href = authorizeUrl;
+        return;
       }
 
       await new Promise((resolve) => setTimeout(resolve, 350));
@@ -418,8 +416,26 @@
                 <!-- Google Auth Button -->
                 <button
                   type="button"
-                  onclick={() => { emailError = "Google Auth coming soon. Please use GitHub."; }}
-                  class="w-full shimmer-btn bg-[#ffffff] hover:bg-[#f8f9fa] border border-white/20 text-gray-800 font-medium py-3.5 px-5 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-black/40 active:scale-[0.99] cursor-pointer"
+                  onclick={async () => { 
+                    try {
+                      emailError = "";
+                      isVerifying = true;
+                      verificationStep = "Authenticating with Google...";
+                      const { signInWithPopup, auth, googleProvider } = await import("./firebase");
+                      const result = await signInWithPopup(auth, googleProvider);
+                      // On success
+                      isVerifying = false;
+                      const user = result.user;
+                      onSimulateLogin(user.displayName || "Google User", "builder");
+                      onSelectTier("builder");
+                      onClose();
+                    } catch (error: any) {
+                      isVerifying = false;
+                      emailError = `Google Auth failed: ${error.message}`;
+                    }
+                  }}
+                  disabled={isVerifying}
+                  class="w-full shimmer-btn bg-[#ffffff] hover:bg-[#f8f9fa] border border-white/20 text-gray-800 font-medium py-3.5 px-5 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-black/40 active:scale-[0.99] cursor-pointer disabled:opacity-50"
                 >
                   <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -471,7 +487,7 @@
                     <span class="text-white/40">state_token:</span> {pkceState || "0x992b...anti-csrf"}
                   </div>
                   <div class="truncate">
-                    <span class="text-white/40">method:</span> S256 • client_id: Ov23liKeyCollectiveEdge
+                    <span class="text-white/40">method:</span> S256 • client_id: Ov23lijtT90CwzFc8jcy
                   </div>
                 </div>
               {/if}

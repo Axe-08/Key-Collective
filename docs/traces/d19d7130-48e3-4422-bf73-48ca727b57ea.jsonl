@@ -1,0 +1,1 @@
+{"trace_id": "d19d7130-48e3-4422-bf73-48ca727b57ea", "event_id": "09f99d6c-2776-498e-a1b0-a59fef156e4d", "timestamp": "2026-09-13T09:21:16.776113Z", "event_type": "hive_run_start", "stage": "0", "agent_role": "orchestrator", "model_tier": "pro", "pod_id": null, "micro_task_id": null, "data": {}, "duration_ms": 0.0}

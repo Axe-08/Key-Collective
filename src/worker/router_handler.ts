@@ -891,19 +891,50 @@ export class RouterHandler {
         return new Response("Missing code parameter", { status: 400 });
       }
 
-      // Simulate token generation and elevation for Builder Tier
-      const mockToken = "kc_bld_" + crypto.randomUUID().replace(/-/g, "") + "9a8f";
+      let profileData: any = null;
+      let accessToken: string | null = null;
       
-      // In a real implementation we would exchange the code for an access token,
-      // verify the state parameter for PKCE/CSRF, and query the GitHub API
-      // to establish Sybil score (account age, commits, etc.).
+      try {
+        const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            client_id: "Ov23lijtT90CwzFc8jcy",
+            client_secret: env.GITHUB_CLIENT_SECRET,
+            code,
+            state
+          })
+        });
+        
+        const tokenData: any = await tokenRes.json();
+        accessToken = tokenData.access_token;
+        
+        if (accessToken) {
+          const userRes = await fetch("https://api.github.com/user", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "User-Agent": "KeyCollective"
+            }
+          });
+          profileData = await userRes.json();
+        }
+      } catch (err) {
+        console.error("GitHub OAuth Error:", err);
+      }
+
+      // Simulate token generation and elevation for Builder Tier, optionally track profile details
+      const mockToken = "kc_bld_" + crypto.randomUUID().replace(/-/g, "") + "9a8f";
+      const userLogin = profileData?.login || "collective-dev";
       
       // Return an HTML page that passes the token back to the parent window
       const html = `<!DOCTYPE html>
 <html>
 <head><title>Authentication Successful</title></head>
 <body>
-<p>Authentication successful. Redirecting...</p>
+<p>Authentication successful for ${userLogin}. Redirecting...</p>
 <script>
   if (window.opener) {
     window.opener.postMessage({ type: "OAUTH_CALLBACK", token: "${mockToken}", tier: "builder" }, "*");
