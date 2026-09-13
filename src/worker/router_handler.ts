@@ -2008,6 +2008,9 @@ export class RouterHandler {
         output_cost_per_mtok_micro: m.outputCostPerMTokMicro.toString(),
         cache_read_cost_per_mtok_micro: m.cacheReadCostPerMTokMicro.toString(),
       },
+      deprecated: Boolean(m.deprecatedAt),
+      deprecated_at: m.deprecatedAt,
+      sunset_at: m.sunsetAt,
     }));
 
     return Response.json(
@@ -2054,6 +2057,9 @@ export class RouterHandler {
           output_cost_per_mtok_micro: model.outputCostPerMTokMicro.toString(),
           cache_read_cost_per_mtok_micro: model.cacheReadCostPerMTokMicro.toString(),
         },
+        deprecated: Boolean(model.deprecatedAt),
+        deprecated_at: model.deprecatedAt,
+        sunset_at: model.sunsetAt,
       },
       {
         headers: {

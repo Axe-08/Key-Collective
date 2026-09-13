@@ -41,18 +41,18 @@
 
   // User Account & Multi-Project Hierarchy (v3 State)
   let userAccount = $state<UserAccount>({
-    id: 'usr_gh_9824102',
-    githubId: 9824102,
-    githubUsername: 'collective-dev',
-    primaryEmail: 'dev@keycollective.io',
-    tier: 'builder',
-    avatarUrl: 'https://avatars.githubusercontent.com/u/9824102?v=4',
-    isEmailVerified: true,
-    githubCreatedAt: '2023-01-01T00:00:00.000Z',
-    sybilScore: 92,
-    registrationIp: '127.0.0.1',
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z',
+    id: '',
+    githubId: 0,
+    githubUsername: '',
+    primaryEmail: '',
+    tier: 'demo',
+    avatarUrl: '',
+    isEmailVerified: false,
+    githubCreatedAt: '',
+    sybilScore: 0,
+    registrationIp: '',
+    createdAt: '',
+    updatedAt: '',
   });
 
   let projects = $state<Project[]>([
@@ -197,14 +197,21 @@
     addToast('success', `Authorization Tier updated to: ${tier.toUpperCase()}`);
   }
 
-  function handleSimulateLogin(username: string, tier: UserTier) {
-    userAccount = {
+  function handleSimulateLogin(username: string, tier: UserTier, email?: string, avatarUrl?: string) {
+    const updatedUser: UserAccount = {
       ...userAccount,
+      id: userAccount.id || `usr_${Date.now()}`,
       githubUsername: username,
+      primaryEmail: email || userAccount.primaryEmail || `${username.toLowerCase().replace(/\s+/g, '')}@users.noreply.kc`,
+      avatarUrl: avatarUrl || userAccount.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(username)}`,
       tier,
       sybilScore: tier === 'probationary' ? 35 : tier === 'demo' ? 20 : 94,
       updatedAt: new Date().toISOString(),
     };
+    userAccount = updatedUser;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kc_user', JSON.stringify(updatedUser));
+    }
     addToast('success', `Authenticated as @${username} (${tier.toUpperCase()})`);
   }
 
@@ -252,6 +259,20 @@
   onMount(() => {
     if (typeof window !== 'undefined') {
       proxyEndpoint = `${window.location.origin}/v1/chat/completions`;
+      
+      // Hydrate user session from localStorage if present
+      const savedUserStr = localStorage.getItem('kc_user');
+      if (savedUserStr) {
+        try {
+          const parsed = JSON.parse(savedUserStr);
+          if (parsed && typeof parsed === 'object' && parsed.tier) {
+            userAccount = parsed;
+          }
+        } catch {
+          localStorage.removeItem('kc_user');
+        }
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const queryToken = urlParams.get('token') || urlParams.get('admin_token');
       if (queryToken && queryToken.trim().length > 0) {

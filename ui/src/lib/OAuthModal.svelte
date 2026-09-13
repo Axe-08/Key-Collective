@@ -15,7 +15,7 @@
     userAccount?: UserAccount;
     onClose: () => void;
     onSelectTier: (tier: UserTier) => void;
-    onSimulateLogin: (username: string, tier: UserTier) => void;
+    onSimulateLogin: (username: string, tier: UserTier, email?: string, avatarUrl?: string) => void;
     onEmailIngress?: (email: string) => void;
   } = $props();
 
@@ -426,7 +426,12 @@
                       // On success
                       isVerifying = false;
                       const user = result.user;
-                      onSimulateLogin(user.displayName || "Google User", "builder");
+                      onSimulateLogin(
+                        user.displayName || user.email?.split("@")[0] || "Google User",
+                        "builder",
+                        user.email || undefined,
+                        user.photoURL || undefined
+                      );
                       onSelectTier("builder");
                       onClose();
                     } catch (error: any) {

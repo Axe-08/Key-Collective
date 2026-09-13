@@ -47,6 +47,9 @@
 
   let displayUsername = $derived(devDisplayName || userAccount?.githubUsername || 'collective-dev');
   let displayAvatarUrl = $derived(devAvatarUrl || userAccount?.avatarUrl || '');
+  let isLoggedIn = $derived(
+    Boolean(userAccount?.id && userAccount.tier !== 'demo' && (userAccount.githubUsername || userAccount.primaryEmail))
+  );
 
   function openSettings() {
     editDisplayName = devDisplayName;
@@ -199,10 +202,51 @@
   </div>
 
 {#if isProfileMenuOpen}
-  <div class="absolute right-6 top-14 w-48 bg-surface-container-high border border-outline-variant/30 rounded-lg shadow-lg py-2 z-50">
-    <button onclick={() => { isProfileMenuOpen = false; onOpenOAuthModal?.('login'); }} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Login</button>
-    <button onclick={() => { isProfileMenuOpen = false; onOpenOAuthModal?.('register'); }} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest">Register</button>
-    <button onclick={() => { isProfileMenuOpen = false; document.dispatchEvent(new CustomEvent('logout')); }} class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-error">Logout</button>
+  <div class="absolute right-6 top-14 w-56 bg-surface-container-high border border-outline-variant/30 rounded-xl shadow-2xl py-2 z-50 overflow-hidden backdrop-blur-md">
+    {#if isLoggedIn}
+      <div class="px-4 py-2 border-b border-outline-variant/20 mb-1">
+        <p class="text-label-sm font-semibold text-on-surface truncate">{displayUsername}</p>
+        <p class="text-[11px] text-outline truncate font-mono">{userAccount?.primaryEmail || 'builder@keycollective.io'}</p>
+        <div class="mt-1 flex items-center gap-1.5">
+          <span class="px-1.5 py-0.2 text-[9px] rounded bg-primary/20 text-primary uppercase font-mono font-semibold">
+            {userAccount?.tier || 'builder'}
+          </span>
+          <span class="text-[10px] text-outline-variant font-mono">Trust {userAccount?.sybilScore ?? 92}/100</span>
+        </div>
+      </div>
+      <button
+        onclick={() => { isProfileMenuOpen = false; openSettings(); }}
+        class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-on-surface flex items-center gap-2 cursor-pointer transition-colors"
+      >
+        <span class="material-symbols-outlined text-[16px] text-primary">settings</span>
+        <span>Developer Settings</span>
+      </button>
+      <button
+        onclick={() => { isProfileMenuOpen = false; document.dispatchEvent(new CustomEvent('logout')); }}
+        class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-error flex items-center gap-2 cursor-pointer transition-colors"
+      >
+        <span class="material-symbols-outlined text-[16px]">logout</span>
+        <span>Log Out</span>
+      </button>
+    {:else}
+      <div class="px-4 py-1.5 border-b border-outline-variant/20 mb-1">
+        <p class="text-[11px] text-outline font-mono">Not Authenticated</p>
+      </div>
+      <button
+        onclick={() => { isProfileMenuOpen = false; onOpenOAuthModal?.('login'); }}
+        class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-on-surface flex items-center gap-2 cursor-pointer transition-colors"
+      >
+        <span class="material-symbols-outlined text-[16px] text-secondary">login</span>
+        <span>Log In</span>
+      </button>
+      <button
+        onclick={() => { isProfileMenuOpen = false; onOpenOAuthModal?.('register'); }}
+        class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-on-surface flex items-center gap-2 cursor-pointer transition-colors"
+      >
+        <span class="material-symbols-outlined text-[16px] text-primary">person_add</span>
+        <span>Register Account</span>
+      </button>
+    {/if}
   </div>
 {/if}
 
@@ -223,6 +267,53 @@
         </button>
       </div>
       <div class="space-y-3 font-sans text-xs text-on-surface-variant">
+        <!-- Authorized Accounts & Identity Switching -->
+        <div class="p-3 rounded-xl bg-surface-container border border-outline-variant/20 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[11px] text-outline">Authorized Account</span>
+            <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded {isLoggedIn ? 'bg-secondary/20 text-secondary border border-secondary/30' : 'bg-outline-variant/20 text-outline'}">
+              {isLoggedIn ? (userAccount?.tier?.toUpperCase() || 'CONNECTED') : 'GUEST'}
+            </span>
+          </div>
+          {#if isLoggedIn}
+            <div class="flex items-center gap-2 text-on-surface">
+              {#if displayAvatarUrl}
+                <img src={displayAvatarUrl} alt="Avatar" class="w-7 h-7 rounded-full object-cover border border-outline-variant/40" />
+              {:else}
+                <div class="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center text-primary font-mono text-xs font-bold">
+                  {displayUsername.slice(0, 2).toUpperCase()}
+                </div>
+              {/if}
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold text-xs text-on-surface truncate">@{displayUsername}</p>
+                <p class="font-mono text-[10px] text-outline truncate">{userAccount?.primaryEmail || 'Authenticated'}</p>
+              </div>
+            </div>
+          {:else}
+            <p class="text-outline text-[11px]">No active authorized session. Connect an identity provider below.</p>
+          {/if}
+          <div class="pt-2 border-t border-outline-variant/10 flex items-center gap-2">
+            <button
+              type="button"
+              onclick={() => { isSettingsOpen = false; onOpenOAuthModal?.('login'); }}
+              class="flex-1 py-1.5 px-2.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/30 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[14px]">sync_alt</span>
+              <span>{isLoggedIn ? 'Switch / Re-auth Account' : 'Connect Account'}</span>
+            </button>
+            {#if isLoggedIn}
+              <button
+                type="button"
+                onclick={() => { isSettingsOpen = false; document.dispatchEvent(new CustomEvent('logout')); }}
+                class="py-1.5 px-2.5 rounded-lg bg-error/10 hover:bg-error/20 text-error border border-error/30 text-[11px] font-medium transition-colors cursor-pointer"
+                title="Log Out"
+              >
+                Log Out
+              </button>
+            {/if}
+          </div>
+        </div>
+
         <div>
           <label class="block font-mono text-[11px] text-outline mb-1" for="pref-endpoint">Edge Proxy Gateway</label>
           <div class="flex items-center gap-2">
@@ -253,14 +344,14 @@
           </select>
         </div>
         <div class="pt-2 border-t border-outline-variant/10">
-          <h3 class="text-[12px] font-semibold text-on-surface mb-2">Developer Profile</h3>
+          <h3 class="text-[12px] font-semibold text-on-surface mb-2">Developer Profile Customization</h3>
           <div class="space-y-3">
             <div>
-              <label class="block font-mono text-[11px] text-outline mb-1" for="pref-display-name">Display Name</label>
+              <label class="block font-mono text-[11px] text-outline mb-1" for="pref-display-name">Display Name Override</label>
               <input id="pref-display-name" type="text" bind:value={editDisplayName} class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-sans text-xs text-on-surface focus:outline-none focus:border-primary" placeholder="Enter display name..." />
             </div>
             <div>
-              <label class="block font-mono text-[11px] text-outline mb-1" for="pref-avatar">Avatar Image URL</label>
+              <label class="block font-mono text-[11px] text-outline mb-1" for="pref-avatar">Avatar Image URL Override</label>
               <input id="pref-avatar" type="text" bind:value={editAvatarUrl} class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface focus:outline-none focus:border-primary" placeholder="https://example.com/avatar.png" />
             </div>
           </div>

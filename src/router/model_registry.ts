@@ -248,14 +248,14 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["smart-fast", "fast-model", "fast"],
     contextWindow: 1_048_576,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 100_000n, // bash.10 / 1M
-    outputCostPerMTokMicro: 400_000n, // bash.40 / 1M
-    cacheReadCostPerMTokMicro: 25_000n, // bash.025 / 1M
+    inputCostPerMTokMicro: 100_000n, // $0.10 / 1M
+    outputCostPerMTokMicro: 400_000n, // $0.40 / 1M
+    cacheReadCostPerMTokMicro: 25_000n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
-    deprecatedAt: null,
-    sunsetAt: null,
+    deprecatedAt: "2026-09-01T00:00:00.000Z",
+    sunsetAt: "2026-12-31T00:00:00.000Z",
     isActive: true,
     lastSyncedAt: "2026-09-09T00:00:00.000Z",
   },
@@ -265,14 +265,14 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["smart-model", "reasoning"],
     contextWindow: 2_097_152,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 1_250_000n, // .25 / 1M
-    outputCostPerMTokMicro: 5_000_000n, // .00 / 1M
+    inputCostPerMTokMicro: 1_250_000n, // $1.25 / 1M
+    outputCostPerMTokMicro: 5_000_000n, // $5.00 / 1M
     cacheReadCostPerMTokMicro: 312_500n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
-    deprecatedAt: null,
-    sunsetAt: null,
+    deprecatedAt: "2026-09-01T00:00:00.000Z",
+    sunsetAt: "2026-12-31T00:00:00.000Z",
     isActive: true,
     lastSyncedAt: "2026-09-09T00:00:00.000Z",
   },
@@ -282,8 +282,8 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["smart-model", "reasoning", "vision"],
     contextWindow: 128_000,
     maxOutputTokens: 16384,
-    inputCostPerMTokMicro: 2_500_000n, // .50 / 1M
-    outputCostPerMTokMicro: 10_000_000n, // 0.00 / 1M
+    inputCostPerMTokMicro: 2_500_000n, // $2.50 / 1M
+    outputCostPerMTokMicro: 10_000_000n, // $10.00 / 1M
     cacheReadCostPerMTokMicro: 1_250_000n,
     supportsTools: true,
     supportsVision: true,
@@ -299,8 +299,8 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["fast-model", "economy", "fast"],
     contextWindow: 128_000,
     maxOutputTokens: 16384,
-    inputCostPerMTokMicro: 150_000n, // bash.15 / 1M
-    outputCostPerMTokMicro: 600_000n, // bash.60 / 1M
+    inputCostPerMTokMicro: 150_000n, // $0.15 / 1M
+    outputCostPerMTokMicro: 600_000n, // $0.60 / 1M
     cacheReadCostPerMTokMicro: 75_000n,
     supportsTools: true,
     supportsVision: true,
@@ -316,14 +316,14 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["smart-model", "reasoning", "code"],
     contextWindow: 200_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 3_000_000n, // .00 / 1M
-    outputCostPerMTokMicro: 15_000_000n, // 5.00 / 1M
+    inputCostPerMTokMicro: 3_000_000n, // $3.00 / 1M
+    outputCostPerMTokMicro: 15_000_000n, // $15.00 / 1M
     cacheReadCostPerMTokMicro: 300_000n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
-    deprecatedAt: null,
-    sunsetAt: null,
+    deprecatedAt: "2026-09-01T00:00:00.000Z",
+    sunsetAt: "2026-12-31T00:00:00.000Z",
     isActive: true,
     lastSyncedAt: "2026-09-09T00:00:00.000Z",
   },
@@ -333,8 +333,8 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["fast-model", "economy"],
     contextWindow: 200_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 800_000n, // bash.80 / 1M
-    outputCostPerMTokMicro: 4_000_000n, // .00 / 1M
+    inputCostPerMTokMicro: 800_000n, // $0.80 / 1M
+    outputCostPerMTokMicro: 4_000_000n, // $4.00 / 1M
     cacheReadCostPerMTokMicro: 80_000n,
     supportsTools: true,
     supportsVision: false,
@@ -347,17 +347,17 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
   {
     id: "deepseek-chat",
     provider: "deepseek",
-    logicalAliases: ["economy", "fast"],
+    logicalAliases: ["economy", "fast", "deepseek-v3"],
     contextWindow: 64_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 140_000n, // bash.14 / 1M
-    outputCostPerMTokMicro: 280_000n, // bash.28 / 1M
+    inputCostPerMTokMicro: 140_000n, // $0.14 / 1M
+    outputCostPerMTokMicro: 280_000n, // $0.28 / 1M
     cacheReadCostPerMTokMicro: 14_000n,
     supportsTools: true,
     supportsVision: false,
     supportsJsonSchema: true,
-    deprecatedAt: null,
-    sunsetAt: null,
+    deprecatedAt: "2026-09-01T00:00:00.000Z",
+    sunsetAt: "2026-12-31T00:00:00.000Z",
     isActive: true,
     lastSyncedAt: "2026-09-09T00:00:00.000Z",
   },
@@ -367,8 +367,8 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["fast-model", "smart-fast"],
     contextWindow: 128_000,
     maxOutputTokens: 32768,
-    inputCostPerMTokMicro: 590_000n, // bash.59 / 1M
-    outputCostPerMTokMicro: 790_000n, // bash.79 / 1M
+    inputCostPerMTokMicro: 590_000n, // $0.59 / 1M
+    outputCostPerMTokMicro: 790_000n, // $0.79 / 1M
     cacheReadCostPerMTokMicro: 0n,
     supportsTools: true,
     supportsVision: false,
@@ -381,8 +381,8 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
 ];
 
 /**
- * Additional Cardless Free-Tier Model Definitions (Gemini 2.5/3.8, Groq Llama 3.1, Qwen 3.6, GPT-OSS).
- * Configured with zero microdollar costs and official provider context limits.
+ * Modern Next-Generation Model Definitions.
+ * All pricing strictly in int64 microdollars (bigint) per 1M tokens.
  */
 export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
   {
@@ -391,9 +391,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["gemini-flash", "google-flash", "flash-2.5"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 75_000n, // $0.075 / 1M
+    outputCostPerMTokMicro: 300_000n, // $0.30 / 1M
+    cacheReadCostPerMTokMicro: 18_750n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
@@ -408,9 +408,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["gemini-3.5", "flash-3.5"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 100_000n, // $0.10 / 1M
+    outputCostPerMTokMicro: 400_000n, // $0.40 / 1M
+    cacheReadCostPerMTokMicro: 25_000n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
@@ -425,9 +425,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["flash-lite", "gemini-lite"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 50_000n, // $0.05 / 1M
+    outputCostPerMTokMicro: 200_000n, // $0.20 / 1M
+    cacheReadCostPerMTokMicro: 12_500n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
@@ -442,9 +442,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["gemini-pro", "gemini-3.1-pro", "pro-3.1"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 1_250_000n, // $1.25 / 1M
+    outputCostPerMTokMicro: 5_000_000n, // $5.00 / 1M
+    cacheReadCostPerMTokMicro: 312_500n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
@@ -459,9 +459,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["smart-fast-next", "gemini-3.8", "flash-3.8"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 150_000n, // $0.15 / 1M
+    outputCostPerMTokMicro: 600_000n, // $0.60 / 1M
+    cacheReadCostPerMTokMicro: 37_500n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
@@ -476,9 +476,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["groq-code", "qwen-27b"],
     contextWindow: 131_072,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 200_000n, // $0.20 / 1M
+    outputCostPerMTokMicro: 400_000n, // $0.40 / 1M
+    cacheReadCostPerMTokMicro: 50_000n,
     supportsTools: true,
     supportsVision: false,
     supportsJsonSchema: true,
@@ -493,9 +493,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["qwen-3.8", "groq-qwen"],
     contextWindow: 131_072,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 350_000n, // $0.35 / 1M
+    outputCostPerMTokMicro: 700_000n, // $0.70 / 1M
+    cacheReadCostPerMTokMicro: 87_500n,
     supportsTools: true,
     supportsVision: false,
     supportsJsonSchema: true,
@@ -510,9 +510,9 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["groq-oss", "gpt-oss", "gpt-oss-120b"],
     contextWindow: 131_072,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 600_000n, // $0.60 / 1M
+    outputCostPerMTokMicro: 1_200_000n, // $1.20 / 1M
+    cacheReadCostPerMTokMicro: 150_000n,
     supportsTools: true,
     supportsVision: false,
     supportsJsonSchema: true,
@@ -527,9 +527,26 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["gpt-oss-20b", "groq-fast"],
     contextWindow: 131_072,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 0n,
-    outputCostPerMTokMicro: 0n,
-    cacheReadCostPerMTokMicro: 0n,
+    inputCostPerMTokMicro: 150_000n, // $0.15 / 1M
+    outputCostPerMTokMicro: 300_000n, // $0.30 / 1M
+    cacheReadCostPerMTokMicro: 37_500n,
+    supportsTools: true,
+    supportsVision: false,
+    supportsJsonSchema: true,
+    deprecatedAt: null,
+    sunsetAt: null,
+    isActive: true,
+    lastSyncedAt: "2026-09-10T00:00:00.000Z",
+  },
+  {
+    id: "deepseek/deepseek-r1-distill-llama-70b",
+    provider: "deepseek",
+    logicalAliases: ["deepseek-r1", "r1-distill"],
+    contextWindow: 131_072,
+    maxOutputTokens: 32768,
+    inputCostPerMTokMicro: 550_000n, // $0.55 / 1M
+    outputCostPerMTokMicro: 1_500_000n, // $1.50 / 1M
+    cacheReadCostPerMTokMicro: 137_500n,
     supportsTools: true,
     supportsVision: false,
     supportsJsonSchema: true,

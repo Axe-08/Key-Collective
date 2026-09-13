@@ -429,9 +429,18 @@ ${pySnippet}
     inputCostPerMUsd: string;
     outputCostPerMUsd: string;
     bulletClass: string;
+    isDeprecated: boolean;
+    sunsetAt?: string | null;
   }
 
   let modelsData = $state<ModelPricingItem[] | null>(null);
+  let pricingFilter = $state<'active' | 'all'>('active');
+
+  const filteredModels = $derived(
+    modelsData
+      ? modelsData.filter((m) => (pricingFilter === 'active' ? !m.isDeprecated : true))
+      : []
+  );
 
   $effect(() => {
     async function fetchModels() {
@@ -447,10 +456,14 @@ ${pySnippet}
               const output1k = Math.round(outputMicro / 1000);
               const inputMUsd = (inputMicro / 1000000).toFixed(2);
               const outputMUsd = (outputMicro / 1000000).toFixed(2);
+              const isDeprecated = Boolean(m.deprecated || m.deprecated_at);
 
               let routingEngine = 'Edge Intelligent Routing';
               let bulletClass = 'bg-primary';
-              if (m.owned_by === 'google') {
+              if (isDeprecated) {
+                routingEngine = 'Legacy / Deprecated Pool';
+                bulletClass = 'bg-amber-500';
+              } else if (m.owned_by === 'google') {
                 routingEngine = 'Google Edge Direct';
                 bulletClass = 'bg-secondary';
               } else if (m.owned_by === 'groq') {
@@ -476,6 +489,8 @@ ${pySnippet}
                 inputCostPerMUsd: inputMUsd,
                 outputCostPerMUsd: outputMUsd,
                 bulletClass,
+                isDeprecated,
+                sunsetAt: m.sunset_at,
               };
             });
           }
@@ -983,7 +998,7 @@ ${pySnippet}
 
       <!-- 5. Fixed-Point Microdollar Pricing Reference ($1 = 1,000,000 µ$) -->
       <section class="rounded-xl bg-surface-container-low/70 backdrop-blur-xl border border-white/[0.08] p-5 specular-top" id="pricing-matrix">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h3 class="text-headline-sm font-headline-sm text-on-surface font-semibold flex items-center gap-2">
               <span class="material-symbols-outlined text-tertiary" data-icon="toll">toll</span>
@@ -991,8 +1006,27 @@ ${pySnippet}
             </h3>
             <p class="text-body-sm font-body-sm text-outline">Zero floating-point rounding errors. 1.00 USD = exactly 1,000,000 µ$.</p>
           </div>
-          <div class="px-3 py-1 rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-code-sm font-code-sm text-tertiary">
-            Base: 1 µ$ = $0.000001 USD
+          <div class="flex items-center gap-2">
+            <!-- Filter Pills -->
+            <div class="flex items-center bg-surface-container rounded-lg p-0.5 border border-outline-variant/30 text-code-sm font-code-sm">
+              <button
+                type="button"
+                class="px-2.5 py-1 rounded-md transition-colors cursor-pointer {pricingFilter === 'active' ? 'bg-primary text-on-primary font-semibold shadow-sm' : 'text-outline hover:text-on-surface'}"
+                onclick={() => (pricingFilter = 'active')}
+              >
+                Active Models
+              </button>
+              <button
+                type="button"
+                class="px-2.5 py-1 rounded-md transition-colors cursor-pointer {pricingFilter === 'all' ? 'bg-primary text-on-primary font-semibold shadow-sm' : 'text-outline hover:text-on-surface'}"
+                onclick={() => (pricingFilter = 'all')}
+              >
+                Show All (incl. Legacy)
+              </button>
+            </div>
+            <div class="hidden md:block px-3 py-1 rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-code-sm font-code-sm text-tertiary">
+              Base: 1 µ$ = $0.000001 USD
+            </div>
           </div>
         </div>
 
@@ -1004,21 +1038,35 @@ ${pySnippet}
                 <th class="py-2.5 px-3">Input / 1K Tokens</th>
                 <th class="py-2.5 px-3">Output / 1K Tokens</th>
                 <th class="py-2.5 px-3">Effective USD / 1M</th>
-                <th class="py-2.5 pl-3">Routing Engine</th>
+                <th class="py-2.5 pl-3">Routing Engine & Status</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
-              {#if modelsData}
-                {#each modelsData as model}
-                  <tr class="hover:bg-white/[0.02] transition-colors">
-                    <td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full {model.bulletClass}"></span>
-                      <span>{model.id}</span>
+              {#if modelsData && modelsData.length > 0}
+                {#each filteredModels as model}
+                  <tr class="hover:bg-white/[0.02] transition-colors {model.isDeprecated ? 'opacity-60' : ''}">
+                    <td class="py-3 pr-3 font-semibold text-on-surface">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="w-2 h-2 rounded-full {model.bulletClass}"></span>
+                        <span>{model.id}</span>
+                        {#if model.isDeprecated}
+                          <span class="px-1.5 py-0.2 text-[10px] font-mono rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase">
+                            Deprecated
+                          </span>
+                        {/if}
+                      </div>
                     </td>
                     <td class="py-3 px-3 text-secondary">{model.inputCost1kMicro} µ$</td>
                     <td class="py-3 px-3 text-secondary">{model.outputCost1kMicro} µ$</td>
                     <td class="py-3 px-3 text-on-surface">${model.inputCostPerMUsd} / ${model.outputCostPerMUsd}</td>
-                    <td class="py-3 pl-3 text-outline">{model.routing_engine}</td>
+                    <td class="py-3 pl-3 text-outline">
+                      <div class="flex items-center gap-1.5">
+                        <span>{model.routing_engine}</span>
+                        {#if model.sunsetAt}
+                          <span class="text-[10px] text-outline-variant font-mono">(Sunset: {model.sunsetAt.slice(0, 10)})</span>
+                        {/if}
+                      </div>
+                    </td>
                   </tr>
                 {/each}
               {:else}
