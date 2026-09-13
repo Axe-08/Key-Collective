@@ -600,20 +600,24 @@ export class MainWorker {
       const indexUrl = new URL("/", request.url);
       let res = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
 
+      // Force no-cache on HTML navigation so edge and browsers always get latest asset bundles
+      const headers = new Headers(res.headers);
+      headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      headers.set("Pragma", "no-cache");
+      headers.set("Expires", "0");
+
       const queryToken = url.searchParams.get("token") || url.searchParams.get("admin_token");
       if (queryToken) {
-        const headers = new Headers(res.headers);
         headers.append(
           "Set-Cookie",
           `kc_auth_token=${encodeURIComponent(queryToken)}; Path=/; SameSite=Lax; Secure`
         );
-        res = new Response(res.body, {
-          status: res.status,
-          statusText: res.statusText,
-          headers,
-        });
       }
-      return res;
+      return new Response(res.body, {
+        status: res.status,
+        statusText: res.statusText,
+        headers,
+      });
     }
 
     // Default SPA HTML delivery when ASSETS binding is absent
