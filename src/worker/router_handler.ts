@@ -694,6 +694,44 @@ export class RouterHandler {
       });
     }
 
+    // 1.1 Public Model Discovery (permits documentation, console, and pricing catalog inspection)
+    if (method === "GET" && (pathname === "/v1/models" || pathname === "/models")) {
+      return this.handleListModels(request);
+    }
+
+    if (
+      method === "GET" &&
+      (pathname.startsWith("/v1/models/") || pathname.startsWith("/models/"))
+    ) {
+      const parts = pathname.split("/");
+      const modelId = parts[parts.length - 1];
+      try {
+        return this.handleGetModel(request, modelId);
+      } catch (err: unknown) {
+        if (
+          err instanceof ModelNotFoundError ||
+          (err && typeof err === "object" && (err as { code?: string }).code === "MODEL_NOT_FOUND")
+        ) {
+          return Response.json(
+            {
+              error: `Model '${modelId}' not found in registry`,
+              code: "MODEL_NOT_FOUND",
+              statusCode: 404,
+              details: { modelIdOrAlias: modelId },
+            },
+            {
+              status: 404,
+              headers: {
+                "access-control-allow-origin": "*",
+                "content-type": "application/json; charset=utf-8",
+              },
+            }
+          );
+        }
+        throw err;
+      }
+    }
+
     // 2. Resolve trace ID from request headers or generate fresh UUID
     const traceId =
       request.headers.get("x-kc-trace-id") ??
@@ -1972,10 +2010,18 @@ export class RouterHandler {
       },
     }));
 
-    return Response.json({
-      object: "list",
-      data: models,
-    });
+    return Response.json(
+      {
+        object: "list",
+        data: models,
+      },
+      {
+        headers: {
+          "access-control-allow-origin": "*",
+          "content-type": "application/json; charset=utf-8",
+        },
+      }
+    );
   }
 
   /**
@@ -1987,27 +2033,35 @@ export class RouterHandler {
       throw new ModelNotFoundError(modelId, `Model '${modelId}' not found in registry`);
     }
 
-    return Response.json({
-      id: model.id,
-      object: "model",
-      created: 1726000000,
-      owned_by: model.provider,
-      permission: [],
-      root: model.id,
-      parent: null,
-      context_window: model.contextWindow,
-      max_output_tokens: model.maxOutputTokens,
-      capabilities: {
-        supportsTools: model.supportsTools,
-        supportsVision: model.supportsVision,
-        supportsJsonSchema: model.supportsJsonSchema,
+    return Response.json(
+      {
+        id: model.id,
+        object: "model",
+        created: 1726000000,
+        owned_by: model.provider,
+        permission: [],
+        root: model.id,
+        parent: null,
+        context_window: model.contextWindow,
+        max_output_tokens: model.maxOutputTokens,
+        capabilities: {
+          supportsTools: model.supportsTools,
+          supportsVision: model.supportsVision,
+          supportsJsonSchema: model.supportsJsonSchema,
+        },
+        pricing: {
+          input_cost_per_mtok_micro: model.inputCostPerMTokMicro.toString(),
+          output_cost_per_mtok_micro: model.outputCostPerMTokMicro.toString(),
+          cache_read_cost_per_mtok_micro: model.cacheReadCostPerMTokMicro.toString(),
+        },
       },
-      pricing: {
-        input_cost_per_mtok_micro: model.inputCostPerMTokMicro.toString(),
-        output_cost_per_mtok_micro: model.outputCostPerMTokMicro.toString(),
-        cache_read_cost_per_mtok_micro: model.cacheReadCostPerMTokMicro.toString(),
-      },
-    });
+      {
+        headers: {
+          "access-control-allow-origin": "*",
+          "content-type": "application/json; charset=utf-8",
+        },
+      }
+    );
   }
 
   /**

@@ -420,26 +420,64 @@ ${pySnippet}
   }
 
   // Live Pricing Data State
-  let modelsData = $state<Array<{
+  interface ModelPricingItem {
     id: string;
-    object: string;
-    created: number;
     owned_by: string;
     routing_engine: string;
-    cost_micros: {
-      input_1k: number;
-      output_1k: number;
-    }
-  }> | null>(null);
+    inputCost1kMicro: number;
+    outputCost1kMicro: number;
+    inputCostPerMUsd: string;
+    outputCostPerMUsd: string;
+    bulletClass: string;
+  }
+
+  let modelsData = $state<ModelPricingItem[] | null>(null);
 
   $effect(() => {
     async function fetchModels() {
       try {
         const res = await fetch('https://key-col.axe08.tech/v1/models');
         if (res.ok) {
-          const data = await res.json();
-          if (data && data.data) {
-            modelsData = data.data;
+          const json = await res.json();
+          if (json && Array.isArray(json.data) && json.data.length > 0) {
+            modelsData = json.data.map((m: any) => {
+              const inputMicro = parseInt(m.pricing?.input_cost_per_mtok_micro || '0', 10);
+              const outputMicro = parseInt(m.pricing?.output_cost_per_mtok_micro || '0', 10);
+              const input1k = Math.round(inputMicro / 1000);
+              const output1k = Math.round(outputMicro / 1000);
+              const inputMUsd = (inputMicro / 1000000).toFixed(2);
+              const outputMUsd = (outputMicro / 1000000).toFixed(2);
+
+              let routingEngine = 'Edge Intelligent Routing';
+              let bulletClass = 'bg-primary';
+              if (m.owned_by === 'google') {
+                routingEngine = 'Google Edge Direct';
+                bulletClass = 'bg-secondary';
+              } else if (m.owned_by === 'groq') {
+                routingEngine = 'LPU Ultrafast';
+                bulletClass = 'bg-primary';
+              } else if (m.owned_by === 'anthropic') {
+                routingEngine = 'Anthropic Direct';
+                bulletClass = 'bg-secondary';
+              } else if (m.owned_by === 'openai') {
+                routingEngine = 'Azure / OpenAI';
+                bulletClass = 'bg-secondary';
+              } else if (m.owned_by === 'deepseek') {
+                routingEngine = 'Multi-Head Latent';
+                bulletClass = 'bg-tertiary';
+              }
+
+              return {
+                id: m.id,
+                owned_by: m.owned_by,
+                routing_engine: routingEngine,
+                inputCost1kMicro: input1k,
+                outputCost1kMicro: output1k,
+                inputCostPerMUsd: inputMUsd,
+                outputCostPerMUsd: outputMUsd,
+                bulletClass,
+              };
+            });
           }
         }
       } catch (err) {
@@ -974,13 +1012,13 @@ ${pySnippet}
                 {#each modelsData as model}
                   <tr class="hover:bg-white/[0.02] transition-colors">
                     <td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full bg-secondary"></span>
+                      <span class="w-2 h-2 rounded-full {model.bulletClass}"></span>
                       <span>{model.id}</span>
                     </td>
-                    <td class="py-3 px-3 text-secondary">{model.cost_micros.input_1k} µ$</td>
-                    <td class="py-3 px-3 text-secondary">{model.cost_micros.output_1k} µ$</td>
-                    <td class="py-3 px-3 text-on-surface">${(model.cost_micros.input_1k * 1000 / 1000000).toFixed(2)} / ${(model.cost_micros.output_1k * 1000 / 1000000).toFixed(2)}</td>
-                    <td class="py-3 pl-3 text-outline">{model.routing_engine || 'Edge Routing'}</td>
+                    <td class="py-3 px-3 text-secondary">{model.inputCost1kMicro} µ$</td>
+                    <td class="py-3 px-3 text-secondary">{model.outputCost1kMicro} µ$</td>
+                    <td class="py-3 px-3 text-on-surface">${model.inputCostPerMUsd} / ${model.outputCostPerMUsd}</td>
+                    <td class="py-3 pl-3 text-outline">{model.routing_engine}</td>
                   </tr>
                 {/each}
               {:else}

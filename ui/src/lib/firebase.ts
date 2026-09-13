@@ -2,12 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "dummy-api-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "dummy-auth-domain.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "dummy-project-id",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "dummy-project-id.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1234567890",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1234567890:web:dummy"
+  apiKey: "AIzaSyBrQQnGMQDgeZj2nsFKgvu792MsffR2Jmc",
+  authDomain: "key-collective-568f8.firebaseapp.com",
+  projectId: "key-collective-568f8",
+  storageBucket: "key-collective-568f8.firebasestorage.app",
+  messagingSenderId: "278286013841",
+  appId: "1:278286013841:web:7c24ad101d4fbca211b630"
 };
 
 const app = initializeApp(firebaseConfig);
