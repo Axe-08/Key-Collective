@@ -1,16 +1,22 @@
 [
   {
-    "pod_id": "pod-ui-cleanup-ux",
-    "files": [
-      "ui/src/lib/TopNavBar.svelte",
-      "ui/src/lib/SideNavBar.svelte",
-      "ui/src/lib/ApiDocs.svelte",
-      "ui/src/lib/admin/AdminView.svelte"
-    ],
-    "contracts": [
-      "src/contracts/v3_types.ts",
-      "src/contracts/v3_5_types.ts"
-    ],
-    "description": "UI cleanup and UX de-bloating: remove duplicate top navigation tabs, remove Deploy Proxy button, rename New Virtual Pool to Add Provider Key, clarify shield quota to Daily Quota Limit, de-bloat API docs marketing text, and simplify Admin Panel to 3 clean separate tabs."
+    "pod_id": "pod-1-api-docs",
+    "name": "API Docs & Sandbox",
+    "files": ["ui/src/lib/ApiDocs.svelte"]
+  },
+  {
+    "pod_id": "pod-2-workbench",
+    "name": "Developer Workbench Polish",
+    "files": ["ui/src/lib/Workbench.svelte"]
+  },
+  {
+    "pod_id": "pod-3-auth",
+    "name": "Auth & Identity Hardening",
+    "files": ["ui/src/lib/OAuthModal.svelte", "src/worker/router_handler.ts", "src/worker/index.ts"]
+  },
+  {
+    "pod_id": "pod-4-nav",
+    "name": "Navigation, App Shell & Keys Table UX",
+    "files": ["ui/src/lib/TopNavBar.svelte", "ui/src/lib/SideNavBar.svelte", "ui/src/lib/KeysTable.svelte", "ui/src/App.svelte"]
   }
 ]
