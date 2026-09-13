@@ -847,9 +847,13 @@ ${pySnippet}
                 class="w-full py-1.5 px-2.5 text-code-sm font-code-sm rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none cursor-pointer"
               >
                 <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
                 <option value="groq-llama-3.3-70b">groq-llama-3.3-70b</option>
                 <option value="cerebras-llama-3.3">cerebras-llama-3.3</option>
                 <option value="deepseek-v3">deepseek-v3</option>
+                <option value="gpt-4o">gpt-4o</option>
+                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
               </select>
             </div>
 
