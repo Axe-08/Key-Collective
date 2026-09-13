@@ -8,7 +8,7 @@
     keys?: ProjectKey[];
     onSelectTier?: (tier: UserTier) => void;
     onCreateProject?: (project: Partial<Project>) => void;
-    onRotateKey?: (projectId: string) => void;
+    onRotateKey?: (keyId: string) => void;
     onRevokeKey?: (keyId: string) => void;
     onDeleteKey?: (keyId: string) => void;
     onToggleKeyStatus?: (keyId: string) => void;
@@ -435,11 +435,11 @@
     }
   }
 
-  function handleRotateKey(projectId: string): void {
+  function handleRotateKey(keyId: string): void {
     const randomSuffix = Math.random().toString(36).substring(2, 9);
     const newPrefix = `kc_proj_live_${randomSuffix}`;
     localKeys = localKeys.map((k) => {
-      if (k.projectId === projectId && !k.isRevoked) {
+      if (k.id === keyId && !k.isRevoked) {
         return {
           ...k,
           tokenPrefix: newPrefix,
@@ -451,7 +451,7 @@
     });
 
     if (onRotateKey) {
-      onRotateKey(projectId);
+      onRotateKey(keyId);
     }
   }
 
@@ -691,15 +691,6 @@ ${localKeys
         {/if}
       </div>
 
-      <!-- Inspect Verification Proof Button -->
-      <button
-        type="button"
-        onclick={() => (showVerificationProofModal = true)}
-        class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary font-body-sm text-body-sm hover:bg-primary/20 transition-colors cursor-pointer"
-      >
-        <span class="material-symbols-outlined text-[16px]">verified</span>
-        <span>Inspect Verification Proof</span>
-      </button>
     </div>
   </div>
 
@@ -1210,14 +1201,6 @@ ${localKeys
                         >
                           Delete
                         </button>
-                      {:else}
-                        <button
-                          type="button"
-                          onclick={() => handleRevokeKey(key.id)}
-                          class="px-2.5 py-1 rounded bg-error-container/20 hover:bg-error-container/40 text-error border border-error/20 font-label-sm text-label-sm transition-colors cursor-pointer"
-                        >
-                          Revoke
-                        </button>
                       {/if}
                       <div class="relative">
                         <button
@@ -1232,6 +1215,24 @@ ${localKeys
                           <!-- svelte-ignore a11y_no_static_element_interactions -->
                           <div class="fixed inset-0 z-10" onclick={() => openKeyDropdownId = null}></div>
                           <div class="absolute right-0 mt-1 w-36 rounded-lg bg-surface-container-highest border border-outline-variant/30 shadow-xl z-20 p-1">
+                            {#if !key.isRevoked}
+                              <button
+                                type="button"
+                                onclick={() => { openKeyDropdownId = null; handleRotateKey(key.id); }}
+                                class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
+                              >
+                                <span class="material-symbols-outlined text-[14px]">refresh</span>
+                                Rotate Secret
+                              </button>
+                              <button
+                                type="button"
+                                onclick={() => { openKeyDropdownId = null; handleRevokeKey(key.id); }}
+                                class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                              >
+                                <span class="material-symbols-outlined text-[14px]">block</span>
+                                Revoke
+                              </button>
+                            {/if}
                             <button
                               type="button"
                               onclick={() => { openKeyDropdownId = null; handleDeleteKey(key.id); }}
