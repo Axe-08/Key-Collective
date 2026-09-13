@@ -418,6 +418,36 @@ ${pySnippet}
     exportMenuOpen = false;
     window.print();
   }
+
+  // Live Pricing Data State
+  let modelsData = $state<Array<{
+    id: string;
+    object: string;
+    created: number;
+    owned_by: string;
+    routing_engine: string;
+    cost_micros: {
+      input_1k: number;
+      output_1k: number;
+    }
+  }> | null>(null);
+
+  $effect(() => {
+    async function fetchModels() {
+      try {
+        const res = await fetch('https://key-col.axe08.tech/v1/models');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.data) {
+            modelsData = data.data;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch live models pricing:", err);
+      }
+    }
+    fetchModels();
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} onclick={handleClickOutside} />
@@ -714,6 +744,32 @@ ${pySnippet}
           <p class="text-body-sm font-body-sm text-on-surface-variant">
             Lists all unified active models configured across connected provider pools (Gemini, Groq, Cerebras, DeepSeek, OpenAI) with current load metrics and cost parameters.
           </p>
+            <div>
+              <div class="text-label-sm font-label-sm uppercase tracking-wider text-outline mb-2 mt-4">Response Body Parameters</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-body-sm font-body-sm border-collapse">
+                  <thead>
+                    <tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+                      <th class="py-2 pr-3">Field</th>
+                      <th class="py-2 px-3">Type</th>
+                      <th class="py-2 pl-3">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">data</td>
+                      <td class="py-2.5 px-3 text-outline">array[obj]</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">List of available models with their pricing and routing details.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">object</td>
+                      <td class="py-2.5 px-3 text-outline">string</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Always <code class='text-secondary'>list</code>.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
         </div>
 
         <!-- Endpoint 3: GET /v1/projects -->
@@ -728,6 +784,37 @@ ${pySnippet}
           <p class="text-body-sm font-body-sm text-on-surface-variant">
             Inspects workspace hierarchy, team quotas, remaining microdollar balances (µ$), and rate-limit tier thresholds.
           </p>
+            <div>
+              <div class="text-label-sm font-label-sm uppercase tracking-wider text-outline mb-2 mt-4">Response Body Parameters</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-body-sm font-body-sm border-collapse">
+                  <thead>
+                    <tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+                      <th class="py-2 pr-3">Field</th>
+                      <th class="py-2 px-3">Type</th>
+                      <th class="py-2 pl-3">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">data</td>
+                      <td class="py-2.5 px-3 text-outline">array[obj]</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">List of projects and their workspace hierarchy.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">quotas</td>
+                      <td class="py-2.5 px-3 text-outline">object</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Team quotas and limits.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">balance_micros</td>
+                      <td class="py-2.5 px-3 text-outline">integer</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Remaining microdollar balance.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
         </div>
 
         <!-- Endpoint 4: POST /v1/projects/:id/keys -->
@@ -742,6 +829,72 @@ ${pySnippet}
           <p class="text-body-sm font-body-sm text-on-surface-variant">
             Generates a new project-scoped virtual key with custom TTL, model white-lists, and max token expenditure ceilings.
           </p>
+            <div>
+              <div class="text-label-sm font-label-sm uppercase tracking-wider text-outline mb-2 mt-4">Request Body Parameters</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-body-sm font-body-sm border-collapse">
+                  <thead>
+                    <tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+                      <th class="py-2 pr-3">Field</th>
+                      <th class="py-2 px-3">Type</th>
+                      <th class="py-2 px-3">Default</th>
+                      <th class="py-2 pl-3">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">ttl_seconds</td>
+                      <td class="py-2.5 px-3 text-outline">integer</td>
+                      <td class="py-2.5 px-3 text-outline">86400</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Time-to-live for the key in seconds.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">models</td>
+                      <td class="py-2.5 px-3 text-outline">array[str]</td>
+                      <td class="py-2.5 px-3 text-outline">["*"]</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Allowed models for this key.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">max_spend_micros</td>
+                      <td class="py-2.5 px-3 text-outline">integer</td>
+                      <td class="py-2.5 px-3 text-outline">1000000</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Maximum microdollars this key can consume.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <div class="text-label-sm font-label-sm uppercase tracking-wider text-outline mb-2 mt-4">Response Body Parameters</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-body-sm font-body-sm border-collapse">
+                  <thead>
+                    <tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+                      <th class="py-2 pr-3">Field</th>
+                      <th class="py-2 px-3">Type</th>
+                      <th class="py-2 pl-3">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">id</td>
+                      <td class="py-2.5 px-3 text-outline">string</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Unique key identifier starting with <code class='text-secondary'>kc_live_</code>.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">expires_at</td>
+                      <td class="py-2.5 px-3 text-outline">integer</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Unix timestamp of key expiration.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">key</td>
+                      <td class="py-2.5 px-3 text-outline">string</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">The actual Bearer token string.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
         </div>
 
         <!-- Endpoint 5: Health & Telemetry -->
@@ -756,6 +909,37 @@ ${pySnippet}
           <p class="text-body-sm font-body-sm text-on-surface-variant">
             Retrieves live health status across all upstream nodes, active circuit breaker trips, and 60-second moving average edge latency per geographical region.
           </p>
+            <div>
+              <div class="text-label-sm font-label-sm uppercase tracking-wider text-outline mb-2 mt-4">Response Body Parameters</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-body-sm font-body-sm border-collapse">
+                  <thead>
+                    <tr class="border-b border-outline-variant/30 text-label-sm font-label-sm text-outline">
+                      <th class="py-2 pr-3">Field</th>
+                      <th class="py-2 px-3">Type</th>
+                      <th class="py-2 pl-3">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">status</td>
+                      <td class="py-2.5 px-3 text-outline">string</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Overall gateway health (<code class='text-secondary'>ok</code>, <code class='text-error'>degraded</code>).</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">latency_ms</td>
+                      <td class="py-2.5 px-3 text-outline">float</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">60-second moving average edge latency.</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2.5 pr-3 font-semibold text-primary">circuit_trips</td>
+                      <td class="py-2.5 px-3 text-outline">integer</td>
+                      <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">Number of active upstream circuit breaker trips.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
         </div>
       </section>
 
@@ -786,6 +970,20 @@ ${pySnippet}
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant/15 font-code-sm text-code-sm">
+              {#if modelsData}
+                {#each modelsData as model}
+                  <tr class="hover:bg-white/[0.02] transition-colors">
+                    <td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full bg-secondary"></span>
+                      <span>{model.id}</span>
+                    </td>
+                    <td class="py-3 px-3 text-secondary">{model.cost_micros.input_1k} µ$</td>
+                    <td class="py-3 px-3 text-secondary">{model.cost_micros.output_1k} µ$</td>
+                    <td class="py-3 px-3 text-on-surface">${(model.cost_micros.input_1k * 1000 / 1000000).toFixed(2)} / ${(model.cost_micros.output_1k * 1000 / 1000000).toFixed(2)}</td>
+                    <td class="py-3 pl-3 text-outline">{model.routing_engine || 'Edge Routing'}</td>
+                  </tr>
+                {/each}
+              {:else}
               <tr class="hover:bg-white/[0.02] transition-colors">
                 <td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-secondary"></span>
@@ -836,6 +1034,7 @@ ${pySnippet}
                 <td class="py-3 px-3 text-on-surface">$3.00 / $15.00</td>
                 <td class="py-3 pl-3 text-outline">Anthropic Edge</td>
               </tr>
+                          {/if}
             </tbody>
           </table>
         </div>
