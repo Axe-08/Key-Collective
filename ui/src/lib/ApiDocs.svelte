@@ -768,6 +768,26 @@ ${pySnippet}
                 <td class="py-3 px-3 text-on-surface">$0.14 / $0.28</td>
                 <td class="py-3 pl-3 text-outline">Multi-Head Latent</td>
               </tr>
+              <tr class="hover:bg-white/[0.02] transition-colors">
+                <td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-secondary"></span>
+                  <span>GPT-4o</span>
+                </td>
+                <td class="py-3 px-3 text-secondary">2,500 µ$</td>
+                <td class="py-3 px-3 text-secondary">10,000 µ$</td>
+                <td class="py-3 px-3 text-on-surface">$2.50 / $10.00</td>
+                <td class="py-3 pl-3 text-outline">Azure / OpenAI</td>
+              </tr>
+              <tr class="hover:bg-white/[0.02] transition-colors">
+                <td class="py-3 pr-3 font-semibold text-on-surface flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-primary"></span>
+                  <span>Claude 3.5 Sonnet</span>
+                </td>
+                <td class="py-3 px-3 text-primary">3,000 µ$</td>
+                <td class="py-3 px-3 text-primary">15,000 µ$</td>
+                <td class="py-3 px-3 text-on-surface">$3.00 / $15.00</td>
+                <td class="py-3 pl-3 text-outline">Anthropic Edge</td>
+              </tr>
             </tbody>
           </table>
         </div>
