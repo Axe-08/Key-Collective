@@ -360,7 +360,7 @@
         </div>
 
         <!-- Live Telemetry Stream (Edge Request Stream Console) (Col span 4) -->
-        <div class="xl:col-span-4 flex flex-col">
+        <div id="telemetry-logs" class="xl:col-span-4 flex flex-col">
           <TelemetryLogs
             {logs}
             {autoRefresh}

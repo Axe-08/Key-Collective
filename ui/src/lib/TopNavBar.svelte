@@ -61,7 +61,7 @@
 <header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm">
   <!-- Left Section: Brand & Search bar on left -->
   <div class="flex items-center gap-6">
-    <div class="flex items-center gap-2.5">
+    <button class="flex items-center gap-2.5 cursor-pointer text-left hover:opacity-80 transition-opacity" onclick={() => handleTabClick('pool')}>
       <div class="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-primary shadow-inner">
         <span class="material-symbols-outlined text-primary text-[19px]" data-icon="shield">shield</span>
       </div>
@@ -69,7 +69,7 @@
         <span class="text-headline-sm font-headline-sm font-semibold tracking-tight text-on-surface">Key Collective</span>
         <span class="text-label-sm font-label-sm px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/30 font-mono">v3.5 Edge</span>
       </div>
-    </div>
+    </button>
 
     <!-- Edge status badge -->
     <div class="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/40">
@@ -96,7 +96,7 @@
     <div class="flex items-center gap-1 border-l border-outline-variant/30 pl-2 text-on-surface-variant">
       <button
         type="button"
-        onclick={() => { handleTabClick('pool'); setTimeout(() => document.getElementById('telemetry-logs')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
+        onclick={() => { handleTabClick('pool'); setTimeout(() => document.getElementById('telemetry-logs')?.scrollIntoView({ behavior: 'smooth' }), 250); }}
         class="p-1.5 rounded hover:bg-surface-container-high/60 transition-colors cursor-pointer"
         title="Logs Terminal"
       >

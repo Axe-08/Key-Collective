@@ -46,7 +46,7 @@
       class="w-full py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest/60 text-primary border border-primary/20 flex items-center justify-center gap-2 text-label-md font-label-md font-medium transition-colors active:scale-[0.98] cursor-pointer"
     >
       <span class="material-symbols-outlined text-[16px]" data-icon="add_circle">add_circle</span>
-      <span>+ Add Provider Key</span>
+      <span>Add Provider Key</span>
     </button>
 
     <!-- Primary Tabs (Overview, Developer Workbench, API Documentation, Admin Panel) -->

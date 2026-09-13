@@ -157,7 +157,7 @@
   </div>
 
   <!-- Developer Data Table -->
-  <div class="overflow-x-auto mt-3">
+  <div class="overflow-x-auto overflow-y-auto max-h-[480px] mt-3">
     <table class="w-full text-left border-collapse">
       <thead>
         <tr class="border-b border-outline-variant/20 text-label-sm font-label-sm text-outline uppercase tracking-wider font-mono">
