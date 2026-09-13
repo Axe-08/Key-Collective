@@ -49,6 +49,15 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      - name: Purge Cloudflare Edge Cache
+        run: |
+          echo "Purging Cloudflare Edge Cache for zone 183e79ca7afcf160ef2eb4ff8bf733b5..."
+          PURGE_RESP=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/183e79ca7afcf160ef2eb4ff8bf733b5/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"purge_everything": true}')
+          echo "Purge response: $PURGE_RESP"
+
       - name: Post-Deploy Canary Health Verification
         run: |
           sleep 4
@@ -56,10 +65,14 @@ jobs:
           echo "Health response: $HEALTH"
           echo "$HEALTH" | grep -q '"status":"healthy"'
 
-      - name: Verify Live Web Dashboard HTML
+      - name: Verify Live Web Dashboard HTML & Assets
         run: |
           curl -s -L -f -m 10 -H "Accept: text/html" https://key-col.axe08.tech/ | grep -q "<title>Key Collective"
-          curl -s -f -m 10 -H "Accept: text/html" https://console.key-col.axe08.tech/ | grep -q "<title>Key Collective"
+          HTML=$(curl -s -f -m 10 -H "Accept: text/html" https://console.key-col.axe08.tech/)
+          echo "$HTML" | grep -q "<title>Key Collective"
+          JS_FILE=$(echo "$HTML" | grep -o 'src="/assets/[^"]*"' | cut -d'"' -f2)
+          echo "Discovered live JS asset: $JS_FILE"
+          curl -sI -f -m 10 "https://console.key-col.axe08.tech$JS_FILE" | grep -q "200"
 
       - name: Verify Live Chat Completion Proxy
         if: ${{ env.KC_CANARY_TOKEN != '' }}

@@ -8,6 +8,7 @@ scripts/seed.sql
 
 # Node / TypeScript / Cloudflare
 node_modules
-dist/
+/dist/
+!/ui/dist/**
 .wrangler/
 .turbo/
