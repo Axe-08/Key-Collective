@@ -29,6 +29,7 @@ import {
   base64ToUint8Array,
   decrypt,
   encrypt,
+  deriveTenantKey,
 } from "../../crypto/encryption";
 import {
   DecryptionError,
@@ -292,7 +293,8 @@ export class ApiKeyRepository {
     this.validateCreateInput(input);
 
     const keySecret = this.resolveMasterKeyForEncryption(masterKey);
-    const encrypted = await encrypt(input.plaintextKey, keySecret);
+    const tenantKey = await deriveTenantKey(keySecret as string | Uint8Array, input.tenantId);
+    const encrypted = await encrypt(input.plaintextKey, tenantKey);
 
     const masked = maskApiKey(
       input.plaintextKey,
@@ -631,13 +633,14 @@ export class ApiKeyRepository {
    */
   async decryptKey(key: APIKey, masterKey?: KeyInput): Promise<string> {
     const keySecret = this.resolveMasterKeyForDecryption(masterKey);
+    const tenantKey = await deriveTenantKey(keySecret as string | Uint8Array, key.tenantId);
     try {
       return await decrypt(
         {
           ciphertext: key.encryptedKeyB64,
           nonce: key.nonceB64,
         },
-        keySecret
+        tenantKey
       );
     } catch (err) {
       if (err instanceof DecryptionError) {
@@ -717,7 +720,8 @@ export class ApiKeyRepository {
         );
       }
       const keySecret = this.resolveMasterKeyForEncryption(masterKey);
-      const encrypted = await encrypt(updates.plaintextKey, keySecret);
+      const tenantKey = await deriveTenantKey(keySecret as string | Uint8Array, tenantId);
+      const encrypted = await encrypt(updates.plaintextKey, tenantKey);
       encryptedKeyB64 = encrypted.ciphertextB64;
       nonceB64 = encrypted.nonceB64;
       const masked = maskApiKey(

@@ -63,7 +63,7 @@ import { decryptKey } from "../durable_objects/crypto";
 import { timingSafeEqualStrings } from "../crypto/utils";
 import { sanitizeErrorMessage } from "../errors/normalizer";
 export { sanitizeErrorMessage } from "../errors/normalizer";
-import { encrypt } from "../crypto/encryption";
+import { encrypt, deriveTenantKey } from "../crypto/encryption";
 import { CapabilityFilter } from "../router/capability_filter";
 import {
   CascadeRouter,
@@ -1315,9 +1315,10 @@ export class RouterHandler {
       const keySuffix = rawKey.slice(-4);
       const keyId = `key_${body.provider}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
 
-      const { ciphertextB64, nonceB64 } = await encrypt(rawKey, masterKey);
-
       const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+
+      const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
+      const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
       
       const commRoutingStatus = body.pool_type ? 'OBSERVATION' : null;
       const obsUntil = body.pool_type ? Date.now() + 24 * 60 * 60 * 1000 : null;
