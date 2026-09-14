@@ -10,6 +10,7 @@ import type {
 export interface WorkerEnv {
   D1_DB: D1Database;
   KEY_POOL: DurableObjectNamespace;
+  POOL_COORDINATOR?: DurableObjectNamespace;
   ANALYTICS: AnalyticsEngineDataset;
   REPORT_WEBHOOK_SECRET?: string;
   MIDNIGHT_FREEZE?: string;

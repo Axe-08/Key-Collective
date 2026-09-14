@@ -120,6 +120,9 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   private telemetryEmitter?: TelemetryContract;
 
   private isLoaded = false;
+
+  private dispatchedToday = new Map<string, number>();
+  private dispatchedCommunal = new Map<string, number>();
   private readonly keysMap = new Map<string, EncryptedKey>();
 
   constructor(
@@ -144,6 +147,14 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
       throw new TenantIsolationError("KeyPoolDO requires a non-empty tenantId");
     }
     this.tenantId = resolvedTenant;
+
+    (this.ctx.storage as any).getAlarm().then((alarm: number | null) => {
+        if (!alarm) {
+            const tomorrow = new Date(Date.now());
+            tomorrow.setUTCHours(24, 0, 0, 0);
+            (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+        }
+    });
 
     // Initialize dependencies
     this.circuitBreaker =
@@ -462,6 +473,42 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   /**
    * Clears all keys from the pool and syncs to DO storage.
    */
+  
+  public recordDispatch(keyId: string, isCommunal: boolean): void {
+      const today = this.dispatchedToday.get(keyId) || 0;
+      this.dispatchedToday.set(keyId, today + 1);
+      
+      if (isCommunal) {
+          const communal = this.dispatchedCommunal.get(keyId) || 0;
+          this.dispatchedCommunal.set(keyId, communal + 1);
+      }
+  }
+
+  public async alarm(): Promise<void> {
+      for (const keyId of this.dispatchedToday.keys()) {
+          const total = this.dispatchedToday.get(keyId) || 0;
+          const communal = this.dispatchedCommunal.get(keyId) || 0;
+          
+          if (total > 0) {
+              const ratio = communal / total;
+              // Classify HERO or PARASITE - this might involve updating the key's priority or status
+              // based on the ratio. We'll emit telemetry for now as there's no defined field for it.
+              let classification = "NORMAL";
+              if (ratio >= 0.8) classification = "HERO";
+              else if (ratio < 0.1) classification = "PARASITE";
+              
+              this.emitTelemetry("key_classification", keyId, 0n, { classification, ratio: String(ratio) });
+          }
+      }
+      
+      this.dispatchedToday.clear();
+      this.dispatchedCommunal.clear();
+      
+      const tomorrow = new Date(Date.now());
+      tomorrow.setUTCHours(24, 0, 0, 0);
+      await (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+  }
+
   public async clearKeys(): Promise<void> {
     this.keysMap.clear();
     this.keySelector.clearKeys();

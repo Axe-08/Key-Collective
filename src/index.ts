@@ -24,6 +24,7 @@ export interface Env {
 export type { HealthResponse, WorkerEnv, WorkerOptions };
 export { KeyPoolDO } from "./durable_objects/key_pool_do";
 export { DemoDO } from "./auth/demo_do";
+export { PoolCoordinatorDO } from "./pool/coordinator_do";
 export { createWorker, MainWorker };
 
 // Cloudflare Worker Default Fetch Handler
