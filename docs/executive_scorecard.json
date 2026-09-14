@@ -51,6 +51,12 @@
       "pass_rate": 100.0,
       "escalations": 0,
       "commits": 0
+    },
+    "pod-ui-cleanup-ux": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
     }
   }
 }
