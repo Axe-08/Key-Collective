@@ -1,0 +1,38 @@
+[
+  {
+    "id": "A-1",
+    "title": "Types Foundation & CreateKeyPayload Upgrade",
+    "description": "Expand types.ts with new Provider, PoolType, CommunityRoutingStatus. Update APIKey and CreateKeyPayload interfaces. Add telemetry interfaces.",
+    "files": ["ui/src/lib/types.ts"]
+  },
+  {
+    "id": "A-2",
+    "title": "Header Badge + SideNav Takedown Button",
+    "description": "Update top nav badge to 'v4.0 Commons'. Add 'Report / Takedown' button to side nav.",
+    "files": ["ui/src/lib/TopNavBar.svelte", "ui/src/lib/SideNavBar.svelte"]
+  },
+  {
+    "id": "A-3",
+    "title": "AddKeyModal v4 Upgrade",
+    "description": "Rewrite AddKeyModal using Svelte 5 Runes. Add pool mode selection and K1/K2 legal attestations. Forward turnstile token, remove client-side encryption.",
+    "files": ["ui/src/lib/AddKeyModal.svelte", "ui/src/lib/AddKeyModal.test.ts"]
+  },
+  {
+    "id": "A-4",
+    "title": "Pool Commons Tab Full Overhaul",
+    "description": "Replace PoolCommonsTab with 3 sub-tabs using Svelte 5 Runes. Implement data fetching with skeleton loaders and mount DebtLedgerWidget.",
+    "files": ["ui/src/lib/PoolCommonsTab.svelte", "ui/src/lib/PoolCommonsTab.test.ts"]
+  },
+  {
+    "id": "A-5",
+    "title": "Developer Workbench - Provider Key Panel",
+    "description": "Add 'My Contributed Provider Keys' panel to Workbench using Runes. Fetch from /api/keys and display table with statuses and badges.",
+    "files": ["ui/src/lib/Workbench.svelte"]
+  },
+  {
+    "id": "A-6",
+    "title": "ApiDocs Model Catalog & Fallback Banner",
+    "description": "Update model selector in ApiDocs. Implement amber alert banner if x-kc-model-used header differs from requested model.",
+    "files": ["ui/src/lib/ApiDocs.svelte"]
+  }
+]
