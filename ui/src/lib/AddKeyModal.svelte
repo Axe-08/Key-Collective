@@ -92,7 +92,7 @@
     const ciphertextBuffer = await crypto.subtle.encrypt(
       {
         name: ENCRYPTION_ALGORITHM,
-        iv: nonce,
+        iv: nonce as any,
         tagLength: 128,
       },
       cryptoKey,
@@ -140,11 +140,11 @@
     const decryptedBuffer = await crypto.subtle.decrypt(
       {
         name: ENCRYPTION_ALGORITHM,
-        iv: nonce,
+        iv: nonce as any,
         tagLength: 128,
       },
       cryptoKey,
-      ciphertext
+      ciphertext as any
     );
 
     return new TextDecoder().decode(decryptedBuffer);

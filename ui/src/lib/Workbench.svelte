@@ -1554,7 +1554,7 @@ ${localKeys
               onkeydown={(e) => {
                 if (e.key === 'Enter') {
                   localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, name: editProjectNameValue } : p);
-                  showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id);
+                  showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
                   editingProjectName = false;
                 } else if (e.key === 'Escape') {
                   editingProjectName = false;
@@ -1565,7 +1565,7 @@ ${localKeys
               type="button"
               onclick={() => {
                 localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, name: editProjectNameValue } : p);
-                showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id);
+                showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
                 editingProjectName = false;
               }}
               class="text-primary hover:text-primary-variant cursor-pointer"
@@ -1615,12 +1615,12 @@ ${localKeys
             bind:value={editProjectRpmValue}
             onblur={() => {
               localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, maxRpmSubCap: editProjectRpmValue, assignedRpm: Math.round(editProjectRpmValue * 0.7) } : p);
-              showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id);
+              showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
             }}
             onkeydown={(e) => {
               if (e.key === 'Enter') {
                 localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, maxRpmSubCap: editProjectRpmValue, assignedRpm: Math.round(editProjectRpmValue * 0.7) } : p);
-                showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id);
+                showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
                 e.currentTarget.blur();
               }
             }}
@@ -1662,7 +1662,7 @@ ${localKeys
             localProjects = localProjects.map((p) =>
               p.id === modalProj.id ? { ...p, isArchived: !p.isArchived } : p
             );
-            showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id);
+            showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
           }}
           class="px-3 py-1.5 rounded-lg border font-mono text-xs transition-colors cursor-pointer {modalProj.isArchived ? 'bg-secondary/10 border-secondary/30 text-secondary' : 'bg-error-container/20 border-error/20 text-error hover:bg-error-container/40'}"
         >

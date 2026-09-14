@@ -508,7 +508,6 @@
   <!-- OAuth & Tier Selection Modal -->
   <OAuthModal
     isOpen={isOAuthModalOpen}
-    authMode={oauthMode}
     {userAccount}
     onClose={() => (isOAuthModalOpen = false)}
     onSelectTier={handleSelectTier}
