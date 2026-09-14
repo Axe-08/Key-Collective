@@ -1,0 +1,39 @@
+[
+  {
+    "task_id": "GATEWAY-001",
+    "description": "Implement Error Normalizer Regex, /v1/report takedown endpoint with timing shield, and Midnight Freeze guard global circuit breaker.",
+    "files": ["src/errors/normalizer.ts", "src/worker/router_handler.ts", "src/worker/env.ts"],
+    "contracts": ["auth.ts"],
+    "dependencies": [],
+    "estimated_complexity": "medium",
+    "acceptance_criteria": [
+      "New file `src/errors/normalizer.ts` exports `sanitizeErrorMessage`.",
+      "`sanitizeErrorMessage` redacts IP addresses and tokens.",
+      "`formatRouterError` in `src/worker/router_handler.ts` wraps the message in `sanitizeErrorMessage`.",
+      "RouterHandler processes `POST /v1/report`.",
+      "Uses `timingSafeEqualStrings` from `src/crypto/utils.ts` to validate `env.REPORT_WEBHOOK_SECRET`.",
+      "Returns 401 Unauthorized for invalid or missing secret.",
+      "Returns 200 JSON success for valid secret.",
+      "`WorkerEnv` includes optional `MIDNIGHT_FREEZE` string.",
+      "`RouterHandler.handle` returns 503 if `env.MIDNIGHT_FREEZE === 'true'`.",
+      "The 503 response uses standard error JSON envelope."
+    ],
+    "context_bundle": {
+      "exact_signatures": "export function sanitizeErrorMessage(message: string): string;\nexport function formatRouterError(error: unknown): Response;\npublic async handleReport(request: Request, env: WorkerEnv): Promise<Response>;\npublic async handle(request: Request, env: WorkerEnv, ctx?: ExecutionContextLike, injectedAuth?: AuthenticatedContext): Promise<Response>;",
+      "contract_snippets": [
+        "export function timingSafeEqualStrings(a: string, b: string): boolean;"
+      ],
+      "implementation_notes": "Use regex /(sk-[a-zA-Z0-9]{20,}|Bearer\\s+[a-zA-Z0-9\\-\\._~+\\/]+)/g for secrets and /\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b/g for IPs. Check request headers for 'authorization'. Strip 'Bearer '. Compare securely with `env.REPORT_WEBHOOK_SECRET`. Place the freeze check at the very top of `handle` in `RouterHandler`.",
+      "test_scenarios": [
+        "Format error containing an IP",
+        "Format error containing sk-key",
+        "Missing header -> 401",
+        "Wrong token -> 401",
+        "Correct token -> 200",
+        "MIDNIGHT_FREEZE='true' returns 503",
+        "MIDNIGHT_FREEZE undefined passes through normally"
+      ],
+      "verify_command": "npx vitest run src/worker/router_handler.test.ts"
+    }
+  }
+]

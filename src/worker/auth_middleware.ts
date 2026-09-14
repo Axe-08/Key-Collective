@@ -48,6 +48,8 @@ export interface WorkerEnv {
   TELEMETRY?: AnalyticsEngineDataset;
   KC_MASTER_KEY?: string;
   ASSETS?: { fetch(request: Request | string): Promise<Response> };
+  REPORT_WEBHOOK_SECRET?: string;
+  MIDNIGHT_FREEZE?: string;
   [key: string]: unknown;
 }
 

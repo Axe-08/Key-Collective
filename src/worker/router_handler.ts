@@ -60,6 +60,9 @@ import {
   UpstreamResponse,
 } from "../proxy/upstream_client";
 import { decryptKey } from "../durable_objects/crypto";
+import { timingSafeEqualStrings } from "../crypto/utils";
+import { sanitizeErrorMessage } from "../errors/normalizer";
+export { sanitizeErrorMessage } from "../errors/normalizer";
 import { encrypt } from "../crypto/encryption";
 import { CapabilityFilter } from "../router/capability_filter";
 import {
@@ -410,28 +413,59 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
 export function formatRouterError(error: unknown): Response {
   if (error instanceof RateLimitExceededError) {
     const retryAfter = error.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS;
-    return error.toResponse({
-      "retry-after": String(retryAfter),
+    const body = error.toJSON();
+    body.error = sanitizeErrorMessage(body.error);
+    return new Response(JSON.stringify(body), {
+      status: error.statusCode,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "retry-after": String(retryAfter),
+      },
     });
   }
 
   if (error instanceof QuotaExceededError) {
-    return error.toResponse({
-      "retry-after": String(DEFAULT_RETRY_AFTER_SECONDS),
+    const body = error.toJSON();
+    body.error = sanitizeErrorMessage(body.error);
+    return new Response(JSON.stringify(body), {
+      status: error.statusCode,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "retry-after": String(DEFAULT_RETRY_AFTER_SECONDS),
+      },
     });
   }
 
   if (error instanceof AuthenticationError) {
-    return error.toResponse({
-      "www-authenticate": "Bearer",
+    const body = error.toJSON();
+    body.error = sanitizeErrorMessage(body.error);
+    return new Response(JSON.stringify(body), {
+      status: error.statusCode,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "www-authenticate": "Bearer",
+      },
     });
   }
 
   if (error instanceof DomainError) {
-    return error.toResponse();
+    const body = error.toJSON();
+    body.error = sanitizeErrorMessage(body.error);
+    return new Response(JSON.stringify(body), {
+      status: error.statusCode,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+      },
+    });
   }
 
-  const message = error instanceof Error ? error.message : "Internal edge routing error";
+  const rawMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "Internal edge routing error";
+  const message = sanitizeErrorMessage(rawMessage);
   return new Response(
     JSON.stringify({
       error: {
@@ -666,12 +700,52 @@ export class RouterHandler {
    * @param ctx ExecutionContext for non-blocking waitUntil lifecycle management
    * @param preAuthenticatedContext Optional pre-authenticated context from upstream middleware
    */
+  /**
+   * Handles abuse reporting and takedown webhook requests (POST /v1/report).
+   * Validates env.REPORT_WEBHOOK_SECRET using a constant-time timing shield (timingSafeEqualStrings)
+   * to eliminate timing side-channel attacks.
+   */
+  public async handleReport(request: Request, env: WorkerEnv): Promise<Response> {
+    const authHeader = request.headers.get("authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const expectedSecret = env.REPORT_WEBHOOK_SECRET || "";
+
+    // Constant-time timing shield
+    if (!token || !expectedSecret || !timingSafeEqualStrings(token, expectedSecret)) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
+    }
+    return Response.json({ success: true, message: "Report accepted" });
+  }
+
   public async handle(
     request: Request,
     env: WorkerEnv,
     ctx?: ExecutionContextLike,
     preAuthenticatedContext?: AuthenticatedContext
   ): Promise<Response> {
+    // 0. Midnight Freeze Guard global circuit breaker
+    if (env.MIDNIGHT_FREEZE === "true" || env.MIDNIGHT_FREEZE === "1") {
+      return new Response(
+        JSON.stringify({
+          error: {
+            message:
+              "Service is temporarily unavailable due to a scheduled or emergency maintenance freeze (Midnight Freeze).",
+            type: "service_unavailable",
+            code: "MIDNIGHT_FREEZE",
+            statusCode: 503,
+          },
+        }),
+        {
+          status: 503,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+          },
+        }
+      );
+    }
     const startTime = this.now();
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, "") || "/";
@@ -685,6 +759,11 @@ export class RouterHandler {
         runtime: "cloudflare-workers",
         timestamp: new Date(startTime).toISOString(),
       });
+    }
+
+    // 1.0 Report takedown endpoint with timing shield
+    if (method === "POST" && (pathname === "/v1/report" || pathname === "/report")) {
+      return await this.handleReport(request, env);
     }
 
     if (method === "GET" && (pathname === "/openapi.json" || pathname === "/v1/openapi.json")) {
