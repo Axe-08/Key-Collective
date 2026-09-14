@@ -93,6 +93,8 @@ export interface CascadeRouteRequest extends RouteRequest {
   headers?: HeadersInit | Record<string, string>;
   /** Provider-specific extra request body fields */
   extraBodyParams?: Record<string, unknown>;
+  /** Tenant ID for self-key routing */
+  tenantId?: string;
 }
 
 /**
@@ -115,6 +117,8 @@ export interface CascadeRouteResponse extends RouteResponse {
   usage: StreamUsage | null;
   /** Full underlying UpstreamResponse (contains transformed stream body if stream=true) */
   response?: UpstreamResponse;
+  /** Whether a tenant's self-provided key was utilized */
+  isSelfKey?: boolean;
 }
 
 /**
@@ -267,6 +271,19 @@ export class CascadeRouter implements RouterContract {
    */
   public getKeyPool(): KeyPoolContract | undefined {
     return this.keyPool;
+  }
+
+  public async checkSelfKeyAvailable(
+    provider: string,
+    tenantId: string
+  ): Promise<boolean> {
+    if (!this.keyPool) return false;
+    try {
+      const keyId = await this.keyPool.getKey(provider);
+      return keyId !== null && keyId !== undefined;
+    } catch {
+      return false;
+    }
   }
 
   // =========================================================================
@@ -438,7 +455,16 @@ export class CascadeRouter implements RouterContract {
 
     const attempts: FallbackAttempt[] = [];
 
-    // 2. Iterate through candidates with fallback escalation
+    // 2. Self-Key Priority Pre-check
+    let selfKeyRouted = false;
+    if (reqOptions.tenantId && candidatesToTry.length > 0) {
+      selfKeyRouted = await this.checkSelfKeyAvailable(
+        candidatesToTry[0].provider,
+        reqOptions.tenantId
+      );
+    }
+
+    // 3. Iterate through candidates with fallback escalation
     for (let i = 0; i < candidatesToTry.length; i++) {
       const candidate = candidatesToTry[i];
       const nextCandidate = candidatesToTry[i + 1];
@@ -532,6 +558,7 @@ export class CascadeRouter implements RouterContract {
           attempts,
           usage: chatRes.usage,
           response: chatRes.response,
+          isSelfKey: selfKeyRouted,
         };
 
         this.options.onSuccess?.(successResponse);

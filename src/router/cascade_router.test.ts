@@ -426,6 +426,30 @@ describe("CascadeRouter", () => {
       expect(response.costMicrodollars).toBe(0n);
       expect(response.response?.body).toBeDefined();
     });
+
+    it("prioritizes self-key routing when tenantId is supplied and key exists", async () => {
+      mockUpstreamClient.chat.mockResolvedValueOnce(
+        createSuccessfulChatResponse("gemini-2.0-flash", "google", "Self key response")
+      );
+
+      const router = new CascadeRouter({
+        registry,
+        capabilityFilter,
+        upstreamClient: mockUpstreamClient,
+        keyPool: mockKeyPool,
+      });
+
+      const response = await router.route({
+        modelAlias: "smart-fast",
+        messages: [{ role: "user", content: "Self key test" }],
+        stream: false,
+        tenantId: "tenant-123",
+      });
+
+      expect(response.content).toBe("Self key response");
+      expect(response.isSelfKey).toBe(true);
+      expect(mockKeyPool.getKey).toHaveBeenCalledWith("google");
+    });
   });
 
   describe("Fallback Escalation (LLD 4.0: First fails with 429, second succeeds)", () => {
