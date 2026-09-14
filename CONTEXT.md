@@ -59,6 +59,8 @@ Downstream agents should refer to these files for detailed contracts:
 - `docs/adr/002-key-encryption-and-logging.md`: 002-key-encryption-and-logging
 - `docs/adr/003-multi-project-tiered-architecture.md`: 003-multi-project-tiered-architecture
 - `docs/adr/003-obsidian-edge-glassmorphism.md`: 003-obsidian-edge-glassmorphism
+- `docs/adr/004-commons-routing-architecture.md`: 004-commons-routing-architecture
+- `docs/adr/005-contribution-capacity-credit.md`: 005-contribution-capacity-credit
 
 ---
 

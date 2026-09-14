@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Pool & Commons — Key Collective v4.0 Commons</title>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-container-lowest": "#0c0e13",
+            "surface-container-low": "#1a1b21",
+            "surface-container": "#1e1f25",
+            "surface-container-high": "#282a2f",
+            "surface-container-highest": "#33353a",
+            "on-surface": "#e2e2e9",
+            "on-surface-variant": "#c7c4d7",
+            "outline": "#908fa0",
+            "outline-variant": "#464554",
+            "primary": "#c0c1ff",
+            "primary-container": "#8083ff",
+            "on-primary": "#1000a9",
+            "secondary": "#4edea3",
+            "secondary-container": "#00a572",
+            "tertiary": "#ffb95f",
+            "error": "#ffb4ab",
+            "error-container": "#93000a",
+          },
+          fontFamily: {
+            "headline-lg": ["Geist", "sans-serif"],
+            "headline-md": ["Geist", "sans-serif"],
+            "headline-sm": ["Geist", "sans-serif"],
+            "body-lg": ["Geist", "sans-serif"],
+            "body-md": ["Geist", "sans-serif"],
+            "body-sm": ["Geist", "sans-serif"],
+            "label-md": ["JetBrains Mono", "monospace"],
+            "label-sm": ["JetBrains Mono", "monospace"],
+            "code-lg": ["JetBrains Mono", "monospace"],
+            "code-md": ["JetBrains Mono", "monospace"],
+            "code-sm": ["JetBrains Mono", "monospace"],
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    .specular-border {
+      position: relative;
+    }
+    .specular-border::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10%;
+      right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+      pointer-events: none;
+    }
+    .glow-radial-indigo {
+      background: radial-gradient(circle 600px at 20% 0%, rgba(128, 131, 255, 0.08), transparent 70%),
+                  radial-gradient(circle 500px at 80% 20%, rgba(78, 222, 163, 0.04), transparent 60%);
+    }
+    @keyframes subtle-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.92); }
+    }
+    .status-pulse { animation: subtle-pulse 2.2s infinite ease-in-out; }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased min-h-screen relative font-body-md overflow-x-hidden">
+<div class="fixed inset-0 glow-radial-indigo pointer-events-none z-0"></div>
+
+<!-- TopNavBar (Matches Live Production 1:1) -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/30">
+  <div class="flex items-center gap-6">
+    <a href="screen1_dashboard_live.html" class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-primary shadow-inner">
+        <span class="material-symbols-outlined text-primary text-[19px]">shield</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-headline-sm font-semibold tracking-tight text-on-surface">Key Collective</span>
+        <span class="text-label-sm px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/30 font-mono">v4.0 Commons</span>
+      </div>
+    </a>
+    <div class="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/40">
+      <span class="w-2 h-2 rounded-full bg-secondary status-pulse shadow-[0_0_8px_#4edea3]"></span>
+      <span class="text-label-sm text-secondary font-mono">Edge Network Active • Latency Nominal</span>
+    </div>
+    <div class="relative hidden xl:block w-72">
+      <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[16px]">search</span>
+      <input type="text" placeholder="Search keys, models, routes..." class="w-full pl-8 pr-12 py-1.5 bg-surface-container-low border border-outline-variant/30 rounded-lg text-code-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors font-mono"/>
+      <kbd class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-outline-variant bg-surface-container-high px-1.5 py-0.5 rounded border border-outline-variant/20 font-mono">⌘K</kbd>
+    </div>
+  </div>
+  
+  <!-- Right Profile & Quick Actions -->
+  <div class="flex items-center gap-3">
+    <button class="p-1.5 rounded hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Logs Terminal">
+      <span class="material-symbols-outlined text-[18px]">terminal</span>
+    </button>
+    <button class="p-1.5 rounded hover:bg-surface-container-high text-on-surface-variant relative transition-colors" title="Notifications">
+      <span class="material-symbols-outlined text-[18px]">notifications</span>
+      <span class="w-1.5 h-1.5 rounded-full bg-tertiary absolute top-1.5 right-1.5"></span>
+    </button>
+    <button class="p-1.5 rounded hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Settings">
+      <span class="material-symbols-outlined text-[18px]">settings</span>
+    </button>
+    <div class="flex items-center gap-2 pl-2 border-l border-outline-variant/30">
+      <div class="w-8 h-8 rounded-full p-0.5 bg-gradient-to-tr from-secondary to-primary flex items-center justify-center">
+        <div class="w-full h-full rounded-full bg-surface-container-lowest flex items-center justify-center text-primary font-mono text-[11px] font-bold">AK</div>
+      </div>
+      <div class="hidden sm:flex flex-col text-left">
+        <span class="text-[12px] font-mono font-semibold text-on-surface leading-none">@collective-dev</span>
+        <span class="text-[10px] font-mono text-secondary mt-0.5">⭐ 3.2× MULTIPLIER</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Left Side Navigation Rail (Matches Live Production 1:1) -->
+<aside class="fixed top-14 left-0 bottom-0 w-64 z-40 flex flex-col justify-between p-4 bg-surface-container-low/90 backdrop-blur-xl border-r border-outline-variant/30 hidden md:flex">
+  <div class="space-y-4">
+    <!-- CTA Button -->
+    <a href="screen6_add_key_modal_live.html" class="w-full py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest/60 text-primary border border-primary/20 flex items-center justify-center gap-2 text-label-md font-mono font-medium transition-colors cursor-pointer">
+      <span class="material-symbols-outlined text-[16px]">add_circle</span>
+      <span>Add Provider Key</span>
+    </a>
+
+    <!-- Navigation Tabs -->
+    <div class="space-y-1 pt-2">
+      
+            <a href="screen1_dashboard_live.html" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors">
+              <span class="material-symbols-outlined text-[18px]">dashboard</span>
+              <span class="text-label-md font-mono">Dashboard</span>
+            </a>
+            
+            <a href="screen2_workbench_live.html" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors">
+              <span class="material-symbols-outlined text-[18px]">layers</span>
+              <span class="text-label-md font-mono">Developer Workbench</span>
+            </a>
+            
+            <a href="screen3_commons_live.html" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-high text-primary font-medium border-l-2 border-primary transition-colors">
+              <span class="material-symbols-outlined text-[18px]">hub</span>
+              <span class="text-label-md font-mono">Pool & Commons</span>
+            </a>
+            
+            <a href="screen4_docs_live.html" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors">
+              <span class="material-symbols-outlined text-[18px]">menu_book</span>
+              <span class="text-label-md font-mono">API Documentation</span>
+            </a>
+            
+            <a href="screen5_playground_live.html" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 transition-colors">
+              <span class="material-symbols-outlined text-[18px]">smart_toy</span>
+              <span class="text-label-md font-mono">Playground</span>
+            </a>
+            
+    </div>
+  </div>
+
+  <!-- Lower Section: Quota & Secondary Links -->
+  <div class="pt-4 border-t border-outline-variant/30 space-y-2">
+    <!-- Daily Quota / Commons Debt Meter -->
+    <div class="px-3 py-2.5 rounded-lg bg-surface-container-lowest/80 border border-outline-variant/20 flex flex-col gap-1.5 shadow-sm">
+      <div class="flex justify-between items-center text-label-sm font-mono text-outline">
+        <span class="flex items-center gap-1 font-medium">
+          <span class="material-symbols-outlined text-[13px] text-primary">balance</span>
+          Community Debt
+        </span>
+        <span class="text-secondary font-mono font-bold">0 CU (Pristine)</span>
+      </div>
+      <div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+        <div class="bg-gradient-to-r from-secondary to-primary h-full rounded-full" style="width: 100%;"></div>
+      </div>
+      <div class="flex justify-between items-center text-[10px] font-mono text-on-surface-variant pt-0.5">
+        <span>Personal Multiplier:</span>
+        <span class="text-primary font-bold">3.2×</span>
+      </div>
+    </div>
+
+    <!-- Proxy Status -->
+    <div class="flex items-center justify-between px-3 py-1.5 rounded-lg text-on-surface-variant text-label-md font-mono">
+      <span class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">sensors</span>
+        <span>Proxy Status</span>
+      </span>
+      <span class="inline-flex items-center gap-1.5 text-[10px] text-secondary font-mono">
+        <span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_#4edea3]"></span>
+        Active
+      </span>
+    </div>
+
+    <!-- Takedown & Abuse Portal Link (Before Support) -->
+    <a href="screen7_takedown_portal_live.html" class="flex items-center gap-3 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 text-label-md font-mono transition-colors">
+      <span class="material-symbols-outlined text-[18px] text-outline">shield</span>
+      <span>Report / Takedown</span>
+    </a>
+
+    <!-- Support Link -->
+    <a href="https://github.com/Axe-08/Key-Collective" target="_blank" rel="noreferrer" class="flex items-center gap-3 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 text-label-md font-mono transition-colors">
+      <span class="material-symbols-outlined text-[18px]">help_center</span>
+      <span>Support</span>
+    </a>
+  </div>
+</aside>
+
+<!-- Main Workspace Content Container -->
+<main class="md:ml-64 pt-14 min-h-screen px-6 py-6 max-w-7xl relative z-10">
+
+<div class="py-2 flex items-center justify-between border-b border-outline-variant/20 mb-6 font-mono">
+  <div>
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-[11px] uppercase tracking-wider text-secondary">GLOBAL COMMONS SURVEILLANCE</span>
+      <span class="px-2 py-0.5 rounded text-[10px] bg-secondary/10 text-secondary border border-secondary/20">Radical Public Transparency</span>
+    </div>
+    <h1 class="text-headline-lg font-semibold tracking-tight text-on-surface">Pool Intelligence &amp; Telemetry</h1>
+    <p class="text-body-md text-on-surface-variant mt-1 font-sans">Live aggregate health, provider quality weights ($W_{\text{provider}}$), and communal capacity reserves.</p>
+  </div>
+  <div class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/40 flex items-center gap-2 text-xs text-secondary">
+    <span class="w-2 h-2 rounded-full bg-secondary status-pulse"></span> Aggregated across 82 nodes
+  </div>
+</div>
+
+<!-- Top Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-mono">
+  <div class="specular-border rounded-xl p-6 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30">
+    <div class="text-[11px] text-on-surface-variant mb-1">GLOBAL ACTIVE CAPACITY</div>
+    <div class="text-headline-lg font-bold text-on-surface mb-1">322 <span class="text-sm font-normal text-secondary">Healthy Keys</span></div>
+    <p class="text-xs text-on-surface-variant">Combined daily capacity: <strong>~780,000 req/day</strong></p>
+  </div>
+  <div class="specular-border rounded-xl p-6 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30">
+    <div class="text-[11px] text-on-surface-variant mb-1">COMMONS UTILIZATION (U_pool)</div>
+    <div class="text-headline-lg font-bold text-primary mb-1">62% <span class="text-sm font-normal text-primary">Headroom</span></div>
+    <div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden mt-2">
+      <div class="bg-primary h-full rounded-full" style="width: 62%;"></div>
+    </div>
+  </div>
+  <div class="specular-border rounded-xl p-6 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30">
+    <div class="text-[11px] text-on-surface-variant mb-1">OBSERVATION PIPELINE</div>
+    <div class="text-headline-lg font-bold text-tertiary mb-1">14 <span class="text-sm font-normal text-on-surface-variant">Keys Maturing</span></div>
+    <p class="text-xs text-on-surface-variant">Entering communal pool in &lt; 24h</p>
+  </div>
+</div>
+
+<!-- Provider Quality Matrix -->
+<div class="specular-border rounded-xl p-6 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 font-mono">
+  <h2 class="text-headline-sm font-semibold text-on-surface mb-4 font-sans">Provider Quality &amp; Capacity Matrix</h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse text-xs">
+      <thead>
+        <tr class="border-b border-outline-variant/20 text-outline uppercase tracking-wider">
+          <th class="py-3 px-3">Provider</th>
+          <th class="py-3 px-3">Active Keys</th>
+          <th class="py-3 px-3">Load (U_provider)</th>
+          <th class="py-3 px-3">Rolling P90 TTFT</th>
+          <th class="py-3 px-3">Quality Weight (W_p)</th>
+          <th class="py-3 px-3">Eye-for-Eye Access</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-outline-variant/10 text-[12px]">
+        <tr class="hover:bg-surface-container-high/40 transition-colors">
+          <td class="py-3 px-3 font-semibold text-on-surface">🟢 Google Gemini</td>
+          <td class="py-3 px-3">184 keys</td>
+          <td class="py-3 px-3 text-secondary font-bold">62%</td>
+          <td class="py-3 px-3 text-secondary">420 ms</td>
+          <td class="py-3 px-3 text-secondary font-bold">1.00× (Nominal)</td>
+          <td class="py-3 px-3"><span class="px-2 py-0.5 rounded bg-secondary/10 text-secondary border border-secondary/20">✓ Unlocked (Contributor)</span></td>
+        </tr>
+        <tr class="hover:bg-surface-container-high/40 transition-colors">
+          <td class="py-3 px-3 font-semibold text-on-surface">🟢 GroqCloud</td>
+          <td class="py-3 px-3">96 keys</td>
+          <td class="py-3 px-3 text-primary font-bold">71%</td>
+          <td class="py-3 px-3 text-secondary">280 ms</td>
+          <td class="py-3 px-3 text-secondary font-bold">1.00× (Nominal)</td>
+          <td class="py-3 px-3"><span class="px-2 py-0.5 rounded bg-secondary/10 text-secondary border border-secondary/20">✓ Unlocked (Contributor)</span></td>
+        </tr>
+        <tr class="hover:bg-surface-container-high/40 transition-colors">
+          <td class="py-3 px-3 font-semibold text-on-surface">🟡 SambaNova</td>
+          <td class="py-3 px-3">42 keys</td>
+          <td class="py-3 px-3 text-tertiary font-bold">48%</td>
+          <td class="py-3 px-3 text-tertiary">1,620 ms</td>
+          <td class="py-3 px-3 text-tertiary font-bold">0.92× (High Latency)</td>
+          <td class="py-3 px-3"><span class="px-2 py-0.5 rounded bg-surface-container text-outline border border-outline-variant/30">🔒 Contribute Key to Unlock</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+
+
+
+</body>
+</html>

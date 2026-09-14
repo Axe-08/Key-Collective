@@ -1,0 +1,34 @@
+{
+  "personas": [
+    {
+      "id": "P1",
+      "name": "The Open-Source Maintainer / Research Engineer",
+      "goals": "Run sustained evaluation pipelines and agent loops without mid-run crashes.",
+      "pain_points": "Hard API rate limits (15 RPM / 1,500 RPD) break automated workloads. Cannot afford Enterprise tiers.",
+      "technical_sophistication": "High",
+      "contribution_behavior": "Willing to contribute idle keys to earn dynamic burst multiplier for testing phases.",
+      "pool_preference": "Community Pool (Gold Vesting Tier target)",
+      "failure_mode": "Quota Jail if evaluation pipeline runs unattended and overconsumes"
+    },
+    {
+      "id": "P2",
+      "name": "The Indie Hacker / Side-Project Developer",
+      "goals": "Build and launch weekend projects or indie tools with minimal configuration.",
+      "pain_points": "Hits rate limits when side project gets initial traction; cannot afford paid API tiers.",
+      "technical_sophistication": "Medium",
+      "contribution_behavior": "Contributes a single free-tier key to access the community pool and earn standard multiplier.",
+      "pool_preference": "Community Pool (Bronze Vesting Tier)",
+      "failure_mode": "Forgets about key rotation grace period; loses vesting tier"
+    },
+    {
+      "id": "P3",
+      "name": "The Student / Hackathon Builder",
+      "goals": "Ship hackathon projects fast using state-of-the-art LLMs.",
+      "pain_points": "Locked out of paid tiers (no international credit card). Needs 24-48h burst capacity.",
+      "technical_sophistication": "Low to Medium",
+      "contribution_behavior": "Net consumer initially; contributes whatever free keys they can generate.",
+      "pool_preference": "Mixed (Private initially, Community when they understand the system)",
+      "failure_mode": "Confusion around K1/K2 attestation; may abandon if consent flow is unclear"
+    }
+  ]
+}

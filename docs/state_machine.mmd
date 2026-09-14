@@ -1,40 +1,55 @@
-```mermaid
 stateDiagram-v2
-    %% API Key States
-    state "API Key States" as APIKeyStates {
-        [*] --> Healthy
-        Healthy --> RateLimited: on 429
-        RateLimited --> HalfOpen: cooldown 60s via DO timer
-        HalfOpen --> Healthy: probe success
-        HalfOpen --> RateLimited: probe fail
-    }
+    [*] --> PRIVATE : Submit Key (Private Mode)\n K1+K2 attested, HKDF encrypted
+    [*] --> OBSERVING : Submit Key (Community Mode)\n 24h observation buffer starts
 
-    %% Request States
-    state "Request States" as RequestStates {
-        [*] --> Received
-        Received --> Authenticated
-        Authenticated --> ModelResolved
-        ModelResolved --> KeySelected
-        KeySelected --> Proxied
-        Proxied --> Fallback: on 429/5xx
-        Fallback --> KeySelected: next key
-        Fallback --> Failed: all keys exhausted
-        Proxied --> [*]: success
-    }
+    PRIVATE --> OBSERVING : Toggle to Community\n[GUARD: Not in 23:30–00:30 UTC Midnight Freeze]
 
-    %% Container Lifecycle
-    state "Container Lifecycle" as ContainerLifecycle {
-        [*] --> Idle
-        Idle --> Active: on DO dispatch
-        Active --> Sleeping: sleepAfter 10min
-        Sleeping --> Active: DO keepalive ping every 8min
-    }
+    note right of PRIVATE
+      Midnight Freeze Guard:
+      Pool toggle PRIVATE→COMMUNITY
+      blocked 23:30–00:30 UTC (Vector 17)
+      to prevent quota gaming.
+    end note
 
-    %% Tenant Budget States
-    state "Tenant Budget States" as TenantBudgetStates {
-        [*] --> ActiveBudget
-        ActiveBudget --> Warned: at 80%
-        Warned --> Exhausted: at 100%
-        Exhausted --> ActiveBudget: reset on billing cycle
-    }
-```
+    OBSERVING --> COMMUNITY_ACTIVE : 24h Observation Elapses\n[observation_until < NOW()]
+    COMMUNITY_ACTIVE --> PRIVATE : Toggle to Private\n[GUARD: Not in Midnight Freeze]
+
+    COMMUNITY_ACTIVE --> QUOTA_JAIL_SOFT : debt_micro_cu > 0.5 × daily_contributed_micro_cu\nMultiplier capped at 1.5×
+    QUOTA_JAIL_SOFT --> COMMUNITY_ACTIVE : Debt paid down\ndebug_micro_cu ≤ 0.5 × daily_contributed
+    QUOTA_JAIL_SOFT --> QUOTA_JAIL_HARD : debt_micro_cu > 1.0 × daily_contributed_micro_cu\nRouting locked to own keys only
+
+    QUOTA_JAIL_HARD --> QUOTA_JAIL_SOFT : 30% daily decay reduces debt\nbelow 1.0× threshold
+    QUOTA_JAIL_HARD --> COMMUNITY_ACTIVE : Full debt repayment\n(debt = 0 → PRISTINE)
+
+    COMMUNITY_ACTIVE --> ROTATING : Initiate Key Rotation\n30-min grace window starts
+    PRIVATE --> ROTATING : Initiate Key Rotation\n30-min grace window starts
+    QUOTA_JAIL_SOFT --> ROTATING : Initiate Key Rotation
+    QUOTA_JAIL_HARD --> ROTATING : Initiate Key Rotation
+
+    note right of ROTATING
+      30-Minute Rotation Grace (FR-23):
+      Submit replacement key within 30 min
+      → vesting_tier PRESERVED.
+      Replacement key enters OBSERVATION
+      or PRIVATE (matching prior pool_type).
+    end note
+
+    ROTATING --> OBSERVING : New Community key submitted\n within 30-min grace window
+    ROTATING --> PRIVATE : New Private key submitted\n within 30-min grace window
+    ROTATING --> TOMBSTONED : 30-min grace window expires\nwithout replacement
+
+    COMMUNITY_ACTIVE --> TOMBSTONED : Upstream returns 401 Unauthorized\n(key revoked by provider)
+    OBSERVING --> TOMBSTONED : Upstream returns 401 Unauthorized\nduring health probe
+    COMMUNITY_ACTIVE --> QUARANTINED : Consecutive upstream failures\n> threshold (hero/parasite detection)
+    QUARANTINED --> COMMUNITY_ACTIVE : Upstream returns healthy responses\nafter exponential backoff
+    QUARANTINED --> TOMBSTONED : Quarantine period expires\nwithout recovery
+
+    note left of TOMBSTONED
+      14-Day Tombstone (FR-14):
+      GCP project hash registered in
+      project_hash_registry as TOMBSTONED.
+      Re-registration of SAME project
+      blocked for 14 days.
+    end note
+
+    TOMBSTONED --> [*] : 14-day ban expires\n(project hash cleared from registry)

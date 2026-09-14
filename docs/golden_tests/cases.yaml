@@ -1,117 +1,547 @@
-cases:
-  - id: "tc-01"
-    name: "Happy path single Gemini key"
-    description: "Simple prompt routed to a single Gemini key with successful 200 response"
-    given: "Valid Bearer token, simple text prompt for gemini-1.5-pro, active tenant with budget"
-    when: "POST /v1/chat/completions"
-    then: "Return HTTP 200, tokens logged accurately, cost_microdollars calculated and stored in ledger"
-    golden_assertions:
-      - "response.status == 200"
-      - "cost_ledger_event.cost_microdollars > 0"
-      - "request_log.completion_tokens > 0"
+# Key Collective v4.0 — Golden Test Cases
+# Author: Inception Board Ground Worker
+# Date: 2026-09-14
+# EDD Golden Criteria Reference:
+#   GC-01: Routing Latency <5ms P95
+#   GC-02: Debt Accuracy ±1 CU
+#   GC-03: Observation Buffer 24h ±30s
+#   GC-04: Duplicate Rejection within 1s
+#   GC-05: Quota Jail clamped immediately
 
-  - id: "tc-02"
-    name: "Happy path streaming request"
-    description: "Streaming request to model correctly parses terminal usage block"
-    given: "Valid Bearer token, stream=true, Gemini model"
-    when: "POST /v1/chat/completions"
-    then: "SSE chunks forwarded to client, final chunk with usage block parsed, cost logged"
-    golden_assertions:
-      - "response.headers['content-type'] == 'text/event-stream'"
-      - "cost_ledger_event.prompt_tokens == parsed_terminal_chunk.prompt_tokens"
+tests:
+  # ─── SELF-KEY PRIORITY ───────────────────────────────────────────────────────
 
-  - id: "tc-03"
-    name: "Circuit breaker on 429s"
-    description: "Key hits 429 three times, triggering circuit breaker"
-    given: "Key with 0 remaining RPM/RPD or hitting provider limits"
-    when: "3 consecutive requests fail with HTTP 429"
-    then: "Key status changes to RateLimited, fallback routes to next available key"
-    golden_assertions:
-      - "key.status == 'RateLimited'"
-      - "proxy_request.resolved_key.id != original_key.id"
+  - id: TC-01-SELF-KEY-PRIORITY-OWN-KEY-AVAILABLE
+    description: "Router uses tenant's own healthy key before communal pool"
+    category: routing
+    criteria: GC-01
+    input:
+      tenant_id: "tenant-aaa"
+      tenant_keys_available: 1
+      tenant_keys_healthy: 1
+      community_keys_available: 100
+      provider_requested: "gemini"
+    expected_output:
+      route_type: "SELF_KEY"
+      community_debt_incurred_micro_cu: 0
+      routing_overhead_ms_max: 5
 
-  - id: "tc-04"
-    name: "Circuit breaker recovery"
-    description: "After cooldown, key probes successfully and restores to Healthy"
-    given: "Key in RateLimited state, 60s cooldown timer expires"
-    when: "Background DO timer triggers probe request, probe succeeds with HTTP 200"
-    then: "Key status flips to Healthy, key rejoins pool"
-    golden_assertions:
-      - "key.status == 'Healthy'"
+  - id: TC-02-SELF-KEY-PRIORITY-ALL-EXHAUSTED
+    description: "When all own keys are rate-limited, fall through to community pool check"
+    category: routing
+    criteria: GC-01
+    input:
+      tenant_id: "tenant-aaa"
+      tenant_keys_available: 2
+      tenant_keys_healthy: 0
+      community_keys_available: 50
+      debt_ratio: 0.1
+      provider_requested: "gemini"
+      contributed_providers: ["gemini"]
+    expected_output:
+      route_type: "COMMUNITY_POOL"
+      routing_overhead_ms_max: 5
 
-  - id: "tc-05"
-    name: "Context window gate"
-    description: "Reject prompt if estimated tokens exceed model context window"
-    given: "Prompt where estimated tokens (100k) > model.context_window (8k)"
-    when: "POST /v1/chat/completions"
-    then: "Return HTTP 400 before attempting network call to provider"
-    golden_assertions:
-      - "response.status == 400"
-      - "cost_ledger_event == null"
+  # ─── OBSERVATION BUFFER ──────────────────────────────────────────────────────
 
-  - id: "tc-06"
-    name: "Model alias resolution"
-    description: "Logical model name resolves to canonical provider model"
-    given: "Request requests model 'smart-fast'"
-    when: "ModelDef resolves 'smart-fast' to 'gemini-2.0-flash'"
-    then: "Key pool selects a key for 'gemini-2.0-flash'"
-    golden_assertions:
-      - "proxy_request.resolved_model == 'gemini-2.0-flash'"
-      - "proxy_request.resolved_key.provider == 'google'"
+  - id: TC-03-OBSERVATION-BUFFER-BLOCKS-COMMUNAL-ROUTING
+    description: "Key submitted <24h ago cannot serve communal requests (GC-03)"
+    category: observation_buffer
+    criteria: GC-03
+    input:
+      key_age_hours: 12
+      pool_type: "COMMUNITY"
+      community_routing_status: "OBSERVATION"
+    expected_output:
+      is_eligible_for_community_routing: false
+      community_routing_status: "OBSERVATION"
 
-  - id: "tc-07"
-    name: "Capability filter - tools"
-    description: "Request with tools parameter filters out unsupported models"
-    given: "Request includes 'tools' array in body"
-    when: "Router selects model"
-    then: "Text-only models (supports_tools=false) are excluded from candidates"
-    golden_assertions:
-      - "router_decision.capability_filter_passed == true"
-      - "model_def.supports_tools == true"
+  - id: TC-04-OBSERVATION-BUFFER-EXPIRES-CORRECTLY
+    description: "Key becomes ACTIVE exactly after 24h observation window (GC-03)"
+    category: observation_buffer
+    criteria: GC-03
+    input:
+      observation_start_unix: 1700000000
+      current_time_unix: 1700086400  # exactly 24h later
+      pool_type: "COMMUNITY"
+    expected_output:
+      community_routing_status: "ACTIVE"
+      is_eligible_for_community_routing: true
+    tolerance:
+      timing_seconds: 30
 
-  - id: "tc-08"
-    name: "Budget exhaustion"
-    description: "Tenant hits budget limit, receives 429"
-    given: "Tenant spent_microdollars >= budget_microdollars"
-    when: "POST /v1/chat/completions"
-    then: "Return HTTP 429 with Retry-After header, request blocked"
-    golden_assertions:
-      - "response.status == 429"
-      - "response.headers['Retry-After'] != null"
+  - id: TC-05-OBSERVATION-BUFFER-23H59M-STILL-BLOCKED
+    description: "Key at 23h59m is still blocked (boundary test)"
+    category: observation_buffer
+    criteria: GC-03
+    input:
+      observation_start_unix: 1700000000
+      current_time_unix: 1700086340  # 23h59m20s = still observing
+      pool_type: "COMMUNITY"
+    expected_output:
+      community_routing_status: "OBSERVATION"
+      is_eligible_for_community_routing: false
 
-  - id: "tc-09"
-    name: "Cost ledger exact calculation"
-    description: "Verify cost is calculated correctly using integer math in microdollars"
-    given: "prompt_tokens=1000, completion_tokens=500, input_cost=150000 micro, output_cost=600000 micro"
-    when: "Request completes and logs cost"
-    then: "cost_microdollars = (1000 * 150000 / 1_000_000) + (500 * 600000 / 1_000_000) = 150 + 300 = 450"
-    golden_assertions:
-      - "cost_ledger_event.cost_microdollars == 450"
+  # ─── DEBT LEDGER DECAY ───────────────────────────────────────────────────────
 
-  - id: "tc-10"
-    name: "Canary ping detects expired key"
-    description: "Synthetic background ping detects 401 Unauthorized"
-    given: "Key was revoked at provider, status was Healthy"
-    when: "Canary ping fires every 60s, returns HTTP 401"
-    then: "Key status changes to Disabled before real traffic hits it"
-    golden_assertions:
-      - "key.status == 'Disabled'"
+  - id: TC-06-DEBT-DECAY-30-PERCENT-DAILY
+    description: "Community debt decays by exactly 30% at midnight UTC (GC-02)"
+    category: debt_ledger
+    criteria: GC-02
+    input:
+      current_debt_micro_cu: 1000000000  # 1000 CU in micro-CUs
+      event: "MIDNIGHT_TICK"
+    expected_output:
+      new_debt_micro_cu: 700000000  # 700 CU
+    tolerance:
+      micro_cu: 1000000  # ±1 CU tolerance
 
-  - id: "tc-11"
-    name: "Sunset detection via headers"
-    description: "Provider Sunset header triggers deprecation workflow"
-    given: "Response from provider contains 'Sunset: <date>' header"
-    when: "Proxy parses header"
-    then: "ModelDef.sunset_at is updated in D1, telemetry alert triggered"
-    golden_assertions:
-      - "model_def.sunset_at != null"
+  - id: TC-07-DEBT-DECAY-ZERO-DEBT-STAYS-ZERO
+    description: "Zero debt remains zero after decay (no negative debt)"
+    category: debt_ledger
+    criteria: GC-02
+    input:
+      current_debt_micro_cu: 0
+      event: "MIDNIGHT_TICK"
+    expected_output:
+      new_debt_micro_cu: 0
 
-  - id: "tc-12"
-    name: "Auth token validation before container"
-    description: "Invalid Bearer token rejected at the Edge by Worker"
-    given: "Missing or invalid Bearer token in Authorization header"
-    when: "Request hits Cloudflare Worker"
-    then: "Return HTTP 401, Go container is not invoked"
-    golden_assertions:
-      - "response.status == 401"
-      - "container_invocation_count == 0"
+  - id: TC-08-DEBT-DECAY-SMALL-VALUE-ROUNDS-TO-ZERO
+    description: "Debt < 1 CU rounds down to 0 after decay (integer fixed-point math)"
+    category: debt_ledger
+    criteria: GC-02
+    input:
+      current_debt_micro_cu: 500000  # 0.5 CU
+      event: "MIDNIGHT_TICK"
+    expected_output:
+      new_debt_micro_cu: 0  # 0.5 CU × 0.7 = 0.35 CU → floor to 0
+
+  # ─── QUOTA JAIL TRANSITIONS ──────────────────────────────────────────────────
+
+  - id: TC-09-QUOTA-JAIL-SOFT-THRESHOLD
+    description: "SOFT_WARNING when debt > 0.5× daily contributed (GC-05)"
+    category: quota_jail
+    criteria: GC-05
+    input:
+      daily_contributed_micro_cu: 1000000000  # 1000 CU
+      current_debt_micro_cu: 500000001  # 500.000001 CU = just over 0.5x
+    expected_output:
+      jail_status: "SOFT_WARNING"
+      max_multiplier: 1.5
+
+  - id: TC-10-QUOTA-JAIL-HARD-THRESHOLD
+    description: "HARD_JAIL when debt > 1.0× daily contributed — routing blocked (GC-05)"
+    category: quota_jail
+    criteria: GC-05
+    input:
+      daily_contributed_micro_cu: 1000000000  # 1000 CU
+      current_debt_micro_cu: 1000000001  # 1000.000001 CU = just over 1.0x
+    expected_output:
+      jail_status: "HARD_JAIL"
+      max_multiplier: 1.0
+      route_type_blocked: "COMMUNITY_POOL"
+      http_status: 429
+
+  - id: TC-11-QUOTA-JAIL-IMMEDIATE-CLAMP
+    description: "Multiplier clamped immediately when threshold crossed — no grace window (GC-05)"
+    category: quota_jail
+    criteria: GC-05
+    input:
+      debt_crossing_event: true
+      debt_before_micro_cu: 999999999  # 999.999 CU (just under 1.0x)
+      cu_charge_micro: 2  # This charge crosses the threshold
+      daily_contributed_micro_cu: 1000000000
+    expected_output:
+      jail_status: "HARD_JAIL"
+      clamped_immediately: true
+
+  # ─── MIDNIGHT FREEZE ─────────────────────────────────────────────────────────
+
+  - id: TC-12-MIDNIGHT-FREEZE-BLOCKS-TOGGLE-2330
+    description: "Pool toggle to COMMUNITY blocked at 23:30 UTC"
+    category: midnight_freeze
+    input:
+      current_utc_time: "23:30:00"
+      action: "TOGGLE_POOL_MODE"
+      target_mode: "COMMUNITY"
+    expected_output:
+      success: false
+      http_status: 403
+      error: "MIDNIGHT_FREEZE_ACTIVE"
+
+  - id: TC-13-MIDNIGHT-FREEZE-BLOCKS-TOGGLE-2359
+    description: "Pool toggle to COMMUNITY blocked at 23:59 UTC"
+    category: midnight_freeze
+    input:
+      current_utc_time: "23:59:59"
+      action: "TOGGLE_POOL_MODE"
+      target_mode: "COMMUNITY"
+    expected_output:
+      success: false
+      http_status: 403
+      error: "MIDNIGHT_FREEZE_ACTIVE"
+
+  - id: TC-14-MIDNIGHT-FREEZE-BLOCKS-TOGGLE-0029
+    description: "Pool toggle to COMMUNITY blocked at 00:29 UTC (still in freeze window)"
+    category: midnight_freeze
+    input:
+      current_utc_time: "00:29:59"
+      action: "TOGGLE_POOL_MODE"
+      target_mode: "COMMUNITY"
+    expected_output:
+      success: false
+      http_status: 403
+      error: "MIDNIGHT_FREEZE_ACTIVE"
+
+  - id: TC-15-MIDNIGHT-FREEZE-ALLOWS-TOGGLE-0031
+    description: "Pool toggle succeeds at 00:31 UTC (freeze window expired)"
+    category: midnight_freeze
+    input:
+      current_utc_time: "00:31:00"
+      action: "TOGGLE_POOL_MODE"
+      target_mode: "COMMUNITY"
+    expected_output:
+      success: true
+      new_state: "OBSERVING"
+
+  # ─── ROTATION GRACE PERIOD ───────────────────────────────────────────────────
+
+  - id: TC-16-ROTATION-GRACE-PRESERVES-VESTING-TIER
+    description: "Replacing key within 30-min grace preserves Gold vesting tier"
+    category: rotation_grace
+    input:
+      action: "INITIATE_ROTATION"
+      current_vesting_tier: 3  # Gold
+    expected_output:
+      project_hash_state: "ROTATING"
+      grace_period_minutes: 30
+      retained_vesting_tier: 3
+
+  - id: TC-17-ROTATION-GRACE-EXPIRED-LEADS-TO-TOMBSTONE
+    description: "No replacement after 30 min → TOMBSTONED, GCP hash banned 14 days"
+    category: rotation_grace
+    input:
+      project_hash_state: "ROTATING"
+      rotating_since_minutes: 31
+    expected_output:
+      project_hash_state: "TOMBSTONED"
+
+  # ─── EYE-FOR-AN-EYE ROUTING ──────────────────────────────────────────────────
+
+  - id: TC-18-EYE-FOR-EYE-ALLOWED-MATCHING-PROVIDER
+    description: "Can draw from Gemini pool if contributed a Gemini key"
+    category: eye_for_an_eye
+    input:
+      contributed_providers: ["gemini"]
+      requested_provider: "gemini"
+      own_keys_exhausted: true
+      debt_ratio: 0.1
+    expected_output:
+      route_type: "COMMUNITY_POOL"
+
+  - id: TC-19-EYE-FOR-EYE-BLOCKED-MISMATCHED-PROVIDER
+    description: "Cannot draw from Groq pool if only contributed Gemini"
+    category: eye_for_an_eye
+    input:
+      contributed_providers: ["gemini"]
+      requested_provider: "groq"
+      own_keys_exhausted: true
+    expected_output:
+      route_type: "PROVIDER_NOT_CONTRIBUTED"
+      http_status: 429
+
+  # ─── HKDF DERIVATION ─────────────────────────────────────────────────────────
+
+  - id: TC-20-HKDF-DERIVES-UNIQUE-KEYS-PER-TENANT
+    description: "Different tenantIds produce distinct derived keys"
+    category: hkdf
+    criteria: GC-04
+    input:
+      tenant_id_a: "tenant-aaa"
+      tenant_id_b: "tenant-bbb"
+      same_master_key: true
+    expected_output:
+      keys_are_distinct: true
+
+  - id: TC-21-HKDF-STABLE-FOR-SAME-TENANT
+    description: "Same tenantId always derives the same key (deterministic)"
+    category: hkdf
+    input:
+      tenant_id: "tenant-aaa"
+      derive_count: 100
+    expected_output:
+      all_derived_keys_identical: true
+
+  # ─── TAKEDOWN TIMING SHIELD ──────────────────────────────────────────────────
+
+  - id: TC-22-TAKEDOWN-TIMING-SHIELD-HIT
+    description: "Takedown reports 200ms constant-time on hash MATCH"
+    category: takedown
+    input:
+      endpoint: "POST /report"
+      leaked_key: "known_leaked_key"
+      hash_result: "MATCH"
+    expected_output:
+      http_status: 200
+      response_time_ms: 200
+    tolerance:
+      response_time_ms: 10
+
+  - id: TC-23-TAKEDOWN-TIMING-SHIELD-MISS
+    description: "Takedown reports 200ms constant-time on hash MISS"
+    category: takedown
+    input:
+      endpoint: "POST /report"
+      leaked_key: "unknown_random_key"
+      hash_result: "MISS"
+    expected_output:
+      http_status: 200
+      response_time_ms: 200
+    tolerance:
+      response_time_ms: 10
+
+  - id: TC-24-TAKEDOWN-RATE-LIMIT
+    description: "6th request from same IP within 1h is rate limited"
+    category: takedown
+    input:
+      endpoint: "POST /report"
+      requests_in_last_hour: 5
+      next_request: true
+    expected_output:
+      http_status: 429
+
+  # ─── K1/K2 ATTESTATION GATE ──────────────────────────────────────────────────
+
+  - id: TC-25-ATTESTATION-GATE-BOTH-ACCEPTED
+    description: "Key registration succeeds when K1 and K2 both accepted"
+    category: attestation
+    input:
+      k1_accepted: true
+      k2_accepted: true
+      turnstile_valid: true
+    expected_output:
+      registration_success: true
+      community_routing_status: "OBSERVATION"
+
+  - id: TC-26-ATTESTATION-GATE-K1-MISSING
+    description: "Key registration blocked if K1 not accepted"
+    category: attestation
+    input:
+      k1_accepted: false
+      k2_accepted: true
+    expected_output:
+      registration_success: false
+      http_status: 400
+      error: "MISSING_K1_ATTESTATION"
+
+  - id: TC-27-ATTESTATION-GATE-TURNSTILE-MISSING
+    description: "Key registration blocked if Turnstile token absent"
+    category: attestation
+    input:
+      k1_accepted: true
+      k2_accepted: true
+      turnstile_valid: false
+    expected_output:
+      registration_success: false
+      http_status: 401
+
+  # ─── ANOMALOUS SPIKER BRAKE ──────────────────────────────────────────────────
+
+  - id: TC-28-ANOMALOUS-SPIKER-BRAKE-TRIGGERED
+    description: "PoolCoordinatorDO blocks tenant consuming >35% of pool traffic in 5min"
+    category: anomalous_spiker
+    input:
+      tenant_share_percentage: 36
+      window_minutes: 5
+    expected_output:
+      emergency_brake_engaged: true
+      http_status: 429
+      retry_after_seconds: 60
+
+  - id: TC-29-ANOMALOUS-SPIKER-BRAKE-NOT-TRIGGERED
+    description: "Tenant at exactly 35% is allowed through"
+    category: anomalous_spiker
+    input:
+      tenant_share_percentage: 35
+      window_minutes: 5
+    expected_output:
+      emergency_brake_engaged: false
+
+  # ─── GCP HASH EXTRACTION PROBE ───────────────────────────────────────────────
+
+  - id: TC-30-GCP-HASH-EXTRACTION-PROBE-SUCCESS
+    description: "Forced-error probe extracts GCP project number and stores hash"
+    category: gcp_probe
+    criteria: GC-04
+    input:
+      forced_invalid_model_id: "models/nonexistent-model"
+      provider: "gemini"
+    expected_output:
+      extracted_project_hash_exists: true
+      project_hash_length: 64  # SHA-256 hex
+      project_hash_state: "ACTIVE"
+
+  # ─── CGD: CONGESTION-GATED DEBT (ADR-005) ────────────────────────────────────
+
+  - id: TC-31-CGD-NO-DEBT-IDLE-POOL
+    description: "No debt accrues when pool utilization < 80% (idle pool)"
+    category: cgd_debt
+    criteria: GC-02
+    input:
+      pool_utilization_5min: 0.45
+      congestion_threshold: 0.80
+      CU_consumed_from_pool: 500000000  # 500 CU drawn
+    expected_output:
+      debt_delta_micro_cu: 0
+      route_type: "COMMUNITY_POOL"
+      congestion_exempt: true
+
+  - id: TC-32-CGD-NO-DEBT-AT-THRESHOLD-BOUNDARY
+    description: "No debt at exactly 79.9% utilization (below threshold)"
+    category: cgd_debt
+    criteria: GC-02
+    input:
+      pool_utilization_5min: 0.799
+      congestion_threshold: 0.80
+    expected_output:
+      debt_delta_micro_cu: 0
+      congestion_exempt: true
+
+  - id: TC-33-CGD-DEBT-ACCRUES-ABOVE-THRESHOLD
+    description: "Debt accrues when pool utilization >= 80% and consumer exceeds entitlement"
+    category: cgd_debt
+    criteria: GC-02
+    input:
+      pool_utilization_5min: 0.85
+      congestion_threshold: 0.80
+      CU_consumed_from_pool_micro_cu: 1000000000  # 1000 CU consumed
+      own_contributed_capacity_micro_cu: 500000000  # 500 CU contributed
+      vesting_multiplier: 1.5
+      # entitlement = 500 x 1.5 = 750 CU
+      # debt_delta = max(0, 1000 - 750) = 250 CU
+    expected_output:
+      debt_delta_micro_cu: 250000000  # 250 CU
+      congestion_exempt: false
+
+  - id: TC-34-CGD-ZERO-DEBT-WITHIN-ENTITLEMENT-CONGESTED
+    description: "No debt even when pool is congested if consumption within own entitlement"
+    category: cgd_debt
+    criteria: GC-02
+    input:
+      pool_utilization_5min: 0.90
+      congestion_threshold: 0.80
+      CU_consumed_from_pool_micro_cu: 600000000   # 600 CU consumed
+      own_contributed_capacity_micro_cu: 500000000 # 500 CU contributed
+      vesting_multiplier: 1.5
+      # entitlement = 500 x 1.5 = 750 CU; consumed 600 < 750
+    expected_output:
+      debt_delta_micro_cu: 0
+
+  - id: TC-35-CGD-SOLE-CONSUMER-WEEK-NO-DEBT
+    description: "Sole active consumer for a week on idle pool never accrues debt"
+    category: cgd_debt
+    criteria: GC-02
+    input:
+      pool_utilization_5min: 0.30  # Only A is using → low utilization
+      other_active_consumers: 0
+      contributor_count: 4  # A, B, C, D all contributed
+      CU_consumed_daily_micro_cu: 2000000000  # 2000 CU/day drawn
+    expected_output:
+      debt_delta_micro_cu: 0
+      jail_status: "PRISTINE"
+
+  # ─── DPKS: DEBT-PRIORITY KEY SELECTION (ADR-005) ─────────────────────────────
+
+  - id: TC-36-DPKS-SELECTS-HIGHEST-DEBT-KEY
+    description: "Pool dispatches through key owned by contributor with highest debt"
+    category: dpks_routing
+    input:
+      available_pool_keys:
+        - key_id: "key-A"
+          owner_debt_micro_cu: 500000000  # 500 CU debt
+          health_score: 0.95
+        - key_id: "key-B"
+          owner_debt_micro_cu: 100000000  # 100 CU debt
+          health_score: 0.95
+        - key_id: "key-C"
+          owner_debt_micro_cu: 0
+          health_score: 0.95
+    expected_output:
+      selected_key_id: "key-A"
+
+  - id: TC-37-DPKS-SKIPS-UNHEALTHY-HIGH-DEBT-KEY
+    description: "DPKS skips highest-debt key if it is unhealthy (health_score = 0)"
+    category: dpks_routing
+    input:
+      available_pool_keys:
+        - key_id: "key-A"
+          owner_debt_micro_cu: 500000000
+          health_score: 0.0  # Quarantined
+        - key_id: "key-B"
+          owner_debt_micro_cu: 100000000
+          health_score: 0.92
+    expected_output:
+      selected_key_id: "key-B"  # Falls to next healthy key
+
+  - id: TC-38-DPKS-SELF-HEALS-DEBT-VIA-SERVING
+    description: "Serving another tenant's request reduces key owner's debt"
+    category: dpks_routing
+    input:
+      tenant_requesting: "tenant-B"
+      key_selected_id: "key-A"
+      key_owner_id: "tenant-A"
+      key_owner_debt_before_micro_cu: 500000000  # 500 CU debt
+      CU_cost_micro_cu: 50000000  # 50 CU request
+    expected_output:
+      key_owner_debt_after_micro_cu: 450000000  # 500 - 50 = 450 CU
+      requesting_tenant_debt_delta_micro_cu: 0  # Pool is uncongested in this test
+
+  - id: TC-39-DPKS-DEBT-FLOOR-AT-ZERO
+    description: "Serving cannot reduce debt below zero (no negative debt)"
+    category: dpks_routing
+    input:
+      key_owner_debt_before_micro_cu: 10000000   # 10 CU debt
+      CU_cost_micro_cu: 50000000                 # 50 CU request (more than debt)
+    expected_output:
+      key_owner_debt_after_micro_cu: 0  # floor at 0
+
+  - id: TC-40-DPKS-ZERO-DEBT-KEYS-ROUND-ROBIN
+    description: "When all available keys have debt=0, selection is round-robin"
+    category: dpks_routing
+    input:
+      available_pool_keys:
+        - key_id: "key-B"
+          owner_debt_micro_cu: 0
+          health_score: 0.95
+        - key_id: "key-C"
+          owner_debt_micro_cu: 0
+          health_score: 0.95
+        - key_id: "key-D"
+          owner_debt_micro_cu: 0
+          health_score: 0.95
+    expected_output:
+      selection_strategy: "ROUND_ROBIN"
+      all_keys_equally_eligible: true
+
+  - id: TC-41-FREE-RIDER-ZERO-CONTRIBUTION-CONGESTED
+    description: "Tenant with zero contribution accumulates full debt during congestion"
+    category: cgd_debt
+    criteria: GC-05
+    input:
+      pool_utilization_5min: 0.85
+      own_contributed_capacity_micro_cu: 0  # No keys contributed
+      CU_consumed_from_pool_micro_cu: 200000000  # 200 CU drawn
+    expected_output:
+      debt_delta_micro_cu: 200000000  # Full debt = consumed - 0
+      jail_status_approaching: true
+
+  - id: TC-42-FREE-RIDER-ZERO-DEBT-IDLE-POOL
+    description: "Even a free-rider incurs no debt during idle pool (CGD protection)"
+    category: cgd_debt
+    input:
+      pool_utilization_5min: 0.40
+      own_contributed_capacity_micro_cu: 0  # No keys contributed
+      CU_consumed_from_pool_micro_cu: 200000000
+    expected_output:
+      debt_delta_micro_cu: 0  # Idle pool = free for everyone
+      note: "Free-rider tolerance during idle periods is acceptable and prevents waste"
