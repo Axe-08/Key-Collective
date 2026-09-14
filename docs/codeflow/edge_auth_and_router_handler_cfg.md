@@ -1,131 +1,116 @@
 ---
-file: docs/codeflow/edge_auth_and_router_handler_cfg.md
-project: Key Collective
-purity: [🟡 I/O Bound]
-cyclomatic_avg: 5
-date: 2026-09-10
-tags: [type/codeflow, Key Collective]
+file: src/worker/router_handler.ts
+project: Key-Collective
+purity: 🟡 I/O Bound
+cyclomatic_avg: 2.8
+date: 2026-09-15
+tags: [type/codeflow, Key-Collective, edge-worker, router]
 ---
 
-# 📄 Codeflow: `docs/codeflow/edge_auth_and_router_handler_cfg.md`
+# 📄 Codeflow: `src/worker/router_handler.ts`
 
-> **Module Responsibility:** Edge Authentication, Token Validation, RPM Checking & Budget Gating. Model Routing, DO Dispatch, and Streaming Response Passthrough.
-> **Purity Profile:** `🟡 I/O Bound`
+> **Module Responsibility:** Cloudflare Worker edge HTTP request router, Per-Tenant Durable Object key-pool dispatch, multi-model cascade resolution, and non-blocking streaming telemetry & cost recording.
+> **Purity Profile:** `🟡 I/O Bound` (dispatches edge fetch RPC, coordinates D1 persistence via non-blocking `ctx.waitUntil`, and emits Workers Analytics Engine events).
 
 ---
 
 ## 1. 🕸️ Inbound & Outbound Dependency Graph
+
 ```mermaid
 graph LR
     subgraph Callers
-        WorkerFetch[Worker fetch Event]
+        WorkerEntry["src/worker/index.ts (fetch)"]
+        TestHarness["src/worker/router_handler.test.ts"]
     end
-    subgraph `edge_auth_and_router`
-        AuthMiddleware_extractBearerToken[AuthMiddleware.extractBearerToken]
-        AuthMiddleware_authenticate[AuthMiddleware.authenticate]
-        RouterHandler_handle[RouterHandler.handle]
-        RouterHandler_dispatchStreamingResponse[RouterHandler.dispatchStreamingResponse]
-        RouterHandler_dispatchNonStreamingResponse[RouterHandler.dispatchNonStreamingResponse]
+    subgraph `src/worker/router_handler.ts`
+        Handle["RouterHandler.handle(req, env, ctx)"]
+        HandleChat["RouterHandler.handleChatCompletions(...)"]
+        HandleStream["RouterHandler.handleStreamingResponse(...)"]
+        HandleDashboard["RouterHandler.handleDashboardApi(...)"]
+        DOClient["DurableObjectKeyPoolClient"]
     end
     subgraph Callees
-        D1Database[D1 Database]
-        RateLimiter_check[RateLimiter.checkLimitDetailed]
-        KeyPoolDO[Key Pool DO RPC]
-        Upstream_fetch[Upstream Fetch]
+        AuthMid["AuthMiddleware.authenticate"]
+        Cascade["CascadeRouter.route"]
+        KeyPoolDO["KeyPoolDO (RPC / Fetch)"]
+        CostLedger["CostLedgerRepository.recordEvent"]
+        Telemetry["TelemetryEmitter.emit"]
     end
 
-    WorkerFetch --> RouterHandler_handle
-    RouterHandler_handle --> AuthMiddleware_authenticate
-    AuthMiddleware_authenticate --> AuthMiddleware_extractBearerToken
-    AuthMiddleware_authenticate --> D1Database
-    AuthMiddleware_authenticate --> RateLimiter_check
-    RouterHandler_handle --> RouterHandler_dispatchStreamingResponse
-    RouterHandler_handle --> RouterHandler_dispatchNonStreamingResponse
-    RouterHandler_dispatchStreamingResponse --> KeyPoolDO
-    RouterHandler_dispatchStreamingResponse --> Upstream_fetch
+    WorkerEntry --> Handle
+    TestHarness --> Handle
+    Handle --> AuthMid
+    Handle --> HandleDashboard
+    Handle --> HandleChat
+    HandleChat --> Cascade
+    Cascade --> DOClient
+    DOClient --> KeyPoolDO
+    HandleChat --> HandleStream
+    HandleStream --> CostLedger
+    HandleStream --> Telemetry
 ```
 
 ---
 
-## 2. 🔍 Function Logic & Control Flow Deep Dive
+## 2. 🔍 Core Function Logic & Control Flow Deep Dive
 
-### `def AuthMiddleware.authenticate(request, env, options) -> AuthenticatedContext`
+### `public async handle(request: Request, env: WorkerEnv, ctx?: ExecutionContextLike, preAuthenticatedContext?: AuthenticatedContext): Promise<Response>`
 * **Purity:** `🟡 I/O Bound`
-* **Complexity:** Cyclomatic: `8` | Cognitive: `10`
+* **Complexity:** Cyclomatic: 8 | Cognitive: 7
 
 #### Control Flow Graph (CFG)
 ```mermaid
 flowchart TD
-    Start[Start: authenticate] --> ExtractToken[Extract Bearer Token]
-    ExtractToken --> ValidFormat{Is Format Valid?}
-    ValidFormat -- No --> ThrowAuthErr[Throw AuthenticationError]
-    ValidFormat -- Yes --> D1Lookup[Lookup Token in D1]
-    D1Lookup --> TokenExists{Token Exists?}
-    TokenExists -- No --> ThrowAuthErr2[Throw AuthenticationError]
-    TokenExists -- Yes --> CheckExpiry{Is Expired?}
-    CheckExpiry -- Yes --> ThrowAuthErr3[Throw AuthenticationError]
-    CheckExpiry -- No --> CheckProvider{Provider Allowed?}
-    CheckProvider -- No --> ThrowAuthErr4[Throw AuthenticationError]
-    CheckProvider -- Yes --> CheckBudget{Budget Sufficient?}
-    CheckBudget -- No --> ThrowQuotaErr[Throw QuotaExceededError]
-    CheckBudget -- Yes --> CheckRPM[Check Rate Limit]
-    CheckRPM --> RpmOk{Allowed?}
-    RpmOk -- No --> ThrowRPMErr[Throw RateLimitExceededError]
-    RpmOk -- Yes --> Increment[Increment Rate Limiter]
-    Increment --> ReturnCtx[Return AuthenticatedContext]
+    Start([Inbound HTTP Request]) --> FreezeCheck{MIDNIGHT_FREEZE active?}
+    FreezeCheck -->|Yes| RetFreeze[Return HTTP 503 Maintenance]
+    FreezeCheck -->|No| TraceGen[Resolve or Generate x-kc-trace-id]
+    
+    TraceGen --> HealthCheck{Path == /health or /v1/health?}
+    HealthCheck -->|Yes| RetHealth[Return HTTP 200 Healthy JSON]
+    HealthCheck -->|No| DashboardCheck{Path starts with /api/?}
+    
+    DashboardCheck -->|Yes| ExecDashboard[handleDashboardApi: keys, stats, logs, oauth]
+    DashboardCheck -->|No| AuthPhase[Authenticate via AuthMiddleware]
+    
+    AuthPhase --> IsoGate{Header x-tenant-id matches Token tenantId?}
+    IsoGate -->|Mismatch| ErrIso[Throw TenantIsolationError HTTP 403]
+    IsoGate -->|Valid| RoutePath{Path Dispatch}
+    
+    RoutePath -->|GET /v1/models| RetModels[Return Filtered Models List]
+    RoutePath -->|POST /v1/chat/completions| ChatParse[Parse JSON & HandleChatCompletions]
+    RoutePath -->|/v1/keys or /v1/metrics| ForwardDO[forwardToDO RPC Proxy]
+    RoutePath -->|Unknown| Ret404[Return HTTP 404 Route Not Found]
+
+    ChatParse --> StreamFork{stream == true?}
+    StreamFork -->|Yes| StreamPipe[handleStreamingResponse: 0ms Passthrough + Async Ledger]
+    StreamFork -->|No| NonStreamExec[handleNonStreamingResponse: Complete & Cost Record]
+    
+    ErrIso --> ErrCatch[Format Error Response & Emit Error Telemetry]
+    RetFreeze --> Done([Response Sent])
+    RetHealth --> Done
+    ExecDashboard --> Done
+    RetModels --> Done
+    StreamPipe --> Done
+    NonStreamExec --> Done
+    Ret404 --> Done
+    ErrCatch --> Done
 ```
 
 #### Def-Use Data Flow Matrix
 | Parameter / Variable | Origin | Transformations | Mutation / Sinks |
 |---|---|---|---|
-| `request` | Argument | Header extracted | N/A |
-| `rawToken` | Local | Sanitized & Trimmed | Used for D1 lookup |
-| `record` | D1 DB | Validated | Returned in context |
+| `request` | Edge Fetch Event | Read headers, method, URL, and body stream | Passed to Route Handlers & Auth |
+| `traceId` | Inbound Header / `randomUUID()` | Validated / Fallback generated | Forwarded in downstream headers, D1 ledger, Telemetry |
+| `authContext` | `AuthMiddleware` | Decoded token, asserted tenant boundary | Invariant guard against cross-tenant state leak |
+| `cascadeRes` | `CascadeRouter.route()` | Dynamic model fallback resolution | Returned as stream/body, recorded in cost ledger |
+| `ctx` | Cloudflare Worker runtime | Non-blocking execution context | `ctx.waitUntil(finalizeStream)` |
 
 #### Edge Cases & Exception Audit
-- ⚠️ **Edge Case 1:** Token missing or malformed header format.
-- ⚠️ **Edge Case 2:** Expiration time has passed mid-flight.
-
----
-
-### `def RouterHandler.handle(request, env, ctx, preAuthCtx) -> Response`
-* **Purity:** `🟡 I/O Bound`
-* **Complexity:** Cyclomatic: `7` | Cognitive: `8`
-
-#### Control Flow Graph (CFG)
-```mermaid
-flowchart TD
-    Start[Start: handle] --> ExtractPath[Parse URL & Trace ID]
-    ExtractPath --> CheckAuth{Is Authenticated?}
-    CheckAuth -- No --> DoAuth[AuthMiddleware.authenticate]
-    CheckAuth -- Yes --> VerifyIsolation[Verify Tenant Isolation Header]
-    DoAuth --> VerifyIsolation
-    VerifyIsolation --> IsValid{Header matches Token?}
-    IsValid -- No --> ThrowIsolErr[Throw TenantIsolationError]
-    IsValid -- Yes --> RouteSwitch{Match Route}
-    RouteSwitch -- Health --> RetHealth[Return Health JSON]
-    RouteSwitch -- Models --> RetModels[Handle Models API]
-    RouteSwitch -- Keys --> FwdDO[Forward to DO]
-    RouteSwitch -- Completions --> ChatCompletions[handleChatCompletions]
-    RouteSwitch -- Default --> Ret404[Return 404 Not Found]
-```
-
-#### Def-Use Data Flow Matrix
-| Parameter / Variable | Origin | Transformations | Mutation / Sinks |
-|---|---|---|---|
-| `request` | Argument | JSON parsed | Forwarded to routes |
-| `traceId` | Header/Gen | Used in telemetry | Emitted to telemetry |
-
-#### Edge Cases & Exception Audit
-- ⚠️ **Edge Case 1:** Pre-authenticated context vs header mismatch.
-- ⚠️ **Edge Case 2:** Malformed JSON in completion body.
+- ⚠️ **Edge Case 1: Tenant Boundary Breach:** Inbound client passes `x-tenant-id: tenant_b` with a valid Bearer token for `tenant_a`. Trapped immediately with `TenantIsolationError` (HTTP 403) before any Durable Object stub lookup.
+- ⚠️ **Edge Case 2: Client Disconnect during SSE Stream:** Cloudflare worker aborts stream reading early; `finalizeStream` still captures accumulated prompt and partial completion tokens and flushes them to D1 without throwing unhandled exceptions.
 
 ---
 
 ## 3. 🛠️ Code Review & Optimization Notes
-- **Refactoring:** Consider splitting route matching into explicit controller classes for cleaner testing.
-- **Strengths:** Strict types, clean encapsulation, distinct error classes.
-
-## 🔗 Related Workflows & MOC
-- [[codebase-scribe-workflow]] — Used in Codebase Scribe & Cartographer
-- [[Templates-Index]] — Master Index of Workflows
+- **Strengths:** Zero-blocking hot path using `ctx.waitUntil()`, strictly typed error serialization through `formatRouterError()`, and fixed-point microdollar accounting (`int64` / `bigint`).
+- **Optimization:** Dynamic model registry is lazily instantiated to minimize isolate cold-start overhead (<15ms).
