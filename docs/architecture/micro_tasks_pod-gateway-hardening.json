@@ -1,71 +1,38 @@
 [
   {
     "task_id": "GATEWAY-001",
-    "description": "Implement Error Normalizer Regex and apply envelope in router error formatting.",
-    "files": ["src/errors/normalizer.ts", "src/worker/router_handler.ts"],
-    "contracts": [],
-    "dependencies": [],
-    "estimated_complexity": "low",
-    "acceptance_criteria": [
-      "New file `src/errors/normalizer.ts` exports `sanitizeErrorMessage`.",
-      "`sanitizeErrorMessage` redacts IP addresses and tokens.",
-      "`formatRouterError` in `src/worker/router_handler.ts` wraps the message in `sanitizeErrorMessage`."
-    ],
-    "context_bundle": {
-      "exact_signatures": [
-        "export function sanitizeErrorMessage(message: string): string;",
-        "export function formatRouterError(error: unknown): Response;"
-      ],
-      "contract_snippets": [],
-      "implementation_notes": "Use regex /(sk-[a-zA-Z0-9]{20,}|Bearer\\s+[a-zA-Z0-9\\-\\._~+\\/]+)/g for secrets and /\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b/g for IPs.",
-      "test_scenarios": ["Format error containing an IP", "Format error containing sk-key"],
-      "verify_command": "npx vitest run src/worker/router_handler.test.ts"
-    }
-  },
-  {
-    "task_id": "GATEWAY-002",
-    "description": "Implement /v1/report takedown endpoint with constant-time timing shield.",
-    "files": ["src/worker/router_handler.ts"],
-    "contracts": ["src/crypto/utils.ts"],
+    "description": "Implement Error Normalizer Regex, /v1/report takedown endpoint with timing shield, and Midnight Freeze guard global circuit breaker.",
+    "files": ["src/errors/normalizer.ts", "src/worker/router_handler.ts", "src/worker/env.ts"],
+    "contracts": ["src/contracts/auth.ts"],
     "dependencies": [],
     "estimated_complexity": "medium",
     "acceptance_criteria": [
+      "New file `src/errors/normalizer.ts` exports `sanitizeErrorMessage`.",
+      "`sanitizeErrorMessage` redacts IP addresses and tokens.",
+      "`formatRouterError` in `src/worker/router_handler.ts` wraps the message in `sanitizeErrorMessage`.",
       "RouterHandler processes `POST /v1/report`.",
-      "Uses `timingSafeEqualStrings` to validate `env.REPORT_WEBHOOK_SECRET`.",
+      "Uses `timingSafeEqualStrings` from `src/crypto/utils.ts` to validate `env.REPORT_WEBHOOK_SECRET`.",
       "Returns 401 Unauthorized for invalid or missing secret.",
-      "Returns 200 JSON success for valid secret."
-    ],
-    "context_bundle": {
-      "exact_signatures": [
-        "public async handleReport(request: Request, env: WorkerEnv): Promise<Response>;"
-      ],
-      "contract_snippets": [
-        "export function timingSafeEqualStrings(a: string, b: string): boolean;"
-      ],
-      "implementation_notes": "Check request headers for 'authorization'. Strip 'Bearer '. Compare securely with `env.REPORT_WEBHOOK_SECRET`.",
-      "test_scenarios": ["Missing header -> 401", "Wrong token -> 401", "Correct token -> 200"],
-      "verify_command": "npx vitest run src/worker/router_handler.test.ts"
-    }
-  },
-  {
-    "task_id": "GATEWAY-003",
-    "description": "Implement Midnight Freeze guard global circuit breaker.",
-    "files": ["src/worker/router_handler.ts", "src/worker/env.ts"],
-    "contracts": [],
-    "dependencies": [],
-    "estimated_complexity": "low",
-    "acceptance_criteria": [
+      "Returns 200 JSON success for valid secret.",
       "`WorkerEnv` includes optional `MIDNIGHT_FREEZE` string.",
       "`RouterHandler.handle` returns 503 if `env.MIDNIGHT_FREEZE === 'true'`.",
       "The 503 response uses standard error JSON envelope."
     ],
     "context_bundle": {
-      "exact_signatures": [
-        "public async handle(request: Request, env: WorkerEnv, ctx?: ExecutionContextLike, injectedAuth?: AuthenticatedContext): Promise<Response>;"
+      "exact_signatures": "export function sanitizeErrorMessage(message: string): string;\nexport function formatRouterError(error: unknown): Response;\npublic async handleReport(request: Request, env: WorkerEnv): Promise<Response>;\npublic async handle(request: Request, env: WorkerEnv, ctx?: ExecutionContextLike, injectedAuth?: AuthenticatedContext): Promise<Response>;",
+      "contract_snippets": [
+        "export function timingSafeEqualStrings(a: string, b: string): boolean;"
       ],
-      "contract_snippets": [],
-      "implementation_notes": "Place the check at the very top of `handle` in `RouterHandler`.",
-      "test_scenarios": ["MIDNIGHT_FREEZE='true' returns 503", "MIDNIGHT_FREEZE undefined passes through normally"],
+      "implementation_notes": "Use regex /(sk-[a-zA-Z0-9]{20,}|Bearer\\s+[a-zA-Z0-9\\-\\._~+\\/]+)/g for secrets and /\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b/g for IPs. Check request headers for 'authorization'. Strip 'Bearer '. Compare securely with `env.REPORT_WEBHOOK_SECRET`. Place the freeze check at the very top of `handle` in `RouterHandler`.",
+      "test_scenarios": [
+        "Format error containing an IP",
+        "Format error containing sk-key",
+        "Missing header -> 401",
+        "Wrong token -> 401",
+        "Correct token -> 200",
+        "MIDNIGHT_FREEZE='true' returns 503",
+        "MIDNIGHT_FREEZE undefined passes through normally"
+      ],
       "verify_command": "npx vitest run src/worker/router_handler.test.ts"
     }
   }
