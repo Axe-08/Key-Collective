@@ -1287,6 +1287,12 @@ export class RouterHandler {
         throw new RouterError("API key token is required", { statusCode: 400 });
       }
 
+      if (body.pool_type === 'COMMUNITY') {
+        if (!(tenantId.startsWith('usr_gh_') || tenantId === 'admin')) {
+          throw new RouterError("Only GitHub authenticated accounts may contribute keys to the Community Pool.", { statusCode: 403 });
+        }
+      }
+
       const rawKey = body.key.trim();
       const provider = body.provider === "gemini" ? "google" : body.provider;
       
@@ -1452,6 +1458,12 @@ export class RouterHandler {
       const newPoolType = body.pool_type;
       if (newPoolType !== 'COMMUNITY' && newPoolType !== 'PRIVATE') {
         throw new RouterError("pool_type must be 'COMMUNITY' or 'PRIVATE'", { statusCode: 400 });
+      }
+
+      if (newPoolType === 'COMMUNITY') {
+        if (!(tenantId.startsWith('usr_gh_') || tenantId === 'admin')) {
+          throw new RouterError("Only GitHub authenticated accounts may contribute keys to the Community Pool.", { statusCode: 403 });
+        }
       }
 
       if (!env.DB || typeof env.DB.prepare !== 'function') {

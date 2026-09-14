@@ -190,7 +190,10 @@
     onClose?: () => void;
     onAddKey?: (payload: CreateKeyPayload) => Promise<void>;
     onSubmit?: (data: KeyFormData) => Promise<void>;
+    isGitHubAuth?: boolean;
   } = $props();
+
+  let _isGitHubAuth = $derived(isGitHubAuth ?? false);
 
   let provider = $state<Provider>('gemini');
   let label = $state('');
@@ -201,6 +204,12 @@
   let selectedPoolType = $state<PoolType>('COMMUNITY');
   let attestK1 = $state<boolean>(false);
   let attestK2 = $state<boolean>(false);
+
+  $effect(() => {
+    if (!_isGitHubAuth) {
+      selectedPoolType = 'PRIVATE';
+    }
+  });
   let turnstileToken = $state<string>('');
 
   let isSubmitting = $state(false);
@@ -432,10 +441,11 @@
           <div class="grid grid-cols-2 gap-3">
             <button
               type="button"
+              disabled={!_isGitHubAuth}
               onclick={() => selectedPoolType = 'COMMUNITY'}
-              class="flex flex-col gap-1 p-3 rounded-xl border transition-all text-left cursor-pointer {selectedPoolType === 'COMMUNITY'
+              class="flex flex-col gap-1 p-3 rounded-xl border transition-all text-left {selectedPoolType === 'COMMUNITY'
                 ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200 shadow-md shadow-indigo-950/40 ring-1 ring-indigo-500/40'
-                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'}"
+                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'} {!_isGitHubAuth ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}"
             >
               <div class="font-bold text-white text-xs flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -462,6 +472,15 @@
               <div class="text-[10px] text-slate-400 leading-tight">Key is reserved strictly for your personal use.</div>
             </button>
           </div>
+          {#if !_isGitHubAuth}
+            <div class="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
+              <span class="text-amber-400 font-bold text-sm">🔒</span>
+              <div class="flex-1">
+                <p class="text-amber-300 font-semibold text-xs tracking-wide">GitHub Authentication Required</p>
+                <p class="text-[10px] text-amber-200/70 mt-0.5">Only GitHub-authenticated accounts may contribute to the Community Pool.</p>
+              </div>
+            </div>
+          {/if}
         </div>
 
         <!-- Label Input -->

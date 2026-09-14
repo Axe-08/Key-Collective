@@ -16,6 +16,7 @@
   import OAuthModal from './lib/OAuthModal.svelte';
   import Toast from './lib/Toast.svelte';
   import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
+  import ReportKeyModal from './lib/ReportKeyModal.svelte';
 
   // Navigation state (Stitch multi-screen routing)
   let activeTab = $state<'pool' | 'workbench' | 'docs' | 'admin' | 'commons'>('pool');
@@ -107,6 +108,7 @@
   ]);
 
   let isAddModalOpen = $state(false);
+  let isReportModalOpen = $state(false);
   let isOAuthModalOpen = $state(false);
   let oauthMode = $state<'login' | 'register'>('login');
   let autoRefresh = $state(true);
@@ -356,6 +358,7 @@
     {keys}
     {userAccount}
     onOpenAddModal={() => (isAddModalOpen = true)}
+    onOpenReportModal={() => (isReportModalOpen = true)}
     {todaySpendMicrodollars}
   />
 
@@ -500,7 +503,10 @@
 
     <!-- TAB 5: Pool Commons (v4 Reciprocal Commons — Community Debt Ledger & Eye-for-an-Eye) -->
     {#if activeTab === 'commons'}
-      <PoolCommonsTab />
+      <PoolCommonsTab 
+        tenantId={userAccount?.id || 'default'}
+        authToken={localStorage.getItem('kc_auth_token') || ''}
+      />
     {/if}
   </main>
 
@@ -509,6 +515,13 @@
     isOpen={isAddModalOpen}
     onClose={() => (isAddModalOpen = false)}
     onAddKey={handleAddKey}
+    isGitHubAuth={Boolean(userAccount?.githubId && userAccount.githubId > 0)}
+  />
+
+  <ReportKeyModal
+    isOpen={isReportModalOpen}
+    onClose={() => (isReportModalOpen = false)}
+    onSuccess={(msg) => addToast({ type: 'success', message: msg, duration: 4000 })}
   />
 
   <!-- OAuth & Tier Selection Modal -->

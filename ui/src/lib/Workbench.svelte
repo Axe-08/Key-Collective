@@ -177,14 +177,62 @@
     });
   }
 
-  function changePoolMode(id: string) {
-    providerKeys = providerKeys.map((k) => {
-      if (k.id === id) {
-        return { ...k, pool_type: k.pool_type === 'COMMUNITY' ? 'PRIVATE' : 'COMMUNITY' };
-      }
-      return k;
-    });
+  
+  function openSwitchPoolModal(key: any) {
+    const targetPool = key.pool_type === 'COMMUNITY' ? 'PRIVATE' : 'COMMUNITY';
+    if (targetPool === 'COMMUNITY' && (!account?.githubId || account.githubId <= 0)) {
+       alert("GitHub Authentication Required to contribute keys to the Community Pool.");
+       return;
+    }
+    switchPoolTarget = { keyId: key.id, targetPool };
+    switchPoolError = null;
+    switchPoolModalOpen = true;
   }
+
+  async function confirmSwitchPool() {
+    if (!switchPoolTarget) return;
+    switchPoolLoading = true;
+    switchPoolError = null;
+    try {
+      const res = await fetch(`/api/keys/${switchPoolTarget.keyId}/pool-mode`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pool_type: switchPoolTarget.targetPool })
+      });
+      if (res.status === 423) {
+        switchPoolError = "Anti-Midnight Freeze: Pool switching is frozen during the midnight UTC reset window (23:30–00:30 UTC).";
+        return;
+      }
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to switch pool");
+      }
+      
+      const updatedKeyData = await res.json();
+      providerKeys = providerKeys.map((k) => {
+        if (k.id === switchPoolTarget.keyId) {
+          return { 
+            ...k, 
+            pool_type: updatedKeyData.pool_type,
+            community_routing_status: updatedKeyData.community_routing_status,
+            observation_until: updatedKeyData.observation_until
+          };
+        }
+        return k;
+      });
+      switchPoolModalOpen = false;
+      switchPoolTarget = null;
+    } catch (e: any) {
+      switchPoolError = e.message;
+    } finally {
+      switchPoolLoading = false;
+    }
+  }
+
+  function changePoolMode(id: string) {
+    // Legacy mapping overridden
+  }
+
 
   function deleteProviderKey(id: string) {
     providerKeys = providerKeys.filter((k) => k.id !== id);
@@ -1116,11 +1164,11 @@ ${localKeys
 
   
   <!-- 3.5 My Contributed Provider Keys -->
-  <section class="space-y-3">
+  <section class="space-y-4">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
         <h2 class="font-headline-md text-headline-md font-semibold text-on-surface">
-          My Contributed Provider Keys
+          My Provider Keys
         </h2>
         <p class="font-body-sm text-body-sm text-outline">
           Manage keys you have provided to the Community or Private pools.
@@ -1128,52 +1176,87 @@ ${localKeys
       </div>
     </div>
     
-    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden flex flex-col p-4 max-h-[300px] overflow-y-auto">
       {#if providerKeysLoading}
         <div class="p-6 text-center text-outline">Loading provider keys...</div>
-      {:else if providerKeys.length === 0}
-        <div class="p-6 text-center text-outline">No contributed provider keys found.</div>
       {:else}
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse min-w-[700px]">
-            <thead>
-              <tr class="border-b border-outline-variant/30 bg-surface-container/50">
-                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
-                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
-                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
-                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Pool Type</th>
-                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Status</th>
-                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each providerKeys as k}
-                <tr class="border-b border-outline-variant/10 hover:bg-surface-container/30 transition-colors">
-                  <td class="p-3 font-body-sm text-body-sm text-on-surface capitalize">{k.provider}</td>
-                  <td class="p-3 font-body-sm text-body-sm text-on-surface">{k.label}</td>
-                  <td class="p-3 font-code-sm text-code-sm text-outline font-mono">{k.key_prefix}...</td>
-                  <td class="p-3">
-                    <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border
-                      {k.pool_type === 'COMMUNITY' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-surface-container-high text-on-surface-variant border-outline/30'}">
-                      {k.pool_type}
-                    </span>
-                  </td>
-                  <td class="p-3">
-                    <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border
-                      {k.community_routing_status === 'OBSERVATION' ? 'bg-error/10 text-error border-error/20' : 'bg-secondary/10 text-secondary border-secondary/20'}">
-                      {k.community_routing_status || k.status}
-                    </span>
-                  </td>
-                  <td class="p-3 flex items-center gap-2">
-                    <button class="text-xs text-primary hover:underline cursor-pointer" onclick={() => rotateProviderKey(k.id)}>Rotate</button>
-                    <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => changePoolMode(k.id)}>Switch Pool</button>
-                    <button class="text-xs text-error hover:underline cursor-pointer" onclick={() => deleteProviderKey(k.id)}>Delete</button>
-                  </td>
+        
+        <h3 class="text-label-md font-label-md text-on-surface font-semibold mb-2">My Private Provider Keys</h3>
+        {#if privateProviderKeys.length === 0}
+          <div class="p-4 text-center text-outline text-sm italic border rounded-lg border-outline-variant/20 mb-4">No private provider keys found.</div>
+        {:else}
+          <div class="overflow-x-auto border border-outline-variant/20 rounded-lg mb-6">
+            <table class="w-full text-left border-collapse min-w-[700px]">
+              <thead>
+                <tr class="border-b border-outline-variant/30 bg-surface-container/50">
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Status</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Actions</th>
                 </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {#each privateProviderKeys as k}
+                  <tr class="border-b border-outline-variant/10 hover:bg-surface-container/30 transition-colors">
+                    <td class="p-3 font-body-sm text-body-sm text-on-surface capitalize">{k.provider}</td>
+                    <td class="p-3 font-body-sm text-body-sm text-on-surface">{k.label}</td>
+                    <td class="p-3 font-code-sm text-code-sm text-outline font-mono">{k.key_prefix}...</td>
+                    <td class="p-3">
+                      <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border bg-secondary/10 text-secondary border-secondary/20">
+                        {k.status}
+                      </span>
+                    </td>
+                    <td class="p-3 flex items-center gap-2">
+                      <button class="text-xs text-primary hover:underline cursor-pointer" onclick={() => rotateProviderKey(k.id)}>Rotate</button>
+                      <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => openSwitchPoolModal(k)}>Switch to Community</button>
+                      <button class="text-xs text-error hover:underline cursor-pointer" onclick={() => deleteProviderKey(k.id)}>Delete</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+
+        <h3 class="text-label-md font-label-md text-on-surface font-semibold mb-2">My Contributed Community Keys</h3>
+        {#if communityProviderKeys.length === 0}
+          <div class="p-4 text-center text-outline text-sm italic border rounded-lg border-outline-variant/20 mb-4">No community provider keys found.</div>
+        {:else}
+          <div class="overflow-x-auto border border-outline-variant/20 rounded-lg mb-2">
+            <table class="w-full text-left border-collapse min-w-[700px]">
+              <thead>
+                <tr class="border-b border-outline-variant/30 bg-surface-container/50">
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Routing Status</th>
+                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each communityProviderKeys as k}
+                  <tr class="border-b border-outline-variant/10 hover:bg-surface-container/30 transition-colors">
+                    <td class="p-3 font-body-sm text-body-sm text-on-surface capitalize">{k.provider}</td>
+                    <td class="p-3 font-body-sm text-body-sm text-on-surface">{k.label}</td>
+                    <td class="p-3 font-code-sm text-code-sm text-outline font-mono">{k.key_prefix}...</td>
+                    <td class="p-3">
+                      <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border {k.community_routing_status === 'OBSERVATION' ? 'bg-error/10 text-error border-error/20' : 'bg-secondary/10 text-secondary border-secondary/20'}">
+                        {k.community_routing_status || 'OBSERVATION'}
+                      </span>
+                    </td>
+                    <td class="p-3 flex items-center gap-2">
+                      <button class="text-xs text-primary hover:underline cursor-pointer" onclick={() => rotateProviderKey(k.id)}>Rotate</button>
+                      <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => openSwitchPoolModal(k)}>Switch to Private</button>
+                      <button class="text-xs text-error hover:underline cursor-pointer" onclick={() => deleteProviderKey(k.id)}>Delete</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+
       {/if}
     </div>
   </section>
@@ -1784,6 +1867,65 @@ ${localKeys
           class="px-4 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-mono text-xs font-semibold transition-colors cursor-pointer"
         >
           Done
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+
+{#if switchPoolModalOpen && switchPoolTarget}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+    onclick={() => (switchPoolModalOpen = false)}
+  >
+    <div
+      class="rounded-xl bg-surface-container-low border border-outline-variant/30 p-6 max-w-md w-full space-y-4 specular-card shadow-2xl"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="flex items-center gap-3 border-b border-outline-variant/20 pb-3">
+        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+          <span class="material-symbols-outlined text-primary text-[18px]">swap_horiz</span>
+        </div>
+        <h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">Confirm Pool Switch</h3>
+      </div>
+      
+      <div class="text-body-sm font-body-sm text-on-surface-variant">
+        {#if switchPoolTarget.targetPool === 'COMMUNITY'}
+          <p class="mb-2">Switching this key to the Community Pool enters a 24-hour observation period (OBSERVATION status) before receiving reciprocal community routing credits.</p>
+          <p class="font-semibold text-amber-400">Pool switches are frozen during the midnight UTC reset window (23:30–00:30 UTC).</p>
+        {:else}
+          <p>Switching this key to Private will remove it from the reciprocal Community Pool immediately. It will only serve your personal requests.</p>
+        {/if}
+      </div>
+
+      {#if switchPoolError}
+        <div class="p-3 bg-error/10 border border-error/20 text-error text-xs rounded-lg mt-2">
+          {switchPoolError}
+        </div>
+      {/if}
+
+      <div class="flex justify-end gap-3 pt-3 border-t border-outline-variant/20">
+        <button
+          type="button"
+          onclick={() => (switchPoolModalOpen = false)}
+          disabled={switchPoolLoading}
+          class="px-4 py-2 rounded-lg border border-outline-variant/30 text-on-surface hover:bg-surface-container-high transition-colors font-semibold text-sm cursor-pointer disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={confirmSwitchPool}
+          disabled={switchPoolLoading}
+          class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-on-primary font-semibold text-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
+        >
+          {#if switchPoolLoading}
+            <span class="material-symbols-outlined animate-spin text-[16px]">refresh</span>
+          {/if}
+          Confirm Switch
         </button>
       </div>
     </div>

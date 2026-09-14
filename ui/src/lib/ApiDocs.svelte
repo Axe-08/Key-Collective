@@ -63,6 +63,7 @@
 
   // Request execution & response state
   let isSending = $state(false);
+  let fallbackModelUsed = $state<string | null>(null);
   let simulatedLatency = $state('18ms');
   let simulatedStatus = $state('200 OK');
   let responseChunks = $state<Array<{ text: string; class: string }>>([
@@ -163,6 +164,13 @@ stream = client.chat.completions.create(
         },
         body: payloadJson
       });
+      const modelUsed = res.headers.get('x-kc-model-used') || res.headers.get('x-kc-model');
+      const providerUsed = res.headers.get('x-kc-provider');
+      if (modelUsed && modelUsed !== selectedModel) {
+        fallbackModelUsed = modelUsed;
+      } else {
+        fallbackModelUsed = null;
+      }
       
       const latencyMs = Date.now() - startTime;
       simulatedLatency = `${latencyMs}ms`;
@@ -1237,15 +1245,32 @@ ${pySnippet}
                 bind:value={selectedModel}
                 class="w-full py-1.5 px-2.5 text-code-sm font-code-sm rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none cursor-pointer"
               >
-                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-                <option value="groq-llama-3.3-70b">groq-llama-3.3-70b</option>
-                <option value="cerebras-llama-3.3">cerebras-llama-3.3</option>
-                <option value="deepseek-v3">deepseek-v3</option>
-                <option value="gpt-4o">gpt-4o</option>
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
-              </select>
+                
+                
+                
+                
+                
+                
+                
+                
+              
+          <optgroup label="Google Gemini">
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+          </optgroup>
+          <optgroup label="GroqCloud">
+            <option value="openai/gpt-oss-120b">openai/gpt-oss-120b (Groq)</option>
+            <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Groq)</option>
+          </optgroup>
+          <optgroup label="SambaNova">
+            <option value="Meta-Llama-3.1-405B-Instruct">Meta-Llama-3.1-405B-Instruct (SambaNova)</option>
+          </optgroup>
+          <optgroup label="Cerebras">
+            <option value="llama3.1-70b">llama3.1-70b (Cerebras)</option>
+          </optgroup>
+
+</select>
             </div>
 
             <!-- Stream Toggle Switch -->
@@ -1356,6 +1381,17 @@ ${pySnippet}
             {/if}
           </button>
 
+          
+          {#if fallbackModelUsed && fallbackModelUsed !== selectedModel}
+            <div class="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-body-sm flex items-start gap-2">
+              <span class="material-symbols-outlined text-amber-400 text-[18px]">warning</span>
+              <div>
+                <span class="font-medium">Cascade Fallback Triggered:</span>
+                Requested <code class="font-mono text-xs text-on-surface">{selectedModel}</code> was rate-limited or unavailable.
+                Request was automatically served by <code class="font-mono text-xs font-semibold text-secondary">{fallbackModelUsed}</code> via community pool fallback.
+              </div>
+            </div>
+          {/if}
           <!-- Response Box with SSE Stream Tokens -->
           <div class="rounded-lg bg-surface-container-lowest border border-outline-variant/40 p-3">
             <div class="flex items-center justify-between pb-2 border-b border-outline-variant/20 mb-2">

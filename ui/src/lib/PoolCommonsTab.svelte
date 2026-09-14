@@ -17,21 +17,20 @@
   import { onMount } from 'svelte';
   import DebtLedgerWidget from './DebtLedgerWidget.svelte';
 
-  let { initialMetrics }: { initialMetrics?: PoolMetrics } = $props();
+  let { initialMetrics, authToken, tenantId = 'default' }: { initialMetrics?: PoolMetrics, authToken?: string, tenantId?: string } = $props();
 
   let activeSubTab = $state<'community' | 'providers' | 'contribution'>('community');
   
   let telemetry = $state<any>(null);
   let standing = $state<any>(null);
   let loading = $state(true);
-  
-  let tenantId = 'default';
 
   onMount(async () => {
     try {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
       const [telemetryRes, standingRes] = await Promise.all([
-        fetch('/api/pool/telemetry').catch(() => null),
-        fetch('/api/pool/standing').catch(() => null)
+        fetch('/api/pool/telemetry', { headers }).catch(() => null),
+        fetch('/api/pool/standing', { headers }).catch(() => null)
       ]);
       
       if (telemetryRes && telemetryRes.ok) {
@@ -62,50 +61,50 @@
     </div>
   {/if}
 
-  <div class="flex space-x-2 border-b border-gray-200">
+  <div class="flex space-x-2 border-b border-outline-variant/30">
     <button
-      class="px-4 py-2 font-medium {activeSubTab === 'community' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}"
+      class="px-4 py-2 {activeSubTab === 'community' ? 'bg-primary/10 text-primary border-b-2 border-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}"
       onclick={() => activeSubTab = 'community'}
     >
       Community Pool
     </button>
     <button
-      class="px-4 py-2 font-medium {activeSubTab === 'providers' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}"
+      class="px-4 py-2 {activeSubTab === 'providers' ? 'bg-primary/10 text-primary border-b-2 border-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}"
       onclick={() => activeSubTab = 'providers'}
     >
       Provider Pools
     </button>
     <button
-      class="px-4 py-2 font-medium {activeSubTab === 'contribution' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}"
+      class="px-4 py-2 {activeSubTab === 'contribution' ? 'bg-primary/10 text-primary border-b-2 border-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}"
       onclick={() => activeSubTab = 'contribution'}
     >
       My Contribution
     </button>
   </div>
 
-  <div class="p-4 bg-white rounded-lg shadow">
+  <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-6 text-on-surface">
     {#if loading}
-      <div class="text-gray-500">Loading pool data...</div>
+      <div class="text-on-surface-variant">Loading pool data...</div>
     {:else}
       {#if activeSubTab === 'community'}
         <div class="space-y-4">
           <h2 class="text-xl font-bold">Community Pool</h2>
           <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div class="p-4 border rounded shadow-sm bg-gray-50">
-              <div class="text-sm text-gray-500">Total Active Keys</div>
-              <div class="text-2xl font-semibold">{telemetry?.total_active_keys ?? 'N/A'}</div>
+            <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
+              <div class="text-sm text-on-surface-variant">Total Active Keys</div>
+              <div class="text-2xl font-semibold">{telemetry?.total_active_keys ?? 0}</div>
             </div>
-            <div class="p-4 border rounded shadow-sm bg-gray-50">
-              <div class="text-sm text-gray-500">Keys in Observation</div>
-              <div class="text-2xl font-semibold">{telemetry?.keys_in_observation ?? 'N/A'}</div>
+            <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
+              <div class="text-sm text-on-surface-variant">Keys in Observation</div>
+              <div class="text-2xl font-semibold">{telemetry?.keys_in_observation ?? 0}</div>
             </div>
-            <div class="p-4 border rounded shadow-sm bg-gray-50">
-              <div class="text-sm text-gray-500">Keys Quarantined</div>
-              <div class="text-2xl font-semibold">{telemetry?.keys_quarantined ?? 'N/A'}</div>
+            <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
+              <div class="text-sm text-on-surface-variant">Keys Quarantined</div>
+              <div class="text-2xl font-semibold">{telemetry?.keys_quarantined ?? 0}</div>
             </div>
-            <div class="p-4 border rounded shadow-sm bg-gray-50">
-              <div class="text-sm text-gray-500">Pool Utilization</div>
-              <div class="text-2xl font-semibold">{telemetry?.pool_utilization_percent ? `${telemetry.pool_utilization_percent}%` : 'N/A'}</div>
+            <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
+              <div class="text-sm text-on-surface-variant">Pool Utilization</div>
+              <div class="text-2xl font-semibold">{telemetry?.pool_utilization_percent ? `${telemetry.pool_utilization_percent}%` : '0%'}</div>
             </div>
           </div>
         </div>
@@ -114,33 +113,33 @@
       {#if activeSubTab === 'providers'}
         <div class="space-y-4">
           <h2 class="text-xl font-bold">Provider Pools</h2>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
+          <div class="overflow-x-auto rounded-xl border border-outline-variant/30">
+            <table class="min-w-full divide-y divide-outline-variant/20">
+              <thead class="bg-surface-container/80 text-on-surface-variant text-label-md font-semibold">
                 <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Keys</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observation</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quarantined</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">W_provider</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eye-for-Eye</th>
+                  <th class="px-6 py-3 text-left">Provider</th>
+                  <th class="px-6 py-3 text-left">Active Keys</th>
+                  <th class="px-6 py-3 text-left">Observation</th>
+                  <th class="px-6 py-3 text-left">Quarantined</th>
+                  <th class="px-6 py-3 text-left">W_provider</th>
+                  <th class="px-6 py-3 text-left">Eye-for-Eye</th>
                 </tr>
               </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                {#if telemetry?.providers && Array.isArray(telemetry.providers)}
-                  {#each telemetry.providers as provider}
-                    <tr>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{provider.name ?? 'Unknown'}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.active_keys ?? 0}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.observation ?? 0}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.quarantined ?? 0}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.w_provider ?? 0}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.eye_for_eye ?? 0}</td>
+              <tbody class="divide-y divide-outline-variant/20">
+                {#if telemetry?.provider_pools && Array.isArray(telemetry.provider_pools)}
+                  {#each telemetry.provider_pools as p}
+                    <tr class="hover:bg-surface-container/30 text-on-surface">
+                      <td class="px-6 py-4 whitespace-nowrap">{p.provider ?? 'Unknown'}</td>
+                      <td class="px-6 py-4 whitespace-nowrap">{p.active_keys ?? 0}</td>
+                      <td class="px-6 py-4 whitespace-nowrap">{p.observation_keys ?? 0}</td>
+                      <td class="px-6 py-4 whitespace-nowrap">{p.quarantined_keys ?? 0}</td>
+                      <td class="px-6 py-4 whitespace-nowrap">{p.w_provider ? `${(p.w_provider * 100).toFixed(0)}%` : '0%'}</td>
+                      <td class="px-6 py-4 whitespace-nowrap">{p.eye_for_eye_accessible ? 'Granted' : 'Locked (Add key)'}</td>
                     </tr>
                   {/each}
                 {:else}
                   <tr>
-                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">No provider data available.</td>
+                    <td colspan="6" class="px-6 py-4 text-center text-on-surface-variant">No provider data available.</td>
                   </tr>
                 {/if}
               </tbody>
@@ -153,29 +152,35 @@
         <div class="space-y-4">
           <h2 class="text-xl font-bold">My Contribution</h2>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div class="p-4 border rounded shadow-sm bg-gray-50">
-              <div class="text-sm text-gray-500">Multiplier</div>
-              <div class="text-2xl font-semibold">{standing?.multiplier ?? 'N/A'}</div>
-            </div>
-            <div class="p-4 border rounded shadow-sm bg-gray-50">
-              <div class="text-sm text-gray-500">Jail Status</div>
+            <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
+              <div class="text-sm text-on-surface-variant">Multiplier</div>
               <div class="text-2xl font-semibold">
-                {#if standing?.jail_status}
-                  <span class="text-red-600">Jailed</span>
-                {:else if standing?.jail_status === false}
-                  <span class="text-green-600">Free</span>
+                {standing?.multiplier ?? 1.5}&times; <span class="text-sm text-on-surface-variant font-normal">(Max: {standing?.multiplier_ceiling ?? 4.5}&times;)</span>
+              </div>
+            </div>
+            <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
+              <div class="text-sm text-on-surface-variant">Jail Status</div>
+              <div class="text-xl font-semibold flex items-center mt-1">
+                {#if standing?.jail_status === 'PRISTINE' || !standing?.jail_status}
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-secondary/10 text-secondary border border-secondary/20">Pristine</span>
+                {:else if standing?.jail_status === 'SOFT_WARNING'}
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">Soft Warning</span>
+                {:else if standing?.jail_status === 'HARD_JAIL'}
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-error/10 text-error border border-error/20">Quota Jail</span>
                 {:else}
-                  N/A
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-secondary/10 text-secondary border border-secondary/20">Pristine</span>
                 {/if}
               </div>
             </div>
-            <div class="p-4 border rounded shadow-sm bg-gray-50">
-              <div class="text-sm text-gray-500">CU Balance</div>
-              <div class="text-2xl font-semibold">{standing?.cu_balance ?? 'N/A'}</div>
+            <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
+              <div class="text-sm text-on-surface-variant">CU Balance / Debt</div>
+              <div class="text-lg font-semibold mt-1">
+                {standing?.community_debt_cu ?? 0} &micro;CU debt / {standing?.daily_contributed_cu ?? 0} &micro;CU contributed
+              </div>
             </div>
           </div>
           
-          <div class="mt-6 border-t pt-4">
+          <div class="mt-6 border-t border-outline-variant/30 pt-4">
             <DebtLedgerWidget {tenantId} />
           </div>
         </div>
