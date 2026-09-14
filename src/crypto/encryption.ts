@@ -140,6 +140,41 @@ export async function importRawKey(rawKey: Uint8Array): Promise<CryptoKey> {
   )) as CryptoKey;
 }
 
+
+/**
+ * Derives a 256-bit AES-GCM CryptoKey for a specific tenant using HKDF.
+ *
+ * @param masterSecret The master secret key material.
+ * @param tenantId The unique tenant identifier to use as the salt.
+ * @returns A promise resolving to the tenant-specific CryptoKey.
+ */
+export async function deriveTenantKey(masterSecret: string | Uint8Array, tenantId: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  
+  const keyMaterialBytes = typeof masterSecret === 'string' ? encoder.encode(masterSecret) : masterSecret;
+  
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    keyMaterialBytes,
+    { name: "HKDF" },
+    false,
+    ["deriveKey"]
+  );
+
+  return (await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: encoder.encode(tenantId),
+      info: encoder.encode("aes-256-gcm-key")
+    },
+    baseKey,
+    { name: ENCRYPTION_ALGORITHM, length: ENCRYPTION_KEY_LENGTH },
+    false,
+    ["encrypt", "decrypt"]
+  )) as CryptoKey;
+}
+
 /**
  * Resolves a KeyInput (CryptoKey, raw bytes, or passphrase string) into a CryptoKey.
  */
@@ -423,6 +458,18 @@ function decodeBase64OrHex(input: string, expectedLength?: number): Uint8Array {
  */
 export class EncryptionService {
   constructor(private config: CryptoConfig) {}
+
+  /**
+   * Factory method to create an EncryptionService for a specific tenant using HKDF.
+   * Ensures strict per-tenant isolation (zero cross-tenant state).
+   *
+   * @param masterSecret Master secret key material.
+   * @param tenantId The unique identifier for the tenant.
+   */
+  static async createForTenant(masterSecret: string | Uint8Array, tenantId: string): Promise<EncryptionService> {
+    const encryptionKey = await deriveTenantKey(masterSecret, tenantId);
+    return new EncryptionService({ encryptionKey });
+  }
 
   /**
    * Encrypts plaintext using AES-256-GCM with a unique 12-byte nonce.
