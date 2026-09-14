@@ -3,7 +3,7 @@
     "task_id": "GATEWAY-001",
     "description": "Implement Error Normalizer Regex, /v1/report takedown endpoint with timing shield, and Midnight Freeze guard global circuit breaker.",
     "files": ["src/errors/normalizer.ts", "src/worker/router_handler.ts", "src/worker/env.ts"],
-    "contracts": ["src/contracts/auth.ts"],
+    "contracts": ["auth.ts"],
     "dependencies": [],
     "estimated_complexity": "medium",
     "acceptance_criteria": [
