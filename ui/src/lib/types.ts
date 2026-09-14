@@ -72,3 +72,11 @@ export function formatMicrodollars(amount: Microdollars): string {
     maximumFractionDigits: 6,
   }).format(usd);
 }
+
+export interface DebtEntry {
+  id: string;
+  amount: number; // int64 microdollars: 1 USD = 1,000,000 µ$
+  description?: string;
+  status?: 'pending' | 'resolved';
+  createdAt?: string;
+}

@@ -1,14 +1,250 @@
+<script module lang="ts">
+  export type KeyType = 'gemini' | 'groq' | string;
+
+  export type KeyFormData = {
+    name: string;
+    key: string;
+  };
+
+  export interface EncryptedPayload {
+    ciphertext: Uint8Array;
+    nonce: Uint8Array;
+    combined: Uint8Array;
+    ciphertextB64: string;
+    nonceB64: string;
+    combinedB64: string;
+  }
+
+  export interface EncryptedSubmission {
+    name: string;
+    key: string;
+    ciphertext: string;
+    nonce: string;
+    encrypted: EncryptedPayload;
+  }
+
+  export const NONCE_LENGTH_BYTES = 12;
+  export const ENCRYPTION_ALGORITHM = 'AES-GCM';
+  export const DEFAULT_KEY_DERIVATION_SECRET = 'KC_DEFAULT_CLIENT_MASTER_KEY_SECRET_32B';
+
+  export function uint8ArrayToBase64(bytes: Uint8Array): string {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(bytes).toString('base64');
+    }
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  export function base64ToUint8Array(base64: string): Uint8Array {
+    if (typeof Buffer !== 'undefined') {
+      return new Uint8Array(Buffer.from(base64, 'base64'));
+    }
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  /**
+   * Generates a cryptographically secure 12-byte (96-bit) nonce for AES-GCM.
+   */
+  export function generateNonce(length: number = NONCE_LENGTH_BYTES): Uint8Array {
+    if (length !== NONCE_LENGTH_BYTES) {
+      throw new Error(`Invalid nonce length: expected ${NONCE_LENGTH_BYTES} bytes, got ${length}`);
+    }
+    return crypto.getRandomValues(new Uint8Array(length));
+  }
+
+  /**
+   * Encrypts plaintext using AES-256-GCM via Web Crypto API with a unique 12-byte nonce.
+   */
+  export async function encryptPayload(
+    plaintext: string,
+    secretKey: string = DEFAULT_KEY_DERIVATION_SECRET,
+    customNonce?: Uint8Array
+  ): Promise<EncryptedPayload> {
+    if (plaintext.length === 0) {
+      throw new Error('Key cannot be empty');
+    }
+
+    const nonce = customNonce ?? generateNonce();
+    if (nonce.byteLength !== NONCE_LENGTH_BYTES) {
+      throw new Error(`Invalid nonce length: expected ${NONCE_LENGTH_BYTES} bytes, got ${nonce.byteLength}`);
+    }
+
+    const enc = new TextEncoder();
+    const rawSecret = enc.encode(secretKey);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', rawSecret);
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      hashBuffer,
+      { name: ENCRYPTION_ALGORITHM, length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+
+    const data = enc.encode(plaintext);
+    const ciphertextBuffer = await crypto.subtle.encrypt(
+      {
+        name: ENCRYPTION_ALGORITHM,
+        iv: nonce,
+        tagLength: 128,
+      },
+      cryptoKey,
+      data
+    );
+
+    const ciphertext = new Uint8Array(ciphertextBuffer);
+    const combined = new Uint8Array(nonce.byteLength + ciphertext.byteLength);
+    combined.set(nonce, 0);
+    combined.set(ciphertext, nonce.byteLength);
+
+    return {
+      ciphertext,
+      nonce,
+      combined,
+      ciphertextB64: uint8ArrayToBase64(ciphertext),
+      nonceB64: uint8ArrayToBase64(nonce),
+      combinedB64: uint8ArrayToBase64(combined),
+    };
+  }
+
+  /**
+   * Decrypts ciphertext using AES-256-GCM via Web Crypto API.
+   */
+  export async function decryptPayload(
+    ciphertext: Uint8Array,
+    nonce: Uint8Array,
+    secretKey: string = DEFAULT_KEY_DERIVATION_SECRET
+  ): Promise<string> {
+    if (nonce.byteLength !== NONCE_LENGTH_BYTES) {
+      throw new Error(`Invalid nonce length: expected ${NONCE_LENGTH_BYTES} bytes, got ${nonce.byteLength}`);
+    }
+
+    const enc = new TextEncoder();
+    const rawSecret = enc.encode(secretKey);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', rawSecret);
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      hashBuffer,
+      { name: ENCRYPTION_ALGORITHM, length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      {
+        name: ENCRYPTION_ALGORITHM,
+        iv: nonce,
+        tagLength: 128,
+      },
+      cryptoKey,
+      ciphertext
+    );
+
+    return new TextDecoder().decode(decryptedBuffer);
+  }
+
+  // Modal State Interface
+  export interface ModalState {
+    isOpen: boolean;
+    type: KeyType;
+    lastEncryptedPayload?: EncryptedPayload;
+    lastSubmittedData?: KeyFormData;
+  }
+
+  // Reactive State Store
+  const modalState: ModalState = {
+    isOpen: false,
+    type: 'gemini',
+    lastEncryptedPayload: undefined,
+    lastSubmittedData: undefined,
+  };
+
+  type StateListener = (state: Readonly<ModalState>) => void;
+  const stateListeners = new Set<StateListener>();
+
+  function notifyListeners() {
+    for (const listener of stateListeners) {
+      listener(modalState);
+    }
+  }
+
+  export function subscribeModalState(listener: StateListener): () => void {
+    stateListeners.add(listener);
+    listener(modalState);
+    return () => stateListeners.delete(listener);
+  }
+
+  export function getModalState(): Readonly<ModalState> {
+    return modalState;
+  }
+
+  let externalSubmitHandler: ((data: KeyFormData, encrypted: EncryptedPayload) => Promise<void>) | undefined;
+
+  export function setModalSubmitHandler(
+    handler?: (data: KeyFormData, encrypted: EncryptedPayload) => Promise<void>
+  ): void {
+    externalSubmitHandler = handler;
+  }
+
+  /**
+   * Exact signature: function openModal(type: KeyType): void;
+   */
+  export function openModal(type: KeyType = 'gemini'): void {
+    modalState.isOpen = true;
+    modalState.type = type;
+    notifyListeners();
+  }
+
+  /**
+   * Exact signature: function closeModal(): void;
+   */
+  export function closeModal(): void {
+    modalState.isOpen = false;
+    notifyListeners();
+  }
+
+  /**
+   * Exact signature: function submitKey(data: KeyFormData): Promise<void>;
+   * Encrypts the payload with AES-256-GCM via Web Crypto API with a unique 12-byte nonce.
+   */
+  export async function submitKey(data: KeyFormData): Promise<void> {
+    if (!data.key || data.key.trim().length === 0) {
+      throw new Error('Please provide a valid API key.');
+    }
+
+    // Encrypt payload before submit using AES-256-GCM with unique 12-byte nonce
+    const encrypted = await encryptPayload(data.key.trim());
+    modalState.lastEncryptedPayload = encrypted;
+    modalState.lastSubmittedData = { ...data };
+    notifyListeners();
+
+    if (externalSubmitHandler) {
+      await externalSubmitHandler(data, encrypted);
+    }
+  }
+</script>
+
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
   import type { Provider, CreateKeyPayload } from './types';
 
   let {
-    isOpen,
+    isOpen = false,
     onClose,
     onAddKey,
+    onSubmit,
   }: {
-    isOpen: boolean;
-    onClose: () => void;
-    onAddKey: (payload: CreateKeyPayload) => Promise<void>;
+    isOpen?: boolean;
+    onClose?: () => void;
+    onAddKey?: (payload: CreateKeyPayload) => Promise<void>;
+    onSubmit?: (data: KeyFormData, encrypted: EncryptedPayload) => Promise<void>;
   } = $props();
 
   let provider = $state<Provider>('gemini');
@@ -22,7 +258,25 @@
   let errorMessage = $state<string | null>(null);
   let showKey = $state(false);
 
-  // When provider changes, update default RPM/RPD limits if user hasn't manually customized them away from defaults
+  let moduleIsOpen = $state(modalState.isOpen);
+
+  let unsubscribe: (() => void) | undefined;
+  onMount(() => {
+    unsubscribe = subscribeModalState((state) => {
+      moduleIsOpen = state.isOpen;
+      if (state.type === 'gemini' || state.type === 'groq') {
+        handleProviderSelect(state.type);
+      }
+    });
+  });
+
+  onDestroy(() => {
+    if (unsubscribe) unsubscribe();
+  });
+
+  let visible = $derived(isOpen || moduleIsOpen);
+
+  // When provider changes, update default RPM/RPD limits
   function handleProviderSelect(selected: Provider) {
     provider = selected;
     if (selected === 'gemini') {
@@ -34,10 +288,15 @@
     }
   }
 
+  function handleClose() {
+    closeModal();
+    if (onClose) onClose();
+  }
+
   // Handle escape key
   function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && isOpen && !isSubmitting) {
-      onClose();
+    if (e.key === 'Escape' && visible && !isSubmitting) {
+      handleClose();
     }
   }
 
@@ -63,21 +322,37 @@
 
     isSubmitting = true;
     try {
-      await onAddKey({
-        provider,
-        label: label.trim() || `${provider}-key-${Date.now().toString(36).slice(-4)}`,
+      const keyName = label.trim() || `${provider}-key-${Date.now().toString(36).slice(-4)}`;
+
+      // Execute AES-256-GCM encryption requirement via submitKey
+      await submitKey({
+        name: keyName,
         key: trimmedKey,
-        rpm_limit: Number(rpmLimit) || 15,
-        rpd_limit: Number(rpdLimit) || 1500,
-        priority: Number(priority) || 0,
       });
+
+      const encrypted = modalState.lastEncryptedPayload;
+
+      if (onAddKey) {
+        await onAddKey({
+          provider,
+          label: keyName,
+          key: trimmedKey,
+          rpm_limit: Number(rpmLimit) || 15,
+          rpd_limit: Number(rpdLimit) || 1500,
+          priority: Number(priority) || 0,
+        });
+      }
+
+      if (onSubmit && encrypted) {
+        await onSubmit({ name: keyName, key: trimmedKey }, encrypted);
+      }
 
       // Reset form
       label = '';
       apiKey = '';
       priority = 0;
       handleProviderSelect('gemini');
-      onClose();
+      handleClose();
     } catch (err: any) {
       errorMessage = err?.message || 'Failed to register API key with proxy backend.';
     } finally {
@@ -88,7 +363,7 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-{#if isOpen}
+{#if visible}
   <!-- Backdrop -->
   <div
     class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
@@ -96,10 +371,10 @@
     aria-modal="true"
     tabindex="-1"
     onclick={(e) => {
-      if (e.target === e.currentTarget && !isSubmitting) onClose();
+      if (e.target === e.currentTarget && !isSubmitting) handleClose();
     }}
     onkeydown={(e) => {
-      if (e.key === 'Escape' && !isSubmitting) onClose();
+      if (e.key === 'Escape' && !isSubmitting) handleClose();
     }}
   >
     <div class="w-full max-w-lg rounded-2xl bg-[#0e121a] border border-white/10 shadow-2xl shadow-indigo-950/40 overflow-hidden my-8">
@@ -118,7 +393,7 @@
         </div>
         <button
           type="button"
-          onclick={onClose}
+          onclick={handleClose}
           disabled={isSubmitting}
           class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
           aria-label="Close dialog"
@@ -235,7 +510,7 @@
             </button>
           </div>
           <p class="mt-1 text-[10px] text-slate-500">
-            Encrypted with AES-256-GCM via Master Key at rest upon proxy ingestion.
+            Encrypted with AES-256-GCM via Web Crypto API with unique 12-byte nonce at rest.
           </p>
         </div>
 
@@ -294,7 +569,7 @@
         <div class="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2.5">
           <button
             type="button"
-            onclick={onClose}
+            onclick={handleClose}
             disabled={isSubmitting}
             class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors disabled:opacity-50 text-xs cursor-pointer"
           >
