@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { UserAccount, Project, ProjectKey, UserTier, TierLimits } from '../../../src/contracts/v3_types';
   import { TIER_LIMITS_MAP } from '../../../src/contracts/v3_types';
+  import type { APIKey } from './types';
 
   interface Props {
     userAccount?: UserAccount;
@@ -144,6 +145,51 @@
   // Local state for interactive updates
   let localProjects = $state<ExtendedProject[]>([]);
   let localKeys = $state<ExtendedKey[]>([]);
+
+  let providerKeys = $state<APIKey[]>([]);
+  let providerKeysLoading = $state(true);
+
+  $effect(() => {
+    fetch('/api/keys')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          providerKeys = data;
+        } else if (data && Array.isArray(data.keys)) {
+          providerKeys = data.keys;
+        }
+      })
+      .catch((err) => console.error('Failed to fetch keys', err))
+      .finally(() => {
+        providerKeysLoading = false;
+      });
+  });
+
+  const communityKeys = $derived(providerKeys.filter((k) => k.pool_type === 'COMMUNITY'));
+  const observationKeys = $derived(providerKeys.filter((k) => k.community_routing_status === 'OBSERVATION'));
+
+  function rotateProviderKey(id: string) {
+    providerKeys = providerKeys.map((k) => {
+      if (k.id === id) {
+        return { ...k, key_prefix: 'kc_prov_' + Math.random().toString(36).substring(2, 9) };
+      }
+      return k;
+    });
+  }
+
+  function changePoolMode(id: string) {
+    providerKeys = providerKeys.map((k) => {
+      if (k.id === id) {
+        return { ...k, pool_type: k.pool_type === 'COMMUNITY' ? 'PRIVATE' : 'COMMUNITY' };
+      }
+      return k;
+    });
+  }
+
+  function deleteProviderKey(id: string) {
+    providerKeys = providerKeys.filter((k) => k.id !== id);
+  }
+
 
   // Selected Tier state: defaults to account tier or builder
   let selectedTier = $state<UserTier>('builder');
@@ -1065,6 +1111,70 @@ ${localKeys
           </div>
         </div>
       {/each}
+    </div>
+  </section>
+
+  
+  <!-- 3.5 My Contributed Provider Keys -->
+  <section class="space-y-3">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h2 class="font-headline-md text-headline-md font-semibold text-on-surface">
+          My Contributed Provider Keys
+        </h2>
+        <p class="font-body-sm text-body-sm text-outline">
+          Manage keys you have provided to the Community or Private pools.
+        </p>
+      </div>
+    </div>
+    
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+      {#if providerKeysLoading}
+        <div class="p-6 text-center text-outline">Loading provider keys...</div>
+      {:else if providerKeys.length === 0}
+        <div class="p-6 text-center text-outline">No contributed provider keys found.</div>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse min-w-[700px]">
+            <thead>
+              <tr class="border-b border-outline-variant/30 bg-surface-container/50">
+                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
+                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
+                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
+                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Pool Type</th>
+                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Status</th>
+                <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each providerKeys as k}
+                <tr class="border-b border-outline-variant/10 hover:bg-surface-container/30 transition-colors">
+                  <td class="p-3 font-body-sm text-body-sm text-on-surface capitalize">{k.provider}</td>
+                  <td class="p-3 font-body-sm text-body-sm text-on-surface">{k.label}</td>
+                  <td class="p-3 font-code-sm text-code-sm text-outline font-mono">{k.key_prefix}...</td>
+                  <td class="p-3">
+                    <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border
+                      {k.pool_type === 'COMMUNITY' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-surface-container-high text-on-surface-variant border-outline/30'}">
+                      {k.pool_type}
+                    </span>
+                  </td>
+                  <td class="p-3">
+                    <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border
+                      {k.community_routing_status === 'OBSERVATION' ? 'bg-error/10 text-error border-error/20' : 'bg-secondary/10 text-secondary border-secondary/20'}">
+                      {k.community_routing_status || k.status}
+                    </span>
+                  </td>
+                  <td class="p-3 flex items-center gap-2">
+                    <button class="text-xs text-primary hover:underline cursor-pointer" onclick={() => rotateProviderKey(k.id)}>Rotate</button>
+                    <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => changePoolMode(k.id)}>Switch Pool</button>
+                    <button class="text-xs text-error hover:underline cursor-pointer" onclick={() => deleteProviderKey(k.id)}>Delete</button>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
     </div>
   </section>
 

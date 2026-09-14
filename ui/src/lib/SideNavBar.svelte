@@ -145,6 +145,16 @@
       </span>
     </div>
 
+    <!-- Report / Takedown Link -->
+    <button
+      type="button"
+      onclick={() => handleTabClick('report')}
+      class="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-error hover:bg-error/10 text-label-md font-label-md transition-colors cursor-pointer text-left"
+    >
+      <span class="material-symbols-outlined text-[18px]" data-icon="security">security</span>
+      <span>Report / Takedown</span>
+    </button>
+
     <!-- Support Link -->
     <a
       href="https://github.com/Axe-08/Key-Collective"

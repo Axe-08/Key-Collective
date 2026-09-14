@@ -102,7 +102,7 @@
       </div>
       <div class="flex items-center gap-2">
         <span class="text-headline-sm font-headline-sm font-semibold tracking-tight text-on-surface">Key Collective</span>
-        <span class="text-label-sm font-label-sm px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/30 font-mono">v3.5 Edge</span>
+        <span class="text-label-sm font-label-sm px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30 font-mono">v4.0 Commons</span>
       </div>
     </button>
 

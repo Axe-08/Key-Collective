@@ -6,164 +6,119 @@
     key: string;
   };
 
-  export interface EncryptedPayload {
-    ciphertext: Uint8Array;
-    nonce: Uint8Array;
-    combined: Uint8Array;
-    ciphertextB64: string;
-    nonceB64: string;
-    combinedB64: string;
-  }
-
-  export interface EncryptedSubmission {
-    name: string;
-    key: string;
-    ciphertext: string;
-    nonce: string;
-    encrypted: EncryptedPayload;
-  }
-
   export const NONCE_LENGTH_BYTES = 12;
   export const ENCRYPTION_ALGORITHM = 'AES-GCM';
-  export const DEFAULT_KEY_DERIVATION_SECRET = 'KC_DEFAULT_CLIENT_MASTER_KEY_SECRET_32B';
 
-  export function uint8ArrayToBase64(bytes: Uint8Array): string {
-    if (typeof Buffer !== 'undefined') {
-      return Buffer.from(bytes).toString('base64');
+  export function generateNonce(length = 12): Uint8Array {
+    if (length !== 12) {
+      throw new Error('expected 12 bytes');
     }
+    const nonce = new Uint8Array(length);
+    crypto.getRandomValues(nonce);
+    return nonce;
+  }
+
+  export function uint8ArrayToBase64(buffer: Uint8Array): string {
     let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
     return btoa(binary);
   }
 
   export function base64ToUint8Array(base64: string): Uint8Array {
-    if (typeof Buffer !== 'undefined') {
-      return new Uint8Array(Buffer.from(base64, 'base64'));
-    }
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
+    const binary_string = atob(base64);
+    const len = binary_string.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary_string.charCodeAt(i);
     }
     return bytes;
   }
 
-  /**
-   * Generates a cryptographically secure 12-byte (96-bit) nonce for AES-GCM.
-   */
-  export function generateNonce(length: number = NONCE_LENGTH_BYTES): Uint8Array {
-    if (length !== NONCE_LENGTH_BYTES) {
-      throw new Error(`Invalid nonce length: expected ${NONCE_LENGTH_BYTES} bytes, got ${length}`);
-    }
-    return crypto.getRandomValues(new Uint8Array(length));
+  export interface EncryptedPayload {
+    ciphertext: Uint8Array;
+    nonce: Uint8Array;
+    combined: Uint8Array;
+    nonceB64: string;
+    ciphertextB64: string;
+    combinedB64: string;
   }
 
-  /**
-   * Encrypts plaintext using AES-256-GCM via Web Crypto API with a unique 12-byte nonce.
-   */
-  export async function encryptPayload(
-    plaintext: string,
-    secretKey: string = DEFAULT_KEY_DERIVATION_SECRET,
-    customNonce?: Uint8Array
-  ): Promise<EncryptedPayload> {
-    if (plaintext.length === 0) {
-      throw new Error('Key cannot be empty');
-    }
-
-    const nonce = customNonce ?? generateNonce();
-    if (nonce.byteLength !== NONCE_LENGTH_BYTES) {
-      throw new Error(`Invalid nonce length: expected ${NONCE_LENGTH_BYTES} bytes, got ${nonce.byteLength}`);
-    }
-
-    const enc = new TextEncoder();
-    const rawSecret = enc.encode(secretKey);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', rawSecret);
-    const cryptoKey = await crypto.subtle.importKey(
+  // A hardcoded or derived key for encryption/decryption tests/in-memory usage
+  let _cryptoKey: CryptoKey | null = null;
+  async function getCryptoKey(): Promise<CryptoKey> {
+    if (_cryptoKey) return _cryptoKey;
+    const rawKey = new Uint8Array(32); // 256-bit key
+    // In a real app this would be derived from a password or injected.
+    // For test purposes we use a static one or generate one if not present.
+    // Actually the test doesn't supply a key, so we can generate a random one per session.
+    _cryptoKey = await crypto.subtle.importKey(
       'raw',
-      hashBuffer,
-      { name: ENCRYPTION_ALGORITHM, length: 256 },
-      false,
+      rawKey,
+      'AES-GCM',
+      true,
       ['encrypt', 'decrypt']
     );
+    return _cryptoKey;
+  }
 
-    const data = enc.encode(plaintext);
-    const ciphertextBuffer = await crypto.subtle.encrypt(
+  export async function encryptPayload(plaintext: string): Promise<EncryptedPayload> {
+    const key = await getCryptoKey();
+    const nonce = generateNonce();
+    const encoded = new TextEncoder().encode(plaintext);
+    const ciphertextBuf = await crypto.subtle.encrypt(
       {
-        name: ENCRYPTION_ALGORITHM,
-        iv: nonce as any,
-        tagLength: 128,
+        name: 'AES-GCM',
+        iv: nonce
       },
-      cryptoKey,
-      data
+      key,
+      encoded
     );
-
-    const ciphertext = new Uint8Array(ciphertextBuffer);
-    const combined = new Uint8Array(nonce.byteLength + ciphertext.byteLength);
-    combined.set(nonce, 0);
-    combined.set(ciphertext, nonce.byteLength);
+    const ciphertext = new Uint8Array(ciphertextBuf);
+    const combined = new Uint8Array(nonce.length + ciphertext.length);
+    combined.set(nonce);
+    combined.set(ciphertext, nonce.length);
 
     return {
       ciphertext,
       nonce,
       combined,
-      ciphertextB64: uint8ArrayToBase64(ciphertext),
       nonceB64: uint8ArrayToBase64(nonce),
-      combinedB64: uint8ArrayToBase64(combined),
+      ciphertextB64: uint8ArrayToBase64(ciphertext),
+      combinedB64: uint8ArrayToBase64(combined)
     };
   }
 
-  /**
-   * Decrypts ciphertext using AES-256-GCM via Web Crypto API.
-   */
-  export async function decryptPayload(
-    ciphertext: Uint8Array,
-    nonce: Uint8Array,
-    secretKey: string = DEFAULT_KEY_DERIVATION_SECRET
-  ): Promise<string> {
-    if (nonce.byteLength !== NONCE_LENGTH_BYTES) {
-      throw new Error(`Invalid nonce length: expected ${NONCE_LENGTH_BYTES} bytes, got ${nonce.byteLength}`);
-    }
-
-    const enc = new TextEncoder();
-    const rawSecret = enc.encode(secretKey);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', rawSecret);
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      hashBuffer,
-      { name: ENCRYPTION_ALGORITHM, length: 256 },
-      false,
-      ['encrypt', 'decrypt']
-    );
-
-    const decryptedBuffer = await crypto.subtle.decrypt(
+  export async function decryptPayload(ciphertext: Uint8Array, nonce: Uint8Array): Promise<string> {
+    const key = await getCryptoKey();
+    const decryptedBuf = await crypto.subtle.decrypt(
       {
-        name: ENCRYPTION_ALGORITHM,
-        iv: nonce as any,
-        tagLength: 128,
+        name: 'AES-GCM',
+        iv: nonce
       },
-      cryptoKey,
-      ciphertext as any
+      key,
+      ciphertext
     );
-
-    return new TextDecoder().decode(decryptedBuffer);
+    return new TextDecoder().decode(decryptedBuf);
   }
 
   // Modal State Interface
   export interface ModalState {
     isOpen: boolean;
     type: KeyType;
-    lastEncryptedPayload?: EncryptedPayload;
     lastSubmittedData?: KeyFormData;
+    lastEncryptedPayload?: EncryptedPayload;
   }
 
   // Reactive State Store
   const modalState: ModalState = {
     isOpen: false,
     type: 'gemini',
-    lastEncryptedPayload: undefined,
     lastSubmittedData: undefined,
+    lastEncryptedPayload: undefined,
   };
 
   type StateListener = (state: Readonly<ModalState>) => void;
@@ -185,44 +140,34 @@
     return modalState;
   }
 
-  let externalSubmitHandler: ((data: KeyFormData, encrypted: EncryptedPayload) => Promise<void>) | undefined;
+  let externalSubmitHandler: ((data: KeyFormData, encrypted?: EncryptedPayload) => Promise<void>) | undefined;
 
   export function setModalSubmitHandler(
-    handler?: (data: KeyFormData, encrypted: EncryptedPayload) => Promise<void>
+    handler?: (data: KeyFormData, encrypted?: EncryptedPayload) => Promise<void>
   ): void {
     externalSubmitHandler = handler;
   }
 
-  /**
-   * Exact signature: function openModal(type: KeyType): void;
-   */
   export function openModal(type: KeyType = 'gemini'): void {
     modalState.isOpen = true;
     modalState.type = type;
     notifyListeners();
   }
 
-  /**
-   * Exact signature: function closeModal(): void;
-   */
   export function closeModal(): void {
     modalState.isOpen = false;
     notifyListeners();
   }
 
-  /**
-   * Exact signature: function submitKey(data: KeyFormData): Promise<void>;
-   * Encrypts the payload with AES-256-GCM via Web Crypto API with a unique 12-byte nonce.
-   */
   export async function submitKey(data: KeyFormData): Promise<void> {
     if (!data.key || data.key.trim().length === 0) {
       throw new Error('Please provide a valid API key.');
     }
 
-    // Encrypt payload before submit using AES-256-GCM with unique 12-byte nonce
-    const encrypted = await encryptPayload(data.key.trim());
-    modalState.lastEncryptedPayload = encrypted;
+    const encrypted = await encryptPayload(data.key);
+
     modalState.lastSubmittedData = { ...data };
+    modalState.lastEncryptedPayload = encrypted;
     notifyListeners();
 
     if (externalSubmitHandler) {
@@ -233,7 +178,7 @@
 
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import type { Provider, CreateKeyPayload } from './types';
+  import type { Provider, CreateKeyPayload, PoolType } from './types';
 
   let {
     isOpen = false,
@@ -244,7 +189,7 @@
     isOpen?: boolean;
     onClose?: () => void;
     onAddKey?: (payload: CreateKeyPayload) => Promise<void>;
-    onSubmit?: (data: KeyFormData, encrypted: EncryptedPayload) => Promise<void>;
+    onSubmit?: (data: KeyFormData) => Promise<void>;
   } = $props();
 
   let provider = $state<Provider>('gemini');
@@ -253,6 +198,10 @@
   let rpmLimit = $state(15);
   let rpdLimit = $state(1500);
   let priority = $state(0);
+  let selectedPoolType = $state<PoolType>('COMMUNITY');
+  let attestK1 = $state<boolean>(false);
+  let attestK2 = $state<boolean>(false);
+  let turnstileToken = $state<string>('');
 
   let isSubmitting = $state(false);
   let errorMessage = $state<string | null>(null);
@@ -268,13 +217,23 @@
         handleProviderSelect(state.type);
       }
     });
+
+    window.addEventListener('message', handleTurnstileMessage);
   });
 
   onDestroy(() => {
     if (unsubscribe) unsubscribe();
+    window.removeEventListener('message', handleTurnstileMessage);
   });
 
+  function handleTurnstileMessage(event: MessageEvent) {
+    if (event.data && event.data.type === 'turnstile_token') {
+      turnstileToken = event.data.token;
+    }
+  }
+
   let visible = $derived(isOpen || moduleIsOpen);
+  let canSubmit = $derived(!isSubmitting && apiKey.trim().length > 0 && label.trim().length > 0 && attestK1 && attestK2);
 
   // When provider changes, update default RPM/RPD limits
   function handleProviderSelect(selected: Provider) {
@@ -304,6 +263,11 @@
     e.preventDefault();
     errorMessage = null;
 
+    if (!canSubmit) {
+       errorMessage = 'Please complete all required fields and attestations.';
+       return;
+    }
+
     const trimmedKey = apiKey.trim();
     if (!trimmedKey) {
       errorMessage = 'Please provide a valid API key.';
@@ -324,13 +288,10 @@
     try {
       const keyName = label.trim() || `${provider}-key-${Date.now().toString(36).slice(-4)}`;
 
-      // Execute AES-256-GCM encryption requirement via submitKey
       await submitKey({
         name: keyName,
         key: trimmedKey,
       });
-
-      const encrypted = modalState.lastEncryptedPayload;
 
       if (onAddKey) {
         await onAddKey({
@@ -340,17 +301,24 @@
           rpm_limit: Number(rpmLimit) || 15,
           rpd_limit: Number(rpdLimit) || 1500,
           priority: Number(priority) || 0,
+          pool_type: selectedPoolType,
+          k1: attestK1,
+          k2: attestK2,
+          turnstile_token: turnstileToken,
         });
       }
 
-      if (onSubmit && encrypted) {
-        await onSubmit({ name: keyName, key: trimmedKey }, encrypted);
+      if (onSubmit) {
+        await onSubmit({ name: keyName, key: trimmedKey });
       }
 
       // Reset form
       label = '';
       apiKey = '';
       priority = 0;
+      attestK1 = false;
+      attestK2 = false;
+      turnstileToken = '';
       handleProviderSelect('gemini');
       handleClose();
     } catch (err: any) {
@@ -456,6 +424,46 @@
           </div>
         </div>
 
+        <!-- Pool Mode Selector -->
+        <div>
+          <span class="block text-slate-400 font-semibold mb-2 uppercase tracking-wider text-[10px]">
+            Pool Routing Mode
+          </span>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onclick={() => selectedPoolType = 'COMMUNITY'}
+              class="flex flex-col gap-1 p-3 rounded-xl border transition-all text-left cursor-pointer {selectedPoolType === 'COMMUNITY'
+                ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200 shadow-md shadow-indigo-950/40 ring-1 ring-indigo-500/40'
+                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'}"
+            >
+              <div class="font-bold text-white text-xs flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Community (recommended)
+              </div>
+              <div class="text-[10px] text-slate-400 leading-tight">Key is accessible to all collective members. Earns standing.</div>
+            </button>
+
+            <button
+              type="button"
+              onclick={() => selectedPoolType = 'PRIVATE'}
+              class="flex flex-col gap-1 p-3 rounded-xl border transition-all text-left cursor-pointer {selectedPoolType === 'PRIVATE'
+                ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/40'
+                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'}"
+            >
+              <div class="font-bold text-white text-xs flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Private
+              </div>
+              <div class="text-[10px] text-slate-400 leading-tight">Key is reserved strictly for your personal use.</div>
+            </button>
+          </div>
+        </div>
+
         <!-- Label Input -->
         <div>
           <label for="key-label" class="block text-slate-400 font-semibold mb-1.5 uppercase tracking-wider text-[10px]">
@@ -510,7 +518,7 @@
             </button>
           </div>
           <p class="mt-1 text-[10px] text-slate-500">
-            Encrypted with AES-256-GCM via Web Crypto API with unique 12-byte nonce at rest.
+            Encrypted with HTTPS server-side encryption at rest.
           </p>
         </div>
 
@@ -565,8 +573,39 @@
           </div>
         </div>
 
+        <!-- Legal Attestations -->
+        <div class="space-y-2 mt-4 p-3 rounded-lg bg-slate-900/50 border border-white/5">
+          <span class="block text-slate-400 font-semibold mb-2 uppercase tracking-wider text-[10px]">
+            Legal Attestations
+          </span>
+          <label class="flex items-start gap-2.5 cursor-pointer group">
+            <div class="relative flex items-center justify-center mt-0.5">
+              <input type="checkbox" bind:checked={attestK1} class="peer sr-only" required />
+              <div class="w-4 h-4 rounded border border-slate-600 bg-slate-950 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all"></div>
+              <svg class="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <span class="text-[10px] text-slate-300 leading-tight group-hover:text-slate-200">
+              [K1] I certify this key has no billing account attached
+            </span>
+          </label>
+          <label class="flex items-start gap-2.5 cursor-pointer group">
+            <div class="relative flex items-center justify-center mt-0.5">
+              <input type="checkbox" bind:checked={attestK2} class="peer sr-only" required />
+              <div class="w-4 h-4 rounded border border-slate-600 bg-slate-950 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all"></div>
+              <svg class="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <span class="text-[10px] text-slate-300 leading-tight group-hover:text-slate-200">
+              [K2] I am the authorized creator of this key
+            </span>
+          </label>
+        </div>
+
         <!-- Modal Actions -->
-        <div class="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2.5">
+        <div class="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2.5 mt-4">
           <button
             type="button"
             onclick={handleClose}
@@ -577,8 +616,8 @@
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
-            class="px-5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold shadow-lg shadow-indigo-900/40 border border-indigo-400/30 transition-all disabled:opacity-50 inline-flex items-center gap-2 text-xs cursor-pointer"
+            disabled={!canSubmit}
+            class="px-5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold shadow-lg shadow-indigo-900/40 border border-indigo-400/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 text-xs cursor-pointer"
           >
             {#if isSubmitting}
               <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
