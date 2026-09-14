@@ -1660,7 +1660,7 @@ export class RouterHandler {
             created_at: string;
             model: string;
           }>()
-        : await env.DB.prepare(logsQuery).bind(tenantId).all<{
+        : await env.DB.prepare(logsQuery).bind(targetTenantId).all<{
             id: string;
             key_id: string;
             provider: string;
@@ -1701,7 +1701,7 @@ export class RouterHandler {
       let avgLatency = 0;
       let totalSpendToday = 0;
 
-      const isGlobal = tenantId === "admin";
+      const isGlobal = tenantId === "admin" && !headerTenant;
 
       if (env.DB && typeof env.DB.prepare === "function") {
         const statsQuery = isGlobal
@@ -1732,7 +1732,7 @@ export class RouterHandler {
               rpm_sum: number | null;
               rpd_sum: number | null;
             }>()
-          : await env.DB.prepare(statsQuery).bind(tenantId).first<{
+          : await env.DB.prepare(statsQuery).bind(targetTenantId).first<{
               total_count: number;
               healthy_count: number;
               rate_limited_count: number;
@@ -1764,7 +1764,7 @@ export class RouterHandler {
               avg_lat: number | null;
               total_spend_microdollars: number | null;
             }>()
-          : await env.DB.prepare(costQuery).bind(tenantId).first<{
+          : await env.DB.prepare(costQuery).bind(targetTenantId).first<{
               requests_today: number;
               avg_lat: number | null;
               total_spend_microdollars: number | null;

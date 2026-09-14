@@ -13,13 +13,14 @@
   import Workbench from './lib/Workbench.svelte';
   import ApiDocs from './lib/ApiDocs.svelte';
   import AdminView from './lib/admin/AdminView.svelte';
+  import Playground from './lib/Playground.svelte';
   import OAuthModal from './lib/OAuthModal.svelte';
   import Toast from './lib/Toast.svelte';
   import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
   import ReportKeyModal from './lib/ReportKeyModal.svelte';
 
   // Navigation state (Stitch multi-screen routing)
-  let activeTab = $state<'pool' | 'workbench' | 'docs' | 'admin' | 'commons'>('pool');
+  let activeTab = $state<'pool' | 'workbench' | 'docs' | 'playground' | 'admin' | 'commons'>('pool');
 
   // Svelte 5 reactive state for pool
   let keys = $state<APIKey[]>([]);
@@ -448,6 +449,12 @@
     {#if activeTab === 'docs'}
       <ApiDocs {proxyEndpoint} />
     {/if}
+
+    <!-- TAB 4: Sandbox Playground -->
+    {#if activeTab === 'playground'}
+      <Playground {proxyEndpoint} onRefreshMetrics={loadData} />
+    {/if}
+
 
     <!-- TAB 4: Admin Surveillance Panel (admin.key-col.axe08.tech) -->
     {#if activeTab === 'admin'}

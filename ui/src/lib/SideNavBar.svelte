@@ -83,6 +83,20 @@
         <span class="text-label-md font-label-md">API Documentation</span>
       </button>
 
+      <!-- Sandbox Playground -->
+      <button
+        type="button"
+        onclick={() => handleTabClick('playground')}
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'playground' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+      >
+        <span class="material-symbols-outlined text-[18px] text-emerald-400" data-icon="science">science</span>
+        <span class="text-label-md font-label-md">Playground</span>
+        <span class="ml-auto text-[9px] font-mono font-bold px-1 rounded bg-primary/20 text-primary border border-primary/40">
+          LIVE
+        </span>
+      </button>
+
+
       <!-- Pool Commons (v4 — Reciprocal Community Pool) -->
       <button
         type="button"
