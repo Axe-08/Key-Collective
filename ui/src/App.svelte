@@ -15,9 +15,10 @@
   import AdminView from './lib/admin/AdminView.svelte';
   import OAuthModal from './lib/OAuthModal.svelte';
   import Toast from './lib/Toast.svelte';
+  import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
 
   // Navigation state (Stitch multi-screen routing)
-  let activeTab = $state<'pool' | 'workbench' | 'docs' | 'admin'>('pool');
+  let activeTab = $state<'pool' | 'workbench' | 'docs' | 'admin' | 'commons'>('pool');
 
   // Svelte 5 reactive state for pool
   let keys = $state<APIKey[]>([]);
@@ -495,6 +496,11 @@
         adminEmail={userAccount.primaryEmail}
         onNavigate={(tab) => (activeTab = tab as any)}
       />
+    {/if}
+
+    <!-- TAB 5: Pool Commons (v4 Reciprocal Commons — Community Debt Ledger & Eye-for-an-Eye) -->
+    {#if activeTab === 'commons'}
+      <PoolCommonsTab />
     {/if}
   </main>
 

@@ -81,6 +81,19 @@
         <span class="text-label-md font-label-md">API Documentation</span>
       </button>
 
+      <!-- Pool Commons (v4 — Reciprocal Community Pool) -->
+      <button
+        type="button"
+        onclick={() => handleTabClick('commons')}
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'commons' ? 'bg-surface-container-high text-secondary font-medium border-l-2 border-secondary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+      >
+        <span class="material-symbols-outlined text-[18px] {activeTab === 'commons' ? 'text-secondary' : ''}" data-icon="groups">groups</span>
+        <span class="text-label-md font-label-md">Pool Commons</span>
+        <span class="ml-auto text-[9px] font-mono font-bold px-1 rounded bg-secondary/20 text-secondary border border-secondary/40">
+          v4
+        </span>
+      </button>
+
       <!-- Admin Panel (Surveillance - visible for admin tier) -->
       {#if userAccount?.tier === 'admin'}
         <button
