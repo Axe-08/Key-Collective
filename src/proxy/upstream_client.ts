@@ -1,3 +1,4 @@
+import { normalizeUpstreamResponse } from '../worker/error_normalizer';
 /**
  * Key Collective v2 — Cloudflare-Native LLM Router
  * Upstream Client Module (proxy-upstream-client)
@@ -1196,33 +1197,29 @@ export class UpstreamClient {
     upstreamResponse: UpstreamResponse,
     extraHeaders?: HeadersInit
   ): Response {
-    const headers = new Headers();
-    for (const [key, value] of upstreamResponse.headers.entries()) {
-      const lower = key.toLowerCase();
-      if (!HOP_BY_HOP_HEADERS.includes(lower) && lower !== "content-length") {
-        headers.set(key, value);
-      }
-    }
+    const extra = new Headers(extraHeaders);
+    const kcRequestId = extra.get('x-kc-trace-id') || extra.get('x-kc-request-id') || 'unknown';
+    const modelUsed = extra.get('x-kc-model') || extra.get('x-kc-model-used') || undefined;
+    const provider = extra.get('x-kc-provider') || undefined;
 
-    if (extraHeaders) {
-      const extra = new Headers(extraHeaders);
-      for (const [key, value] of extra.entries()) {
-        headers.set(key, value);
-      }
-    }
-
-    if (upstreamResponse.body) {
-      return new Response(upstreamResponse.body as unknown as BodyInit, {
+    const baseResponse = new Response(
+      upstreamResponse.body ? (upstreamResponse.body as unknown as BodyInit) : null, 
+      {
         status: upstreamResponse.status,
         statusText: upstreamResponse.statusText,
-        headers,
-      });
+        headers: upstreamResponse.headers,
+      }
+    );
+    
+    const normalized = normalizeUpstreamResponse(baseResponse, kcRequestId, modelUsed, provider);
+    
+    // Merge any extra non-kc headers
+    for (const [key, value] of extra.entries()) {
+      if (!key.toLowerCase().startsWith('x-kc-')) {
+          normalized.headers.set(key, value);
+      }
     }
-
-    return new Response(null, {
-      status: upstreamResponse.status,
-      statusText: upstreamResponse.statusText,
-      headers,
-    });
+    
+    return normalized;
   }
 }

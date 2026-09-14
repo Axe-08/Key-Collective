@@ -1131,41 +1131,53 @@ export class RouterHandler {
 
       const isGlobal = tenantId === "admin";
       const keysQuery = isGlobal
-        ? `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at
+        ? `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
            FROM api_keys
            ORDER BY priority ASC, created_at DESC`
-        : `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at
+        : `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
            FROM api_keys
            WHERE tenant_id = ?
            ORDER BY priority ASC, created_at DESC`;
 
       const keysResult = isGlobal
         ? await env.DB.prepare(keysQuery).all<{
-            id: string;
-            label: string;
-            provider: string;
-            key_prefix: string;
-            key_suffix: string;
-            rpm_limit: number;
-            rpd_limit: number;
-            priority: number;
-            status: string;
-            circuit_open_until: string | null;
-            created_at: string;
-          }>()
+  id: string;
+  label: string;
+  provider: string;
+  key_prefix: string;
+  key_suffix: string;
+  rpm_limit: number;
+  rpd_limit: number;
+  priority: number;
+  status: string;
+  circuit_open_until: string | null;
+  created_at: string;
+  pool_type: 'PRIVATE' | 'COMMUNITY' | null;
+  community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
+  observation_until: string | null;
+  dispatched_today: number | null;
+  dispatched_communal: number | null;
+  vesting_tier: 0 | 1 | 2 | null;
+}>()
         : await env.DB.prepare(keysQuery).bind(tenantId).all<{
-            id: string;
-            label: string;
-            provider: string;
-            key_prefix: string;
-            key_suffix: string;
-            rpm_limit: number;
-            rpd_limit: number;
-            priority: number;
-            status: string;
-            circuit_open_until: string | null;
-            created_at: string;
-          }>();
+  id: string;
+  label: string;
+  provider: string;
+  key_prefix: string;
+  key_suffix: string;
+  rpm_limit: number;
+  rpd_limit: number;
+  priority: number;
+  status: string;
+  circuit_open_until: string | null;
+  created_at: string;
+  pool_type: 'PRIVATE' | 'COMMUNITY' | null;
+  community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
+  observation_until: string | null;
+  dispatched_today: number | null;
+  dispatched_communal: number | null;
+  vesting_tier: 0 | 1 | 2 | null;
+}>();
 
       const metricsQuery = isGlobal
         ? `SELECT key_id, COUNT(*) as total_reqs, AVG(latency_ms) as avg_lat
@@ -1227,6 +1239,12 @@ export class RouterHandler {
           avg_latency_ms: metric?.avg_lat ?? 0,
           cooldown_until: row.circuit_open_until,
           created_at: row.created_at,
+          pool_type: row.pool_type ?? 'COMMUNITY',
+          community_routing_status: row.community_routing_status ?? 'OBSERVATION',
+          observation_until: row.observation_until ?? null,
+          dispatched_today: row.dispatched_today ?? 0,
+          dispatched_communal: row.dispatched_communal ?? 0,
+          vesting_tier: row.vesting_tier ?? 0,
         };
       });
 
@@ -1412,6 +1430,61 @@ export class RouterHandler {
       return Response.json({ success: true, keyId });
     }
 
+    // PATCH /api/keys/:id/pool-mode (Phase B — Anti-Midnight Freeze FR-22)
+    if (method === 'PATCH' && /^\/api\/keys\/[^/]+\/pool-mode$/.test(pathname)) {
+      const keyId = pathname.split('/')[3];
+      if (!keyId) throw new RouterError('Key ID required', { statusCode: 400 });
+
+      const now = new Date();
+      const utcHour = now.getUTCHours();
+      const utcMinute = now.getUTCMinutes();
+      const isFreezeWindow = (utcHour === 23 && utcMinute >= 30) || (utcHour === 0 && utcMinute <= 30);
+      if (isFreezeWindow) {
+        return Response.json({
+          error: 'pool_toggle_frozen',
+          message: 'Pool switching is frozen during midnight quota reset window (23:30–00:30 UTC).',
+          retry_after_utc: utcHour === 23 ? '00:31 UTC' : '00:31 UTC',
+        }, { status: 423 });
+      }
+
+      const body = await request.json() as { pool_type?: string };
+      const newPoolType = body.pool_type;
+      if (newPoolType !== 'COMMUNITY' && newPoolType !== 'PRIVATE') {
+        throw new RouterError("pool_type must be 'COMMUNITY' or 'PRIVATE'", { statusCode: 400 });
+      }
+
+      if (!env.DB || typeof env.DB.prepare !== 'function') {
+        throw new RouterError('Database unavailable', { statusCode: 503 });
+      }
+      const db = env.DB as D1Database;
+      const existingKey = await db.prepare(
+        'SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?'
+      ).bind(keyId, tenantId).first<{ id: string }>();
+      if (!existingKey) throw new RouterError('Key not found', { statusCode: 404 });
+
+      let newRoutingStatus: string;
+      let observationUntil: string | null = null;
+      if (newPoolType === 'COMMUNITY') {
+        newRoutingStatus = 'OBSERVATION';
+        observationUntil = new Date(Date.now() + 86400000).toISOString();
+      } else {
+        newRoutingStatus = 'ACTIVE';
+      }
+
+      await db.prepare(
+        `UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ? AND tenant_id = ?`
+      ).bind(newPoolType, newRoutingStatus, observationUntil, keyId, tenantId).run();
+
+      return Response.json({
+        id: keyId, pool_type: newPoolType,
+        community_routing_status: newRoutingStatus,
+        observation_until: observationUntil,
+        message: newPoolType === 'COMMUNITY'
+          ? 'Key entering 24-hour observation period.'
+          : 'Key switched to private pool.',
+      });
+    }
+
     // 4. POST /api/keys/:id/test
     if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/test")) {
       const keyId = pathname.slice("/api/keys/".length, -"/test".length).trim();
@@ -1500,7 +1573,6 @@ export class RouterHandler {
       const currentHour = Math.floor(Date.now() / (1000 * 60 * 60));
       
       if (env.DB && typeof env.DB.prepare === "function") {
-        await env.DB.prepare("CREATE TABLE IF NOT EXISTS abuse_rate_limits (ip TEXT, window_hour INTEGER, count INTEGER, PRIMARY KEY (ip, window_hour))").run();
         const rl = await env.DB.prepare("SELECT count FROM abuse_rate_limits WHERE ip = ? AND window_hour = ?").bind(ip, currentHour).first<{count: number}>();
         if (rl && rl.count >= 5) {
           throw new RouterError("Rate limit exceeded", { statusCode: 429 });
@@ -1512,7 +1584,9 @@ export class RouterHandler {
       
       const deletePromise = async () => {
         if (body.keyId && env.DB && typeof env.DB.prepare === "function") {
-          await env.DB.prepare("DELETE FROM api_keys WHERE id = ?").bind(body.keyId).run();
+          await env.DB.prepare(
+            `UPDATE api_keys SET status = 'invalid', community_routing_status = 'REVOKED' WHERE id = ?`
+          ).bind(body.keyId).run();
           try {
             const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
             if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
