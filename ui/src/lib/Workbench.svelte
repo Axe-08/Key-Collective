@@ -2,11 +2,13 @@
   import type { UserAccount, Project, ProjectKey, UserTier, TierLimits } from '../../../src/contracts/v3_types';
   import { TIER_LIMITS_MAP } from '../../../src/contracts/v3_types';
   import type { APIKey } from './types';
+  import { api } from './api';
 
   interface Props {
     userAccount?: UserAccount;
     projects?: Project[];
     keys?: ProjectKey[];
+    providerKeys?: APIKey[];
     onSelectTier?: (tier: UserTier) => void;
     onCreateProject?: (project: Partial<Project>) => void;
     onRotateKey?: (keyId: string) => void;
@@ -19,6 +21,7 @@
     userAccount,
     projects = [],
     keys = [],
+    providerKeys: propProviderKeys,
     onSelectTier,
     onCreateProject,
     onRotateKey,
@@ -80,22 +83,33 @@
   let switchPoolError = $state<string | null>(null);
 
   $effect(() => {
-    fetch('/api/keys')
-      .then((res) => res.json())
+    if (propProviderKeys && propProviderKeys.length > 0) {
+      providerKeys = propProviderKeys;
+      providerKeysLoading = false;
+      return;
+    }
+
+    api.getKeys()
       .then((data) => {
         if (Array.isArray(data)) {
           providerKeys = data;
-        } else if (data && Array.isArray(data.keys)) {
-          providerKeys = data.keys;
+        } else if (data && Array.isArray((data as any).keys)) {
+          providerKeys = (data as any).keys;
+        } else {
+          providerKeys = [];
         }
       })
-      .catch((err) => console.error('Failed to fetch keys', err))
+      .catch((err) => {
+        console.error('Failed to fetch keys', err);
+        providerKeys = [];
+      })
       .finally(() => {
         providerKeysLoading = false;
       });
   });
 
-  const communityKeys = $derived(providerKeys.filter((k) => k.pool_type === 'COMMUNITY'));
+  const privateProviderKeys = $derived(providerKeys.filter((k) => k.pool_type === 'PRIVATE' || !k.pool_type));
+  const communityProviderKeys = $derived(providerKeys.filter((k) => k.pool_type === 'COMMUNITY'));
   const observationKeys = $derived(providerKeys.filter((k) => k.community_routing_status === 'OBSERVATION'));
 
   function rotateProviderKey(id: string) {

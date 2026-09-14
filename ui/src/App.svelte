@@ -440,6 +440,7 @@
         {userAccount}
         {projects}
         keys={projectKeys}
+        providerKeys={keys}
       />
     {/if}
 
