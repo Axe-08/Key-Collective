@@ -28,6 +28,8 @@
   let bearerToken = $state('kc_proj_live_9f83a00c82de19a');
   let isSessionToken = $state(false);
   let selectedModel = $state('gemini-2.5-flash');
+  let fallbackOccurred = $state(false);
+  let actualModel = $state('');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
 
@@ -35,6 +37,9 @@
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('kc_auth_token');
       if (stored && stored.trim().length > 0) {
+  let actualModel = $state('');
+  let fallbackOccurred = $state(false);
+
         bearerToken = stored.trim();
         isSessionToken = true;
       }
@@ -164,6 +169,10 @@ stream = client.chat.completions.create(
         body: payloadJson
       });
       
+      const usedModelHeader = res.headers.get('x-kc-model-used');
+      actualModel = usedModelHeader || selectedModel;
+      fallbackOccurred = (actualModel !== selectedModel);
+
       const latencyMs = Date.now() - startTime;
       simulatedLatency = `${latencyMs}ms`;
       simulatedStatus = `${res.status} ${res.statusText}`;
@@ -1237,14 +1246,25 @@ ${pySnippet}
                 bind:value={selectedModel}
                 class="w-full py-1.5 px-2.5 text-code-sm font-code-sm rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none cursor-pointer"
               >
-                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-                <option value="groq-llama-3.3-70b">groq-llama-3.3-70b</option>
-                <option value="cerebras-llama-3.3">cerebras-llama-3.3</option>
-                <option value="deepseek-v3">deepseek-v3</option>
-                <option value="gpt-4o">gpt-4o</option>
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                <optgroup label="Gemini">
+                  <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                  <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                </optgroup>
+                <optgroup label="Groq">
+                  <option value="groq-llama-3.3-70b">groq-llama-3.3-70b</option>
+                </optgroup>
+                <optgroup label="Cerebras (Free Tier)">
+                  <option value="cerebras-llama-3.3">cerebras-llama-3.3</option>
+                </optgroup>
+                <optgroup label="SambaNova">
+                  <option value="sambanova-llama-3.1">sambanova-llama-3.1</option>
+                </optgroup>
+                <optgroup label="Others">
+                  <option value="deepseek-v3">deepseek-v3</option>
+                  <option value="gpt-4o">gpt-4o</option>
+                  <option value="gpt-4o-mini">gpt-4o-mini</option>
+                  <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                </optgroup>
               </select>
             </div>
 
@@ -1372,6 +1392,16 @@ ${pySnippet}
                 <span class="text-secondary font-semibold">{simulatedLatency}</span>
               </div>
             </div>
+            
+            {#if fallbackOccurred}
+              <div class="mb-3 p-2.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-200 text-label-sm font-label-sm flex items-start gap-2">
+                <span class="material-symbols-outlined text-sm mt-0.5" data-icon="warning">warning</span>
+                <div>
+                  <span class="font-semibold block mb-0.5">Model Fallback Triggered</span>
+                  <span>Requested <code class="px-1 py-0.5 rounded bg-black/20 text-code-sm font-code-sm">{selectedModel}</code> but pool routed to <code class="px-1 py-0.5 rounded bg-black/20 text-code-sm font-code-sm">{actualModel}</code> based on <code class="px-1 py-0.5 rounded bg-black/20 text-code-sm font-code-sm">x-pool-fallback</code> policy. Note the <code class="px-1 py-0.5 rounded bg-black/20 text-code-sm font-code-sm">x-kc-model-used</code> response header.</span>
+                </div>
+              </div>
+            {/if}
 
             <div class="space-y-1 font-code-sm text-code-sm custom-scroll max-h-48 overflow-y-auto">
               {#each responseChunks as chunk}
