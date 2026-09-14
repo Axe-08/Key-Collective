@@ -1,10 +1,11 @@
-.PHONY: all setup check typecheck test test-debt-ledger test-pool-commons test-add-key-modal gate dev clean
+.PHONY: all setup check typecheck test test-worker test-ui test-debt-ledger test-pool-commons test-add-key-modal test-telemetry-charts gate dev clean
 
 all: gate
 
 setup:
 	@echo "Installing dependencies..."
 	npm install
+	cd ui && npm install
 
 check:
 	@npm run check
@@ -12,8 +13,16 @@ check:
 typecheck:
 	@npx tsc --noEmit
 
-test:
+# Worker / Durable Object tests (root — no svelte dependency)
+test-worker:
 	@npx vitest run
+
+# UI Svelte component tests (run from ui/ where svelte is installed)
+test-ui:
+	@cd ui && npx vitest run
+
+# Run both test suites
+test: test-worker test-ui
 
 
 

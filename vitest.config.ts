@@ -1,25 +1,12 @@
 import { defineConfig } from 'vitest/config';
-import { compile } from 'svelte/compiler';
 
+// Root vitest config: covers only the Cloudflare Worker / DO TypeScript tests.
+// UI (Svelte) tests run via `cd ui && npx vitest run` with ui/vitest.config.ts.
 export default defineConfig({
-  plugins: [
-    {
-      name: 'svelte-loader',
-      transform(code, id, options) {
-        if (id.endsWith('.svelte')) {
-          const compiled = compile(code, {
-            filename: id,
-            generate: 'server',
-          });
-          return {
-            code: compiled.js.code,
-            map: compiled.js.map,
-          };
-        }
-      },
-    },
-  ],
   test: {
+    include: ['src/**/*.test.ts'],
+    exclude: ['ui/**'],
     passWithNoTests: true,
+    environment: 'node',
   },
 });
