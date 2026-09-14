@@ -1696,9 +1696,10 @@ export class RouterHandler {
       let rateLimitedKeys = 0;
       let invalidKeys = 0;
       let totalRpmLimit = 0;
-      let dailyQuotaLimit = 50000;
+      let dailyQuotaLimit = 0;
       let dailyQuotaUsed = 0;
-      let avgLatency = 245;
+      let avgLatency = 0;
+      let totalSpendToday = 0;
 
       const isGlobal = tenantId === "admin";
 
@@ -1746,14 +1747,14 @@ export class RouterHandler {
           rateLimitedKeys = keyStats.rate_limited_count || 0;
           invalidKeys = keyStats.invalid_count || 0;
           totalRpmLimit = keyStats.rpm_sum || 0;
-          dailyQuotaLimit = keyStats.rpd_sum || 50000;
+          dailyQuotaLimit = keyStats.rpd_sum || 0;
         }
 
         const costQuery = isGlobal
-          ? `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat
+          ? `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat, COALESCE(SUM(cost_microdollars), 0) as total_spend_microdollars
              FROM cost_ledger
              WHERE date(created_at) = date('now')`
-          : `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat
+          : `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat, COALESCE(SUM(cost_microdollars), 0) as total_spend_microdollars
              FROM cost_ledger
              WHERE tenant_id = ? AND date(created_at) = date('now')`;
 
@@ -1761,10 +1762,12 @@ export class RouterHandler {
           ? await env.DB.prepare(costQuery).first<{
               requests_today: number;
               avg_lat: number | null;
+              total_spend_microdollars: number | null;
             }>()
           : await env.DB.prepare(costQuery).bind(tenantId).first<{
               requests_today: number;
               avg_lat: number | null;
+              total_spend_microdollars: number | null;
             }>();
 
         if (costStats) {
@@ -1772,6 +1775,7 @@ export class RouterHandler {
           if (costStats.avg_lat) {
             avgLatency = Math.round(costStats.avg_lat);
           }
+          totalSpendToday = costStats.total_spend_microdollars ? Number(costStats.total_spend_microdollars) : 0;
         }
       }
 
@@ -1805,6 +1809,7 @@ export class RouterHandler {
         daily_quota_used: dailyQuotaUsed,
         daily_quota_limit: dailyQuotaLimit,
         proxy_status: rateLimitedKeys === totalKeys && totalKeys > 0 ? "degraded" : "healthy",
+        total_spend_today_microdollars: totalSpendToday,
       };
 
       return Response.json(statsPayload);

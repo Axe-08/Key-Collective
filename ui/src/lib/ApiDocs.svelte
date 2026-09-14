@@ -27,9 +27,23 @@
   // Playground state
   let bearerToken = $state('kc_proj_live_9f83a00c82de19a');
   let isSessionToken = $state(false);
-  let selectedModel = $state('gemini-2.5-flash');
+  let selectedModel = $state('gemini-3.8-flash');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
+  let availableModels = $state<{ id: string; provider: string }[]>([
+    { id: 'gemini-3.8-flash', provider: 'google' },
+    { id: 'gemini-3.5-flash', provider: 'google' },
+    { id: 'gemini-3.5-flash-lite', provider: 'google' },
+    { id: 'gemini-3.1-pro-preview', provider: 'google' },
+    { id: 'gemini-2.5-flash', provider: 'google' },
+    { id: 'qwen/qwen3.8-27b', provider: 'groq' },
+    { id: 'qwen/qwen3.6-27b', provider: 'groq' },
+    { id: 'openai/gpt-oss-120b', provider: 'groq' },
+    { id: 'openai/gpt-oss-20b', provider: 'groq' },
+    { id: 'deepseek/deepseek-r1-distill-llama-70b', provider: 'deepseek' },
+    { id: 'Meta-Llama-3.1-405B-Instruct', provider: 'sambanova' },
+    { id: 'llama3.1-70b', provider: 'cerebras' },
+  ]);
 
   onMount(() => {
     if (typeof window !== 'undefined') {
@@ -38,10 +52,27 @@
         bearerToken = stored.trim();
         isSessionToken = true;
       }
+      // Fetch dynamic models directly from Keyer Model Registry endpoint
+      fetch('/v1/models')
+        .then(r => r.json())
+        .then(data => {
+          if (data && Array.isArray(data.data) && data.data.length > 0) {
+            availableModels = data.data.map((m: any) => ({
+              id: m.id,
+              provider: m.owned_by || m.provider || 'custom'
+            }));
+            if (!availableModels.some(m => m.id === selectedModel)) {
+              selectedModel = availableModels[0].id;
+            }
+          }
+        })
+        .catch(() => {
+          // Keep canonical defaults if offline
+        });
     }
   });
 
-  let payloadJson = $state(`{\n  "model": "gemini-2.5-flash",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
+  let payloadJson = $state(`{\n  "model": "gemini-3.8-flash",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
   
   $effect(() => {
     try {
@@ -68,7 +99,7 @@
   let simulatedStatus = $state('200 OK');
   let responseChunks = $state<Array<{ text: string; class: string }>>([
     {
-      text: 'data: {"id":"chatcmpl-94k2","object":"chat.completion.chunk","created":17109210,"model":"gemini-2.5-flash","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}',
+      text: 'data: {"id":"chatcmpl-94k2","object":"chat.completion.chunk","created":17109210,"model":"gemini-3.8-flash","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}',
       class: 'text-outline text-[10px]',
     },
     { text: 'data: {"choices":[{"delta":{"content":"Handshake"}}]}', class: 'text-secondary' },
@@ -276,7 +307,7 @@ Creates a completion request routed dynamically across virtualized pools. Automa
 #### Parameters
 | Field | Type | Default | Description |
 |---|---|---|---|
-| \`model\` | string | required | Model alias (e.g. \`gemini-2.5-flash\`, \`groq-llama-3.3-70b\`) or wildcard \`auto-fastest\` |
+| \`model\` | string | required | Model alias (e.g. \`gemini-3.8-flash\`, \`groq-llama-3.3-70b\`) or wildcard \`auto-fastest\` |
 | \`messages\` | array[obj] | required | Array of \`{ role, content }\` chat objects |
 | \`stream\` | boolean | \`false\` | Streams partial deltas via Server-Sent Events (SSE) |
 | \`fallback_cascade\` | array[str] | \`["auto"]\` | Fallback model sequence if primary key or provider fails |
@@ -743,7 +774,7 @@ ${pySnippet}
                       <td class="py-2.5 px-3 text-outline">string</td>
                       <td class="py-2.5 px-3 text-outline">—</td>
                       <td class="py-2.5 pl-3 font-body-sm text-on-surface-variant">
-                        Aggregated alias (e.g. <code class="text-secondary">gemini-2.5-flash</code>, <code class="text-secondary">groq-llama-3.3-70b</code>) or wildcard <code class="text-primary">auto-fastest</code>.
+                        Aggregated alias (e.g. <code class="text-secondary">gemini-3.8-flash</code>, <code class="text-secondary">groq-llama-3.3-70b</code>) or wildcard <code class="text-primary">auto-fastest</code>.
                       </td>
                     </tr>
                     <tr>
@@ -1254,23 +1285,10 @@ ${pySnippet}
                 
                 
               
-          <optgroup label="Google Gemini">
-            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-            <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-          </optgroup>
-          <optgroup label="GroqCloud">
-            <option value="openai/gpt-oss-120b">openai/gpt-oss-120b (Groq)</option>
-            <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Groq)</option>
-          </optgroup>
-          <optgroup label="SambaNova">
-            <option value="Meta-Llama-3.1-405B-Instruct">Meta-Llama-3.1-405B-Instruct (SambaNova)</option>
-          </optgroup>
-          <optgroup label="Cerebras">
-            <option value="llama3.1-70b">llama3.1-70b (Cerebras)</option>
-          </optgroup>
-
-</select>
+                {#each availableModels as model (model.id)}
+                  <option value={model.id}>{model.id} ({model.provider})</option>
+                {/each}
+              </select>
             </div>
 
             <!-- Stream Toggle Switch -->

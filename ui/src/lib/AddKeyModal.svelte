@@ -185,6 +185,7 @@
     onClose,
     onAddKey,
     onSubmit,
+    isGitHubAuth = false,
   }: {
     isOpen?: boolean;
     onClose?: () => void;

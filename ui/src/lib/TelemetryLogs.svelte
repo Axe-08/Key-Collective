@@ -30,66 +30,7 @@
     }
   }
 
-  // Fallback logs directly matching screen1_dashboard.html if logs are empty
-  const defaultLogs: RequestLog[] = [
-    {
-      id: 'sim_1',
-      key_id: 'Key #03',
-      provider: 'gemini',
-      status_code: 200,
-      latency_ms: 142,
-      bytes_in: 812,
-      bytes_out: 310,
-      created_at: new Date(Date.now() - 1000).toISOString(),
-      model: 'gemini-2.5-flash',
-    },
-    {
-      id: 'sim_2',
-      key_id: 'Key #01',
-      provider: 'gemini',
-      status_code: 429,
-      latency_ms: 8,
-      bytes_in: 640,
-      bytes_out: 0,
-      created_at: new Date(Date.now() - 2500).toISOString(),
-      model: 'gemini-1.5-pro',
-    },
-    {
-      id: 'sim_3',
-      key_id: 'Key #09',
-      provider: 'groq',
-      status_code: 200,
-      latency_ms: 98,
-      bytes_in: 1200,
-      bytes_out: 480,
-      created_at: new Date(Date.now() - 4000).toISOString(),
-      model: 'llama-3.3-70b-versatile',
-    },
-    {
-      id: 'sim_4',
-      key_id: 'Key #02',
-      provider: 'gemini',
-      status_code: 200,
-      latency_ms: 138,
-      bytes_in: 410,
-      bytes_out: 89,
-      created_at: new Date(Date.now() - 6000).toISOString(),
-      model: 'gemini-2.5-flash',
-    },
-    {
-      id: 'sim_5',
-      key_id: 'Key #11',
-      provider: 'groq',
-      status_code: 200,
-      latency_ms: 45,
-      bytes_in: 250,
-      bytes_out: 120,
-      created_at: new Date(Date.now() - 8000).toISOString(),
-      model: 'llama-3.1-8b-instant',
-    },
-  ];
-
-  const sourceLogs = $derived(logs.length > 0 ? logs : defaultLogs);
+  const sourceLogs = $derived(logs);
 
   const filteredLogs = $derived(
     sourceLogs.filter((log) => {
@@ -157,6 +98,8 @@
       <div class="p-3 rounded bg-surface-container-lowest/50 text-outline text-label-sm font-label-sm font-mono border border-outline-variant/20 text-center">
         -- Telemetry viewport cleared. Listening for incoming proxy requests... --
       </div>
+    {:else if sourceLogs.length === 0}
+      <div class="p-8 text-center text-outline font-mono text-sm">No live requests recorded yet. Send a request to see telemetry logs.</div>
     {:else if filteredLogs.length === 0}
       <div class="p-3 text-center text-outline font-mono text-label-sm">
         No requests matching the selected filter.

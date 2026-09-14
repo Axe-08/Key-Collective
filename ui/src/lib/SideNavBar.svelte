@@ -10,7 +10,8 @@
     keys = [],
     userAccount,
     onOpenAddModal,
-    todaySpendMicrodollars = 42000,
+    onOpenReportModal,
+    todaySpendMicrodollars = 0,
   }: {
     activeTab?: 'pool' | 'workbench' | 'docs' | 'admin' | string;
     onSelectTab?: (tab: string) => void;
@@ -24,7 +25,7 @@
 
   let quotaPercent = $derived.by(() => {
     if (!stats || !stats.daily_quota_limit || stats.daily_quota_limit === 0) {
-      return 42;
+      return 0;
     }
     const percent = Math.round((stats.daily_quota_used / stats.daily_quota_limit) * 100);
     return Math.min(100, Math.max(0, percent));
@@ -127,10 +128,9 @@
         <div class="bg-gradient-to-r from-primary to-secondary h-full rounded-full transition-all duration-500" style="width: {quotaPercent}%;"></div>
       </div>
       <div class="flex justify-between items-center text-[10px] font-mono text-on-surface-variant pt-0.5">
-        <span title="Fixed-Point Microdollar Accounting ({todaySpendMicrodollars} µ$)">
-          Est: {formatMicrodollars(todaySpendMicrodollars)}
+        <span class="text-secondary font-medium" title="Fixed-Point Microdollar Accounting ({todaySpendMicrodollars} µ$)">
+          {formatMicrodollars(todaySpendMicrodollars)} today
         </span>
-        <span class="text-secondary font-medium">0 µ$ actual</span>
       </div>
     </div>
 

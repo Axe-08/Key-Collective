@@ -39,7 +39,7 @@
   });
 
   // Microdollar Accounting State (1 USD = 1,000,000 µ$)
-  let todaySpendMicrodollars = $state<Microdollars>(42000);
+  let todaySpendMicrodollars = $state<Microdollars>(0);
 
   // User Account & Multi-Project Hierarchy (v3 State)
   let userAccount = $state<UserAccount>({
@@ -57,55 +57,9 @@
     updatedAt: '',
   });
 
-  let projects = $state<Project[]>([
-    {
-      id: 'proj_gateway_01',
-      tenantId: 'usr_gh_9824102',
-      name: 'Production Gateway',
-      slug: 'production-gateway',
-      description: 'Primary AI routing gateway and key pool',
-      maxRpmSubCap: 20,
-      isArchived: false,
-      createdAt: '2024-01-02T00:00:00.000Z',
-      updatedAt: '2024-01-02T00:00:00.000Z',
-    },
-    {
-      id: 'proj_rag_eval_02',
-      tenantId: 'usr_gh_9824102',
-      name: 'RAG & Eval Suite',
-      slug: 'rag-eval-suite',
-      description: 'Continuous retrieval-augmented generation benchmarking',
-      maxRpmSubCap: 10,
-      isArchived: false,
-      createdAt: '2024-01-15T00:00:00.000Z',
-      updatedAt: '2024-01-15T00:00:00.000Z',
-    },
-  ]);
+  let projects = $state<Project[]>([]);
 
-  let projectKeys = $state<ProjectKey[]>([
-    {
-      id: 'key_cln_live_01',
-      projectId: 'proj_gateway_01',
-      tenantId: 'usr_gh_9824102',
-      name: 'Production Gateway Key',
-      tokenPrefix: 'kc_proj_live_8F',
-      tokenHashSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      isRevoked: false,
-      lastUsedAt: new Date().toISOString(),
-      createdAt: '2024-01-02T00:00:00.000Z',
-    },
-    {
-      id: 'key_cln_eval_02',
-      projectId: 'proj_rag_eval_02',
-      tenantId: 'usr_gh_9824102',
-      name: 'CI/CD Eval Runner Key',
-      tokenPrefix: 'kc_proj_eval_2M',
-      tokenHashSha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-      isRevoked: false,
-      lastUsedAt: new Date(Date.now() - 3600000).toISOString(),
-      createdAt: '2024-01-15T00:00:00.000Z',
-    },
-  ]);
+  let projectKeys = $state<ProjectKey[]>([]);
 
   let isAddModalOpen = $state(false);
   let isReportModalOpen = $state(false);
@@ -140,6 +94,7 @@
       keys = fetchedKeys;
       logs = fetchedLogs;
       stats = await api.getStats(fetchedKeys, fetchedLogs);
+      todaySpendMicrodollars = (stats as any).total_spend_today_microdollars ?? (stats as any).todaySpendMicrodollars ?? (logs.reduce((acc, l) => acc + ((l as any).cost_microdollars || 0), 0)) ?? 0;
     } catch (err: any) {
       console.error('Failed to load dashboard data', err);
     } finally {

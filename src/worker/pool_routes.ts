@@ -48,18 +48,24 @@ async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Re
   ).bind(tenantId).all<{ provider: string }>();
   const tenantProviders = new Set((tenantProviderResult.results ?? []).map(r => r.provider));
 
-  const providerPools = providers.map(p => ({
-    provider: p.provider,
-    active_keys: p.active_count ?? 0,
-    observation_keys: p.observation_count ?? 0,
-    quarantined_keys: p.quarantined_count ?? 0,
-    u_pool_percent: p.total_dispatched_today > 0
-      ? Math.round(((p.total_dispatched_communal ?? 0) / p.total_dispatched_today) * 100)
-      : 0,
-    w_provider: 1.0,
-    p90_latency_ms: 0,
-    eye_for_eye_accessible: tenantProviders.has(p.provider),
-  }));
+  const canonicalProviders = ['gemini', 'groq', 'sambanova', 'cerebras'];
+  const providerMap = new Map(providers.map(p => [p.provider.toLowerCase(), p]));
+
+  const providerPools = canonicalProviders.map(cp => {
+    const p = providerMap.get(cp);
+    return {
+      provider: cp,
+      active_keys: p?.active_count ?? 0,
+      observation_keys: p?.observation_count ?? 0,
+      quarantined_keys: p?.quarantined_count ?? 0,
+      u_pool_percent: (p && p.total_dispatched_today > 0)
+        ? Math.round(((p.total_dispatched_communal ?? 0) / p.total_dispatched_today) * 100)
+        : 0,
+      w_provider: 1.0,
+      p90_latency_ms: 0,
+      eye_for_eye_accessible: tenantProviders.has(cp) || tenantProviders.has(cp.toLowerCase()),
+    };
+  });
 
   return Response.json({
     total_active_keys: totalActive,

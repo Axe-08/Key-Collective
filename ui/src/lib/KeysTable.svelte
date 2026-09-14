@@ -266,7 +266,7 @@
                 {:else if key.status === 'rate_limited'}
                   <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-tertiary/10 border border-tertiary/30 text-tertiary text-label-sm font-label-sm font-medium">
                     <span class="w-1.5 h-1.5 rounded-full bg-tertiary status-pulse"></span>
-                    429 Cooling [{cooldownSec > 0 ? cooldownSec + 's' : '00:28s'}]
+                    429 Cooling [{cooldownSec > 0 ? cooldownSec + 's' : '0s'}]
                   </span>
                 {:else if key.status === 'invalid'}
                   <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container/40 border border-error/30 text-error text-label-sm font-label-sm font-medium">

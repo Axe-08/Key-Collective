@@ -1,107 +1,9 @@
 import type { APIKey, RequestLog, PoolStats, CreateKeyPayload } from './types';
 
-const INITIAL_MOCK_KEYS: APIKey[] = [
-  {
-    id: 'key_01jh9x81m',
-    key_prefix: 'AIzaSyA4',
-    key_suffix: '7F9x',
-    provider: 'gemini',
-    label: 'gemini-1.5-pro-primary',
-    rpm_limit: 15,
-    rpd_limit: 1500,
-    priority: 0,
-    status: 'healthy',
-    requests_this_min: 4,
-    requests_today: 412,
-    total_requests: 3820,
-    avg_latency_ms: 312,
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: 'key_01jh9x82p',
-    key_prefix: 'AIzaSyC2',
-    key_suffix: '9mK1',
-    provider: 'gemini',
-    label: 'gemini-1.5-flash-batch',
-    rpm_limit: 15,
-    rpd_limit: 1500,
-    priority: 1,
-    status: 'healthy',
-    requests_this_min: 7,
-    requests_today: 890,
-    total_requests: 5210,
-    avg_latency_ms: 228,
-    created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
-  },
-  {
-    id: 'key_01jh9x83q',
-    key_prefix: 'gsk_99aB',
-    key_suffix: '1eZ3',
-    provider: 'groq',
-    label: 'groq-llama3-ultra-fast',
-    rpm_limit: 30,
-    rpd_limit: 14400,
-    priority: 0,
-    status: 'healthy',
-    requests_this_min: 12,
-    requests_today: 3410,
-    total_requests: 18450,
-    avg_latency_ms: 142,
-    created_at: new Date(Date.now() - 86400000 * 8).toISOString(),
-  },
-  {
-    id: 'key_01jh9x84r',
-    key_prefix: 'gsk_71fD',
-    key_suffix: '8uX9',
-    provider: 'groq',
-    label: 'groq-mixtral-backup',
-    rpm_limit: 30,
-    rpd_limit: 14400,
-    priority: 2,
-    status: 'rate_limited',
-    requests_this_min: 30,
-    requests_today: 6120,
-    cooldown_until: new Date(Date.now() + 38000).toISOString(),
-    total_requests: 9840,
-    avg_latency_ms: 295,
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'key_01jh9x85s',
-    key_prefix: 'AIzaSyD8',
-    key_suffix: '4nL0',
-    provider: 'gemini',
-    label: 'gemini-exp-tier3',
-    rpm_limit: 15,
-    rpd_limit: 1500,
-    priority: 3,
-    status: 'invalid',
-    requests_this_min: 0,
-    requests_today: 12,
-    total_requests: 42,
-    avg_latency_ms: 0,
-    created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: 'key_01jh9x86t',
-    key_prefix: 'gsk_52hP',
-    key_suffix: '3kW2',
-    provider: 'groq',
-    label: 'groq-llama3-eu-zone',
-    rpm_limit: 30,
-    rpd_limit: 14400,
-    priority: 1,
-    status: 'healthy',
-    requests_this_min: 8,
-    requests_today: 1850,
-    total_requests: 7420,
-    avg_latency_ms: 168,
-    created_at: new Date(Date.now() - 86400000 * 6).toISOString(),
-  },
-];
+const INITIAL_MOCK_KEYS: APIKey[] = [];
 
 // In-memory state for fallback/mock simulation
-let memoryKeys: APIKey[] = [...INITIAL_MOCK_KEYS];
+let memoryKeys: APIKey[] = [];
 
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
@@ -138,9 +40,9 @@ export const api = {
         }
       }
     } catch {
-      // Backend not running or unreachable, fallback to memory keys
+      // Backend not running or unreachable
     }
-    return memoryKeys;
+    return [];
   },
 
   async createKey(payload: CreateKeyPayload): Promise<APIKey> {
@@ -210,16 +112,10 @@ export const api = {
         return await res.json();
       }
     } catch {
-      // Fallback test simulation
+      // Network or backend error
     }
 
-    await new Promise((r) => setTimeout(r, 650));
-    const targetKey = memoryKeys.find((k) => k.id === id);
-    if (targetKey && targetKey.status === 'invalid') {
-      return { success: false, latency_ms: 45, message: 'Invalid API Key token rejected by upstream provider (HTTP 401)' };
-    }
-    const latency = Math.floor(110 + Math.random() * 240);
-    return { success: true, latency_ms: latency, message: `Key verified successfully with upstream in ${latency}ms` };
+    return { success: false, latency_ms: 0, message: 'Network or backend error testing key' };
   },
 
   async getLogs(): Promise<RequestLog[]> {
@@ -265,10 +161,10 @@ export const api = {
     const validLogs = logs.filter((l) => l.status_code === 200);
     const avgLatency = validLogs.length > 0
       ? Math.round(validLogs.reduce((acc, l) => acc + l.latency_ms, 0) / validLogs.length)
-      : 245;
+      : backendStats?.avg_upstream_latency_ms ?? 0;
 
     const dailyQuotaUsed = backendStats?.total_requests_today ?? backendStats?.daily_quota_used ?? keys.reduce((acc, k) => acc + (k.requests_today || 0), 0);
-    const dailyQuotaLimit = backendStats?.daily_quota_limit ?? (keys.reduce((acc, k) => acc + k.rpd_limit, 0) || 50000);
+    const dailyQuotaLimit = backendStats?.daily_quota_limit ?? (keys.reduce((acc, k) => acc + k.rpd_limit, 0) || 0);
 
     return {
       total_keys: totalKeys,

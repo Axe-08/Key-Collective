@@ -29,18 +29,18 @@
 
   // Baseline mock account matching Stitch design if none provided
   const defaultUserAccount: UserAccount = {
-    id: 'usr_gh_9824102',
-    githubId: 9824102,
-    githubUsername: 'collective-dev',
-    primaryEmail: 'dev@collective.internal',
-    tier: 'builder',
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAWPkknyQU1Y7pEltc3GiG-QIbpylrlkULU7xBzv0t_9WJCtrJ0aTzsqN8cD8nn0sm8qK3yfAhmyYR77TmAbEQJ9jBfWzemeMAyh2p4YYn8I5jCNx9J8AUVKY0vTfEt77wnnH0Nbiu3ryTXZeVv9rajFVtnudeqawlJOk4GBRUpxoAduaQkflJafp5DpAUZMSmr6bh8b89Pgghbv5vD0KvPkNdZ0dMdZcWGDblUmqkhQ4itszZMhrST2gShjhSDr6NJS-6xFGB8yj4',
-    isEmailVerified: true,
-    githubCreatedAt: '2023-09-01T00:00:00.000Z',
-    sybilScore: 92,
-    registrationIp: '149.28.12.94',
-    createdAt: '2023-09-01T00:00:00.000Z',
-    updatedAt: '2024-11-14T08:34:11.000Z',
+    id: '',
+    githubId: 0,
+    githubUsername: '',
+    primaryEmail: '',
+    tier: 'demo',
+    avatarUrl: '',
+    isEmailVerified: false,
+    githubCreatedAt: '',
+    sybilScore: 0,
+    registrationIp: '',
+    createdAt: '',
+    updatedAt: '',
   };
 
   const account = $derived(userAccount ?? defaultUserAccount);
@@ -61,86 +61,10 @@
   }
 
   // Default initial projects matching Stitch Reference Screen 2
-  const defaultProjects: ExtendedProject[] = [
-    {
-      id: 'proj_prod_gw',
-      tenantId: 'usr_gh_9824102',
-      name: 'Production Gateway',
-      slug: 'production-gateway',
-      description: 'Primary AI routing gateway and virtual key pool with automated failover.',
-      maxRpmSubCap: 20,
-      assignedRpm: 14,
-      latencyMs: 11,
-      latency: '11ms avg',
-      icon: 'hub',
-      iconColor: 'text-primary',
-      isArchived: false,
-      createdAt: '2024-10-14T10:00:00.000Z',
-      updatedAt: '2024-10-14T10:00:00.000Z',
-    },
-    {
-      id: 'proj_rag_eval',
-      tenantId: 'usr_gh_9824102',
-      name: 'RAG & Eval Suite',
-      slug: 'rag-eval-suite',
-      description: 'High-throughput evaluation pipelines and retrieval embeddings.',
-      maxRpmSubCap: 10,
-      assignedRpm: 2,
-      latencyMs: 16,
-      latency: '16ms avg',
-      icon: 'psychology',
-      iconColor: 'text-tertiary',
-      isArchived: false,
-      createdAt: '2024-11-02T10:00:00.000Z',
-      updatedAt: '2024-11-02T10:00:00.000Z',
-    },
-  ];
+  const defaultProjects: ExtendedProject[] = [];
 
   // Default initial keys matching Stitch Reference Screen 2
-  const defaultKeys: ExtendedKey[] = [
-    {
-      id: 'key_prod_v3_pri',
-      projectId: 'proj_prod_gw',
-      tenantId: 'usr_gh_9824102',
-      name: 'prod-gateway-v3-primary',
-      tokenPrefix: 'kc_proj_live_8F9a21b',
-      tokenHashSha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-      fullSecret: 'kc_proj_live_8F9a21b44781d09e',
-      displayTime: '2 minutes ago',
-      displayCreated: 'Created Oct 14, 2024',
-      isRevoked: false,
-      lastUsedAt: '2024-11-14T08:32:00.000Z',
-      createdAt: '2024-10-14T10:00:00.000Z',
-    },
-    {
-      id: 'key_rag_pipe',
-      projectId: 'proj_rag_eval',
-      tenantId: 'usr_gh_9824102',
-      name: 'rag-eval-pipeline-key',
-      tokenPrefix: 'kc_proj_live_3D4e77c',
-      tokenHashSha256: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-      fullSecret: 'kc_proj_live_3D4e77c5901ba63',
-      displayTime: '41 minutes ago',
-      displayCreated: 'Created Nov 02, 2024',
-      isRevoked: false,
-      lastUsedAt: '2024-11-14T07:53:00.000Z',
-      createdAt: '2024-11-02T10:00:00.000Z',
-    },
-    {
-      id: 'key_stag_leg',
-      projectId: 'proj_prod_gw',
-      tenantId: 'usr_gh_9824102',
-      name: 'staging-legacy-test',
-      tokenPrefix: 'kc_proj_test_01Bc88a',
-      tokenHashSha256: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
-      fullSecret: 'kc_proj_test_01Bc88a7791df32',
-      displayTime: '14 days ago',
-      displayCreated: 'Created Aug 19, 2024',
-      isRevoked: true,
-      lastUsedAt: '2024-10-31T12:00:00.000Z',
-      createdAt: '2024-08-19T10:00:00.000Z',
-    },
-  ];
+  const defaultKeys: ExtendedKey[] = [];
 
   // Local state for interactive updates
   let localProjects = $state<ExtendedProject[]>([]);
@@ -148,6 +72,12 @@
 
   let providerKeys = $state<APIKey[]>([]);
   let providerKeysLoading = $state(true);
+
+  // Switch Pool Modal State
+  let switchPoolModalOpen = $state(false);
+  let switchPoolTarget = $state<{ keyId: string; targetPool: 'COMMUNITY' | 'PRIVATE' } | null>(null);
+  let switchPoolLoading = $state(false);
+  let switchPoolError = $state<string | null>(null);
 
   $effect(() => {
     fetch('/api/keys')
@@ -817,32 +747,32 @@ ${localKeys
 
           <div>
             <div class="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onclick={() => (showNewKeyModal = true)}
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
-        >
-          <span class="material-symbols-outlined text-[16px]">key</span>
-          <span>Create Key</span>
-        </button>
+              <button
+                type="button"
+                onclick={() => (showNewKeyModal = true)}
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
+              >
+                <span class="material-symbols-outlined text-[16px]">key</span>
+                <span>Create Key</span>
+              </button>
               <h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                @{account.githubUsername}
+                {account.githubUsername ? `@${account.githubUsername}` : 'Demo Sandbox'}
               </h2>
               <span class="flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant/20 font-label-sm text-label-sm text-on-surface-variant font-mono">
                 <span class="material-symbols-outlined text-[12px] text-primary">code</span>
-                GitHub
+                {account.githubId ? 'GitHub' : 'Local'}
               </span>
             </div>
             <div class="font-code-sm text-code-sm text-outline mt-0.5 font-mono">
-              Account ID: <span class="text-on-surface">{account.id}</span>
+              Account ID: <span class="text-on-surface">{account.id || 'usr_demo_sandbox'}</span>
             </div>
             <div class="flex items-center gap-1.5 mt-2 text-secondary font-code-sm text-code-sm font-mono">
-              <span class="material-symbols-outlined text-[14px]">check_circle</span>
-              <span class="text-on-surface">{account.primaryEmail}</span>
+              <span class="material-symbols-outlined text-[14px]">{account.primaryEmail ? 'check_circle' : 'info'}</span>
+              <span class="text-on-surface">{account.primaryEmail || 'No verified email linked (Sign in via GitHub)'}</span>
             </div>
             <div class="font-code-sm text-code-sm text-on-surface-variant mt-1 font-mono">
-              Registration IP: <span class="text-on-surface">{account.registrationIp}</span>
-              <span class="text-outline">(Singapore)</span>
+              Registration IP: <span class="text-on-surface">{account.registrationIp || '127.0.0.1'}</span>
+              <span class="text-outline">({account.registrationIp ? 'Verified' : 'Local Edge'})</span>
             </div>
           </div>
         </div>
@@ -1048,6 +978,10 @@ ${localKeys
         <span>Create New Project</span>
       </button>
     </div>
+
+    {#if localProjects.length === 0 && localKeys.length === 0}
+      <div class="p-8 text-center text-outline font-mono text-sm">No virtual projects or client keys configured yet. Click "Create Key" to get started.</div>
+    {/if}
 
     <!-- Project Cards Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

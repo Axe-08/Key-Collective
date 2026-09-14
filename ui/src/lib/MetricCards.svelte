@@ -5,7 +5,7 @@
   let {
     stats,
     keys,
-    todaySpendMicrodollars = 42000,
+    todaySpendMicrodollars = 0,
   }: {
     stats: PoolStats;
     keys: APIKey[];
@@ -15,22 +15,22 @@
   const geminiCount = $derived(keys.filter((k) => k.provider === 'gemini').length);
   const groqCount = $derived(keys.filter((k) => k.provider === 'groq').length);
 
-  const totalKeys = $derived(keys.length > 0 ? keys.length : stats.total_keys || 12);
+  const totalKeys = $derived(keys.length > 0 ? keys.length : (stats.total_keys || 0));
   const healthyKeys = $derived(
     keys.length > 0
       ? keys.filter((k) => k.status === 'healthy').length
-      : stats.healthy_keys || 10
+      : (stats.healthy_keys || 0)
   );
   const coolingKeys = $derived(
     keys.length > 0
       ? keys.filter((k) => k.status === 'rate_limited').length
-      : stats.rate_limited_keys || 2
+      : (stats.rate_limited_keys || 0)
   );
 
-  const rpmCap = $derived(stats.total_rpm_limit > 0 ? stats.total_rpm_limit : 280);
-  const rpmLoad = $derived(stats.current_rpm_used > 0 ? stats.current_rpm_used : 190.4);
+  const rpmCap = $derived(stats.total_rpm_limit || 0);
+  const rpmLoad = $derived(stats.current_rpm_used || 0);
   const rpmAllocatedPercent = $derived(
-    rpmCap > 0 ? Math.min(100, Math.round((rpmLoad / rpmCap) * 100)) : 68
+    rpmCap > 0 ? Math.min(100, Math.round((rpmLoad / rpmCap) * 100)) : 0
   );
 
   // Microdollar Spend Calculations (1 USD = 1,000,000 µ$)
@@ -41,19 +41,26 @@
   const ringCircumference = 113.097;
   const ringOffset = $derived(ringCircumference * (1 - Math.max(0.04, spendRatio)));
 
-  // Simulated / dynamic cooldown countdown timer matching Stitch design
-  let secondsLeft = $state(28);
+  // Actual dynamic cooldown countdown timer
+  let currentTime = $state(Date.now());
   $effect(() => {
-    const timer = setInterval(() => {
-      if (secondsLeft > 0) {
-        secondsLeft--;
-      } else {
-        secondsLeft = 30;
-      }
+    const interval = setInterval(() => {
+      currentTime = Date.now();
     }, 1000);
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   });
-  const formattedCooldown = $derived(`00:${String(secondsLeft).padStart(2, '0')}s cooldown`);
+  const maxCooldownSec = $derived(
+    keys.reduce((max, key) => {
+      if (key.status === 'rate_limited' && key.cooldown_until) {
+        const diff = Math.ceil((new Date(key.cooldown_until).getTime() - currentTime) / 1000);
+        return Math.max(max, diff > 0 ? diff : 0);
+      }
+      return max;
+    }, 0)
+  );
+  const formattedCooldown = $derived(
+    coolingKeys > 0 ? `00:${String(maxCooldownSec).padStart(2, '0')}s cooldown` : `0 keys rate-limited`
+  );
 </script>
 
 <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
