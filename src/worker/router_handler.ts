@@ -700,17 +700,11 @@ export class RouterHandler {
    * @param ctx ExecutionContext for non-blocking waitUntil lifecycle management
    * @param preAuthenticatedContext Optional pre-authenticated context from upstream middleware
    */
-  /**
-   * Handles abuse reporting and takedown webhook requests (POST /v1/report).
-   * Validates env.REPORT_WEBHOOK_SECRET using a constant-time timing shield (timingSafeEqualStrings)
-   * to eliminate timing side-channel attacks.
-   */
   public async handleReport(request: Request, env: WorkerEnv): Promise<Response> {
     const authHeader = request.headers.get("authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
     const expectedSecret = env.REPORT_WEBHOOK_SECRET || "";
 
-    // Constant-time timing shield
     if (!token || !expectedSecret || !timingSafeEqualStrings(token, expectedSecret)) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -726,7 +720,6 @@ export class RouterHandler {
     ctx?: ExecutionContextLike,
     preAuthenticatedContext?: AuthenticatedContext
   ): Promise<Response> {
-    // 0. Midnight Freeze Guard global circuit breaker
     if (env.MIDNIGHT_FREEZE === "true" || env.MIDNIGHT_FREEZE === "1") {
       return new Response(
         JSON.stringify({
@@ -761,7 +754,6 @@ export class RouterHandler {
       });
     }
 
-    // 1.0 Report takedown endpoint with timing shield
     if (method === "POST" && (pathname === "/v1/report" || pathname === "/report")) {
       return await this.handleReport(request, env);
     }
