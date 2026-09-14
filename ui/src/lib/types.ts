@@ -1,6 +1,9 @@
-export type Provider = 'gemini' | 'groq';
+export type Provider = 'gemini' | 'groq' | 'sambanova' | 'cerebras';
 
 export type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';
+
+export type PoolType = 'COMMUNITY' | 'PRIVATE';
+export type CommunityRoutingStatus = 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED';
 
 export interface APIKey {
   id: string;
@@ -18,6 +21,8 @@ export interface APIKey {
   total_requests?: number;
   avg_latency_ms?: number;
   created_at?: string;
+  pool_type?: PoolType;
+  community_routing_status?: CommunityRoutingStatus;
 }
 
 export interface RequestLog {
@@ -53,6 +58,24 @@ export interface CreateKeyPayload {
   rpm_limit: number;
   rpd_limit: number;
   priority: number;
+  pool_type: PoolType;
+  k1: boolean;
+  k2: boolean;
+  turnstile_token: string;
+}
+
+export interface GlobalPoolTelemetry {
+  total_keys?: number;
+  healthy_keys?: number;
+}
+
+export interface ProviderPoolMetrics {
+  provider: Provider;
+  metrics: Record<string, number>;
+}
+
+export interface ContributorStanding {
+  status: string;
 }
 
 export interface ToastMessage {
