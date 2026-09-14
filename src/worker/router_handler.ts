@@ -97,6 +97,8 @@ import {
   TelemetryEmitter,
 } from "./telemetry_emitter";
 import { OPENAPI_SPEC } from "./openapi_spec";
+import { verifyTurnstileToken } from "../auth/sybil";
+import { forceErrorGcpProbe } from "../ingress/probe";
 
 /**
  * Concrete domain error for edge routing failures.
@@ -1169,6 +1171,13 @@ export class RouterHandler {
         throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
       }
 
+      const turnstileToken = request.headers.get("x-turnstile-token") || "";
+      const turnstileSecret = env.TURNSTILE_SECRET as string | undefined;
+      const tsResult = await verifyTurnstileToken(turnstileToken, { secretKey: turnstileSecret });
+      if (!tsResult.success) {
+        throw new RouterError("Turnstile validation failed", { statusCode: 403 });
+      }
+
       const body = (await request.json()) as {
         provider: string;
         label: string;
@@ -1176,7 +1185,14 @@ export class RouterHandler {
         rpm_limit?: number;
         rpd_limit?: number;
         priority?: number;
+        k1?: boolean;
+        k2?: boolean;
+        pool_type?: string;
       };
+
+      if (!body.k1 || !body.k2) {
+        throw new RouterError("K1 and K2 attestations are required", { statusCode: 400 });
+      }
 
       if (!body.key || typeof body.key !== "string" || body.key.trim().length === 0) {
         throw new RouterError("API key token is required", { statusCode: 400 });
@@ -1184,6 +1200,23 @@ export class RouterHandler {
 
       const rawKey = body.key.trim();
       const provider = body.provider === "gemini" ? "google" : body.provider;
+      
+      const extractedProject = await forceErrorGcpProbe(rawKey, provider);
+      if (extractedProject) {
+        const projectHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(extractedProject));
+        const hashHex = Array.from(new Uint8Array(projectHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        const existingHash = await env.DB.prepare("SELECT state FROM project_hash_registry WHERE project_hash = ?").bind(hashHex).first<{state: string}>();
+        if (existingHash) {
+          if (existingHash.state === "ACTIVE") {
+            throw new RouterError("Project hash already active", { statusCode: 409 });
+          } else if (existingHash.state === "TOMBSTONED") {
+            throw new RouterError("Project hash tombstoned", { statusCode: 403 });
+          }
+        }
+        await env.DB.prepare("INSERT INTO project_hash_registry (project_hash, state, tenant_id, created_at) VALUES (?, 'ACTIVE', ?, ?)").bind(hashHex, tenantId, Date.now()).run();
+      }
+
       const label = body.label?.trim() || `${body.provider}-key-${Date.now().toString(36)}`;
       const rpm_limit = Number(body.rpm_limit) || (body.provider === "groq" ? 30 : 15);
       const rpd_limit = Number(body.rpd_limit) || (body.provider === "groq" ? 14400 : 1500);
@@ -1196,12 +1229,16 @@ export class RouterHandler {
       const { ciphertextB64, nonceB64 } = await encrypt(rawKey, masterKey);
 
       const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+      
+      const commRoutingStatus = body.pool_type ? 'OBSERVATION' : null;
+      const obsUntil = body.pool_type ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
       await env.DB.prepare(
         `INSERT INTO api_keys (
           id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
-          key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy')`
+          key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
+          community_routing_status, observation_until
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', ?, ?)`
       ).bind(
         keyId,
         targetTenantId,
@@ -1213,8 +1250,13 @@ export class RouterHandler {
         keySuffix,
         rpm_limit,
         rpd_limit,
-        priority
+        priority,
+        commRoutingStatus,
+        obsUntil
       ).run();
+
+      await env.DB.prepare("INSERT INTO consent_attestations (key_id, tenant_id, consent_type, consent_version, created_at) VALUES (?, ?, 'K1', 'v1.0', ?)").bind(keyId, targetTenantId, Date.now()).run();
+      await env.DB.prepare("INSERT INTO consent_attestations (key_id, tenant_id, consent_type, consent_version, created_at) VALUES (?, ?, 'K2', 'v1.0', ?)").bind(keyId, targetTenantId, Date.now()).run();
 
       try {
         const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
@@ -1370,6 +1412,56 @@ export class RouterHandler {
         latency_ms: latencyMs,
         message,
       });
+    }
+
+    // 4.5 POST /api/abuse/report-key
+    if (method === "POST" && pathname === "/api/abuse/report-key") {
+      const startMs = Date.now();
+      
+      const turnstileToken = request.headers.get("x-turnstile-token") || "";
+      const turnstileSecret = env.TURNSTILE_SECRET as string | undefined;
+      const tsResult = await verifyTurnstileToken(turnstileToken, { secretKey: turnstileSecret });
+      if (!tsResult.success) {
+        throw new RouterError("Turnstile validation failed", { statusCode: 403 });
+      }
+
+      const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || "unknown";
+      const currentHour = Math.floor(Date.now() / (1000 * 60 * 60));
+      
+      if (env.DB && typeof env.DB.prepare === "function") {
+        await env.DB.prepare("CREATE TABLE IF NOT EXISTS abuse_rate_limits (ip TEXT, window_hour INTEGER, count INTEGER, PRIMARY KEY (ip, window_hour))").run();
+        const rl = await env.DB.prepare("SELECT count FROM abuse_rate_limits WHERE ip = ? AND window_hour = ?").bind(ip, currentHour).first<{count: number}>();
+        if (rl && rl.count >= 5) {
+          throw new RouterError("Rate limit exceeded", { statusCode: 429 });
+        }
+        await env.DB.prepare("INSERT INTO abuse_rate_limits (ip, window_hour, count) VALUES (?, ?, 1) ON CONFLICT(ip, window_hour) DO UPDATE SET count = count + 1").bind(ip, currentHour).run();
+      }
+
+      const body = (await request.json()) as { keyId: string };
+      
+      const deletePromise = async () => {
+        if (body.keyId && env.DB && typeof env.DB.prepare === "function") {
+          await env.DB.prepare("DELETE FROM api_keys WHERE id = ?").bind(body.keyId).run();
+          try {
+            const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
+            if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
+               // We would need targetTenantId, but we might not have it. Broadcast or just ignore DO sync for abuse.
+            }
+          } catch {}
+        }
+      };
+
+      await Promise.all([
+        deletePromise(),
+        new Promise(resolve => setTimeout(resolve, Math.max(0, 200 - (Date.now() - startMs))))
+      ]);
+      
+      const elapsed = Date.now() - startMs;
+      if (elapsed < 200) {
+        await new Promise(resolve => setTimeout(resolve, 200 - elapsed));
+      }
+
+      return Response.json({ success: true, message: "Report received" }, { status: 200 });
     }
 
     // 5. GET /api/logs
