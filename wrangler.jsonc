@@ -15,6 +15,10 @@
       {
         "name": "DEMO_POOL",
         "class_name": "DemoDO"
+      },
+      {
+        "name": "POOL_COORDINATOR",
+        "class_name": "PoolCoordinatorDO"
       }
     ]
   },
@@ -29,6 +33,12 @@
       "tag": "v2",
       "new_sqlite_classes": [
         "DemoDO"
+      ]
+    },
+    {
+      "tag": "v4",
+      "new_sqlite_classes": [
+        "PoolCoordinatorDO"
       ]
     }
   ],

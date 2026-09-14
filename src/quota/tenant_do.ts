@@ -74,6 +74,12 @@ export interface TenantQuotaData {
   readonly tier: UserTier;
   readonly entries: QuotaEntry[];
   readonly totalCostMicrodollars: string;
+
+  readonly communityDebtMicroCu?: string;
+  readonly dailyContributedCu?: string;
+  readonly trustedContributor?: boolean;
+  readonly consecutiveDebtFreeDays?: number;
+  readonly multiplierCeiling?: number;
   readonly lastUpdated: number;
 }
 
@@ -105,6 +111,12 @@ export interface ConsumeQuotaResult {
   readonly currentProjectRpm?: number;
   readonly projectRpmLimit?: number;
   readonly totalCostMicrodollars: string;
+
+  readonly communityDebtMicroCu?: string;
+  readonly dailyContributedCu?: string;
+  readonly trustedContributor?: boolean;
+  readonly consecutiveDebtFreeDays?: number;
+  readonly multiplierCeiling?: number;
   readonly remainingRpm: number;
   readonly remainingRpd: number;
   readonly retryAfterSeconds?: number;
@@ -166,6 +178,12 @@ export class TenantQuotaDO extends DurableObject {
   private totalCostMicrodollars: bigint = 0n;
   private isLoaded = false;
 
+  private communityDebtMicroCu: bigint = 0n;
+  private dailyContributedCu: bigint = 0n;
+  private trustedContributor: boolean = false;
+  private consecutiveDebtFreeDays: number = 0;
+  private multiplierCeiling: number = 150;
+
   private readonly rpmWindowMs: number;
   private readonly rpdWindowMs: number;
   private readonly timeProvider: () => number;
@@ -198,6 +216,14 @@ export class TenantQuotaDO extends DurableObject {
       throw new TenantIsolationError("TenantQuotaDO requires a non-empty tenantId");
     }
     this.tenantId = resolvedTenant;
+
+    (this.ctx.storage as any).getAlarm().then((alarm: number | null) => {
+        if (!alarm) {
+            const tomorrow = new Date(Date.now());
+            tomorrow.setUTCHours(24, 0, 0, 0);
+            (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+        }
+    });
   }
 
   /**
@@ -260,6 +286,12 @@ export class TenantQuotaDO extends DurableObject {
       tier: this.tier,
       entries: [...this.entries],
       totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      trustedContributor: this.trustedContributor,
+      consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
+      multiplierCeiling: this.multiplierCeiling,
       lastUpdated: this.now(),
     };
     await this.ctx.storage.put<TenantQuotaData>(this.getStorageKey(), data);
@@ -287,6 +319,22 @@ export class TenantQuotaDO extends DurableObject {
       if (typeof stored.totalCostMicrodollars === "string") {
         this.totalCostMicrodollars = toMicrodollars(stored.totalCostMicrodollars);
       }
+      if (typeof (stored as any).communityDebtMicroCu === "string") {
+        this.communityDebtMicroCu = BigInt((stored as any).communityDebtMicroCu);
+      }
+      if (typeof (stored as any).dailyContributedCu === "string") {
+        this.dailyContributedCu = BigInt((stored as any).dailyContributedCu);
+      }
+      if (typeof (stored as any).trustedContributor === "boolean") {
+        this.trustedContributor = (stored as any).trustedContributor;
+      }
+      if (typeof (stored as any).consecutiveDebtFreeDays === "number") {
+        this.consecutiveDebtFreeDays = (stored as any).consecutiveDebtFreeDays;
+      }
+      if (typeof (stored as any).multiplierCeiling === "number") {
+        this.multiplierCeiling = (stored as any).multiplierCeiling;
+      }
+
     }
 
     this.pruneEntries();
@@ -310,6 +358,76 @@ export class TenantQuotaDO extends DurableObject {
   /**
    * Returns the currently configured UserTier.
    */
+  
+  public async accrueDebt(cuWeight: bigint): Promise<void> {
+    await this.ensureLoaded();
+    this.communityDebtMicroCu += cuWeight;
+    this.updateMultiplierCeiling();
+    await this.syncDebtState();
+  }
+
+  public async decrementDebt(cuWeight: bigint): Promise<void> {
+    await this.ensureLoaded();
+    this.communityDebtMicroCu = this.communityDebtMicroCu > cuWeight ? this.communityDebtMicroCu - cuWeight : 0n;
+    this.dailyContributedCu += cuWeight;
+    this.updateMultiplierCeiling();
+    await this.syncDebtState();
+  }
+
+  public getDebtState() {
+    let jailStatus: 'PRISTINE' | 'SOFT_WARNING' | 'HARD_JAIL' = 'PRISTINE';
+    if (this.communityDebtMicroCu > 0n) {
+      if (this.multiplierCeiling === 100) jailStatus = 'HARD_JAIL';
+      else if (this.multiplierCeiling === 150) jailStatus = 'SOFT_WARNING';
+    }
+    return {
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      multiplierCeiling: this.multiplierCeiling,
+      jailStatus
+    };
+  }
+
+  public updateMultiplierCeiling(): void {
+    const ratio = this.dailyContributedCu > 0n 
+      ? Number(this.communityDebtMicroCu * 100n / this.dailyContributedCu) 
+      : (this.communityDebtMicroCu > 0n ? 1000 : 0);
+
+    if (ratio > 100) {
+      this.multiplierCeiling = 100;
+    } else if (ratio > 50) {
+      this.multiplierCeiling = 150;
+    } else {
+      this.multiplierCeiling = this.trustedContributor ? 500 : 450;
+    }
+  }
+
+  public async syncDebtState(): Promise<void> {
+    await this.persist();
+  }
+
+  public async alarm(): Promise<void> {
+    await this.ensureLoaded();
+    if (this.communityDebtMicroCu === 0n) {
+        this.consecutiveDebtFreeDays++;
+        if (this.consecutiveDebtFreeDays > 30) this.trustedContributor = true;
+    } else {
+        this.consecutiveDebtFreeDays = 0;
+        this.trustedContributor = false;
+        
+        const decay = this.trustedContributor ? 0.3 : 0.2;
+        const decayAmount = BigInt(Math.floor(Number(this.communityDebtMicroCu) * decay));
+        this.communityDebtMicroCu = this.communityDebtMicroCu > decayAmount ? this.communityDebtMicroCu - decayAmount : 0n;
+    }
+    this.dailyContributedCu = 0n;
+    this.updateMultiplierCeiling();
+    await this.syncDebtState();
+    
+    const tomorrow = new Date(Date.now());
+    tomorrow.setUTCHours(24, 0, 0, 0);
+    await (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+  }
+
   public getTier(): UserTier {
     return this.tier;
   }
@@ -425,6 +543,12 @@ export class TenantQuotaDO extends DurableObject {
         currentRpd: currentRootRpd,
         rpdLimit: rootRpdLimit,
         totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      trustedContributor: this.trustedContributor,
+      consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
+      multiplierCeiling: this.multiplierCeiling,
         remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
         remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
         retryAfterSeconds,
@@ -448,6 +572,12 @@ export class TenantQuotaDO extends DurableObject {
         currentRpd: currentRootRpd,
         rpdLimit: rootRpdLimit,
         totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      trustedContributor: this.trustedContributor,
+      consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
+      multiplierCeiling: this.multiplierCeiling,
         remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
         remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
         retryAfterSeconds,
@@ -479,6 +609,12 @@ export class TenantQuotaDO extends DurableObject {
           currentProjectRpm,
           projectRpmLimit,
           totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      trustedContributor: this.trustedContributor,
+      consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
+      multiplierCeiling: this.multiplierCeiling,
           remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
           remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
           retryAfterSeconds,
@@ -504,6 +640,12 @@ export class TenantQuotaDO extends DurableObject {
         currentProjectRpm,
         projectRpmLimit,
         totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      trustedContributor: this.trustedContributor,
+      consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
+      multiplierCeiling: this.multiplierCeiling,
         remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
         remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
       };
@@ -537,6 +679,12 @@ export class TenantQuotaDO extends DurableObject {
       currentProjectRpm: currentProjectRpm !== undefined ? currentProjectRpm + requestedCount : undefined,
       projectRpmLimit,
       totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      trustedContributor: this.trustedContributor,
+      consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
+      multiplierCeiling: this.multiplierCeiling,
       remainingRpm: rootRpmLimit === Infinity ? Infinity : Math.max(0, rootRpmLimit - updatedRootRpm),
       remainingRpd: rootRpdLimit === Infinity ? Infinity : Math.max(0, rootRpdLimit - updatedRootRpd),
     };
@@ -640,6 +788,12 @@ export class TenantQuotaDO extends DurableObject {
           rpdLimit: tierLimits.rpdLimit,
           currentProjectRpm,
           totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+
+      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      dailyContributedCu: this.dailyContributedCu.toString(),
+      trustedContributor: this.trustedContributor,
+      consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
+      multiplierCeiling: this.multiplierCeiling,
           remainingRpm:
             tierLimits.rpmLimit === Infinity
               ? Infinity
