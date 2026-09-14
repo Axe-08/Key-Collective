@@ -902,7 +902,7 @@ describe("UpstreamClient", () => {
   });
 
   describe("Integration: toClientResponse Helper", () => {
-    it("converts UpstreamResponse to standard Response stripping hop-by-hop headers", async () => {
+    it("converts UpstreamResponse to standard Response strictly allowlisting headers", async () => {
       const mockFetch: typeof fetch = vi.fn().mockResolvedValue(
         new Response("OK body", {
           status: 200,
@@ -927,10 +927,10 @@ describe("UpstreamClient", () => {
 
       expect(clientRes.status).toBe(200);
       expect(clientRes.headers.get("content-type")).toBe("text/plain");
-      expect(clientRes.headers.get("x-custom-header")).toBe("test-val");
+      expect(clientRes.headers.get("x-custom-header")).toBeNull();
       expect(clientRes.headers.get("x-edge-trace")).toBe("trace-123");
       expect(clientRes.headers.has("connection")).toBe(false);
-      expect(clientRes.headers.has("content-length")).toBe(false);
+      expect(clientRes.headers.has("content-length")).toBe(true);
     });
   });
 
