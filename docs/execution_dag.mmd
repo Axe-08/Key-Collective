@@ -1,21 +1,11 @@
-graph TD
-    subgraph Stage1["Stage 1: Contracts & Scoping"]
-        Contracts["Frozen Contracts (v3_types.ts & v3_5_types.ts)"]
-        Spec["Pod Spec (docs/pod_spec.json)"]
-    end
+flowchart TD
+    Crypto[Pod 1: pod-crypto-migrations<br/>D1 migrations + HKDF engine]
+    Ingress[Pod 2: pod-ingress-verification<br/>Forced-Error Probe, K1/K2]
+    Coordinator[Pod 3: pod-pool-coordinator<br/>Singleton, Routing, Debt Engine]
+    Gateway[Pod 4: pod-gateway-hardening<br/>Takedown shield, Regex]
+    UI[Pod 5: pod-ui-commons<br/>Svelte 5 UI, Debt Ledger]
 
-    subgraph Stage2["Stage 2: Pod Implementation"]
-        PodUI["Pod UI Cleanup (pod-ui-cleanup-ux)<br/>• TopNavBar deduplication<br/>• SideNavBar button routing & labels<br/>• ApiDocs text de-bloating<br/>• AdminView 3-tab simplification"]
-    end
-
-    subgraph Stage3["Stage 3: Integration & Quality Gate"]
-        RebaseMerge["Rebase-Merge onto master"]
-        Gate["make gate (tsc + vitest) & UI build check"]
-        Scorecard["Scorecard & Walkthrough"]
-    end
-
-    Contracts --> PodUI
-    Spec --> PodUI
-    PodUI --> RebaseMerge
-    RebaseMerge --> Gate
-    Gate --> Scorecard
+    Crypto --> Coordinator
+    Ingress --> Gateway
+    Coordinator --> UI
+    Gateway --> UI

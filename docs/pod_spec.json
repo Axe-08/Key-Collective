@@ -1,28 +1,39 @@
-{
-  "pods": [
-    {
-      "id": "pod-1",
-      "name": "API Docs and Live Pricing",
-      "scope": ["ui/src/lib/ApiDocs.svelte"],
-      "branch": "feat/r4-pod1-api-docs"
-    },
-    {
-      "id": "pod-2",
-      "name": "Real OAuth Engine",
-      "scope": ["ui/package.json", "ui/src/lib/firebase.ts", "ui/src/lib/OAuthModal.svelte", "src/worker/router_handler.ts", "ui/src/App.svelte"],
-      "branch": "feat/r4-pod2-real-oauth"
-    },
-    {
-      "id": "pod-3",
-      "name": "Navigation and Developer Settings",
-      "scope": ["ui/src/lib/TopNavBar.svelte", "ui/src/lib/OAuthModal.svelte", "ui/src/App.svelte"],
-      "branch": "feat/r4-pod3-nav-settings"
-    },
-    {
-      "id": "pod-4",
-      "name": "Project Settings and Key Lifecycle",
-      "scope": ["ui/src/lib/Workbench.svelte"],
-      "branch": "feat/r4-pod4-project-settings"
-    }
-  ]
-}
+[
+  {
+    "pod_id": "pod-crypto-migrations",
+    "branch": "hive/pod-crypto-migrations",
+    "scope": [
+      "migrations/*",
+      "src/crypto/*"
+    ]
+  },
+  {
+    "pod_id": "pod-ingress-verification",
+    "branch": "hive/pod-ingress-verification",
+    "scope": [
+      "src/ingress/*"
+    ]
+  },
+  {
+    "pod_id": "pod-pool-coordinator",
+    "branch": "hive/pod-pool-coordinator",
+    "scope": [
+      "src/coordinator/*",
+      "src/router/*"
+    ]
+  },
+  {
+    "pod_id": "pod-gateway-hardening",
+    "branch": "hive/pod-gateway-hardening",
+    "scope": [
+      "src/gateway/*"
+    ]
+  },
+  {
+    "pod_id": "pod-ui-commons",
+    "branch": "hive/pod-ui-commons",
+    "scope": [
+      "ui/*"
+    ]
+  }
+]
