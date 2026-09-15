@@ -442,6 +442,7 @@
         {projects}
         keys={projectKeys}
         providerKeys={keys}
+        onRefreshProviderKeys={loadData}
       />
     {/if}
 

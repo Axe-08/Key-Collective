@@ -15,6 +15,7 @@
     onRevokeKey?: (keyId: string) => void;
     onDeleteKey?: (keyId: string) => void;
     onToggleKeyStatus?: (keyId: string) => void;
+    onRefreshProviderKeys?: () => Promise<void> | void;
   }
 
   let {
@@ -28,6 +29,7 @@
     onRevokeKey,
     onDeleteKey,
     onToggleKeyStatus,
+    onRefreshProviderKeys,
   }: Props = $props();
 
   // Baseline mock account matching Stitch design if none provided
@@ -166,6 +168,9 @@
       });
       switchPoolModalOpen = false;
       switchPoolTarget = null;
+      if (onRefreshProviderKeys) {
+        onRefreshProviderKeys();
+      }
     } catch (e: any) {
       switchPoolError = e.message;
     } finally {

@@ -1470,9 +1470,10 @@ export class RouterHandler {
         throw new RouterError('Database unavailable', { statusCode: 503 });
       }
       const db = env.DB as D1Database;
-      const existingKey = await db.prepare(
-        'SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?'
-      ).bind(keyId, tenantId).first<{ id: string }>();
+      const existingKey = tenantId === "admin"
+        ? await db.prepare('SELECT id, tenant_id FROM api_keys WHERE id = ?').bind(keyId).first<{ id: string; tenant_id: string }>()
+        : await db.prepare('SELECT id, tenant_id FROM api_keys WHERE id = ? AND (tenant_id = ? OR tenant_id = "default")').bind(keyId, tenantId).first<{ id: string; tenant_id: string }>();
+      
       if (!existingKey) throw new RouterError('Key not found', { statusCode: 404 });
 
       let newRoutingStatus: string;
@@ -1485,11 +1486,12 @@ export class RouterHandler {
       }
 
       await db.prepare(
-        `UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ? AND tenant_id = ?`
-      ).bind(newPoolType, newRoutingStatus, observationUntil, keyId, tenantId).run();
+        `UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ?`
+      ).bind(newPoolType, newRoutingStatus, observationUntil, keyId).run();
 
       return Response.json({
-        id: keyId, pool_type: newPoolType,
+        id: keyId,
+        pool_type: newPoolType,
         community_routing_status: newRoutingStatus,
         observation_until: observationUntil,
         message: newPoolType === 'COMMUNITY'
