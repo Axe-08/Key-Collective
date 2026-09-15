@@ -9,6 +9,18 @@ Key Collective is a **high-throughput, edge-native AI proxy, community capacity 
 
 ---
 
+## 🌐 Live Deployment & Production Endpoints
+
+| Environment / Service | Live URL | Description |
+|---|---|---|
+| **Web Console & Playground** | [console.key-col.axe08.tech](https://console.key-col.axe08.tech/) | Interactive developer console, live testing sandbox, and pool analytics |
+| **API Edge Gateway** | [api.key-col.axe08.tech](https://api.key-col.axe08.tech/) | OpenAI-compatible completions gateway (`/v1/chat/completions`, `/v1/models`) |
+| **Main Portal** | [key-col.axe08.tech](https://key-col.axe08.tech/) | Root custom domain and marketing / entry portal |
+| **Admin Surveillance** | [admin.key-col.axe08.tech](https://admin.key-col.axe08.tech/) | Restricted admin governance & circuit-breaker control plane |
+| **Development Gateway** | [dev.key-col.axe08.tech](https://dev.key-col.axe08.tech/) | Isolated staging and preview edge environment |
+
+---
+
 ## ⚡ Key Capabilities & Architecture Highlights
 
 - **Communal Capacity Exchange:** A cooperative key pool where developers contribute provider keys in exchange for elevated capacity multipliers (`1.5x` up to `4.5x`).
