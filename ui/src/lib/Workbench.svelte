@@ -1,22 +1,30 @@
 <script lang="ts">
-  import type { UserAccount, Project, ProjectKey, UserTier, TierLimits } from '../../../src/contracts/v3_types';
+  import type { UserTier, TierLimits } from '../../../src/contracts/v3_types';
   import { TIER_LIMITS_MAP } from '../../../src/contracts/v3_types';
   import type { APIKey } from './types';
   import { api } from './api';
 
-  interface Props {
-    userAccount?: UserAccount;
-    projects?: Project[];
-    keys?: ProjectKey[];
-    providerKeys?: APIKey[];
-    onSelectTier?: (tier: UserTier) => void;
-    onCreateProject?: (project: Partial<Project>) => void;
-    onRotateKey?: (keyId: string) => void;
-    onRevokeKey?: (keyId: string) => void;
-    onDeleteKey?: (keyId: string) => void;
-    onToggleKeyStatus?: (keyId: string) => void;
-    onRefreshProviderKeys?: () => Promise<void> | void;
-  }
+  import type {
+    ExtendedProject,
+    ExtendedKey,
+    WorkbenchProps,
+  } from './workbench/types';
+  import {
+    DEFAULT_USER_ACCOUNT,
+    TIER_MATRIX,
+  } from './workbench/types';
+  import {
+    formatRelativeTime,
+    formatDate,
+    generateMarkdownExport,
+  } from './workbench/formatters';
+
+  import IdentityCard from './workbench/IdentityCard.svelte';
+  import TierMatrixSection from './workbench/TierMatrixSection.svelte';
+  import ProjectsSection from './workbench/ProjectsSection.svelte';
+  import ProviderKeysSection from './workbench/ProviderKeysSection.svelte';
+  import KeysSection from './workbench/KeysSection.svelte';
+  import Modals from './workbench/Modals.svelte';
 
   let {
     userAccount,
@@ -30,46 +38,9 @@
     onDeleteKey,
     onToggleKeyStatus,
     onRefreshProviderKeys,
-  }: Props = $props();
+  }: WorkbenchProps = $props();
 
-  // Baseline mock account matching Stitch design if none provided
-  const defaultUserAccount: UserAccount = {
-    id: '',
-    githubId: 0,
-    githubUsername: '',
-    primaryEmail: '',
-    tier: 'demo',
-    avatarUrl: '',
-    isEmailVerified: false,
-    githubCreatedAt: '',
-    sybilScore: 0,
-    registrationIp: '',
-    createdAt: '',
-    updatedAt: '',
-  };
-
-  const account = $derived(userAccount ?? defaultUserAccount);
-
-  // Extended types for UI enrichment
-  interface ExtendedProject extends Project {
-    assignedRpm?: number;
-    latencyMs?: number;
-    latency?: string;
-    icon?: string;
-    iconColor?: string;
-  }
-
-  interface ExtendedKey extends ProjectKey {
-    fullSecret?: string;
-    displayTime?: string;
-    displayCreated?: string;
-  }
-
-  // Default initial projects matching Stitch Reference Screen 2
-  const defaultProjects: ExtendedProject[] = [];
-
-  // Default initial keys matching Stitch Reference Screen 2
-  const defaultKeys: ExtendedKey[] = [];
+  const account = $derived(userAccount ?? DEFAULT_USER_ACCOUNT);
 
   // Local state for interactive updates
   let localProjects = $state<ExtendedProject[]>([]);
@@ -110,10 +81,6 @@
       });
   });
 
-  const privateProviderKeys = $derived(providerKeys.filter((k) => k.pool_type === 'PRIVATE' || !k.pool_type));
-  const communityProviderKeys = $derived(providerKeys.filter((k) => k.pool_type === 'COMMUNITY'));
-  const observationKeys = $derived(providerKeys.filter((k) => k.community_routing_status === 'OBSERVATION'));
-
   function rotateProviderKey(id: string) {
     providerKeys = providerKeys.map((k) => {
       if (k.id === id) {
@@ -123,7 +90,6 @@
     });
   }
 
-  
   function openSwitchPoolModal(key: any) {
     const targetPool = key.pool_type === 'COMMUNITY' ? 'PRIVATE' : 'COMMUNITY';
     if (targetPool === 'COMMUNITY' && (!account?.githubId || account.githubId <= 0)) {
@@ -178,15 +144,9 @@
     }
   }
 
-  function changePoolMode(id: string) {
-    // Legacy mapping overridden
-  }
-
-
   function deleteProviderKey(id: string) {
     providerKeys = providerKeys.filter((k) => k.id !== id);
   }
-
 
   // Selected Tier state: defaults to account tier or builder
   let selectedTier = $state<UserTier>('builder');
@@ -208,7 +168,7 @@
         iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
       }));
     } else {
-      localProjects = [...defaultProjects];
+      localProjects = [];
     }
   });
 
@@ -221,7 +181,7 @@
         displayCreated: `Created ${formatDate(k.createdAt)}`,
       }));
     } else {
-      localKeys = [...defaultKeys];
+      localKeys = [];
     }
   });
 
@@ -240,9 +200,6 @@
   let showVerificationProofModal = $state(false);
   let showNewProjectModal = $state(false);
   let showProjectSettingsModal = $state<ExtendedProject | null>(null);
-  let editingProjectName = $state(false);
-  let editProjectNameValue = $state('');
-  let editProjectRpmValue = $state(0);
 
   let copiedKeyId = $state<string | null>(null);
 
@@ -280,7 +237,6 @@
     newKeyName = '';
     showNewKeyModal = false;
   }
-
 
   // New Project Form State
   let newProjectName = $state('');
@@ -321,135 +277,6 @@
       return true;
     })
   );
-
-  // Helper date formatters
-  function formatRelativeTime(dateStr: string | null | undefined): string {
-    if (!dateStr) return 'Never';
-    if (dateStr.includes('ago') || dateStr.includes('minute') || dateStr.includes('day')) {
-      return dateStr;
-    }
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const now = new Date();
-    const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
-    if (diffSec < 60) return `${Math.max(1, diffSec)} seconds ago`;
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} minutes ago`;
-    const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} days ago`;
-  }
-
-  function formatDate(dateStr: string | null | undefined): string {
-    if (!dateStr) return 'Unknown';
-    if (dateStr.startsWith('Created ')) return dateStr.replace('Created ', '');
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-
-  // Quota & Tier matrix definition matching Screen 2
-  interface TierMatrixItem {
-    id: UserTier;
-    name: string;
-    icon: string;
-    badge: string;
-    badgeClass: string;
-    quotaText: string;
-    description: string;
-    footerText: string;
-    dailyUsagePercent: number;
-    minWidth: string;
-  }
-
-  const tierMatrix: TierMatrixItem[] = [
-    {
-      id: 'admin',
-      name: '👑 Admin',
-      icon: 'admin_panel_settings',
-      badge: 'System',
-      badgeClass: 'bg-surface-container text-outline',
-      quotaText: 'Unlimited RPM / RPD',
-      description: 'Full Platform Control & Root Secrets',
-      footerText: 'System Operator',
-      dailyUsagePercent: 12,
-      minWidth: 'min-w-[210px]',
-    },
-    {
-      id: 'ultra',
-      name: '⚡ Ultra',
-      icon: 'bolt',
-      badge: 'Tier 5',
-      badgeClass: 'bg-surface-container text-tertiary',
-      quotaText: 'Unlimited RPM / RPD',
-      description: 'High-Volume Enterprise Proxy Routing',
-      footerText: 'Tier 5 Sybil Required',
-      dailyUsagePercent: 35,
-      minWidth: 'min-w-[210px]',
-    },
-    {
-      id: 'max',
-      name: '🚀 Max',
-      icon: 'rocket_launch',
-      badge: 'Upgrade',
-      badgeClass: 'bg-primary/10 text-primary',
-      quotaText: '60 RPM • 10,000 RPD',
-      description: 'Up to 10 Projects • Priority Edge',
-      footerText: 'Upgrade Available',
-      dailyUsagePercent: 45,
-      minWidth: 'min-w-[210px]',
-    },
-    {
-      id: 'builder',
-      name: '🛠️ Builder',
-      icon: 'construction',
-      badge: 'Current',
-      badgeClass: 'bg-primary text-on-primary',
-      quotaText: '20 RPM • 2,000 RPD',
-      description: 'Up to 3 Projects • Standard Fallback',
-      footerText: 'Active Tier',
-      dailyUsagePercent: 68,
-      minWidth: 'min-w-[230px]',
-    },
-    {
-      // Starter tier representation in horizontal matrix
-      id: 'builder' as UserTier,
-      name: '🌱 Starter',
-      icon: 'eco',
-      badge: 'Unlocked',
-      badgeClass: 'bg-surface-container text-secondary',
-      quotaText: '10 RPM • 500 RPD',
-      description: '2 Projects • Community Nodes',
-      footerText: 'Unlocked',
-      dailyUsagePercent: 55,
-      minWidth: 'min-w-[210px]',
-    },
-    {
-      id: 'probationary',
-      name: '⏳ Probationary',
-      icon: 'hourglass_empty',
-      badge: 'Sandbox',
-      badgeClass: 'bg-surface-container text-outline',
-      quotaText: '2 RPM • 50 RPD',
-      description: 'Sandboxed • Heavy Throttling',
-      footerText: 'Baseline',
-      dailyUsagePercent: 84,
-      minWidth: 'min-w-[210px]',
-    },
-    {
-      id: 'demo',
-      name: '🎭 Demo',
-      icon: 'theater_comedy',
-      badge: 'Public',
-      badgeClass: 'bg-surface-container text-outline',
-      quotaText: '20 RPM Shared • 3/IP',
-      description: 'Ephemeral Sessions • Zero Persistence',
-      footerText: 'Public Sandbox',
-      dailyUsagePercent: 90,
-      minWidth: 'min-w-[210px]',
-    },
-  ];
 
   function selectTier(tier: UserTier): void {
     selectedTier = tier;
@@ -593,65 +420,7 @@
   }
 
   function handleExportMarkdown(): void {
-    const md = `# Key Collective — Developer Workbench Configuration & Audit Dossier
-
-**Exported at:** ${new Date().toISOString()}
-**Cluster:** iad-edge-01 (Active Proxy Node: iad-edge-01.keycollective.net)
-
----
-
-## 👤 User Identity & Anti-Sybil Assessment
-- **Account ID:** \`${account.id}\`
-- **GitHub Username:** \`@${account.githubUsername}\`
-- **Primary Email:** ${account.primaryEmail} (Verified: ${account.isEmailVerified ? 'Yes' : 'No'})
-- **Registration IP:** \`${account.registrationIp}\` (Singapore • Dedicated ASN)
-- **Sybil Trust Score:** **${account.sybilScore}/100** (Low Risk • High Reputation)
-- **Active Governance Tier:** **${selectedTier.toUpperCase()}**
-
-### 5-Layer Trust Verification
-1. **Turnstile Biometrics:** Passed (0.01ms)
-2. **Account Age:** > 14 months (432d)
-3. **Public Repositories:** 18 Repos • 420+ commits
-4. **Clean Subnet / ASN:** Dedicated ASN • Non-VPN
-5. **Quota Standing:** 0 Flagged Spikes
-
----
-
-## ⚡ Quota & Tier Allocations (${selectedTier.toUpperCase()})
-- **RPM Limit:** ${currentLimits.rpmLimit === Infinity ? 'Unlimited' : currentLimits.rpmLimit.toLocaleString()}
-- **RPD Limit:** ${currentLimits.rpdLimit === Infinity ? 'Unlimited' : currentLimits.rpdLimit.toLocaleString()}
-- **Max Projects:** ${currentLimits.maxProjects === Infinity ? 'Unlimited' : currentLimits.maxProjects}
-- **Sub-Caps Permitted:** ${currentLimits.allowCustomSubCaps ? 'Yes' : 'No'}
-- **Priority Weight:** P${currentLimits.priorityWeight}
-
----
-
-## 📁 Registered Projects (${localProjects.length})
-${localProjects
-  .map(
-    (p, i) => `### ${i + 1}. ${p.name} (\`${p.slug}\`)
-- **Project ID:** \`${p.id}\`
-- **Description:** ${p.description || 'None'}
-- **Assigned RPM Sub-Cap:** ${p.maxRpmSubCap ? `${p.maxRpmSubCap} RPM` : 'Inherited'}
-- **Status:** ${p.isArchived ? 'Archived' : 'Live (Healthy)'}
-- **Active Keys:** ${getProjectKeyCount(p.id)}
-- **Created:** ${p.createdAt}`
-  )
-  .join('\n\n')}
-
----
-
-## 🔑 Project-Scoped API Keys (${localKeys.length})
-| Key Name | Associated Project | Token Prefix | Status | Last Used | Created |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-${localKeys
-  .map(
-    (k) =>
-      `| \`${k.name}\` | ${getProjectName(k.projectId)} | \`${k.tokenPrefix}...\` | ${k.isRevoked ? 'Revoked' : 'Active'} | ${k.displayTime || 'Never'} | ${k.displayCreated || k.createdAt} |`
-  )
-  .join('\n')}
-`;
-
+    const md = generateMarkdownExport(account, selectedTier, currentLimits, localProjects, localKeys);
     const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -737,683 +506,66 @@ ${localKeys
           </div>
         {/if}
       </div>
-
     </div>
   </div>
 
-  <!-- 1. User Account & Identity Card with Anti-Sybil Trust Gauge -->
-  <section class="specular-card rounded-xl bg-surface-container-low/70 backdrop-blur-md border border-outline-variant/20 p-5 md:p-6 shadow-sm">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-      <!-- Identity Info Column (4 cols) -->
-      <div class="lg:col-span-4 space-y-4">
-        <div class="flex items-start gap-4">
-          <div class="relative shrink-0">
-            {#if account.avatarUrl}
-              <img
-                class="w-14 h-14 rounded-xl border border-secondary/40 p-1 bg-surface-container-lowest object-cover"
-                src={account.avatarUrl}
-                alt={account.githubUsername}
-              />
-            {:else}
-              <div class="w-14 h-14 rounded-xl border border-secondary/40 bg-surface-container-lowest flex items-center justify-center text-primary font-mono text-xl font-bold">
-                {account.githubUsername.slice(0, 2).toUpperCase()}
-              </div>
-            {/if}
-            <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-secondary rounded-full border-2 border-surface-container-low flex items-center justify-center text-[9px] text-on-secondary font-bold">
-              ✓
-            </span>
-          </div>
+  <!-- 1. Identity & Anti-Sybil Trust Gauge Card -->
+  <IdentityCard
+    {account}
+    onCreateKeyClick={() => (showNewKeyModal = true)}
+  />
 
-          <div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onclick={() => (showNewKeyModal = true)}
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
-              >
-                <span class="material-symbols-outlined text-[16px]">key</span>
-                <span>Create Key</span>
-              </button>
-              <h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                {account.githubUsername ? `@${account.githubUsername}` : 'Demo Sandbox'}
-              </h2>
-              <span class="flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant/20 font-label-sm text-label-sm text-on-surface-variant font-mono">
-                <span class="material-symbols-outlined text-[12px] text-primary">code</span>
-                {account.githubId ? 'GitHub' : 'Local'}
-              </span>
-            </div>
-            <div class="font-code-sm text-code-sm text-outline mt-0.5 font-mono">
-              Account ID: <span class="text-on-surface">{account.id || 'usr_demo_sandbox'}</span>
-            </div>
-            <div class="flex items-center gap-1.5 mt-2 text-secondary font-code-sm text-code-sm font-mono">
-              <span class="material-symbols-outlined text-[14px]">{account.primaryEmail ? 'check_circle' : 'info'}</span>
-              <span class="text-on-surface">{account.primaryEmail || 'No verified email linked (Sign in via GitHub)'}</span>
-            </div>
-            <div class="font-code-sm text-code-sm text-on-surface-variant mt-1 font-mono">
-              Registration IP: <span class="text-on-surface">{account.registrationIp || '127.0.0.1'}</span>
-              <span class="text-outline">({account.registrationIp ? 'Verified' : 'Local Edge'})</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Trust Gauge Column (3 cols) -->
-      <div class="lg:col-span-3 flex flex-col items-center justify-center p-3 rounded-lg bg-surface-container-lowest/60 border border-outline-variant/20">
-        <div class="relative w-28 h-28 flex items-center justify-center">
-          <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" fill="transparent" r="40" stroke="#1e1f25" stroke-width="8"></circle>
-            <!-- 251.2 total circumference, 20.1 offset is 92% -->
-            <circle
-              class="drop-shadow-[0_0_6px_rgba(78,222,163,0.4)]"
-              cx="50"
-              cy="50"
-              fill="transparent"
-              r="40"
-              stroke="#4edea3"
-              stroke-dasharray="251.2"
-              stroke-dashoffset={251.2 * (1 - account.sybilScore / 100)}
-              stroke-linecap="round"
-              stroke-width="8"
-            ></circle>
-          </svg>
-          <div class="absolute flex flex-col items-center justify-center">
-            <span class="font-code-lg text-code-lg font-bold text-on-surface font-mono">
-              {account.sybilScore}<span class="text-outline font-normal text-xs">/100</span>
-            </span>
-            <span class="font-label-sm text-label-sm text-secondary uppercase font-semibold font-mono">Trust</span>
-          </div>
-        </div>
-        <div class="mt-2 text-center">
-          <span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-secondary/10 border border-secondary/30 text-secondary font-mono">
-            {account.sybilScore >= 80 ? 'Low Risk • High Reputation' : 'Verified Sandbox'}
-          </span>
-        </div>
-      </div>
-
-      <!-- 5-Layer Trust Checks Breakdown (5 cols) -->
-      <div class="lg:col-span-5 space-y-2 border-t lg:border-t-0 lg:border-l border-outline-variant/20 pt-4 lg:pt-0 lg:pl-6 font-mono">
-        <div class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-2">
-          5-Layer Trust Checks Verification
-        </div>
-        <div class="flex items-center justify-between font-code-sm text-code-sm py-1 border-b border-outline-variant/10">
-          <span class="text-on-surface-variant flex items-center gap-1.5 font-sans">
-            <span class="material-symbols-outlined text-secondary text-[15px]">verified</span>
-            Turnstile Biometrics &amp; Challenge
-          </span>
-          <span class="text-secondary font-medium">Passed (0.01ms)</span>
-        </div>
-        <div class="flex items-center justify-between font-code-sm text-code-sm py-1 border-b border-outline-variant/10">
-          <span class="text-on-surface-variant flex items-center gap-1.5 font-sans">
-            <span class="material-symbols-outlined text-secondary text-[15px]">schedule</span>
-            GitHub Account Age
-          </span>
-          <span class="text-on-surface font-medium">&gt; 14 months (432d)</span>
-        </div>
-        <div class="flex items-center justify-between font-code-sm text-code-sm py-1 border-b border-outline-variant/10">
-          <span class="text-on-surface-variant flex items-center gap-1.5 font-sans">
-            <span class="material-symbols-outlined text-secondary text-[15px]">emoji_symbols</span>
-            Public Repositories
-          </span>
-          <span class="text-on-surface font-medium">18 Repos • 420+ commits</span>
-        </div>
-        <div class="flex items-center justify-between font-code-sm text-code-sm py-1 border-b border-outline-variant/10">
-          <span class="text-on-surface-variant flex items-center gap-1.5 font-sans">
-            <span class="material-symbols-outlined text-secondary text-[15px]">router</span>
-            Clean Subnet / ASN
-          </span>
-          <span class="text-secondary font-medium">Dedicated ASN • Non-VPN</span>
-        </div>
-        <div class="flex items-center justify-between font-code-sm text-code-sm py-1">
-          <span class="text-on-surface-variant flex items-center gap-1.5 font-sans">
-            <span class="material-symbols-outlined text-secondary text-[15px]">speed</span>
-            Virtual Pool Quota Standing
-          </span>
-          <span class="text-secondary font-medium">0 Flagged Spikes</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 2. 7-Tier Authorization & Quota Hierarchy (Horizontal Matrix View) -->
+  <!-- 2. Quota Hierarchy & Governance Tiers -->
   {#if account.tier === 'admin'}
-  <section class="space-y-3">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <h2 class="font-headline-md text-headline-md font-semibold text-on-surface">
-          Quota Hierarchy &amp; Governance Tiers
-        </h2>
-        <div class="group relative cursor-pointer">
-          <span class="material-symbols-outlined text-outline text-[16px]">info</span>
-          <div class="hidden group-hover:block absolute left-0 bottom-full mb-1 w-56 p-2 rounded bg-surface-container-highest text-on-surface font-body-sm text-body-sm border border-outline-variant/30 shadow-xl z-20">
-            Click any tier (Probationary, Builder, Max) to inspect or test policy simulation. Current: {selectedTier.toUpperCase()}.
-          </div>
-        </div>
-      </div>
-      <span class="font-label-sm text-label-sm text-outline font-mono">Horizontal Matrix View</span>
-    </div>
-
-    <!-- Scrollable Tier Cards Row with Probationary, Builder, Max selectors -->
-    <div class="flex gap-3 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
-      {#each tierMatrix as tier}
-        {@const isActive = selectedTier === tier.id && (tier.name.includes('Builder') || tier.id !== 'builder' || !tier.name.includes('Starter'))}
-        <button
-          type="button"
-          onclick={() => selectTier(tier.id)}
-          class="{tier.minWidth} flex-1 text-left rounded-xl p-3.5 flex flex-col justify-between specular-card transition-all cursor-pointer {isActive ? 'bg-surface-container-high border-2 border-primary shadow-[0_0_20px_rgba(192,193,255,0.18)] relative' : 'bg-surface-container-low/50 border border-outline-variant/20 opacity-80 hover:opacity-100 hover:border-outline-variant/40'}"
-        >
-          {#if isActive}
-            <span class="absolute -top-2.5 right-3 font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-primary text-on-primary font-bold shadow-md font-mono">
-              CURRENT ACTIVE TIER
-            </span>
-          {/if}
-
-          <div>
-            <div class="flex items-center justify-between {isActive ? 'mt-1' : ''}">
-              <span class="font-code-md text-code-md font-semibold font-mono {isActive ? 'text-primary font-bold' : 'text-on-surface'}">
-                {tier.name}
-              </span>
-              {#if !isActive}
-                <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded {tier.badgeClass} font-mono">
-                  {tier.badge}
-                </span>
-              {/if}
-            </div>
-
-            <div class="mt-2 text-on-surface font-code-sm text-code-sm font-medium font-mono">
-              {tier.quotaText}
-            </div>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-snug">
-              {tier.description}
-            </p>
-
-            {#if isActive}
-              <!-- Daily Quota Gauge on active tier -->
-              <div class="mt-3 space-y-1">
-                <div class="flex justify-between font-label-sm text-label-sm font-mono">
-                  <span class="text-outline">Daily Quota Usage</span>
-                  <span class="text-primary font-semibold">{tier.dailyUsagePercent}%</span>
-                </div>
-                <div class="h-1.5 w-full bg-surface-container-lowest rounded-full overflow-hidden">
-                  <div class="h-full bg-primary rounded-full" style="width: {tier.dailyUsagePercent}%"></div>
-                </div>
-              </div>
-            {/if}
-          </div>
-
-          <div class="mt-3 pt-2 {isActive ? 'border-t border-primary/20 flex items-center gap-1 text-primary font-medium' : 'border-t border-outline-variant/10 text-outline'} font-label-sm text-label-sm font-mono">
-            {#if isActive}
-              <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
-              Active Tier
-            {:else}
-              {tier.footerText}
-            {/if}
-          </div>
-        </button>
-      {/each}
-    </div>
-  </section>
+    <TierMatrixSection
+      tierMatrix={TIER_MATRIX}
+      {selectedTier}
+      onSelectTier={selectTier}
+    />
   {/if}
 
   <!-- 3. Multi-Project Management Section -->
-  <section class="space-y-4">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <h2 class="font-headline-md text-headline-md font-semibold text-on-surface">
-          Multi-Project Management
-        </h2>
-        <!-- Filter Tabs: All, Live, Archived -->
-        <div class="flex items-center gap-1 bg-surface-container p-1 rounded-lg border border-outline-variant/20 font-mono">
-          <button
-            type="button"
-            onclick={() => (projectFilter = 'all')}
-            class="px-2.5 py-1 rounded font-label-sm text-label-sm transition-colors cursor-pointer {projectFilter === 'all' ? 'bg-surface-container-high text-primary font-medium' : 'text-on-surface-variant hover:bg-surface-container-high'}"
-          >
-            All Projects ({localProjects.length})
-          </button>
-          <button
-            type="button"
-            onclick={() => (projectFilter = 'live')}
-            class="px-2.5 py-1 rounded font-label-sm text-label-sm transition-colors cursor-pointer {projectFilter === 'live' ? 'bg-surface-container-high text-primary font-medium' : 'text-on-surface-variant hover:bg-surface-container-high'}"
-          >
-            Live ({liveProjectsCount})
-          </button>
-          <button
-            type="button"
-            onclick={() => (projectFilter = 'archived')}
-            class="px-2.5 py-1 rounded font-label-sm text-label-sm transition-colors cursor-pointer {projectFilter === 'archived' ? 'bg-surface-container-high text-primary font-medium' : 'text-outline hover:bg-surface-container-high'}"
-          >
-            Archived ({archivedProjectsCount})
-          </button>
-        </div>
-      </div>
+  <ProjectsSection
+    projects={filteredProjects}
+    {projectFilter}
+    {liveProjectsCount}
+    {archivedProjectsCount}
+    onFilterChange={(f) => (projectFilter = f)}
+    onCreateProjectClick={() => (showNewProjectModal = true)}
+    onCreateKeyClick={() => (showNewKeyModal = true)}
+    onOpenSettings={(p) => (showProjectSettingsModal = p)}
+    onRotateKey={handleRotateKey}
+    {getProjectKeyCount}
+  />
 
-      <!-- Create New Project Button -->
-      <button
-        type="button"
-        onclick={() => (showNewProjectModal = true)}
-        class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-container text-on-primary-container font-label-md text-label-md font-semibold hover:opacity-90 transition-opacity shadow-[0_0_12px_rgba(128,131,255,0.2)] cursor-pointer font-mono"
-      >
-        <span class="material-symbols-outlined text-[16px]">add</span>
-        <span>Create New Project</span>
-      </button>
-    </div>
-
-    {#if localProjects.length === 0 && localKeys.length === 0}
-      <div class="p-8 text-center text-outline font-mono text-sm">No virtual projects or client keys configured yet. Click "Create Key" to get started.</div>
-    {/if}
-
-    <!-- Project Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {#each filteredProjects as project (project.id)}
-        {@const maxCap = project.maxRpmSubCap || 20}
-        {@const assignedRpm = project.assignedRpm || 14}
-        {@const rpmPercent = Math.min(100, Math.round((assignedRpm / maxCap) * 100))}
-        {@const keyCount = getProjectKeyCount(project.id)}
-        <div class="specular-card rounded-xl bg-surface-container-low/80 backdrop-blur border border-outline-variant/20 p-5 space-y-4 shadow-sm">
-          <div class="flex items-start justify-between">
-            <div>
-              <div class="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onclick={() => (showNewKeyModal = true)}
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
-        >
-          <span class="material-symbols-outlined text-[16px]">key</span>
-          <span>Create Key</span>
-        </button>
-                <h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                  {project.name}
-                </h3>
-                {#if project.isArchived}
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/20 text-outline font-label-sm text-label-sm font-mono">
-                    Archived
-                  </span>
-                {:else if project.latencyMs && project.latencyMs > 15}
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary font-label-sm text-label-sm font-mono">
-                    <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                    Live (Standby)
-                  </span>
-                {:else}
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/10 border border-secondary/30 text-secondary font-label-sm text-label-sm font-mono">
-                    <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                    Live (Healthy)
-                  </span>
-                {/if}
-              </div>
-              <div class="font-code-sm text-code-sm text-outline mt-0.5 font-mono">
-                slug: <span class="text-on-surface-variant font-medium">{project.slug}</span>
-              </div>
-            </div>
-
-            <span class="p-2 rounded-lg bg-surface-container {project.iconColor || 'text-primary'}">
-              <span class="material-symbols-outlined text-[20px]">{project.icon || 'hub'}</span>
-            </span>
-          </div>
-
-          <!-- Meter and Stats -->
-          <div class="space-y-2 bg-surface-container-lowest/60 p-3 rounded-lg border border-outline-variant/10">
-            <div class="flex justify-between items-center font-code-sm text-code-sm font-mono">
-              <span class="text-on-surface-variant">Assigned RPM Sub-cap</span>
-              <span class="text-on-surface font-medium">
-                {assignedRpm} / {maxCap} RPM
-                <span class="font-bold {rpmPercent >= 50 ? 'text-primary' : 'text-secondary'}">
-                  ({rpmPercent}%)
-                </span>
-              </span>
-            </div>
-            <div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
-              <div
-                class="h-full rounded-full {rpmPercent >= 50 ? 'bg-primary' : 'bg-secondary'}"
-                style="width: {rpmPercent}%"
-              ></div>
-            </div>
-            <div class="flex items-center justify-between pt-1 text-xs font-code-sm text-on-surface-variant font-mono">
-              <span>Active Keys: <span class="text-on-surface font-medium">{keyCount} Active Key{keyCount !== 1 ? 's' : ''}</span></span>
-              <span>Latency: <span class="text-secondary font-medium">{project.latency || '12ms avg'}</span></span>
-            </div>
-          </div>
-
-          <!-- Card Actions -->
-          <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20">
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                onclick={() => {
-                  showProjectSettingsModal = project;
-                  editingProjectName = false;
-                  editProjectNameValue = project.name;
-                  editProjectRpmValue = project.maxRpmSubCap || 20;
-                }}
-                class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm hover:bg-surface-container-high transition-colors cursor-pointer"
-              >
-                Project Settings
-              </button>
-              <button
-                type="button"
-                onclick={() => handleRotateKey(project.id)}
-                class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm hover:bg-surface-container-high transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <span class="material-symbols-outlined text-[14px]">sync</span>
-                Rotate Key
-              </button>
-            </div>
-            <button
-              type="button"
-              onclick={() => {
-                  showProjectSettingsModal = project;
-                  editingProjectName = false;
-                  editProjectNameValue = project.name;
-                  editProjectRpmValue = project.maxRpmSubCap || 20;
-                }}
-              class="text-outline hover:text-on-surface p-1 transition-colors cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[18px]">more_vert</span>
-            </button>
-          </div>
-        </div>
-      {/each}
-    </div>
-  </section>
-
-  
   <!-- 3.5 My Contributed Provider Keys -->
-  <section class="space-y-4">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div>
-        <h2 class="font-headline-md text-headline-md font-semibold text-on-surface">
-          My Provider Keys
-        </h2>
-        <p class="font-body-sm text-body-sm text-outline">
-          Manage keys you have provided to the Community or Private pools.
-        </p>
-      </div>
-    </div>
-    
-    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden flex flex-col p-4 max-h-[300px] overflow-y-auto">
-      {#if providerKeysLoading}
-        <div class="p-6 text-center text-outline">Loading provider keys...</div>
-      {:else}
-        
-        <h3 class="text-label-md font-label-md text-on-surface font-semibold mb-2">My Private Provider Keys</h3>
-        {#if privateProviderKeys.length === 0}
-          <div class="p-4 text-center text-outline text-sm italic border rounded-lg border-outline-variant/20 mb-4">No private provider keys found.</div>
-        {:else}
-          <div class="overflow-x-auto border border-outline-variant/20 rounded-lg mb-6">
-            <table class="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr class="border-b border-outline-variant/30 bg-surface-container/50">
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Status</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each privateProviderKeys as k}
-                  <tr class="border-b border-outline-variant/10 hover:bg-surface-container/30 transition-colors">
-                    <td class="p-3 font-body-sm text-body-sm text-on-surface capitalize">{k.provider}</td>
-                    <td class="p-3 font-body-sm text-body-sm text-on-surface">{k.label}</td>
-                    <td class="p-3 font-code-sm text-code-sm text-outline font-mono">{k.key_prefix}...</td>
-                    <td class="p-3">
-                      <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border bg-secondary/10 text-secondary border-secondary/20">
-                        {k.status}
-                      </span>
-                    </td>
-                    <td class="p-3 flex items-center gap-2">
-                      <button class="text-xs text-primary hover:underline cursor-pointer" onclick={() => rotateProviderKey(k.id)}>Rotate</button>
-                      <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => openSwitchPoolModal(k)}>Switch to Community</button>
-                      <button class="text-xs text-error hover:underline cursor-pointer" onclick={() => deleteProviderKey(k.id)}>Delete</button>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {/if}
-
-        <h3 class="text-label-md font-label-md text-on-surface font-semibold mb-2">My Contributed Community Keys</h3>
-        {#if communityProviderKeys.length === 0}
-          <div class="p-4 text-center text-outline text-sm italic border rounded-lg border-outline-variant/20 mb-4">No community provider keys found.</div>
-        {:else}
-          <div class="overflow-x-auto border border-outline-variant/20 rounded-lg mb-2">
-            <table class="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr class="border-b border-outline-variant/30 bg-surface-container/50">
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Routing Status</th>
-                  <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each communityProviderKeys as k}
-                  <tr class="border-b border-outline-variant/10 hover:bg-surface-container/30 transition-colors">
-                    <td class="p-3 font-body-sm text-body-sm text-on-surface capitalize">{k.provider}</td>
-                    <td class="p-3 font-body-sm text-body-sm text-on-surface">{k.label}</td>
-                    <td class="p-3 font-code-sm text-code-sm text-outline font-mono">{k.key_prefix}...</td>
-                    <td class="p-3">
-                      <span class="px-2 py-1 rounded text-[11px] font-mono font-medium border {k.community_routing_status === 'OBSERVATION' ? 'bg-error/10 text-error border-error/20' : 'bg-secondary/10 text-secondary border-secondary/20'}">
-                        {k.community_routing_status || 'OBSERVATION'}
-                      </span>
-                    </td>
-                    <td class="p-3 flex items-center gap-2">
-                      <button class="text-xs text-primary hover:underline cursor-pointer" onclick={() => rotateProviderKey(k.id)}>Rotate</button>
-                      <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => openSwitchPoolModal(k)}>Switch to Private</button>
-                      <button class="text-xs text-error hover:underline cursor-pointer" onclick={() => deleteProviderKey(k.id)}>Delete</button>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {/if}
-
-      {/if}
-    </div>
-  </section>
+  <ProviderKeysSection
+    {providerKeys}
+    {providerKeysLoading}
+    onRotate={rotateProviderKey}
+    onOpenSwitchPool={openSwitchPoolModal}
+    onDelete={deleteProviderKey}
+  />
 
   <!-- 4. Project-Scoped API Keys Table -->
-  <section class="space-y-3">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div>
-        <h2 class="font-headline-md text-headline-md font-semibold text-on-surface">
-          Project-Scoped Virtual Tokens &amp; Credentials
-        </h2>
-        <p class="font-body-sm text-body-sm text-outline">
-          Virtual credentials scoped to project routing contexts with automated rate-limits.
-        </p>
-      </div>
-
-      <!-- Search & Project Select Filters -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onclick={() => (showNewKeyModal = true)}
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 font-label-md text-label-md font-semibold hover:bg-primary/20 transition-colors cursor-pointer font-mono mr-2"
-        >
-          <span class="material-symbols-outlined text-[16px]">key</span>
-          <span>Create Key</span>
-        </button>
-        <div class="relative">
-          <span class="material-symbols-outlined text-outline text-[16px] absolute left-3 top-2.5">
-            search
-          </span>
-          <input
-            type="text"
-            bind:value={keySearch}
-            placeholder="Search keys or prefixes..."
-            class="pl-8 pr-3 py-1.5 bg-surface-container rounded-lg border border-outline-variant/30 text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary w-52 sm:w-64 transition-colors font-mono"
-          />
-        </div>
-        <select
-          bind:value={keyProjectFilter}
-          class="px-3 py-1.5 bg-surface-container rounded-lg border border-outline-variant/30 text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary cursor-pointer transition-colors font-mono"
-        >
-          <option value="all">All Projects</option>
-          {#each localProjects as proj}
-            <option value={proj.id}>{proj.name}</option>
-          {/each}
-        </select>
-      </div>
-    </div>
-
-    <!-- Keys Table -->
-    <div class="specular-card rounded-xl bg-surface-container-low/70 border border-outline-variant/20 overflow-hidden shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse font-sans">
-          <thead>
-            <tr class="border-b border-outline-variant/20 bg-surface-container-lowest/70 font-label-sm text-label-sm text-outline uppercase tracking-wider font-mono">
-              <th class="py-3 px-4">KEY NAME</th>
-              <th class="py-3 px-4">ASSOCIATED PROJECT</th>
-              <th class="py-3 px-4">TOKEN PREFIX &amp; SECRET</th>
-              <th class="py-3 px-4">CREATED / LAST USED</th>
-              <th class="py-3 px-4">STATUS</th>
-              <th class="py-3 px-4 text-right">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-outline-variant/10 font-body-sm text-body-sm">
-            {#if filteredKeys.length === 0}
-              <tr>
-                <td colspan="6" class="py-8 text-center text-outline font-mono text-xs">
-                  No credentials found matching your filter criteria.
-                </td>
-              </tr>
-            {:else}
-              {#each filteredKeys as key (key.id)}
-                <tr class="hover:bg-surface-container-high/40 transition-colors {key.isRevoked ? 'opacity-75' : ''}">
-                  <!-- Key Name -->
-                  <td class="py-3 px-4 font-code-sm text-code-sm font-semibold font-mono {key.isRevoked ? 'text-outline line-through' : 'text-on-surface'}">
-                    <div class="flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full {key.isRevoked ? 'bg-outline' : 'bg-secondary'}"></span>
-                      <span>{key.name}</span>
-                    </div>
-                  </td>
-
-                  <!-- Associated Project -->
-                  <td class="py-3 px-4">
-                    <span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container-high border border-outline-variant/20 font-mono {key.isRevoked ? 'text-outline' : 'text-on-surface'}">
-                      {getProjectName(key.projectId)}
-                    </span>
-                  </td>
-
-                  <!-- Token Prefix & Secret -->
-                  <td class="py-3 px-4">
-                    <div class="flex items-center gap-2 font-code-sm text-code-sm bg-surface-container-lowest px-2 py-1 rounded border border-outline-variant/10 w-fit font-mono {key.isRevoked ? 'opacity-60' : ''}">
-                      <span class="{key.isRevoked ? 'text-outline' : 'text-primary'}">{key.tokenPrefix}</span>
-                      <span class="text-outline">••••••••••••</span>
-                      <button
-                        type="button"
-                        onclick={() => copyKeySecret(key.fullSecret || `${key.tokenPrefix}44781d09e`, key.id)}
-                        class="text-outline hover:text-on-surface transition-colors cursor-pointer"
-                        title="Copy Key Secret"
-                      >
-                        {#if copiedKeyId === key.id}
-                          <span class="material-symbols-outlined text-[14px] text-secondary">check</span>
-                        {:else}
-                          <span class="material-symbols-outlined text-[14px]">content_copy</span>
-                        {/if}
-                      </button>
-                    </div>
-                  </td>
-
-                  <!-- Created / Last Used -->
-                  <td class="py-3 px-4 font-code-sm text-code-sm font-mono">
-                    <div class="{key.isRevoked ? 'text-outline' : 'text-on-surface'}">
-                      {key.displayTime || 'Just now'}
-                    </div>
-                    <div class="text-outline text-[10px]">
-                      {key.displayCreated || 'Oct 14, 2024'}
-                    </div>
-                  </td>
-
-                  <!-- Status (Toggle or Badge) -->
-                  <td class="py-3 px-4">
-                    {#if key.isRevoked}
-                      <span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-error-container/20 text-error border border-error/20 font-medium font-mono">
-                        Revoked
-                      </span>
-                    {:else}
-                      <label class="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!key.isRevoked}
-                          onchange={() => handleToggleKey(key.id)}
-                          class="sr-only peer"
-                        />
-                        <div class="w-9 h-5 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
-                        <span class="ml-2 font-code-sm text-code-sm text-secondary font-medium font-mono">
-                          Active
-                        </span>
-                      </label>
-                    {/if}
-                  </td>
-
-                  <!-- Actions -->
-                  <td class="py-3 px-4 text-right font-mono">
-                    <div class="flex items-center justify-end gap-1">
-                      {#if key.isRevoked}
-                        <button
-                          type="button"
-                          onclick={() => handleDeleteKey(key.id)}
-                          class="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      {/if}
-                      <div class="relative">
-                        <button
-                          type="button"
-                          onclick={() => openKeyDropdownId = openKeyDropdownId === key.id ? null : key.id}
-                          class="p-1 rounded hover:bg-surface-container text-outline hover:text-on-surface transition-colors cursor-pointer"
-                        >
-                          <span class="material-symbols-outlined text-[16px]">more_horiz</span>
-                        </button>
-                        {#if openKeyDropdownId === key.id}
-                          <!-- svelte-ignore a11y_click_events_have_key_events -->
-                          <!-- svelte-ignore a11y_no_static_element_interactions -->
-                          <div class="fixed inset-0 z-10" onclick={() => openKeyDropdownId = null}></div>
-                          <div class="absolute right-0 mt-1 w-36 rounded-lg bg-surface-container-highest border border-outline-variant/30 shadow-xl z-20 p-1">
-                            {#if !key.isRevoked}
-                              <button
-                                type="button"
-                                onclick={() => { openKeyDropdownId = null; handleRotateKey(key.id); }}
-                                class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
-                              >
-                                <span class="material-symbols-outlined text-[14px]">refresh</span>
-                                Rotate Secret
-                              </button>
-                              <button
-                                type="button"
-                                onclick={() => { openKeyDropdownId = null; handleRevokeKey(key.id); }}
-                                class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                              >
-                                <span class="material-symbols-outlined text-[14px]">block</span>
-                                Revoke
-                              </button>
-                            {/if}
-                            <button
-                              type="button"
-                              onclick={() => { openKeyDropdownId = null; handleDeleteKey(key.id); }}
-                              class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <span class="material-symbols-outlined text-[14px]">delete</span>
-                              Force Delete
-                            </button>
-                          </div>
-                        {/if}
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+  <KeysSection
+    keys={filteredKeys}
+    projects={localProjects}
+    bind:keySearch
+    bind:keyProjectFilter
+    {copiedKeyId}
+    {openKeyDropdownId}
+    onSearchChange={(val) => (keySearch = val)}
+    onProjectFilterChange={(val) => (keyProjectFilter = val)}
+    onCreateKeyClick={() => (showNewKeyModal = true)}
+    onCopyKeySecret={copyKeySecret}
+    onToggleKey={handleToggleKey}
+    onRotateKey={handleRotateKey}
+    onRevokeKey={handleRevokeKey}
+    onDeleteKey={handleDeleteKey}
+    onToggleDropdown={(id) => (openKeyDropdownId = id)}
+    {getProjectName}
+  />
 
   <!-- 5. Bottom Edge Telemetry Ticker -->
   <div class="flex flex-wrap items-center justify-between gap-4 p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/20 font-code-sm text-code-sm text-on-surface-variant font-mono">
@@ -1433,454 +585,42 @@ ${localKeys
   </div>
 </main>
 
-<!-- Verification Proof Modal -->
-{#if showVerificationProofModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-    onclick={() => (showVerificationProofModal = false)}
-  >
-    <div
-      class="rounded-xl bg-surface-container-low border border-outline-variant/30 p-6 max-w-lg w-full space-y-4 specular-card shadow-2xl"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-secondary">verified</span>
-          <h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            Cryptographic Proof &amp; Sybil Attestation
-          </h3>
-        </div>
-        <button
-          type="button"
-          onclick={() => (showVerificationProofModal = false)}
-          class="text-outline hover:text-on-surface transition-colors cursor-pointer"
-        >
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-
-      <div class="space-y-3 font-mono text-xs text-on-surface-variant">
-        <div class="p-3 rounded-lg bg-surface-container-lowest border border-outline-variant/15 space-y-1">
-          <div class="text-outline text-[10px] uppercase tracking-wider font-semibold">Turnstile Challenge Signature</div>
-          <div class="text-secondary break-all">
-            0x4a9b91c0e35f8d227b4012fa1982bca81498b3017f8a329d91f801ca458d92e1
-          </div>
-        </div>
-
-        <div class="p-3 rounded-lg bg-surface-container-lowest border border-outline-variant/15 space-y-1">
-          <div class="text-outline text-[10px] uppercase tracking-wider font-semibold">Edge Node Attestation Key</div>
-          <div class="text-primary break-all">
-            ed25519:iad-edge-01:99a81f3b20ce19da01f28b4931a77481c
-          </div>
-        </div>
-
-        <div class="p-3 rounded-lg bg-surface-container-lowest border border-outline-variant/15 space-y-1">
-          <div class="text-outline text-[10px] uppercase tracking-wider font-semibold">Sybil Risk Vector Analysis</div>
-          <div class="text-on-surface">Score: <strong class="text-secondary">92 / 100</strong> • Risk tier: LOW</div>
-          <div class="text-outline text-[11px]">ASN 13335 (Dedicated Cloudflare Edge Transit) • Zero Tor/Proxy hops detected.</div>
-        </div>
-      </div>
-
-      <div class="flex justify-end pt-2">
-        <button
-          type="button"
-          onclick={() => (showVerificationProofModal = false)}
-          class="px-4 py-2 rounded-lg bg-primary text-on-primary font-mono text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-        >
-          Close Proof
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
-
-<!-- Create New Project Modal -->
-{#if showNewProjectModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-    onclick={() => (showNewProjectModal = false)}
-  >
-    <div
-      class="rounded-xl bg-surface-container-low border border-outline-variant/30 p-6 max-w-md w-full space-y-4 specular-card shadow-2xl"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-primary">add_box</span>
-          <h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            Create New Project
-          </h3>
-        </div>
-        <button
-          type="button"
-          onclick={() => (showNewProjectModal = false)}
-          class="text-outline hover:text-on-surface transition-colors cursor-pointer"
-        >
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-
-      <form onsubmit={(e) => { e.preventDefault(); handleCreateNewProject(); }} class="space-y-3 font-sans">
-        <div>
-          <label class="block font-mono text-xs text-outline mb-1" for="np-name">Project Name</label>
-          <input
-            id="np-name"
-            type="text"
-            bind:value={newProjectName}
-            placeholder="e.g., Voice Agent Gateway"
-            required
-            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <div>
-          <label class="block font-mono text-xs text-outline mb-1" for="np-slug">Project Slug</label>
-          <input
-            id="np-slug"
-            type="text"
-            bind:value={newProjectSlug}
-            placeholder="e.g., voice-agent-gateway"
-            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-code-sm text-code-sm font-mono focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <div>
-          <label class="block font-mono text-xs text-outline mb-1" for="np-desc">Description</label>
-          <input
-            id="np-desc"
-            type="text"
-            bind:value={newProjectDesc}
-            placeholder="Optional project purpose or routing domain"
-            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <div>
-          <label class="block font-mono text-xs text-outline mb-1" for="np-rpm">RPM Sub-Cap Limit</label>
-          <input
-            id="np-rpm"
-            type="number"
-            min="1"
-            max="100"
-            bind:value={newProjectRpm}
-            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-code-sm text-code-sm font-mono focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <div class="flex justify-end gap-2 pt-3 border-t border-outline-variant/20">
-          <button
-            type="button"
-            onclick={() => (showNewProjectModal = false)}
-            class="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface font-mono text-xs transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="px-4 py-1.5 rounded-lg bg-primary text-on-primary font-mono text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-          >
-            Create Project
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
-
-
-<!-- Create New Key Modal -->
-{#if showNewKeyModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-    onclick={() => (showNewKeyModal = false)}
-  >
-    <div
-      class="rounded-xl bg-surface-container-low border border-outline-variant/30 p-6 max-w-md w-full space-y-4 specular-card shadow-2xl"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-primary">key</span>
-          <h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            Create New Project Key
-          </h3>
-        </div>
-        <button
-          type="button"
-          onclick={() => (showNewKeyModal = false)}
-          class="text-outline hover:text-on-surface transition-colors cursor-pointer"
-        >
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-
-      <form onsubmit={(e) => { e.preventDefault(); handleCreateNewKey(); }} class="space-y-3 font-sans">
-        <div>
-          <label class="block font-mono text-xs text-outline mb-1" for="nk-name">Key Name</label>
-          <input
-            id="nk-name"
-            type="text"
-            bind:value={newKeyName}
-            placeholder="e.g., prod-gateway-v3"
-            required
-            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <div>
-          <label class="block font-mono text-xs text-outline mb-1" for="nk-proj">Select Project</label>
-          <select
-            id="nk-proj"
-            bind:value={newKeyProjectId}
-            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-code-sm text-code-sm font-mono focus:outline-none focus:border-primary cursor-pointer"
-          >
-            {#each localProjects as proj}
-              <option value={proj.id}>{proj.name}</option>
-            {/each}
-          </select>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-3 border-t border-outline-variant/20">
-          <button
-            type="button"
-            onclick={() => (showNewKeyModal = false)}
-            class="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface font-mono text-xs transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="px-4 py-1.5 rounded-lg bg-primary text-on-primary font-mono text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-          >
-            Create Key
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
-
-<!-- Project Settings Modal -->
-{#if showProjectSettingsModal}
-  {@const modalProj = showProjectSettingsModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-    onclick={() => (showProjectSettingsModal = null)}
-  >
-    <div
-      class="rounded-xl bg-surface-container-low border border-outline-variant/30 p-6 max-w-md w-full space-y-4 specular-card shadow-2xl"
-      onclick={(e) => e.stopPropagation()}
-    >
-      {#if modalProj.isArchived}
-        <div class="bg-error-container/20 border border-error/30 text-error p-3 rounded-lg font-mono text-xs flex items-start gap-2">
-          <span class="material-symbols-outlined text-[16px]">warning</span>
-          <div>
-            <strong>Project Archived (Suspended)</strong><br />
-            API requests using this project's keys will be rejected.
-          </div>
-        </div>
-      {/if}
-
-      <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-        <div class="flex items-center gap-2 flex-1">
-          <span class="material-symbols-outlined text-primary">settings</span>
-          {#if editingProjectName}
-            <input
-              type="text"
-              bind:value={editProjectNameValue}
-              class="px-2 py-1 bg-surface-container border border-outline-variant/30 rounded font-headline-sm text-headline-sm font-semibold text-on-surface focus:outline-none focus:border-primary flex-1 min-w-0"
-              onkeydown={(e) => {
-                if (e.key === 'Enter') {
-                  localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, name: editProjectNameValue } : p);
-                  showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
-                  editingProjectName = false;
-                } else if (e.key === 'Escape') {
-                  editingProjectName = false;
-                }
-              }}
-            />
-            <button
-              type="button"
-              onclick={() => {
-                localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, name: editProjectNameValue } : p);
-                showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
-                editingProjectName = false;
-              }}
-              class="text-primary hover:text-primary-variant cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[18px]">save</span>
-            </button>
-          {:else}
-            <h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface truncate">
-              {modalProj.name} Settings
-            </h3>
-            <button
-              type="button"
-              onclick={() => {
-                editingProjectName = true;
-                editProjectNameValue = modalProj.name;
-              }}
-              class="text-outline hover:text-on-surface cursor-pointer ml-1"
-            >
-              <span class="material-symbols-outlined text-[16px]">edit</span>
-            </button>
-          {/if}
-        </div>
-        <button
-          type="button"
-          onclick={() => (showProjectSettingsModal = null)}
-          class="text-outline hover:text-on-surface transition-colors cursor-pointer ml-4 shrink-0"
-        >
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-
-      <div class="space-y-3 font-mono text-xs text-on-surface-variant">
-        <div>
-          <span class="text-outline">Project ID:</span>
-          <code class="ml-2 text-on-surface">{modalProj.id}</code>
-        </div>
-        <div>
-          <span class="text-outline">Slug:</span>
-          <code class="ml-2 text-primary">{modalProj.slug}</code>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-outline">Assigned Sub-Cap:</span>
-          <input
-            type="number"
-            min="1"
-            max="100"
-            bind:value={editProjectRpmValue}
-            onblur={() => {
-              localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, maxRpmSubCap: editProjectRpmValue, assignedRpm: Math.round(editProjectRpmValue * 0.7) } : p);
-              showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
-            }}
-            onkeydown={(e) => {
-              if (e.key === 'Enter') {
-                localProjects = localProjects.map(p => p.id === modalProj.id ? { ...p, maxRpmSubCap: editProjectRpmValue, assignedRpm: Math.round(editProjectRpmValue * 0.7) } : p);
-                showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
-                e.currentTarget.blur();
-              }
-            }}
-            class="w-20 px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded text-on-surface focus:outline-none focus:border-primary"
-          />
-          <span class="text-on-surface">RPM</span>
-        </div>
-        <div>
-          <span class="text-outline">Status:</span>
-          <span class="ml-2 {modalProj.isArchived ? 'text-error' : 'text-secondary'} font-medium">
-            {modalProj.isArchived ? 'Archived' : 'Active (Healthy)'}
-          </span>
-        </div>
-      </div>
-
-      <div class="pt-2 border-t border-outline-variant/20">
-        <div class="text-outline font-mono text-xs mb-2 font-semibold">Assigned Keys</div>
-        <div class="max-h-32 overflow-y-auto space-y-1 custom-scrollbar pr-1">
-          {#each localKeys.filter(k => k.projectId === modalProj.id) as key}
-            <div class="flex items-center justify-between p-2 rounded bg-surface-container-lowest border border-outline-variant/10 font-mono text-xs {key.isRevoked ? 'opacity-60' : ''}">
-              <div class="flex items-center gap-2 overflow-hidden">
-                <span class="material-symbols-outlined text-[14px] {key.isRevoked ? 'text-outline' : 'text-secondary'}">
-                  {key.isRevoked ? 'block' : 'key'}
-                </span>
-                <span class="truncate {key.isRevoked ? 'text-outline line-through' : 'text-on-surface'}">{key.name}</span>
-              </div>
-              <span class="text-outline shrink-0">{key.tokenPrefix}</span>
-            </div>
-          {:else}
-            <div class="text-outline font-mono text-xs italic">No keys assigned to this project.</div>
-          {/each}
-        </div>
-      </div>
-
-      <div class="flex justify-between items-center pt-3 border-t border-outline-variant/20">
-        <button
-          type="button"
-          onclick={() => {
-            localProjects = localProjects.map((p) =>
-              p.id === modalProj.id ? { ...p, isArchived: !p.isArchived } : p
-            );
-            showProjectSettingsModal = localProjects.find(p => p.id === modalProj.id) ?? null;
-          }}
-          class="px-3 py-1.5 rounded-lg border font-mono text-xs transition-colors cursor-pointer {modalProj.isArchived ? 'bg-secondary/10 border-secondary/30 text-secondary' : 'bg-error-container/20 border-error/20 text-error hover:bg-error-container/40'}"
-        >
-          {modalProj.isArchived ? 'Unarchive Project' : 'Archive Project'}
-        </button>
-        <button
-          type="button"
-          onclick={() => (showProjectSettingsModal = null)}
-          class="px-4 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-mono text-xs font-semibold transition-colors cursor-pointer"
-        >
-          Done
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
-
-
-{#if switchPoolModalOpen && switchPoolTarget}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-    onclick={() => (switchPoolModalOpen = false)}
-  >
-    <div
-      class="rounded-xl bg-surface-container-low border border-outline-variant/30 p-6 max-w-md w-full space-y-4 specular-card shadow-2xl"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <div class="flex items-center gap-3 border-b border-outline-variant/20 pb-3">
-        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-          <span class="material-symbols-outlined text-primary text-[18px]">swap_horiz</span>
-        </div>
-        <h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">Confirm Pool Switch</h3>
-      </div>
-      
-      <div class="text-body-sm font-body-sm text-on-surface-variant">
-        {#if switchPoolTarget.targetPool === 'COMMUNITY'}
-          <p class="mb-2">Switching this key to the Community Pool enters a 24-hour observation period (OBSERVATION status) before receiving reciprocal community routing credits.</p>
-          <p class="font-semibold text-amber-400">Pool switches are frozen during the midnight UTC reset window (23:30–00:30 UTC).</p>
-        {:else}
-          <p>Switching this key to Private will remove it from the reciprocal Community Pool immediately. It will only serve your personal requests.</p>
-        {/if}
-      </div>
-
-      {#if switchPoolError}
-        <div class="p-3 bg-error/10 border border-error/20 text-error text-xs rounded-lg mt-2">
-          {switchPoolError}
-        </div>
-      {/if}
-
-      <div class="flex justify-end gap-3 pt-3 border-t border-outline-variant/20">
-        <button
-          type="button"
-          onclick={() => (switchPoolModalOpen = false)}
-          disabled={switchPoolLoading}
-          class="px-4 py-2 rounded-lg border border-outline-variant/30 text-on-surface hover:bg-surface-container-high transition-colors font-semibold text-sm cursor-pointer disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onclick={confirmSwitchPool}
-          disabled={switchPoolLoading}
-          class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-on-primary font-semibold text-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
-        >
-          {#if switchPoolLoading}
-            <span class="material-symbols-outlined animate-spin text-[16px]">refresh</span>
-          {/if}
-          Confirm Switch
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<!-- Modals Component Container -->
+<Modals
+  {showVerificationProofModal}
+  onCloseVerificationProofModal={() => (showVerificationProofModal = false)}
+  {showNewProjectModal}
+  onCloseNewProjectModal={() => (showNewProjectModal = false)}
+  onCreateProjectSubmit={handleCreateNewProject}
+  bind:newProjectName
+  bind:newProjectSlug
+  bind:newProjectDesc
+  bind:newProjectRpm
+  {showNewKeyModal}
+  onCloseNewKeyModal={() => (showNewKeyModal = false)}
+  onCreateKeySubmit={handleCreateNewKey}
+  bind:newKeyName
+  bind:newKeyProjectId
+  projects={localProjects}
+  {showProjectSettingsModal}
+  onCloseProjectSettingsModal={() => (showProjectSettingsModal = null)}
+  onArchiveProjectToggle={(id) => {
+    localProjects = localProjects.map((p) => p.id === id ? { ...p, isArchived: !p.isArchived } : p);
+    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+  }}
+  onSaveProjectName={(id, name) => {
+    localProjects = localProjects.map(p => p.id === id ? { ...p, name } : p);
+    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+  }}
+  onSaveProjectRpm={(id, rpm) => {
+    localProjects = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.round(rpm * 0.7) } : p);
+    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+  }}
+  {localKeys}
+  {switchPoolModalOpen}
+  {switchPoolTarget}
+  {switchPoolLoading}
+  {switchPoolError}
+  onCloseSwitchPoolModal={() => (switchPoolModalOpen = false)}
+  onConfirmSwitchPool={confirmSwitchPool}
+/>
