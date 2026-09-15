@@ -1,184 +1,21 @@
 <script module lang="ts">
-  export type KeyType = 'gemini' | 'groq' | string;
-
-  export type KeyFormData = {
-    name: string;
-    key: string;
-  };
-
-  export const NONCE_LENGTH_BYTES = 12;
-  export const ENCRYPTION_ALGORITHM = 'AES-GCM';
-
-  export function generateNonce(length = 12): Uint8Array {
-    if (length !== 12) {
-      throw new Error('expected 12 bytes');
-    }
-    const nonce = new Uint8Array(length);
-    crypto.getRandomValues(nonce);
-    return nonce;
-  }
-
-  export function uint8ArrayToBase64(buffer: Uint8Array): string {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  }
-
-  export function base64ToUint8Array(base64: string): Uint8Array {
-    const binary_string = atob(base64);
-    const len = binary_string.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary_string.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  export interface EncryptedPayload {
-    ciphertext: Uint8Array;
-    nonce: Uint8Array;
-    combined: Uint8Array;
-    nonceB64: string;
-    ciphertextB64: string;
-    combinedB64: string;
-  }
-
-  // A hardcoded or derived key for encryption/decryption tests/in-memory usage
-  let _cryptoKey: CryptoKey | null = null;
-  async function getCryptoKey(): Promise<CryptoKey> {
-    if (_cryptoKey) return _cryptoKey;
-    const rawKey = new Uint8Array(32); // 256-bit key
-    // In a real app this would be derived from a password or injected.
-    // For test purposes we use a static one or generate one if not present.
-    // Actually the test doesn't supply a key, so we can generate a random one per session.
-    _cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      rawKey,
-      'AES-GCM',
-      true,
-      ['encrypt', 'decrypt']
-    );
-    return _cryptoKey;
-  }
-
-  export async function encryptPayload(plaintext: string): Promise<EncryptedPayload> {
-    const key = await getCryptoKey();
-    const nonce = generateNonce();
-    const encoded = new TextEncoder().encode(plaintext);
-    const ciphertextBuf = await crypto.subtle.encrypt(
-      {
-        name: 'AES-GCM',
-        iv: nonce
-      },
-      key,
-      encoded
-    );
-    const ciphertext = new Uint8Array(ciphertextBuf);
-    const combined = new Uint8Array(nonce.length + ciphertext.length);
-    combined.set(nonce);
-    combined.set(ciphertext, nonce.length);
-
-    return {
-      ciphertext,
-      nonce,
-      combined,
-      nonceB64: uint8ArrayToBase64(nonce),
-      ciphertextB64: uint8ArrayToBase64(ciphertext),
-      combinedB64: uint8ArrayToBase64(combined)
-    };
-  }
-
-  export async function decryptPayload(ciphertext: Uint8Array, nonce: Uint8Array): Promise<string> {
-    const key = await getCryptoKey();
-    const decryptedBuf = await crypto.subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: nonce
-      },
-      key,
-      ciphertext
-    );
-    return new TextDecoder().decode(decryptedBuf);
-  }
-
-  // Modal State Interface
-  export interface ModalState {
-    isOpen: boolean;
-    type: KeyType;
-    lastSubmittedData?: KeyFormData;
-    lastEncryptedPayload?: EncryptedPayload;
-  }
-
-  // Reactive State Store
-  const modalState: ModalState = {
-    isOpen: false,
-    type: 'gemini',
-    lastSubmittedData: undefined,
-    lastEncryptedPayload: undefined,
-  };
-
-  type StateListener = (state: Readonly<ModalState>) => void;
-  const stateListeners = new Set<StateListener>();
-
-  function notifyListeners() {
-    for (const listener of stateListeners) {
-      listener(modalState);
-    }
-  }
-
-  export function subscribeModalState(listener: StateListener): () => void {
-    stateListeners.add(listener);
-    listener(modalState);
-    return () => stateListeners.delete(listener);
-  }
-
-  export function getModalState(): Readonly<ModalState> {
-    return modalState;
-  }
-
-  let externalSubmitHandler: ((data: KeyFormData, encrypted?: EncryptedPayload) => Promise<void>) | undefined;
-
-  export function setModalSubmitHandler(
-    handler?: (data: KeyFormData, encrypted?: EncryptedPayload) => Promise<void>
-  ): void {
-    externalSubmitHandler = handler;
-  }
-
-  export function openModal(type: KeyType = 'gemini'): void {
-    modalState.isOpen = true;
-    modalState.type = type;
-    notifyListeners();
-  }
-
-  export function closeModal(): void {
-    modalState.isOpen = false;
-    notifyListeners();
-  }
-
-  export async function submitKey(data: KeyFormData): Promise<void> {
-    if (!data.key || data.key.trim().length === 0) {
-      throw new Error('Please provide a valid API key.');
-    }
-
-    const encrypted = await encryptPayload(data.key);
-
-    modalState.lastSubmittedData = { ...data };
-    modalState.lastEncryptedPayload = encrypted;
-    notifyListeners();
-
-    if (externalSubmitHandler) {
-      await externalSubmitHandler(data, encrypted);
-    }
-  }
+  export * from './add_key';
 </script>
 
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import type { Provider, CreateKeyPayload, PoolType } from './types';
+  import {
+    closeModal,
+    submitKey,
+    subscribeModalState,
+    getModalState,
+    ProviderSelector,
+    PoolModeSelector,
+    LimitsPriorityGrid,
+    LegalAttestations,
+    type KeyFormData,
+  } from './add_key';
 
   let {
     isOpen = false,
@@ -217,7 +54,7 @@
   let errorMessage = $state<string | null>(null);
   let showKey = $state(false);
 
-  let moduleIsOpen = $state(modalState.isOpen);
+  let moduleIsOpen = $state(getModalState().isOpen);
 
   let unsubscribe: (() => void) | undefined;
   onMount(() => {
@@ -391,98 +228,10 @@
         {/if}
 
         <!-- Provider Selector -->
-        <div>
-          <span class="block text-slate-400 font-semibold mb-2 uppercase tracking-wider text-[10px]">
-            Target Upstream Provider
-          </span>
-          <div class="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onclick={() => handleProviderSelect('gemini')}
-              class="flex items-center gap-3 p-3 rounded-xl border transition-all text-left cursor-pointer {provider === 'gemini'
-                ? 'bg-blue-950/40 border-blue-500/50 text-blue-200 shadow-md shadow-blue-950/40 ring-1 ring-blue-500/40'
-                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'}"
-            >
-              <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
-                </svg>
-              </div>
-              <div>
-                <div class="font-bold text-white text-xs">Google Gemini</div>
-                <div class="text-[10px] text-slate-400">15 RPM / 1.5K RPD default</div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onclick={() => handleProviderSelect('groq')}
-              class="flex items-center gap-3 p-3 rounded-xl border transition-all text-left cursor-pointer {provider === 'groq'
-                ? 'bg-amber-950/40 border-amber-500/50 text-amber-200 shadow-md shadow-amber-950/40 ring-1 ring-amber-500/40'
-                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'}"
-            >
-              <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                </svg>
-              </div>
-              <div>
-                <div class="font-bold text-white text-xs">Groq Cloud</div>
-                <div class="text-[10px] text-slate-400">30 RPM / 14.4K RPD default</div>
-              </div>
-            </button>
-          </div>
-        </div>
+        <ProviderSelector bind:provider onSelect={handleProviderSelect} />
 
         <!-- Pool Mode Selector -->
-        <div>
-          <span class="block text-slate-400 font-semibold mb-2 uppercase tracking-wider text-[10px]">
-            Pool Routing Mode
-          </span>
-          <div class="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled={!_isGitHubAuth}
-              onclick={() => selectedPoolType = 'COMMUNITY'}
-              class="flex flex-col gap-1 p-3 rounded-xl border transition-all text-left {selectedPoolType === 'COMMUNITY'
-                ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200 shadow-md shadow-indigo-950/40 ring-1 ring-indigo-500/40'
-                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'} {!_isGitHubAuth ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}"
-            >
-              <div class="font-bold text-white text-xs flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Community (recommended)
-              </div>
-              <div class="text-[10px] text-slate-400 leading-tight">Key is accessible to all collective members. Earns standing.</div>
-            </button>
-
-            <button
-              type="button"
-              onclick={() => selectedPoolType = 'PRIVATE'}
-              class="flex flex-col gap-1 p-3 rounded-xl border transition-all text-left cursor-pointer {selectedPoolType === 'PRIVATE'
-                ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/40'
-                : 'bg-slate-900/40 border-white/10 text-slate-400 hover:border-white/20'}"
-            >
-              <div class="font-bold text-white text-xs flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Private
-              </div>
-              <div class="text-[10px] text-slate-400 leading-tight">Key is reserved strictly for your personal use.</div>
-            </button>
-          </div>
-          {#if !_isGitHubAuth}
-            <div class="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
-              <span class="text-amber-400 font-bold text-sm">🔒</span>
-              <div class="flex-1">
-                <p class="text-amber-300 font-semibold text-xs tracking-wide">GitHub Authentication Required</p>
-                <p class="text-[10px] text-amber-200/70 mt-0.5">Only GitHub-authenticated accounts may contribute to the Community Pool.</p>
-              </div>
-            </div>
-          {/if}
-        </div>
+        <PoolModeSelector bind:selectedPoolType isGitHubAuth={_isGitHubAuth} />
 
         <!-- Label Input -->
         <div>
@@ -543,86 +292,10 @@
         </div>
 
         <!-- Limits & Priority Grid -->
-        <div class="grid grid-cols-3 gap-3">
-          <!-- RPM Limit -->
-          <div>
-            <label for="rpm-limit" class="block text-slate-400 font-semibold mb-1 uppercase tracking-wider text-[10px]">
-              RPM Limit
-            </label>
-            <input
-              id="rpm-limit"
-              type="number"
-              min="1"
-              max="10000"
-              bind:value={rpmLimit}
-              required
-              class="w-full px-3 py-1.5 rounded-lg bg-slate-950/80 border border-white/10 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs"
-            />
-          </div>
-
-          <!-- RPD Limit -->
-          <div>
-            <label for="rpd-limit" class="block text-slate-400 font-semibold mb-1 uppercase tracking-wider text-[10px]">
-              RPD Limit
-            </label>
-            <input
-              id="rpd-limit"
-              type="number"
-              min="1"
-              max="500000"
-              bind:value={rpdLimit}
-              required
-              class="w-full px-3 py-1.5 rounded-lg bg-slate-950/80 border border-white/10 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs"
-            />
-          </div>
-
-          <!-- Priority -->
-          <div>
-            <label for="priority" class="block text-slate-400 font-semibold mb-1 uppercase tracking-wider text-[10px]" title="0 is highest priority">
-              Priority (P0-P5)
-            </label>
-            <input
-              id="priority"
-              type="number"
-              min="0"
-              max="10"
-              bind:value={priority}
-              required
-              class="w-full px-3 py-1.5 rounded-lg bg-slate-950/80 border border-white/10 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs"
-            />
-          </div>
-        </div>
+        <LimitsPriorityGrid bind:rpmLimit bind:rpdLimit bind:priority />
 
         <!-- Legal Attestations -->
-        <div class="space-y-2 mt-4 p-3 rounded-lg bg-slate-900/50 border border-white/5">
-          <span class="block text-slate-400 font-semibold mb-2 uppercase tracking-wider text-[10px]">
-            Legal Attestations
-          </span>
-          <label class="flex items-start gap-2.5 cursor-pointer group">
-            <div class="relative flex items-center justify-center mt-0.5">
-              <input type="checkbox" bind:checked={attestK1} class="peer sr-only" required />
-              <div class="w-4 h-4 rounded border border-slate-600 bg-slate-950 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all"></div>
-              <svg class="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <span class="text-[10px] text-slate-300 leading-tight group-hover:text-slate-200">
-              [K1] I certify this key has no billing account attached
-            </span>
-          </label>
-          <label class="flex items-start gap-2.5 cursor-pointer group">
-            <div class="relative flex items-center justify-center mt-0.5">
-              <input type="checkbox" bind:checked={attestK2} class="peer sr-only" required />
-              <div class="w-4 h-4 rounded border border-slate-600 bg-slate-950 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all"></div>
-              <svg class="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <span class="text-[10px] text-slate-300 leading-tight group-hover:text-slate-200">
-              [K2] I am the authorized creator of this key
-            </span>
-          </label>
-        </div>
+        <LegalAttestations bind:attestK1 bind:attestK2 />
 
         <!-- Modal Actions -->
         <div class="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2.5 mt-4">
