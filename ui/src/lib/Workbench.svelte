@@ -157,8 +157,30 @@
     }
   });
 
+  function persistProjects(updated: ExtendedProject[]) {
+    localProjects = updated;
+    try {
+      localStorage.setItem('kc_workbench_projects', JSON.stringify(updated));
+    } catch {}
+  }
+
+  function persistKeys(updated: ExtendedKey[]) {
+    localKeys = updated;
+    try {
+      localStorage.setItem('kc_workbench_keys', JSON.stringify(updated));
+    } catch {}
+  }
+
   $effect(() => {
-    if (projects && projects.length > 0) {
+    let saved: ExtendedProject[] | null = null;
+    try {
+      const raw = localStorage.getItem('kc_workbench_projects');
+      if (raw) saved = JSON.parse(raw);
+    } catch {}
+
+    if (saved && saved.length > 0) {
+      localProjects = saved;
+    } else if (projects && projects.length > 0) {
       localProjects = projects.map((p, idx) => ({
         ...p,
         assignedRpm: p.maxRpmSubCap ? Math.round(p.maxRpmSubCap * 0.7) : 10,
@@ -173,7 +195,15 @@
   });
 
   $effect(() => {
-    if (keys && keys.length > 0) {
+    let savedKeys: ExtendedKey[] | null = null;
+    try {
+      const raw = localStorage.getItem('kc_workbench_keys');
+      if (raw) savedKeys = JSON.parse(raw);
+    } catch {}
+
+    if (savedKeys && savedKeys.length > 0) {
+      localKeys = savedKeys;
+    } else if (keys && keys.length > 0) {
       localKeys = keys.map((k) => ({
         ...k,
         fullSecret: `${k.tokenPrefix}44781d09e`,
@@ -232,7 +262,7 @@
       lastUsedAt: null,
       createdAt: new Date().toISOString(),
     };
-    localKeys = [newKey, ...localKeys];
+    persistKeys([newKey, ...localKeys]);
 
     newKeyName = '';
     showNewKeyModal = false;
@@ -312,7 +342,7 @@
   function handleRotateKey(keyId: string): void {
     const randomSuffix = Math.random().toString(36).substring(2, 9);
     const newPrefix = `kc_proj_live_${randomSuffix}`;
-    localKeys = localKeys.map((k) => {
+    const updated = localKeys.map((k) => {
       if (k.id === keyId && !k.isRevoked) {
         return {
           ...k,
@@ -323,6 +353,7 @@
       }
       return k;
     });
+    persistKeys(updated);
 
     if (onRotateKey) {
       onRotateKey(keyId);
@@ -330,7 +361,7 @@
   }
 
   function handleRevokeKey(keyId: string): void {
-    localKeys = localKeys.map((k) => {
+    const updated = localKeys.map((k) => {
       if (k.id === keyId) {
         return {
           ...k,
@@ -339,20 +370,22 @@
       }
       return k;
     });
+    persistKeys(updated);
     if (onRevokeKey) {
       onRevokeKey(keyId);
     }
   }
 
   function handleDeleteKey(keyId: string): void {
-    localKeys = localKeys.filter((k) => k.id !== keyId);
+    const updated = localKeys.filter((k) => k.id !== keyId);
+    persistKeys(updated);
     if (onDeleteKey) {
       onDeleteKey(keyId);
     }
   }
 
   function handleToggleKey(keyId: string): void {
-    localKeys = localKeys.map((k) => {
+    const updated = localKeys.map((k) => {
       if (k.id === keyId) {
         return {
           ...k,
@@ -361,6 +394,7 @@
       }
       return k;
     });
+    persistKeys(updated);
     if (onToggleKeyStatus) {
       onToggleKeyStatus(keyId);
     }
@@ -387,7 +421,7 @@
       updatedAt: new Date().toISOString(),
     };
 
-    localProjects = [...localProjects, newProj];
+    persistProjects([...localProjects, newProj]);
 
     // Also issue initial key for this project
     const keySuffix = Math.random().toString(36).substring(2, 9);
@@ -405,7 +439,7 @@
       lastUsedAt: null,
       createdAt: new Date().toISOString(),
     };
-    localKeys = [newKey, ...localKeys];
+    persistKeys([newKey, ...localKeys]);
 
     if (onCreateProject) {
       onCreateProject(newProj);
@@ -605,16 +639,19 @@
   {showProjectSettingsModal}
   onCloseProjectSettingsModal={() => (showProjectSettingsModal = null)}
   onArchiveProjectToggle={(id) => {
-    localProjects = localProjects.map((p) => p.id === id ? { ...p, isArchived: !p.isArchived } : p);
-    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+    const updated = localProjects.map((p) => p.id === id ? { ...p, isArchived: !p.isArchived } : p);
+    persistProjects(updated);
+    showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
   }}
   onSaveProjectName={(id, name) => {
-    localProjects = localProjects.map(p => p.id === id ? { ...p, name } : p);
-    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+    const updated = localProjects.map(p => p.id === id ? { ...p, name } : p);
+    persistProjects(updated);
+    showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
   }}
   onSaveProjectRpm={(id, rpm) => {
-    localProjects = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.round(rpm * 0.7) } : p);
-    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+    const updated = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.round(rpm * 0.7) } : p);
+    persistProjects(updated);
+    showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
   }}
   {localKeys}
   {switchPoolModalOpen}

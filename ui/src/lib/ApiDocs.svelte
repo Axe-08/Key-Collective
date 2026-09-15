@@ -16,7 +16,6 @@
   } from './api_docs/generators';
 
   import PricingTable from './api_docs/PricingTable.svelte';
-  import CodePlayground from './api_docs/CodePlayground.svelte';
   import EndpointsList from './api_docs/EndpointsList.svelte';
 
   let {
@@ -40,9 +39,8 @@
   let copiedToken = $state(false);
   let copiedSnippet = $state(false);
 
-  // Playground state
+  // Documentation snippet parameters
   let bearerToken = $state('kc_proj_live_9f83a00c82de19a');
-  let isSessionToken = $state(false);
   let selectedModel = $state('gemini-3.8-flash');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
@@ -53,7 +51,6 @@
       const stored = localStorage.getItem('kc_auth_token');
       if (stored && stored.trim().length > 0) {
         bearerToken = stored.trim();
-        isSessionToken = true;
       }
       fetch('/v1/models')
         .then(r => r.json())
@@ -73,50 +70,6 @@
         });
     }
   });
-
-  let payloadJson = $state(`{\n  "model": "gemini-3.8-flash",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
-  
-  $effect(() => {
-    try {
-      const parsed = JSON.parse(payloadJson);
-      let changed = false;
-      if (parsed.model !== selectedModel) {
-        parsed.model = selectedModel;
-        changed = true;
-      }
-      if (parsed.stream !== isStreaming) {
-        parsed.stream = isStreaming;
-        changed = true;
-      }
-      if (changed) {
-        payloadJson = JSON.stringify(parsed, null, 2);
-      }
-    } catch (e) {}
-  });
-
-  // Request execution & response state
-  let isSending = $state(false);
-  let fallbackModelUsed = $state<string | null>(null);
-  let simulatedLatency = $state('18ms');
-  let simulatedStatus = $state('200 OK');
-  let responseChunks = $state<ResponseChunk[]>([
-    {
-      text: 'data: {"id":"chatcmpl-94k2","object":"chat.completion.chunk","created":17109210,"model":"gemini-3.8-flash","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}',
-      class: 'text-outline text-[10px]',
-    },
-    { text: 'data: {"choices":[{"delta":{"content":"Handshake"}}]}', class: 'text-secondary' },
-    { text: 'data: {"choices":[{"delta":{"content":" verified."}}]}', class: 'text-secondary' },
-    { text: 'data: {"choices":[{"delta":{"content":" Edge proxy"}}]}', class: 'text-secondary' },
-    { text: 'data: {"choices":[{"delta":{"content":" route nominal."}}]}', class: 'text-secondary' },
-    {
-      text: 'Summary: Handshake verified. Edge proxy route nominal. Zero failover cascades required.',
-      class: 'text-on-surface-variant text-[11px] pt-1 font-sans',
-    },
-    {
-      text: 'data: [DONE]   •   cost: 21 µ$',
-      class: 'text-outline text-[10px] pt-1 border-t border-outline-variant/20',
-    },
-  ]);
 
   // Dynamic code snippets
   const curlSnippet = $derived(generateCurlSnippet(baseUrl, bearerToken, selectedModel, isStreaming));
@@ -138,104 +91,6 @@
     } else if (type === 'snippet') {
       copiedSnippet = true;
       setTimeout(() => (copiedSnippet = false), 2000);
-    }
-  }
-
-  async function handleSendRequest() {
-    if (isSending) return;
-    isSending = true;
-    simulatedLatency = '...';
-    responseChunks = [
-      {
-        text: `Establishing edge websocket tunnel to ${selectedModel}...`,
-        class: 'text-outline text-[11px] animate-pulse',
-      },
-    ];
-
-    const startTime = Date.now();
-    try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${bearerToken.trim()}`,
-          'x-pool-fallback': 'lenient'
-        },
-        body: payloadJson
-      });
-      const modelUsed = res.headers.get('x-kc-model-used') || res.headers.get('x-kc-model');
-      if (modelUsed && modelUsed !== selectedModel) {
-        fallbackModelUsed = modelUsed;
-      } else {
-        fallbackModelUsed = null;
-      }
-      
-      const latencyMs = Date.now() - startTime;
-      simulatedLatency = `${latencyMs}ms`;
-      simulatedStatus = `${res.status} ${res.statusText}`;
-
-      if (!res.ok) {
-        const errText = await res.text();
-        let formattedErr = errText;
-        try {
-          formattedErr = JSON.stringify(JSON.parse(errText), null, 2);
-        } catch {}
-        responseChunks = [
-          {
-            text: formattedErr,
-            class: 'text-error text-[11px] font-mono whitespace-pre',
-          }
-        ];
-        isSending = false;
-        return;
-      }
-
-      if (isStreaming && res.body) {
-        responseChunks = [];
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunkStr = decoder.decode(value);
-          const lines = chunkStr.split('\n');
-          for (const line of lines) {
-            if (line.trim()) {
-              responseChunks = [...responseChunks, { text: line, class: 'text-secondary' }];
-            }
-          }
-        }
-      } else {
-        const data = await res.text();
-        let formattedData = data;
-        try {
-          formattedData = JSON.stringify(JSON.parse(data), null, 2);
-        } catch(e) {}
-        
-        responseChunks = [
-          {
-            text: formattedData,
-            class: 'text-secondary text-[11px] whitespace-pre',
-          }
-        ];
-      }
-    } catch (error) {
-      simulatedStatus = 'Error';
-      responseChunks = [
-        {
-          text: String(error),
-          class: 'text-error text-[11px]',
-        }
-      ];
-    }
-    
-    isSending = false;
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      handleSendRequest();
     }
   }
 
@@ -426,31 +281,6 @@
     </div>
   </div>
 
-  <!-- Interactive Live Request Playground -->
-  <CodePlayground
-    {baseUrl}
-    {bearerToken}
-    {isSessionToken}
-    {selectedModel}
-    {isStreaming}
-    {activeTab}
-    {availableModels}
-    bind:payloadJson
-    {isSending}
-    {simulatedLatency}
-    {simulatedStatus}
-    {responseChunks}
-    {fallbackModelUsed}
-    {activeSnippet}
-    {copiedSnippet}
-    onBearerTokenChange={(val) => (bearerToken = val)}
-    onSelectedModelChange={(val) => (selectedModel = val)}
-    onStreamingToggle={(val) => (isStreaming = val)}
-    onActiveTabChange={(tab) => (activeTab = tab)}
-    onPayloadJsonChange={(val) => (payloadJson = val)}
-    onSendRequest={handleSendRequest}
-    onCopySnippet={() => copyText(activeSnippet, 'snippet')}
-  />
 
   <!-- Live Authoritative Pricing Matrix -->
   <PricingTable

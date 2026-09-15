@@ -16,6 +16,7 @@ import {
   handleTestKey,
 } from "./key_routes";
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
+import { handlePoolRoute } from "../../pool_routes";
 
 export class DashboardHandler {
   constructor(
@@ -146,6 +147,12 @@ export class DashboardHandler {
     // 6. GET /api/stats
     if (method === "GET" && pathname === "/api/stats") {
       return handleGetStats(env, tenantId, headerTenant, this.getKeyPool);
+    }
+
+    // 7. Pool Commons & Notifications Routes (/api/pool/*, /api/notifications)
+    const poolRes = await handlePoolRoute(pathname, method, request, env, tenantId, _ctx as any);
+    if (poolRes) {
+      return poolRes;
     }
 
     return new Response(

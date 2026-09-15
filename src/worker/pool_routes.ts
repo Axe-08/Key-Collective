@@ -4,7 +4,7 @@
  *          GET /api/pool/contribution, GET /api/notifications
  */
 
-import type { WorkerEnv } from './env';
+import type { WorkerEnv } from './auth_middleware';
 
 type ExecutionContextLike = { waitUntil: (p: Promise<unknown>) => void };
 
@@ -43,13 +43,42 @@ async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Re
   const totalCommunal = providers.reduce((s, p) => s + (p.total_dispatched_communal ?? 0), 0);
   const uPoolPercent = totalDispatched > 0 ? Math.round((totalCommunal / totalDispatched) * 100) : 0;
 
+  const normalizeProvider = (p: string): string => {
+    const s = p.toLowerCase().trim();
+    if (s === 'google' || s === 'gemini') return 'gemini';
+    return s;
+  };
+
   const tenantProviderResult = await db.prepare(
     `SELECT DISTINCT provider FROM api_keys WHERE tenant_id = ? AND status != 'invalid'`
   ).bind(tenantId).all<{ provider: string }>();
-  const tenantProviders = new Set((tenantProviderResult.results ?? []).map(r => r.provider));
+  const tenantProviders = new Set((tenantProviderResult.results ?? []).map(r => normalizeProvider(r.provider)));
 
   const canonicalProviders = ['gemini', 'groq', 'sambanova', 'cerebras'];
-  const providerMap = new Map(providers.map(p => [p.provider.toLowerCase(), p]));
+  const providerMap = new Map<string, {
+    active_count: number;
+    observation_count: number;
+    quarantined_count: number;
+    total_dispatched_today: number;
+    total_dispatched_communal: number;
+  }>();
+
+  for (const p of providers) {
+    const key = normalizeProvider(p.provider);
+    const existing = providerMap.get(key) ?? {
+      active_count: 0,
+      observation_count: 0,
+      quarantined_count: 0,
+      total_dispatched_today: 0,
+      total_dispatched_communal: 0,
+    };
+    existing.active_count += p.active_count ?? 0;
+    existing.observation_count += p.observation_count ?? 0;
+    existing.quarantined_count += p.quarantined_count ?? 0;
+    existing.total_dispatched_today += p.total_dispatched_today ?? 0;
+    existing.total_dispatched_communal += p.total_dispatched_communal ?? 0;
+    providerMap.set(key, existing);
+  }
 
   const providerPools = canonicalProviders.map(cp => {
     const p = providerMap.get(cp);
@@ -63,7 +92,7 @@ async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Re
         : 0,
       w_provider: 1.0,
       p90_latency_ms: 0,
-      eye_for_eye_accessible: tenantProviders.has(cp) || tenantProviders.has(cp.toLowerCase()),
+      eye_for_eye_accessible: tenantProviders.has(cp),
     };
   });
 

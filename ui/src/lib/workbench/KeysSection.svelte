@@ -153,30 +153,32 @@
 
                 <!-- Status (Toggle or Badge) -->
                 <td class="py-3 px-4">
-                  {#if key.isRevoked}
-                    <span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-error-container/20 text-error border border-error/20 font-medium font-mono">
-                      Revoked
+                  <label class="relative inline-flex items-center cursor-pointer" title={key.isRevoked ? "Click to Reactivate Key" : "Click to Revoke Key"}>
+                    <input
+                      type="checkbox"
+                      checked={!key.isRevoked}
+                      onchange={() => onToggleKey(key.id)}
+                      class="sr-only peer"
+                    />
+                    <div class="w-9 h-5 bg-surface-container-high border border-outline-variant/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+                    <span class="ml-2 font-code-sm text-code-sm {key.isRevoked ? 'text-error font-medium' : 'text-secondary font-medium'} font-mono">
+                      {key.isRevoked ? 'Revoked' : 'Active'}
                     </span>
-                  {:else}
-                    <label class="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!key.isRevoked}
-                        onchange={() => onToggleKey(key.id)}
-                        class="sr-only peer"
-                      />
-                      <div class="w-9 h-5 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
-                      <span class="ml-2 font-code-sm text-code-sm text-secondary font-medium font-mono">
-                        Active
-                      </span>
-                    </label>
-                  {/if}
+                  </label>
                 </td>
 
                 <!-- Actions -->
                 <td class="py-3 px-4 text-right font-mono">
                   <div class="flex items-center justify-end gap-1">
                     {#if key.isRevoked}
+                      <button
+                        type="button"
+                        onclick={() => onToggleKey(key.id)}
+                        class="px-2.5 py-1 rounded bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/20 font-label-sm text-label-sm transition-colors cursor-pointer mr-1"
+                        title="Reactivate this key"
+                      >
+                        Reactivate
+                      </button>
                       <button
                         type="button"
                         onclick={() => onDeleteKey(key.id)}
@@ -214,6 +216,15 @@
                             >
                               <span class="material-symbols-outlined text-[14px]">block</span>
                               Revoke
+                            </button>
+                          {:else}
+                            <button
+                              type="button"
+                              onclick={() => { onToggleDropdown(null); onToggleKey(key.id); }}
+                              class="w-full text-left px-3 py-2 text-xs font-code-sm text-secondary hover:bg-secondary/10 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                            >
+                              <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                              Reactivate Key
                             </button>
                           {/if}
                           <button

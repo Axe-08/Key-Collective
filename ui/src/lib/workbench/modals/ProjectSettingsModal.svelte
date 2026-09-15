@@ -120,16 +120,23 @@
           <input
             type="number"
             min="1"
-            max="100"
+            max="10000"
             bind:value={editProjectRpmValue}
-            onblur={() => onSaveRpm(modalProj.id, editProjectRpmValue)}
+            oninput={(e) => {
+              const val = Number((e.target as HTMLInputElement).value);
+              editProjectRpmValue = val;
+              if (val > 0) {
+                onSaveRpm(modalProj.id, val);
+              }
+            }}
+            onblur={() => onSaveRpm(modalProj.id, Number(editProjectRpmValue))}
             onkeydown={(e) => {
               if (e.key === 'Enter') {
-                onSaveRpm(modalProj.id, editProjectRpmValue);
+                onSaveRpm(modalProj.id, Number(editProjectRpmValue));
                 e.currentTarget.blur();
               }
             }}
-            class="w-20 px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded text-on-surface focus:outline-none focus:border-primary"
+            class="w-24 px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded text-on-surface focus:outline-none focus:border-primary"
           />
           <span class="text-on-surface">RPM</span>
         </div>
@@ -170,7 +177,15 @@
         </button>
         <button
           type="button"
-          onclick={onClose}
+          onclick={() => {
+            if (editingProjectName && editProjectNameValue.trim()) {
+              onSaveName(modalProj.id, editProjectNameValue.trim());
+            }
+            if (editProjectRpmValue > 0) {
+              onSaveRpm(modalProj.id, Number(editProjectRpmValue));
+            }
+            onClose();
+          }}
           class="px-4 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-mono text-xs font-semibold transition-colors cursor-pointer"
         >
           Done
