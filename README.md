@@ -1,70 +1,88 @@
-# 🔑 Key Collective v2.1 (Free-Tier Edition)
+# 🔑 Key Collective v4.0 (Community Capacity & Developer Platform)
 
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue.svg)](https://www.typescriptlang.org/)
-[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%26%20Durable%20Objects-orange.svg)](https://developers.cloudflare.com/workers/)
-[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-899%2F899%20Passed%20(<4s)-brightgreen.svg)](Makefile)
+[![Cloudflare Workers & Durable Objects](https://img.shields.io/badge/Cloudflare-Workers%20%26%20Durable%20Objects-orange.svg)](https://developers.cloudflare.com/workers/)
+[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-304%2F304%20Passed%20(<10s)-brightgreen.svg)](Makefile)
 [![Zero Plaintext Keys](https://img.shields.io/badge/Security-AES--256--GCM%20Web%20Crypto-blueviolet.svg)](src/crypto/)
 
-Key Collective is an **edge-native, multi-tenant reverse proxy and quota multiplexer** deployed natively across the Cloudflare global network. It aggregates pools of cardless free-tier API keys across frontier AI providers (Google Gemini, Groq, Cerebras, SambaNova, Cloudflare Workers AI) into a single, unified OpenAI-compatible endpoint (`/v1/chat/completions`).
+Key Collective is a **high-throughput, edge-native AI proxy, community capacity exchange, and quota multiplexer** running globally on Cloudflare Workers and Durable Objects. It federates free-tier and provisioned API keys across frontier AI providers (Google Gemini, GroqCloud, SambaNova, Cerebras) into unified, OpenAI-compatible streaming endpoints (`/v1/chat/completions`) with sub-millisecond failover, continuous credit scoring, and zero cross-tenant state leakage.
 
 ---
 
-## ⚡ Core Value: Free-Tier Quota Multiplexing
+## ⚡ Key Capabilities & Architecture Highlights
 
-Frontier AI providers offer generous cardless free tiers, but individual keys suffer from aggressive rate limits (e.g. 15 RPM for Gemini, 30 RPM for Groq). Key Collective solves this by multiplexing traffic across pools of free-tier keys with in-memory sliding-window concurrency control and sub-50ms 429 failover.
-
-### Multiplexing Math (22 Keys Pool)
-| Provider | Pooled Keys | Per-Key Quota | Aggregate Continuous Capacity | Daily Volume | Compute Cost |
-|---|---|---|---|---|---|
-| **Google Gemini** | 17 keys | 15 RPM / 1,500 RPD | **255 RPM** | **25,500 RPD** | **$0.00** |
-| **GroqCloud** | 5 keys | 30 RPM / 1,000 RPD | **150 RPM** | **5,000 RPD** | **$0.00** |
-| **Combined Pool** | **22 keys** | — | **405 RPM** | **30,500 RPD** | **$0.00** |
+- **Communal Capacity Exchange:** A cooperative key pool where developers contribute provider keys in exchange for elevated capacity multipliers (`1.5x` up to `4.5x`).
+- **5-Minute Surge Emergency Brake:** The global `PoolCoordinatorDO` monitors communal token consumption and automatically applies a 60-second isolation brake to any tenant whose traffic exceeds **35% of total pool volume** in a rolling 5-minute window.
+- **Graduated Jail Demotion Cycle:** Contributor standing evaluates Community Debt against Contributed Capacity:
+  - `PRISTINE` ($\text{Debt} / \text{Contributed} \le 0.50$): Full capacity multipliers and burst headroom.
+  - `SOFT_WARNING` ($0.50 < \text{Debt} / \text{Contributed} \le 1.00$): Multiplier frozen, warning surfaced.
+  - `HARD_JAIL` ($\text{Debt} / \text{Contributed} > 1.00$): Clamped to probationary bounds (2 RPM / 50 RPD).
+- **Dedicated Interactive Playground:** Full-featured testing bench in the web console (`ui/src/lib/Playground.svelte`) with real-time SSE streaming inspection, latency profiling, dynamic model discovery via `/v1/models`, and instant overview telemetry synchronization.
+- **Developer Workbench:** Project-level isolation with virtual client API keys, custom sub-caps, and per-project usage telemetry.
+- **Zero-Mock Real Telemetry:** All dashboard counters, latency charts, and ledger balances reflect ground-truth production traffic and live response headers (`x-request-cost-micros`).
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ System Topology
 
 ```mermaid
 flowchart TD
-    Client["Client / Autonomous Agent Swarm"] -->|"POST /v1/chat/completions (Bearer Auth)"| EdgeWorker["Cloudflare Worker (Edge Ingress)"]
+    Client["Client / Agent Swarm / Web Playground"] -->|"POST /v1/chat/completions (Bearer Auth)"| Edge["Cloudflare Worker (Edge Ingress)"]
     
-    subgraph EdgeAuth["Edge Authentication & Triage (<2ms)"]
-        EdgeWorker -->|"SHA-256 Constant-Time Lookup"| D1Auth["D1 SQLite: auth_tokens"]
-        EdgeWorker -->|"Context Window & Tools Check"| CapFilter["CapabilityFilter"]
+    subgraph EdgeIngress["1. Edge Ingress & Triage (<2ms)"]
+        Edge -->|"Constant-Time Token Auth"| D1Auth["D1 SQLite: auth_tokens"]
+        Edge -->|"Turnstile & Rate Check"| AntiAbuse["Anti-Sybil & Abuse Filter"]
+        Edge -->|"Alias & Capability Resolution"| CascadeRouter["CascadeRouter & ModelRegistry"]
     end
     
-    EdgeWorker -->|"env.KEY_POOL.idFromName(tenantId)"| TenantDO["Tenant Durable Object (KeyPoolDO)"]
-    
-    subgraph DOActor["Tenant Durable Object Isolated V8 Actor"]
-        TenantDO -->|"Check & Decrement (<0.1ms)"| RateLimiter["Sliding-Window RateLimiter<br/>(15 RPM Gemini, 30 RPM Groq)"]
-        TenantDO -->|"Filter Healthy Keys"| Breaker["CircuitBreaker<br/>(Closed / Open / HalfOpen)"]
-        Breaker -->|"Select Highest Headroom Key"| KeySelector["KeySelector"]
-        KeySelector -->|"AES-256-GCM Web Crypto (<0.2ms)"| Crypto["Web Crypto Decrypt in Heap"]
-        TenantDO -.->|"State Persistence"| DOStorage["DO Transactional Storage (survives eviction)"]
+    subgraph CoordinatorActor["2. Global Pool Coordination (Singleton DO)"]
+        Edge -->|"report-volume & brake-check"| CoordinatorDO["PoolCoordinatorDO"]
+        CoordinatorDO -->|"Surge Guard"| Brake["35% / 5-Min Emergency Brake"]
     end
 
-    Crypto -->|"Upstream fetch() with Decrypted Bearer"| Upstream["Upstream Provider (Google / Groq)"]
-    
-    subgraph StreamHandling["Zero-Egress Stream Passthrough"]
-        Upstream -->|"HTTP 429 Throttled"| Failover["Trip Key to 60s Quarantine ➔ Sibling Failover (<50ms)"]
-        Upstream -->|"HTTP 200 SSE Chunks"| Transformer["Web TransformStream (Usage Parsing)"]
-        Transformer -->|"Direct SSE Pipe"| Client
+    subgraph TenantActor["3. Isolated Tenant Actor (Per-Tenant DO)"]
+        Edge -->|"env.KEY_POOL.idFromName(tenantId)"| TenantDO["KeyPoolDO & TenantQuotaDO"]
+        TenantDO -->|"Sliding Window Counters"| Quota["RPM / RPD Enforcement"]
+        TenantDO -->|"Health & Latency Sorting"| KeySelector["KeySelector & CircuitBreaker"]
+        KeySelector -->|"AES-256-GCM Web Crypto"| Decrypt["In-Memory Key Decryption"]
+        TenantDO -.->|"State Synchronization"| DOStorage["DO Transactional Storage"]
     end
+
+    Decrypt -->|"HTTPS Dispatch (Bearer Auth)"| Upstream["Frontier Providers (Gemini / Groq / Cerebras)"]
     
-    EdgeWorker -.->|"ctx.waitUntil() Async Rollup"| D1Ledger["D1: cost_ledger & spend_rollup"]
-    EdgeWorker -.->|"ctx.waitUntil() Telemetry"| Analytics["Workers Analytics Engine"]
+    subgraph StreamPassthrough["4. Non-Blocking Passthrough & Rollup"]
+        Upstream -->|"HTTP 200 SSE Chunks"| StreamTransformer["SSEStreamTransformer"]
+        StreamTransformer -->|"0ms Added Latency"| Client
+        StreamTransformer -.->|"ctx.waitUntil() Ledger Write"| D1Ledger["D1: cost_ledger & contributor_standing"]
+        StreamTransformer -.->|"ctx.waitUntil() Telemetry"| Analytics["Workers Analytics Engine"]
+        Upstream -->|"HTTP 429 Throttled"| Failover["60s Quarantine ➔ Sibling Escalation (<50ms)"]
+    end
 ```
 
 ---
 
 ## 🛡️ Non-Negotiable Invariants
 
-1. **No Plaintext Keys at Rest:** Keys are encrypted using AES-256-GCM via the Web Crypto API with unique 12-byte CSPRNG nonces stored in Cloudflare D1. Decryption occurs strictly in ephemeral heap memory at upstream dispatch time.
-2. **Per-Tenant Durable Object Isolation:** `env.KEY_POOL.idFromName(tenantId)` allocates a dedicated, single-threaded V8 isolate per tenant. Zero cross-tenant memory or state leakage.
-3. **Fixed-Point Microdollars (`int64` / `bigint`):** Financial accounting uses 64-bit integer microdollars ($1.00 USD = 1,000,000 µ$). Eliminates IEEE-754 floating-point drift. Actual spend is `0 µ$`, while commercial market value is tracked as `virtual_savings_microdollars`.
-4. **DO Transactional Storage for Hot State:** Circuit breaker states and sliding-window RPM counters synchronize to `this.ctx.storage`, surviving worker evictions and restarts.
-5. **Non-Blocking Observability:** High-frequency telemetry streams asynchronously to Cloudflare Workers Analytics Engine via `ctx.waitUntil()`. The proxy hot path is never blocked by database writes.
-6. **Sub-50ms 429 Failover:** When an upstream key hits an HTTP 429 rate limit, it is automatically isolated into a 60-second cooldown quarantine, immediately failing over to healthy sibling keys without dropping client requests.
+1. **Zero Plaintext Keys at Rest:** Upstream provider keys are encrypted with AES-256-GCM using unique 12-byte CSPRNG nonces and PBKDF2/HKDF master key derivation. Plaintext keys exist only in ephemeral V8 isolate memory during request dispatch.
+2. **Per-Tenant Compute Isolation:** Routed via `env.KEY_POOL.idFromName(tenantId)`. Each tenant executes inside an isolated Durable Object actor with zero cross-tenant state.
+3. **Fixed-Point Microdollars (`int64` / `bigint`):** All financial computations use 64-bit integer microdollars ($1.00 USD = 1,000,000 µ$). Floating-point math is strictly forbidden.
+4. **DO Transactional Storage for Hot State:** Sliding-window rate counters and circuit breaker trip states persist to `this.ctx.storage`, surviving worker evictions and edge restarts.
+5. **Non-Blocking Telemetry:** High-frequency event emission and cost ledger persistence are deferred to asynchronous `ctx.waitUntil()` tasks, guaranteeing zero proxy latency penalty.
+6. **Automated Upstream Failover:** Upstream HTTP 429 or 5xx responses trigger immediate key quarantine and transparent escalation across sibling keys or fallback models without breaking client streams.
+
+---
+
+## 📊 Live Model Registry & Cascades
+
+The proxy maps logical aliases to canonical models and automatically falls back when capacity limits or upstream rate-limits occur:
+
+| Model Alias | Primary Upstream Model | Fallback Candidates | Supported Capabilities |
+|---|---|---|---|
+| `auto` | `gemini-2.5-flash` | `groq/llama-3.3-70b-versatile`, `cerebras/llama3.1-8b` | Chat, Tools, JSON Mode |
+| `smart-fast` | `gemini-2.5-flash` | `groq/llama-3.3-70b-versatile` | Chat, Tools, Vision |
+| `coder-high` | `gemini-2.5-pro` | `groq/deepseek-r1-distill-llama-70b` | Extended Reasoning, Coding, Long Context |
+| `open-groq` | `groq/llama-3.3-70b-versatile` | `cerebras/llama3.1-8b` | Ultra-Low Latency, Chat |
+| `cerebras-speed`| `cerebras/llama3.1-8b` | `groq/llama-3.1-8b-instant` | Instant Inference (>1000 tok/s) |
 
 ---
 
@@ -72,66 +90,75 @@ flowchart TD
 
 ### 1. Prerequisites
 - Node.js >= 20.x
-- `pnpm` >= 9.x
-- Cloudflare Wrangler CLI
+- `npm` or `pnpm`
+- Cloudflare Wrangler CLI (`npm install -g wrangler`)
 
-### 2. Installation & Verification
+### 2. Installation & Quality Gate
 ```bash
-# Install dependencies
-pnpm install
+# Install root and UI dependencies
+make setup
 
-# Run strict typecheck, linter, and 806 unit/integration tests
+# Run strict typecheck and all 304 automated tests in <10s
 make gate
 ```
 
-### 3. Local Database & Key Seeding
+### 3. Local Development
 ```bash
 # Apply local D1 schema migrations
-pnpm run db:migrate:local
+npx wrangler d1 migrations apply key-collective-db --local
 
-# Seed test tenant, auth tokens, and encrypted free-tier keys
-node scripts/seed_local.mjs
+# Start local Worker & Durable Objects runtime
+npm run dev
+
+# In another terminal, run the Svelte 5 frontend console
+cd ui && npm run dev
 ```
 
-### 4. Start Local Edge Server
+### 4. Sending an OpenAI-Compatible Chat Request
 ```bash
-# Launch Cloudflare Workers & Durable Objects on port 8787
-pnpm run dev
-```
-
-### 5. Send an OpenAI-Compatible Chat Request
-```bash
-curl -X POST http://127.0.0.1:8787/v1/chat/completions   -H "Authorization: Bearer kc_test_token_alpha"   -H "Content-Type: application/json"   -d '{
-    "model": "gemini-2.5-flash",
-    "messages": [{"role": "user", "content": "Explain quantum tunneling in one sentence."}],
+curl -X POST http://127.0.0.1:8787/v1/chat/completions \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Explain zero-knowledge proofs in one concise paragraph."}
+    ],
     "stream": true
   }'
 ```
 
 ---
 
-## 🧪 Test Suite & Quality Gate
+## 📁 Repository Structure
 
-Key Collective enforces a strict sub-10s quality gate before every commit:
-
-```bash
-make gate
 ```
-
-```text
- Test Files  26 passed (26)
-      Tests  806 passed (806)
-   Duration  2.32s
-🎉 [GATE PASSED] TypeScript typecheck and tests satisfied in <10s.
+.
+├── src/
+│   ├── durable_objects/     # KeyPoolDO, CircuitBreakers, KeySelector & RateLimiter
+│   ├── pool/                # PoolCoordinatorDO (35% surge brake, leaky bucket, debt engine)
+│   ├── quota/               # TenantQuotaDO (sliding-window multi-project limits)
+│   ├── router/              # CascadeRouter, ModelRegistry, CapabilityFilter
+│   ├── proxy/               # UpstreamClient, SSEStreamTransformer, CostCalculator
+│   ├── crypto/              # AES-256-GCM Web Crypto encryption & nonce utilities
+│   ├── worker/              # Worker entry, router_handler, pool_routes, auth_middleware
+│   └── contracts/           # Strict TypeScript contracts & domain models
+├── ui/                      # Svelte 5 Developer Console & Interactive Playground
+│   ├── src/lib/Playground.svelte   # Standalone model testbench & stream reader
+│   ├── src/lib/Workbench.svelte    # Multi-project key management & sub-caps
+│   ├── src/lib/PoolCommonsTab.svelte # Communal pool telemetry & contributor standing
+│   └── src/lib/MetricCards.svelte  # Real-time telemetry cards (RPM, latency, spend)
+├── docs/
+│   ├── architecture/        # LLDs, UI designs, and state machines
+│   └── codeflow/            # Microscopic CFGs, call graphs, and Def-Use matrices
+├── migrations/              # D1 SQL relational schema migrations
+└── Makefile                 # Quality gate & development automation harness
 ```
 
 ---
 
-## 🏛️ Project Governance & Architecture Links
+## 🏛️ Governance & Second Brain Integration
 
-- **[PRD Specification](docs/PRD.md):** Free-tier multiplexer scope, boundaries, and acceptance criteria.
-- **[System Design](docs/system_design.md):** Detailed component breakdown and stream lifecycle.
-- **[Free-Tier Provider Landscape](docs/research/free_tier_provider_landscape.md):** In-depth limits, reset schedules, and cardless provider nuances.
-- **[ADR 001](docs/adr/001-architecture-selection.md):** Architectural decision record for Cloudflare-Native Edge Actor.
-- **[Chaos & Resilience Matrix](docs/qa_defense.md):** Red-team defense against concurrency bursts and 429 cascades.
-- **[Obsidian Project Hub](~/Vault/1-Projects/Key-Collective/Key-Collective-Hub.md):** Central knowledge graph hub.
+- **Architecture Decision Records:** Documented in [`docs/architecture/`](docs/architecture/) and mirrored to `~/Vault/1-Projects/Key-Collective/`.
+- **Knowledge Base Synchronization:** Codebase Scribe exports evergreen concepts (`communal-capacity-credit-and-jail-cycle`, `adaptive-cascade-routing-and-fallback-escalation`) to Obsidian Vault at `~/Vault/2-Areas/ai-systems/`.
