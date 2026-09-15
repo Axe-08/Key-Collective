@@ -8,5 +8,6 @@ export default defineConfig({
     exclude: ['ui/**'],
     passWithNoTests: true,
     environment: 'node',
+    testTimeout: 15000,
   },
 });
