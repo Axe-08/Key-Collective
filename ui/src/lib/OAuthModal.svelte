@@ -2,6 +2,13 @@
   import type { UserAccount, UserTier } from "../../../src/contracts/v3_types";
   import type { Microdollars } from "../../../src/contracts/v3_5_types";
   import TrustScoreMeter from "./TrustScoreMeter.svelte";
+  import {
+    createPKCEBundle,
+    OAuthProgression,
+    PKCEInspector,
+    EphemeralSandboxCard,
+    SybilMatrixSection,
+  } from "./oauth";
 
   let {
     isOpen,
@@ -54,73 +61,14 @@
     isBuilderOrHigher ? 5_000_000 : isProbationary ? 50_000 : 0
   );
 
-  // RFC 7636 Base64URL encoding
-  function uint8ArrayToBase64Url(bytes: Uint8Array): string {
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary)
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-  }
-
-  // RFC 7636 Code Verifier Generator
-  function generateCodeVerifier(length = 64): string {
-    const unreserved = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    let verifier = "";
-    const alphabetLen = unreserved.length;
-    const maxValidByte = 256 - (256 % alphabetLen);
-    let byteIdx = 0;
-    while (verifier.length < length) {
-      if (byteIdx >= bytes.length) {
-        crypto.getRandomValues(bytes);
-        byteIdx = 0;
-      }
-      const byte = bytes[byteIdx++];
-      if (byte < maxValidByte) {
-        verifier += unreserved[byte % alphabetLen];
-      }
-    }
-    return verifier;
-  }
-
-  // RFC 7636 SHA-256 Code Challenge Generator
-  async function generateCodeChallenge(verifier: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(verifier);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return uint8ArrayToBase64Url(new Uint8Array(hashBuffer));
-  }
-
   // Generate complete PKCE parameters
   async function initPKCEBundle() {
-    const verifier = generateCodeVerifier(64);
-    const challenge = await generateCodeChallenge(verifier);
-    const stateBytes = new Uint8Array(24);
-    const nonceBytes = new Uint8Array(16);
-    crypto.getRandomValues(stateBytes);
-    crypto.getRandomValues(nonceBytes);
-
-    const stateToken = uint8ArrayToBase64Url(stateBytes);
-    const nonceHex = Array.from(nonceBytes)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    pkceVerifier = verifier;
-    pkceChallenge = challenge;
-    pkceState = stateToken;
-    currentNonce = `0x${nonceHex.slice(0, 8)}...${nonceHex.slice(-8)}`;
-
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.setItem("kc_pkce_verifier", verifier);
-      sessionStorage.setItem("kc_oauth_state", stateToken);
-    }
-
-    return { verifier, challenge, stateToken, nonceHex };
+    const bundle = await createPKCEBundle();
+    pkceVerifier = bundle.verifier;
+    pkceChallenge = bundle.challenge;
+    pkceState = bundle.stateToken;
+    currentNonce = `0x${bundle.nonceHex.slice(0, 8)}...${bundle.nonceHex.slice(-8)}`;
+    return bundle;
   }
 
   // Phase 1: Email Ingress Handler (Probationary Tier)
@@ -275,56 +223,7 @@
         </div>
 
         <!-- Interactive Two-Phase Progression Indicator -->
-        <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 sm:p-4">
-          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
-            <!-- Phase 1 Step -->
-            <div class="flex items-center gap-3 w-full sm:w-auto">
-              <div class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold {isProbationary || isBuilderOrHigher ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"}">
-                {#if isProbationary || isBuilderOrHigher}
-                  <span class="material-symbols-outlined text-sm">check</span>
-                {:else}
-                  1
-                {/if}
-              </div>
-              <div>
-                <div class="font-semibold text-white flex items-center gap-1.5">
-                  <span>Phase 1: Ingress Sandbox</span>
-                  {#if isProbationary}
-                    <span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">ACTIVE</span>
-                  {:else if isBuilderOrHigher}
-                    <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">PASSED</span>
-                  {/if}
-                </div>
-                <div class="text-[11px] text-white/50">Email + Turnstile Nonce • 2 RPM / 50k µ$ cap</div>
-              </div>
-            </div>
-
-            <!-- Arrow Divider -->
-            <span class="hidden sm:inline-block text-white/30 material-symbols-outlined text-sm">arrow_forward</span>
-
-            <!-- Phase 2 Step -->
-            <div class="flex items-center gap-3 w-full sm:w-auto">
-              <div class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold {isBuilderOrHigher ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-white/10 text-white/60 border border-white/15"}">
-                {#if isBuilderOrHigher}
-                  <span class="material-symbols-outlined text-sm">verified</span>
-                {:else}
-                  2
-                {/if}
-              </div>
-              <div>
-                <div class="font-semibold text-white flex items-center gap-1.5">
-                  <span>Phase 2: Elevation Gate</span>
-                  {#if isBuilderOrHigher}
-                    <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">ELEVATED</span>
-                  {:else}
-                    <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">PKCE READY</span>
-                  {/if}
-                </div>
-                <div class="text-[11px] text-white/50">GitHub OAuth 2.0 PKCE • 60 RPM / 10,000 RPD</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <OAuthProgression {isProbationary} {isBuilderOrHigher} />
 
         <!-- Interactive 7/5 Grid: Auth & Trust Meter (Stitch Screen 3 Alignment) -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
@@ -453,7 +352,6 @@
                   </span>
                 </button>
 
-
                 <!-- Alternate Direct Redirect Trigger -->
                 <div class="flex items-center justify-between text-[11px] font-mono text-white/50 px-1">
                   <button
@@ -478,23 +376,7 @@
 
               <!-- Collapsible PKCE Crypto Inspector -->
               {#if showPkceInspector}
-                <div class="p-3 rounded-lg bg-black/40 border border-white/[0.08] text-[10px] font-mono space-y-1.5 text-white/70">
-                  <div class="text-indigo-300 font-semibold uppercase tracking-wider flex items-center gap-1">
-                    <span class="material-symbols-outlined text-xs">key</span> Web Crypto RFC 7636 Handshake Bundle
-                  </div>
-                  <div class="truncate">
-                    <span class="text-white/40">code_verifier:</span> {pkceVerifier || "0x4f82a1...64-char CSPRNG"}
-                  </div>
-                  <div class="truncate">
-                    <span class="text-white/40">code_challenge (S256):</span> {pkceChallenge || "BASE64URL(SHA256(verifier))"}
-                  </div>
-                  <div class="truncate">
-                    <span class="text-white/40">state_token:</span> {pkceState || "0x992b...anti-csrf"}
-                  </div>
-                  <div class="truncate">
-                    <span class="text-white/40">method:</span> S256 • client_id: Ov23lijtT90CwzFc8jcy
-                  </div>
-                </div>
+                <PKCEInspector {pkceVerifier} {pkceChallenge} {pkceState} />
               {/if}
 
               <p class="text-[11px] text-white/45 text-center font-mono flex items-center justify-center gap-1.5">
@@ -504,46 +386,7 @@
             </div>
 
             <!-- Quick Start Sandbox Card (Ephemeral 15m TTL) -->
-            <div class="rounded-xl p-5 bg-gradient-to-r from-white/[0.02] to-indigo-950/20 border border-white/[0.08] flex flex-col justify-between space-y-3">
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-amber-400 text-lg">bolt</span>
-                    <span class="text-sm font-semibold text-white tracking-tight">Quick Start Sandbox</span>
-                  </div>
-                  <span class="font-mono text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded flex items-center gap-1">
-                    <span class="material-symbols-outlined text-xs">timer</span> 15m TTL
-                  </span>
-                </div>
-                <p class="text-xs text-white/60 leading-relaxed">
-                  Instantly test without committing credentials. Spins up an isolated ephemeral edge isolate with 15 RPM proxy rate-limiting.
-                </p>
-              </div>
-
-              <div class="flex flex-col sm:flex-row items-center gap-3 pt-1">
-                <button
-                  type="button"
-                  onclick={handleLaunchDemo}
-                  disabled={isDemoLaunching}
-                  class="w-full sm:w-auto flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/10 hover:border-white/20 text-white text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
-                >
-                  {#if isDemoLaunching}
-                    <svg class="w-3.5 h-3.5 animate-spin text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10" stroke-opacity="0.25" stroke="currentColor" />
-                      <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.9" />
-                    </svg>
-                    <span>Spawning DemoDO Isolate...</span>
-                  {:else}
-                    <span class="material-symbols-outlined text-amber-400 text-base">terminal</span>
-                    <span>Launch 15-Min Ephemeral Sandbox</span>
-                  {/if}
-                </button>
-                <div class="font-mono text-[10px] text-white/40 flex items-center gap-1.5 shrink-0">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>0 req log stored</span>
-                </div>
-              </div>
-            </div>
+            <EphemeralSandboxCard {isDemoLaunching} onLaunchDemo={handleLaunchDemo} />
 
           </div>
 
@@ -609,119 +452,7 @@
         </div>
 
         <!-- Section 3: Real-time 5-Layer Anti-Sybil Verification Score Breakdown -->
-        <div class="space-y-3 pt-2">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-indigo-400 text-lg">fact_check</span>
-              <h3 class="text-xs font-mono uppercase tracking-widest text-white/80 font-bold">
-                5-Layer Anti-Sybil Verification Matrix
-              </h3>
-            </div>
-            <span class="text-[11px] font-mono {isBuilderOrHigher ? "text-emerald-400" : "text-amber-400"} flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full {isBuilderOrHigher ? "bg-emerald-400" : "bg-amber-400"} animate-pulse"></span>
-              <span>{isBuilderOrHigher ? "5 of 5 Checks Passed" : isProbationary ? "3 of 5 Checks Passed (GitHub Pending)" : "Awaiting Proofs"}</span>
-            </span>
-          </div>
-
-          <!-- 5 Verification Layers Grid (Matches screen3 HTML spec) -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            
-            <!-- Layer 1: GitHub Age -->
-            <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[10px] font-mono text-white/40 uppercase">Layer 01</span>
-                  <span class="text-[10px] font-mono font-semibold {isBuilderOrHigher ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-amber-400 bg-amber-500/10 border-amber-500/20"} px-1.5 py-0.5 rounded border">
-                    {isBuilderOrHigher ? "PASS" : "PENDING"}
-                  </span>
-                </div>
-                <div class="text-xs font-semibold text-white flex items-center gap-1 mb-1">
-                  <span class="material-symbols-outlined text-xs text-white/60">schedule</span>
-                  <span>GitHub Age</span>
-                </div>
-                <p class="text-[11px] text-white/50 leading-tight">Requirement: &gt;90 days</p>
-              </div>
-              <div class="mt-2.5 pt-2 border-t border-white/[0.04] text-[11px] font-mono {isBuilderOrHigher ? "text-emerald-300/90" : "text-white/40"} font-medium">
-                {isBuilderOrHigher ? "Active: 420 days" : "Awaiting OAuth"}
-              </div>
-            </div>
-
-            <!-- Layer 2: Commit Frequency -->
-            <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[10px] font-mono text-white/40 uppercase">Layer 02</span>
-                  <span class="text-[10px] font-mono font-semibold {isBuilderOrHigher ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-amber-400 bg-amber-500/10 border-amber-500/20"} px-1.5 py-0.5 rounded border">
-                    {isBuilderOrHigher ? "PASS" : "PENDING"}
-                  </span>
-                </div>
-                <div class="text-xs font-semibold text-white flex items-center gap-1 mb-1">
-                  <span class="material-symbols-outlined text-xs text-white/60">commit</span>
-                  <span>Commit Frequency</span>
-                </div>
-                <p class="text-[11px] text-white/50 leading-tight">Requirement: &gt;15 commits/yr</p>
-              </div>
-              <div class="mt-2.5 pt-2 border-t border-white/[0.04] text-[11px] font-mono {isBuilderOrHigher ? "text-emerald-300/90" : "text-white/40"} font-medium">
-                {isBuilderOrHigher ? "84 public commits" : "Awaiting OAuth"}
-              </div>
-            </div>
-
-            <!-- Layer 3: Turnstile Nonce -->
-            <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[10px] font-mono text-white/40 uppercase">Layer 03</span>
-                  <span class="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">PASS</span>
-                </div>
-                <div class="text-xs font-semibold text-white flex items-center gap-1 mb-1">
-                  <span class="material-symbols-outlined text-xs text-white/60">smart_toy</span>
-                  <span>Turnstile Nonce</span>
-                </div>
-                <p class="text-[11px] text-white/50 leading-tight">Bot challenge check</p>
-              </div>
-              <div class="mt-2.5 pt-2 border-t border-white/[0.04] text-[11px] font-mono text-emerald-300/90 font-medium truncate">
-                Challenge solved
-              </div>
-            </div>
-
-            <!-- Layer 4: Mail Detection -->
-            <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[10px] font-mono text-white/40 uppercase">Layer 04</span>
-                  <span class="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">PASS</span>
-                </div>
-                <div class="text-xs font-semibold text-white flex items-center gap-1 mb-1">
-                  <span class="material-symbols-outlined text-xs text-white/60">mail_lock</span>
-                  <span>Mail Detection</span>
-                </div>
-                <p class="text-[11px] text-white/50 leading-tight">Anti-disposable MX filter</p>
-              </div>
-              <div class="mt-2.5 pt-2 border-t border-white/[0.04] text-[11px] font-mono text-emerald-300/90 font-medium truncate">
-                Clean enterprise/pers.
-              </div>
-            </div>
-
-            <!-- Layer 5: IP & Velocity -->
-            <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[10px] font-mono text-white/40 uppercase">Layer 05</span>
-                  <span class="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">PASS</span>
-                </div>
-                <div class="text-xs font-semibold text-white flex items-center gap-1 mb-1">
-                  <span class="material-symbols-outlined text-xs text-white/60">speed</span>
-                  <span>IP &amp; Velocity</span>
-                </div>
-                <p class="text-[11px] text-white/50 leading-tight">Subnet rate correlation</p>
-              </div>
-              <div class="mt-2.5 pt-2 border-t border-white/[0.04] text-[11px] font-mono text-emerald-300/90 font-medium truncate">
-                Clean IP (1 req/min)
-              </div>
-            </div>
-
-          </div>
-        </div>
+        <SybilMatrixSection {isBuilderOrHigher} {isProbationary} />
 
       </div>
 
