@@ -20,7 +20,6 @@
   } from './workbench/formatters';
 
   import IdentityCard from './workbench/IdentityCard.svelte';
-  import TierMatrixSection from './workbench/TierMatrixSection.svelte';
   import ProjectsSection from './workbench/ProjectsSection.svelte';
   import ProviderKeysSection from './workbench/ProviderKeysSection.svelte';
   import KeysSection from './workbench/KeysSection.svelte';
@@ -679,14 +678,6 @@
     onCreateKeyClick={() => (showNewKeyModal = true)}
   />
 
-  <!-- 2. Quota Hierarchy & Governance Tiers -->
-  {#if account.tier === 'admin'}
-    <TierMatrixSection
-      tierMatrix={TIER_MATRIX}
-      {selectedTier}
-      onSelectTier={selectTier}
-    />
-  {/if}
 
   <!-- 3. Multi-Project Management Section -->
   <ProjectsSection

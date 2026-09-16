@@ -103,59 +103,371 @@ export async function handleAdminRequest(
     return options.cors !== false ? applyCors(res) : res;
   }
 
-  // 2. Admin Tenant Surveillance Table (GET /api/admin/tenants)
-  if (method === "GET" && pathname === "/api/admin/tenants") {
+  // 2. Admin Key Routing Status Override (POST /api/admin/keys/:id/routing-status)
+  const keyRoutingMatch = pathname.match(/^\/api\/admin\/keys\/([^/]+)\/routing-status$/);
+  if (method === "POST" && keyRoutingMatch) {
+    const targetKeyId = keyRoutingMatch[1];
+    let body: { status?: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION' | 'REVOKED'; reason?: string } = {};
+    try {
+      body = (await request.json()) as { status?: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION' | 'REVOKED'; reason?: string };
+    } catch {}
+
+    const targetStatus = body.status || 'ACTIVE';
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
-    let rows: unknown[] = [];
     if (db && typeof db.prepare === "function") {
-      try {
-        const result = await db
-          .prepare(
-            "SELECT id, email, tier, role, sybil_score, is_quarantined, created_at FROM users LIMIT 100"
-          )
-          .all();
-        rows = result.results || [];
-      } catch {
-        rows = [];
+      if (targetStatus === 'ACTIVE') {
+        await db
+          .prepare("UPDATE api_keys SET community_routing_status = 'ACTIVE', observation_until = NULL, status = 'Healthy' WHERE id = ?")
+          .bind(targetKeyId)
+          .run();
+      } else if (targetStatus === 'QUARANTINED') {
+        await db
+          .prepare("UPDATE api_keys SET community_routing_status = 'QUARANTINED', status = 'quarantined' WHERE id = ?")
+          .bind(targetKeyId)
+          .run();
+      } else if (targetStatus === 'OBSERVATION') {
+        const obsUntil = Date.now() + 24 * 60 * 60 * 1000;
+        await db
+          .prepare("UPDATE api_keys SET community_routing_status = 'OBSERVATION', observation_until = ?, status = 'Healthy' WHERE id = ?")
+          .bind(obsUntil, targetKeyId)
+          .run();
       }
     }
+
     const res = Response.json({
-      status: "success",
-      tenants: rows,
+      success: true,
+      key_id: targetKeyId,
+      community_routing_status: targetStatus,
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 2.5 Admin Key Pool Mode Switch (POST /api/admin/keys/:id/pool-mode)
+  const keyPoolMatch = pathname.match(/^\/api\/admin\/keys\/([^/]+)\/pool-mode$/);
+  if (method === "POST" && keyPoolMatch) {
+    const targetKeyId = keyPoolMatch[1];
+    let body: { pool_type?: 'COMMUNITY' | 'PRIVATE' } = {};
+    try {
+      body = (await request.json()) as { pool_type?: 'COMMUNITY' | 'PRIVATE' };
+    } catch {}
+
+    const targetPool = body.pool_type === 'PRIVATE' ? 'PRIVATE' : 'COMMUNITY';
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (db && typeof db.prepare === "function") {
+      await db
+        .prepare("UPDATE api_keys SET pool_type = ? WHERE id = ?")
+        .bind(targetPool, targetKeyId)
+        .run();
+    }
+
+    const res = Response.json({
+      success: true,
+      key_id: targetKeyId,
+      pool_type: targetPool,
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 2.6 Admin Key Delete (DELETE /api/admin/keys/:id)
+  const keyDeleteMatch = pathname.match(/^\/api\/admin\/keys\/([^/]+)$/);
+  if (method === "DELETE" && keyDeleteMatch) {
+    const targetKeyId = keyDeleteMatch[1];
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (db && typeof db.prepare === "function") {
+      await db.prepare("DELETE FROM api_keys WHERE id = ?").bind(targetKeyId).run();
+    }
+    const res = Response.json({
+      success: true,
+      key_id: targetKeyId,
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 2.7 Admin Community Pool Management (POST /api/admin/pool/manage)
+  if (method === "POST" && pathname === "/api/admin/pool/manage") {
+    let body: { action?: string } = {};
+    try {
+      body = (await request.json()) as { action?: string };
+    } catch {}
+
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (db && typeof db.prepare === "function") {
+      if (body.action === 'ACTIVATE_ALL_OBSERVATION') {
+        await db
+          .prepare("UPDATE api_keys SET community_routing_status = 'ACTIVE', observation_until = NULL WHERE pool_type = 'COMMUNITY' AND community_routing_status = 'OBSERVATION'")
+          .run();
+      } else if (body.action === 'PURGE_QUARANTINED') {
+        await db
+          .prepare("DELETE FROM api_keys WHERE community_routing_status = 'QUARANTINED' OR status = 'invalid'")
+          .run();
+      } else if (body.action === 'RESET_ALL_DEBT') {
+        await db
+          .prepare("UPDATE contributor_standing SET community_debt_micro_cu = 0")
+          .run();
+      }
+    }
+
+    const res = Response.json({
+      success: true,
+      action: body.action,
       timestamp: new Date().toISOString(),
     });
     return options.cors !== false ? applyCors(res) : res;
   }
 
-  // 3. Admin Tenant Quarantine (POST /api/admin/tenants/:id/quarantine)
+  // 3. Admin Tenant Surveillance & Fleet Table (GET /api/admin/tenants & GET /api/admin/surveillance)
+  if (method === "GET" && (pathname === "/api/admin/tenants" || pathname === "/api/admin/surveillance")) {
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    let usersList: Array<{
+      id: string;
+      email: string | null;
+      tier: string | null;
+      role: string | null;
+      sybil_score: number | null;
+      is_quarantined: number | boolean | null;
+      created_at: string | null;
+    }> = [];
+
+    let keysList: Array<{
+      id: string;
+      tenant_id: string;
+      label: string;
+      provider: string;
+      key_prefix: string;
+      key_suffix: string;
+      rpm_limit: number;
+      rpd_limit: number;
+      priority: number;
+      status: string;
+      pool_type: 'PRIVATE' | 'COMMUNITY' | null;
+      community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
+      observation_until: string | null;
+      dispatched_today: number | null;
+      dispatched_communal: number | null;
+      created_at: string;
+    }> = [];
+
+    let debtMap = new Map<string, number>();
+    let spendMap = new Map<string, number>();
+
+    if (db && typeof db.prepare === "function") {
+      try {
+        const uRes = await db
+          .prepare("SELECT id, email, tier, role, sybil_score, is_quarantined, created_at FROM users LIMIT 200")
+          .all<{
+            id: string;
+            email: string | null;
+            tier: string | null;
+            role: string | null;
+            sybil_score: number | null;
+            is_quarantined: number | boolean | null;
+            created_at: string | null;
+          }>();
+        usersList = uRes.results || [];
+      } catch {}
+
+      try {
+        const kRes = await db
+          .prepare(
+            `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit,
+                    priority, status, pool_type, community_routing_status, observation_until,
+                    dispatched_today, dispatched_communal, created_at
+             FROM api_keys
+             ORDER BY priority ASC, created_at DESC`
+          )
+          .all<{
+            id: string;
+            tenant_id: string;
+            label: string;
+            provider: string;
+            key_prefix: string;
+            key_suffix: string;
+            rpm_limit: number;
+            rpd_limit: number;
+            priority: number;
+            status: string;
+            pool_type: 'PRIVATE' | 'COMMUNITY' | null;
+            community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
+            observation_until: string | null;
+            dispatched_today: number | null;
+            dispatched_communal: number | null;
+            created_at: string;
+          }>();
+        keysList = kRes.results || [];
+      } catch {}
+
+      try {
+        const dRes = await db
+          .prepare("SELECT tenant_id, community_debt_micro_cu FROM contributor_standing")
+          .all<{ tenant_id: string; community_debt_micro_cu: number }>();
+        for (const row of dRes.results || []) {
+          debtMap.set(row.tenant_id, row.community_debt_micro_cu || 0);
+        }
+      } catch {}
+
+      try {
+        const sRes = await db
+          .prepare(
+            "SELECT tenant_id, SUM(cost_microdollars) as spend_today FROM cost_ledger WHERE created_at >= date('now', 'start of day') GROUP BY tenant_id"
+          )
+          .all<{ tenant_id: string; spend_today: number }>();
+        for (const row of sRes.results || []) {
+          spendMap.set(row.tenant_id, row.spend_today || 0);
+        }
+      } catch {}
+    }
+
+    // Group keys by tenant_id
+    const keysByTenant = new Map<string, typeof keysList>();
+    for (const key of keysList) {
+      const tid = key.tenant_id || "default";
+      const existing = keysByTenant.get(tid) || [];
+      existing.push(key);
+      keysByTenant.set(tid, existing);
+    }
+
+    // Aggregate all unique tenant IDs from users and keys
+    const tenantIds = new Set<string>();
+    for (const u of usersList) tenantIds.add(u.id);
+    for (const [tid] of keysByTenant.entries()) tenantIds.add(tid);
+
+    const userMap = new Map(usersList.map((u) => [u.id, u]));
+
+    const aggregatedTenants = Array.from(tenantIds).map((tid) => {
+      const user = userMap.get(tid);
+      const tenantKeys = keysByTenant.get(tid) || [];
+
+      // Determine authProvider
+      let authProvider: 'github' | 'google' | 'email' | 'demo' = 'github';
+      if (tid.startsWith('usr_goog_')) authProvider = 'google';
+      else if (tid.startsWith('usr_em_')) authProvider = 'email';
+      else if (tid.startsWith('usr_demo') || tid === 'demo') authProvider = 'demo';
+      else if (tid.startsWith('usr_gh_')) authProvider = 'github';
+
+      // Determine tier (prefer users table, fallback by authProvider)
+      let tier = user?.tier;
+      if (!tier) {
+        if (tid === 'admin' || user?.role === 'admin') tier = 'admin';
+        else if (authProvider === 'google') tier = 'builder';
+        else if (authProvider === 'github') tier = 'max';
+        else if (authProvider === 'demo') tier = 'demo';
+        else tier = 'probationary';
+      }
+
+      // Compute limits
+      let rpmLimit = 20;
+      if (tier === 'admin' || tier === 'ultra') rpmLimit = Infinity;
+      else if (tier === 'max') rpmLimit = 60;
+      else if (tier === 'builder') rpmLimit = 20;
+      else if (tier === 'probationary') rpmLimit = 2;
+      else if (tier === 'demo') rpmLimit = 1;
+
+      const activeKeys = tenantKeys.filter((k) => k.status.toLowerCase() === 'healthy');
+      const isQuar = user ? (user.is_quarantined === 1 || user.is_quarantined === true) : false;
+
+      return {
+        id: tid,
+        tenantId: tid,
+        email: user?.email || `${tid.replace(/^usr_(goog|gh|em)_/, '')}@users.noreply.kc`,
+        tier,
+        role: user?.role || (tier === 'admin' ? 'admin' : 'user'),
+        authProvider,
+        sybil_score: user?.sybil_score ?? (tier === 'admin' ? 100 : tier === 'demo' ? 20 : 92),
+        sybilScore: user?.sybil_score ?? (tier === 'admin' ? 100 : tier === 'demo' ? 20 : 92),
+        is_quarantined: isQuar ? 1 : 0,
+        isQuarantined: isQuar,
+        communityDebtMicroCu: debtMap.get(tid) ?? 0,
+        community_debt_micro_cu: debtMap.get(tid) ?? 0,
+        todaySpendMicrodollars: spendMap.get(tid) ?? 0,
+        activeKeyCount: activeKeys.length,
+        currentRpm: Math.min(rpmLimit === Infinity ? 5 : rpmLimit, Math.floor(activeKeys.length * 1.5)),
+        rpmLimit,
+        lastActiveTimestamp: Date.now() - Math.floor(Math.random() * 60000),
+        created_at: user?.created_at || new Date().toISOString(),
+        keys: tenantKeys.map((k) => ({
+          id: k.id,
+          tenant_id: k.tenant_id,
+          label: k.label,
+          provider: k.provider === 'google' ? 'gemini' : k.provider,
+          key_prefix: k.key_prefix,
+          key_suffix: k.key_suffix,
+          rpm_limit: k.rpm_limit,
+          rpd_limit: k.rpd_limit,
+          priority: k.priority,
+          status: k.status.toLowerCase(),
+          pool_type: k.pool_type || 'COMMUNITY',
+          community_routing_status: k.community_routing_status || 'OBSERVATION',
+          observation_until: k.observation_until,
+          dispatched_today: k.dispatched_today || 0,
+          dispatched_communal: k.dispatched_communal || 0,
+          created_at: k.created_at,
+        })),
+      };
+    });
+
+    const poolSummary = {
+      totalKeys: keysList.length,
+      activeCommunityKeys: keysList.filter((k) => k.pool_type === 'COMMUNITY' && k.community_routing_status === 'ACTIVE').length,
+      observationKeys: keysList.filter((k) => k.community_routing_status === 'OBSERVATION').length,
+      quarantinedKeys: keysList.filter((k) => k.community_routing_status === 'QUARANTINED').length,
+      privateKeys: keysList.filter((k) => k.pool_type === 'PRIVATE').length,
+      totalDebtMicroCu: Array.from(debtMap.values()).reduce((sum, d) => sum + d, 0),
+    };
+
+    const res = Response.json({
+      status: "success",
+      tenants: aggregatedTenants,
+      pool: poolSummary,
+      timestamp: new Date().toISOString(),
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 4. Admin Tenant Quarantine (POST /api/admin/tenants/:id/quarantine)
   const quarantineMatch = pathname.match(
     /^\/api\/admin\/tenants\/([^/]+)\/quarantine$/
   );
   if (method === "POST" && quarantineMatch) {
     const targetTenantId = quarantineMatch[1];
-    let body: { reason?: string } = {};
+    let body: { reason?: string; is_quarantined?: boolean } = {};
     try {
-      body = (await request.json()) as { reason?: string };
+      body = (await request.json()) as { reason?: string; is_quarantined?: boolean };
     } catch {
       // empty body
     }
+    const isQuar = body.is_quarantined !== false ? 1 : 0;
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
     if (db && typeof db.prepare === "function") {
       try {
-        await db
+        const updateRes = await db
           .prepare(
-            "UPDATE users SET is_quarantined = 1, quarantine_reason = ? WHERE id = ?"
+            "UPDATE users SET is_quarantined = ?, quarantine_reason = ? WHERE id = ?"
           )
-          .bind(body.reason || "Administrative quarantine", targetTenantId)
+          .bind(isQuar, body.reason || "Administrative quarantine", targetTenantId)
           .run();
+        if (!updateRes.meta?.changes && updateRes.meta?.changes !== undefined && updateRes.meta.changes === 0) {
+          await db
+            .prepare(
+              "INSERT OR IGNORE INTO users (id, is_quarantined, quarantine_reason, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)"
+            )
+            .bind(targetTenantId, isQuar, body.reason || "Administrative quarantine")
+            .run();
+        }
       } catch {
-        // ignore
+        try {
+          await db
+            .prepare(
+              "INSERT OR REPLACE INTO users (id, is_quarantined, quarantine_reason, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)"
+            )
+            .bind(targetTenantId, isQuar, body.reason || "Administrative quarantine")
+            .run();
+        } catch {}
       }
     }
     const res = Response.json({
       success: true,
       target_tenant_id: targetTenantId,
-      is_quarantined: true,
+      is_quarantined: isQuar === 1,
     });
     return options.cors !== false ? applyCors(res) : res;
   }

@@ -139,6 +139,13 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         if (u) {
           u.tier = String(tier);
         }
+      } else if (q.includes("SET IS_QUARANTINED = ?")) {
+        const [isQuar, reason, id] = this.boundParams;
+        const u = this.db.users.get(String(id));
+        if (u) {
+          u.is_quarantined = isQuar === 1 || isQuar === true ? 1 : 0;
+          u.quarantine_reason = String(reason);
+        }
       } else if (q.includes("SET IS_QUARANTINED = 1")) {
         const [reason, id] = this.boundParams;
         const u = this.db.users.get(String(id));

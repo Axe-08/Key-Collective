@@ -12,10 +12,16 @@
     tenants = [],
     adminEmail = 'admin@keycollective.io',
     onAdminAction,
+    onUpdateKeyRoutingStatus,
+    onUpdateKeyPoolMode,
+    onDeleteKey,
   }: {
-    tenants?: TenantSurveillanceRow[];
+    tenants?: any[];
     adminEmail?: string;
     onAdminAction?: (payload: AdminActionPayload) => void;
+    onUpdateKeyRoutingStatus?: (keyId: string, status: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION') => void;
+    onUpdateKeyPoolMode?: (keyId: string, poolType: 'COMMUNITY' | 'PRIVATE') => void;
+    onDeleteKey?: (keyId: string) => void;
   } = $props();
 
   // Search, filter, and sorting state
@@ -162,6 +168,9 @@
     onOpenTierModal={openTierModal}
     onOpenResetModal={openResetModal}
     onOpenQuarantineModal={openQuarantineModal}
+    {onUpdateKeyRoutingStatus}
+    {onUpdateKeyPoolMode}
+    {onDeleteKey}
   />
 </div>
 

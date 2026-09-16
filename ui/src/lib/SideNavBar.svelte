@@ -112,17 +112,32 @@
 
       <!-- Admin Panel (Surveillance - visible for admin tier) -->
       {#if userAccount?.tier === 'admin'}
-        <button
-          type="button"
-          onclick={() => handleTabClick('admin')}
-          class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'admin' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
-        >
-          <span class="material-symbols-outlined text-[18px] text-amber-400" data-icon="shield_person">shield_person</span>
-          <span class="text-label-md font-label-md text-amber-300">Admin Panel</span>
-          <span class="ml-auto text-[9px] font-mono font-bold px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-            ROOT
-          </span>
-        </button>
+        <div class="space-y-1 pt-1">
+          <button
+            type="button"
+            onclick={() => handleTabClick('admin')}
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'admin' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+          >
+            <span class="material-symbols-outlined text-[18px] text-amber-400" data-icon="shield_person">shield_person</span>
+            <span class="text-label-md font-label-md text-amber-300">Admin Panel</span>
+            <span class="ml-auto text-[9px] font-mono font-bold px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              ROOT
+            </span>
+          </button>
+          <a
+            href="https://admin.key-col.axe08.tech/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-300 text-[11px] font-mono transition-colors cursor-pointer"
+            title="Open Admin Surveillance Console in new window"
+          >
+            <span class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+              <span>Go to Admin Console</span>
+            </span>
+            <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+          </a>
+        </div>
       {/if}
     </div>
   </div>

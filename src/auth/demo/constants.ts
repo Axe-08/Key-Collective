@@ -10,7 +10,8 @@
 export const DEFAULT_ROTATION_INTERVAL_MS = 15 * 60 * 1000; // 15 Minutes (900,000 ms)
 export const DEFAULT_IP_RPM_LIMIT = 1; // 1 request per minute per IP
 export const DEFAULT_IP_RPD_LIMIT = 5; // 5 requests per day per IP
-export const DEFAULT_GLOBAL_RPM_LIMIT = 20; // 20 requests per minute global playground ceiling
+export const DEFAULT_GLOBAL_RPM_LIMIT = 5; // 5 requests per minute global playground ceiling
+export const DEFAULT_GLOBAL_RPD_LIMIT = 20; // 20 requests per day global playground ceiling
 export const DEFAULT_STALE_PRUNE_MS = 60 * 60 * 1000; // 1 hour (3,600,000 ms)
 
 export const STORAGE_KEY_TOKEN = "demo:token";

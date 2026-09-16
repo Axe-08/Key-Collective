@@ -199,8 +199,19 @@
                     <div class="text-on-surface font-body-md text-body-md font-medium leading-tight">
                       {key.label}
                     </div>
-                    <div class="text-label-sm font-label-sm text-outline font-mono mt-0.5">
-                      Weight: {key.priority === 0 ? '40' : key.priority === 1 ? '35' : '25'} • {key.provider === 'gemini' ? 'Google AI' : 'Groq Cloud'}
+                    <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      {#if key.pool_type === 'COMMUNITY'}
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-primary/15 text-primary border border-primary/30 uppercase">
+                          COMMUNITY
+                        </span>
+                      {:else if key.pool_type === 'PRIVATE'}
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-secondary/15 text-secondary border border-secondary/30 uppercase">
+                          PRIVATE {key.tenant_id ? `(${key.tenant_id})` : ''}
+                        </span>
+                      {/if}
+                      <span class="text-label-sm font-label-sm text-outline font-mono">
+                        Weight: {key.priority === 0 ? '40' : key.priority === 1 ? '35' : '25'} • {key.provider === 'gemini' ? 'Google AI' : 'Groq Cloud'}
+                      </span>
                     </div>
                   </div>
                 </div>

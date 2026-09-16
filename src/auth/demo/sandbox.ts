@@ -12,6 +12,7 @@
 
 import {
   DEFAULT_GLOBAL_RPM_LIMIT,
+  DEFAULT_GLOBAL_RPD_LIMIT,
   DEFAULT_IP_RPD_LIMIT,
   DEFAULT_IP_RPM_LIMIT,
   DEFAULT_STALE_PRUNE_MS,
@@ -75,6 +76,7 @@ export interface DemoSandboxConfig {
   ipRpmLimit?: number;
   ipRpdLimit?: number;
   globalRpmLimit?: number;
+  globalRpdLimit?: number;
   stalePruneMs?: number;
 }
 
@@ -85,6 +87,7 @@ export class DemoSandbox {
   private readonly ipRpmLimit: number;
   private readonly ipRpdLimit: number;
   private readonly globalRpmLimit: number;
+  private readonly globalRpdLimit: number;
   private readonly stalePruneMs: number;
 
   private readonly ipSlidingWindows: Map<string, IpWindowData> = new Map();
@@ -94,6 +97,7 @@ export class DemoSandbox {
     this.ipRpmLimit = config?.ipRpmLimit ?? DEFAULT_IP_RPM_LIMIT;
     this.ipRpdLimit = config?.ipRpdLimit ?? DEFAULT_IP_RPD_LIMIT;
     this.globalRpmLimit = config?.globalRpmLimit ?? DEFAULT_GLOBAL_RPM_LIMIT;
+    this.globalRpdLimit = config?.globalRpdLimit ?? DEFAULT_GLOBAL_RPD_LIMIT;
     this.stalePruneMs = config?.stalePruneMs ?? DEFAULT_STALE_PRUNE_MS;
   }
 
@@ -157,7 +161,7 @@ export class DemoSandbox {
       };
     }
 
-    // 3. Global pool RPM check (20 RPM default)
+    // 3. Global pool RPM check (5 RPM default)
     if (globalRpm >= this.globalRpmLimit) {
       const oldestGlobal = activeGlobal[0];
       const retryAfterSeconds = Math.max(
@@ -174,6 +178,28 @@ export class DemoSandbox {
         globalRpmLimit: this.globalRpmLimit,
         retryAfterSeconds,
         reason: "global_rpm_exceeded",
+      };
+    }
+
+    // 4. Global pool RPD check (20 RPD default)
+    const activeGlobalDay = this.globalTimestamps.filter((t) => t > oneDayAgo);
+    const globalRpd = activeGlobalDay.length;
+    if (globalRpd >= this.globalRpdLimit) {
+      const oldestGlobalDay = activeGlobalDay[0];
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((oldestGlobalDay + 86_400_000 - now) / 1000)
+      );
+      return {
+        allowed: false,
+        currentRpm: ipRpm,
+        rpmLimit: this.ipRpmLimit,
+        currentRpd: ipRpd,
+        rpdLimit: this.ipRpdLimit,
+        globalRpm,
+        globalRpmLimit: this.globalRpmLimit,
+        retryAfterSeconds,
+        reason: "global_rpd_exceeded",
       };
     }
 
@@ -202,7 +228,7 @@ export class DemoSandbox {
     const oneDayAgo = now - 86_400_000;
 
     // Record global timestamp
-    this.globalTimestamps = this.globalTimestamps.filter((t) => t > oneMinuteAgo);
+    this.globalTimestamps = this.globalTimestamps.filter((t) => t > oneDayAgo);
     this.globalTimestamps.push(now);
 
     // Record IP timestamp

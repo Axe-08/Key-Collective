@@ -143,11 +143,11 @@
       verificationStep = "3/4 Evaluating 5-Layer Anti-Sybil Consensus...";
 
       await new Promise((resolve) => setTimeout(resolve, 400));
-      verificationStep = "4/4 Elevating to Builder Tier (60 RPM / 10,000 RPD)...";
+      verificationStep = "4/4 Elevating to Max Tier (Private + Communal Pool Access)...";
 
       await new Promise((resolve) => setTimeout(resolve, 300));
-      onSimulateLogin("collective-dev", "builder", undefined, undefined, "github");
-      onSelectTier("builder");
+      onSimulateLogin("collective-dev", "max", undefined, undefined, "github");
+      onSelectTier("max");
       isVerifying = false;
       onClose();
     } catch (err: any) {

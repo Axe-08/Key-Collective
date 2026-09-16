@@ -50,9 +50,10 @@
         >
           <option value="ultra">ULTRA — Unlimited RPM / RPD (VIP Developer)</option>
           <option value="admin">ADMIN — Root Platform Superuser</option>
-          <option value="max">MAX — 60 RPM / 10,000 RPD</option>
-          <option value="builder">BUILDER — 20 RPM / 2,000 RPD</option>
+          <option value="max">MAX — 60 RPM / 10,000 RPD (Private + Communal Pool)</option>
+          <option value="builder">BUILDER — 20 RPM / 2,000 RPD (Private Pool Only)</option>
           <option value="probationary">PROBATIONARY — 2 RPM / 50 RPD (Sandboxed)</option>
+          <option value="demo">DEMO — 1 RPM / 5 RPD (Playground Only)</option>
         </select>
       </div>
 

@@ -16,7 +16,15 @@ export async function handleGetKeys(
     return Response.json([]);
   }
 
-  const isGlobal = tenantId === "admin";
+  let isGlobal = tenantId === "admin";
+  if (!isGlobal && tenantId && tenantId !== "anonymous" && tenantId !== "guest") {
+    try {
+      const u = await env.DB.prepare("SELECT tier, role FROM users WHERE id = ?").bind(tenantId).first<{ tier?: string; role?: string }>();
+      if (u && (u.tier === "admin" || u.role === "admin")) {
+        isGlobal = true;
+      }
+    } catch {}
+  }
   const isUnauthenticated = !tenantId || tenantId === "anonymous" || tenantId === "guest";
 
   let keysQuery = "";

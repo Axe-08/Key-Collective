@@ -214,6 +214,20 @@
           <span class="text-[10px] text-outline-variant font-mono">Trust {userAccount?.sybilScore ?? 92}/100</span>
         </div>
       </div>
+      {#if userAccount?.tier === 'admin'}
+        <a
+          href="https://admin.key-col.axe08.tech/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="w-full text-left px-4 py-2 hover:bg-amber-500/10 text-amber-300 flex items-center justify-between cursor-pointer transition-colors border-b border-outline-variant/20"
+        >
+          <span class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+            <span class="font-medium text-[13px]">Admin Console</span>
+          </span>
+          <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+        </a>
+      {/if}
       <button
         onclick={() => { isProfileMenuOpen = false; openSettings(); }}
         class="w-full text-left px-4 py-2 hover:bg-surface-container-highest text-on-surface flex items-center gap-2 cursor-pointer transition-colors"

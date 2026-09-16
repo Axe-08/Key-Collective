@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_GLOBAL_RPM_LIMIT,
+  DEFAULT_GLOBAL_RPD_LIMIT,
   DEFAULT_IP_RPD_LIMIT,
   DEFAULT_IP_RPM_LIMIT,
   DEFAULT_ROTATION_INTERVAL_MS,
@@ -113,7 +114,8 @@ describe("Demo Subsystem (src/auth/demo)", () => {
       expect(DEFAULT_ROTATION_INTERVAL_MS).toBe(15 * 60 * 1000);
       expect(DEFAULT_IP_RPM_LIMIT).toBe(1);
       expect(DEFAULT_IP_RPD_LIMIT).toBe(5);
-      expect(DEFAULT_GLOBAL_RPM_LIMIT).toBe(20);
+      expect(DEFAULT_GLOBAL_RPM_LIMIT).toBe(5);
+      expect(DEFAULT_GLOBAL_RPD_LIMIT).toBe(20);
       expect(DEFAULT_STALE_PRUNE_MS).toBe(60 * 60 * 1000);
       expect(STORAGE_KEY_TOKEN).toBe("demo:token");
       expect(STORAGE_KEY_EXPIRY).toBe("demo:expiry");

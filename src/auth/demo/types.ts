@@ -70,7 +70,7 @@ export interface DemoRateLimitResult {
   globalRpm: number;
   globalRpmLimit: number;
   retryAfterSeconds?: number;
-  reason?: "ip_rpm_exceeded" | "ip_rpd_exceeded" | "global_rpm_exceeded";
+  reason?: "ip_rpm_exceeded" | "ip_rpd_exceeded" | "global_rpm_exceeded" | "global_rpd_exceeded";
 }
 
 /**

@@ -18,6 +18,7 @@ import {
 } from "./key_routes";
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
+import { handleAdminRequest } from "../../gateway/admin_handler";
 
 export class DashboardHandler {
   constructor(
@@ -107,7 +108,26 @@ export class DashboardHandler {
       }
     }
 
-    // 1. GET /api/keys
+    // 0.5 Admin Surveillance APIs (/api/admin/*) on console/dashboard
+    if (pathname.startsWith("/api/admin/")) {
+      let isAdmin = tenantId === "admin" || (!!rawToken && !!masterKey && rawToken === masterKey);
+      if (!isAdmin && env.DB && typeof env.DB.prepare === "function" && tenantId && tenantId !== "anonymous") {
+        try {
+          const userRow = await env.DB.prepare("SELECT tier, role FROM users WHERE id = ?").bind(tenantId).first<{ tier?: string; role?: string }>();
+          if (userRow && (userRow.tier === "admin" || userRow.role === "admin")) {
+            isAdmin = true;
+          }
+        } catch {}
+      }
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: { message: "Admin access required", code: "FORBIDDEN", statusCode: 403 } }), {
+          status: 403,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        });
+      }
+      return handleAdminRequest(request, env, this as any, this.options, _ctx);
+    }
+
     if (method === "GET" && pathname === "/api/keys") {
       return handleGetKeys(env, tenantId);
     }
