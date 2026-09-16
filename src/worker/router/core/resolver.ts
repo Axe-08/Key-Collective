@@ -23,13 +23,14 @@ import type {
   DurableObjectNamespaceLike,
   RouterHandlerOptions,
 } from "../types";
+import { resolvePlaintextKey } from "./key_resolver";
 
 export class RouterContextResolver {
   constructor(
     private readonly options: RouterHandlerOptions,
     private readonly modelRegistry: IModelRegistry,
     private readonly capabilityFilter: CapabilityFilter,
-    private readonly upstreamClient: UpstreamClient
+    private readonly upstreamClient?: UpstreamClient
   ) {}
 
   /**
@@ -80,8 +81,15 @@ export class RouterContextResolver {
     const client =
       this.upstreamClient ??
       new UpstreamClient({
-        keyResolver: async (provider: string) => {
-          return keyPool.getKey(provider);
+        keyPool,
+        keyResolver: async (keyFromPool: string, provider: string) => {
+          return resolvePlaintextKey(
+            keyFromPool,
+            provider,
+            tenantId,
+            env,
+            this.options.masterKey
+          );
         },
       });
 

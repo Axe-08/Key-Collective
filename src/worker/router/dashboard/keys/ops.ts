@@ -8,6 +8,7 @@
  */
 
 import { decryptKey } from "../../../../durable_objects/crypto";
+import { resolvePlaintextKey, clearDecryptedKeyCache } from "../../core/key_resolver";
 import type { KeyInput } from "../../../../crypto/encryption";
 import type { WorkerEnv } from "../../../auth_middleware";
 import { RouterError } from "../../errors";
@@ -73,59 +74,45 @@ export async function handlePoolMode(
     }, { status: 423 });
   }
 
-  const body = await request.json() as { pool_type?: string };
-  const newPoolType = body.pool_type;
-  if (newPoolType !== 'COMMUNITY' && newPoolType !== 'PRIVATE') {
-    throw new RouterError("pool_type must be 'COMMUNITY' or 'PRIVATE'", { statusCode: 400 });
+  const body = (await request.json().catch(() => ({}))) as { pool_type?: string };
+  const poolType = body.pool_type?.toUpperCase();
+  if (poolType !== 'COMMUNITY' && poolType !== 'PRIVATE') {
+    throw new RouterError("Invalid pool_type. Must be COMMUNITY or PRIVATE", { statusCode: 400 });
   }
 
-  if (newPoolType === 'COMMUNITY') {
-    if (!(tenantId.startsWith('usr_gh_') || tenantId === 'admin')) {
-      throw new RouterError("Only GitHub authenticated accounts may contribute keys to the Community Pool.", { statusCode: 403 });
-    }
+  if (poolType === 'COMMUNITY' && !(tenantId.startsWith('usr_gh_') || tenantId === 'admin')) {
+    throw new RouterError("Only GitHub authenticated accounts may contribute keys to the Community Pool.", { statusCode: 403 });
   }
 
-  if (!env.DB || typeof env.DB.prepare !== 'function') {
-    throw new RouterError('Database unavailable', { statusCode: 503 });
+  if (!env.DB || typeof env.DB.prepare !== "function") {
+    throw new RouterError("D1 Database binding missing", { statusCode: 500 });
   }
-  const db = env.DB as D1Database;
-  const existingKey = tenantId === "admin"
-    ? await db.prepare('SELECT id, tenant_id FROM api_keys WHERE id = ?').bind(keyId).first<{ id: string; tenant_id: string }>()
-    : await db.prepare('SELECT id, tenant_id FROM api_keys WHERE id = ? AND (tenant_id = ? OR tenant_id = "default")').bind(keyId, tenantId).first<{ id: string; tenant_id: string }>();
 
-  if (!existingKey) throw new RouterError('Key not found', { statusCode: 404 });
+  const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;
+  const obsUntil = poolType === 'COMMUNITY' ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
-  let newRoutingStatus: string;
-  let observationUntil: string | null = null;
-  if (newPoolType === 'COMMUNITY') {
-    newRoutingStatus = 'OBSERVATION';
-    observationUntil = new Date(Date.now() + 86400000).toISOString();
+  if (tenantId === "admin") {
+    await env.DB.prepare(
+      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ?"
+    ).bind(poolType, commRoutingStatus, obsUntil, keyId).run();
   } else {
-    newRoutingStatus = 'ACTIVE';
+    await env.DB.prepare(
+      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ? AND tenant_id = ?"
+    ).bind(poolType, commRoutingStatus, obsUntil, keyId, tenantId).run();
   }
 
-  await db.prepare(
-    `UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ?`
-  ).bind(newPoolType, newRoutingStatus, observationUntil, keyId).run();
-
-  return Response.json({
-    id: keyId,
-    pool_type: newPoolType,
-    community_routing_status: newRoutingStatus,
-    observation_until: observationUntil,
-    message: newPoolType === 'COMMUNITY'
-      ? 'Key entering 24-hour observation period.'
-      : 'Key switched to private pool.',
-  });
+  clearDecryptedKeyCache();
+  return Response.json({ success: true, keyId, pool_type: poolType });
 }
 
 export async function handleTestKey(
   pathname: string,
   env: WorkerEnv,
   tenantId: string,
+  headerTenant: string | null,
   masterKey?: KeyInput
 ): Promise<Response> {
-  const keyId = pathname.slice("/api/keys/".length, -"/test".length).trim();
+  const keyId = pathname.replace("/api/keys/", "").replace("/test", "").trim();
   if (!keyId) {
     throw new RouterError("Key ID is required", { statusCode: 400 });
   }
@@ -138,25 +125,33 @@ export async function handleTestKey(
 
   const row = tenantId === "admin"
     ? await env.DB.prepare(
-        "SELECT provider, encrypted_key_b64, nonce_b64 FROM api_keys WHERE id = ?"
+        "SELECT provider, encrypted_key_b64, nonce_b64, tenant_id FROM api_keys WHERE id = ?"
       ).bind(keyId).first<{
         provider: string;
         encrypted_key_b64: string;
         nonce_b64: string;
+        tenant_id: string;
       }>()
     : await env.DB.prepare(
-        "SELECT provider, encrypted_key_b64, nonce_b64 FROM api_keys WHERE id = ? AND tenant_id = ?"
+        "SELECT provider, encrypted_key_b64, nonce_b64, tenant_id FROM api_keys WHERE id = ? AND tenant_id = ?"
       ).bind(keyId, tenantId).first<{
         provider: string;
         encrypted_key_b64: string;
         nonce_b64: string;
+        tenant_id: string;
       }>();
 
   if (!row) {
     throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
   }
 
-  const plaintextKey = await decryptKey(row.encrypted_key_b64, row.nonce_b64, masterKey);
+  const plaintextKey = await resolvePlaintextKey(
+    keyId,
+    row.provider,
+    row.tenant_id || tenantId,
+    env,
+    masterKey
+  );
 
   const testStart = Date.now();
   let isSuccess = false;

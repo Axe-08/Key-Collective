@@ -34,7 +34,7 @@ export class RouterHandler {
   private readonly authMiddleware: AuthMiddleware;
   private readonly modelRegistry: IModelRegistry;
   private readonly capabilityFilter: CapabilityFilter;
-  private readonly upstreamClient: UpstreamClient;
+  private readonly upstreamClient?: UpstreamClient;
   private readonly timeProvider: () => number;
   private readonly modelRoutes: ModelRoutesHandler;
   private readonly dashboardHandler: DashboardHandler;
@@ -48,7 +48,7 @@ export class RouterHandler {
       this.options.modelRegistry ?? new ModelRegistry(ALL_MODEL_DEFINITIONS);
     this.capabilityFilter =
       this.options.capabilityFilter ?? new CapabilityFilter(this.modelRegistry);
-    this.upstreamClient = this.options.upstreamClient ?? new UpstreamClient();
+    this.upstreamClient = this.options.upstreamClient;
     this.timeProvider = this.options.timeProvider ?? (() => Date.now());
 
     this.resolver = new RouterContextResolver(

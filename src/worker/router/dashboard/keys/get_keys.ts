@@ -23,7 +23,8 @@ export async function handleGetKeys(
        ORDER BY priority ASC, created_at DESC`
     : `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
        FROM api_keys
-       WHERE tenant_id = ?
+       WHERE (pool_type = 'COMMUNITY' OR tenant_id = ? OR tenant_id = 'default')
+         AND (pool_type != 'PRIVATE' OR tenant_id = ? OR tenant_id = 'default')
        ORDER BY priority ASC, created_at DESC`;
 
   const keysResult = isGlobal
@@ -46,7 +47,7 @@ export async function handleGetKeys(
         dispatched_communal: number | null;
         vesting_tier: 0 | 1 | 2 | null;
       }>()
-    : await env.DB.prepare(keysQuery).bind(tenantId).all<{
+    : await env.DB.prepare(keysQuery).bind(tenantId, tenantId).all<{
         id: string;
         label: string;
         provider: string;
@@ -135,5 +136,9 @@ export async function handleGetKeys(
     };
   });
 
-  return Response.json(formattedKeys);
+  return Response.json(formattedKeys, {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+    },
+  });
 }

@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sanitizeErrorMessage, SECRET_REGEX, IP_REGEX } from "../errors/normalizer";
 import { formatRouterError, RouterHandler } from "./router_handler";
 import type { WorkerEnv } from "./env";
 import { RouterError } from "./router_handler";
+import { encryptKey } from "../durable_objects/crypto";
 
 describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
   describe("sanitizeErrorMessage", () => {
@@ -232,3 +233,79 @@ describe("GATEWAY-001: Midnight Freeze Guard Global Circuit Breaker", () => {
     expect(body.status).toBe("healthy");
   });
 });
+
+describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
+  it("decrypts keyId from KeyPool using D1 and KC_MASTER_KEY before calling upstream", async () => {
+    const MASTER_KEY = "super-secret-master-key-1234567890";
+    const rawApiKey = "AIzaSyDecryptedGoogleKey999";
+    const encrypted = await encryptKey(rawApiKey, "default", "google", MASTER_KEY);
+
+    let capturedHeaders: Headers | undefined;
+    const mockFetch = vi.fn().mockImplementation(async (url: string | URL | Request, init?: RequestInit) => {
+      capturedHeaders = new Headers(init?.headers);
+      return new Response(
+        JSON.stringify({
+          id: "chatcmpl-123",
+          object: "chat.completion",
+          choices: [{ message: { role: "assistant", content: "Hello there!" } }],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mockFetch;
+
+    try {
+      const mockKeyPool = {
+        getKey: vi.fn().mockResolvedValue("key_gemini_test_1"),
+        recordUsage: vi.fn().mockResolvedValue(undefined),
+        recordResult: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockDb = {
+        prepare: () => ({
+          bind: () => ({
+            first: async () => ({
+              id: "key_gemini_test_1",
+              encrypted_key_b64: encrypted.ciphertext,
+              nonce_b64: encrypted.nonce,
+              tenant_id: "default",
+              provider: "google",
+            }),
+          }),
+        }),
+      };
+
+      const env = {
+        DB: mockDb,
+        KC_MASTER_KEY: MASTER_KEY,
+      } as unknown as WorkerEnv;
+
+      const handler = new RouterHandler({
+        requireAuth: false,
+        keyPoolFactory: () => mockKeyPool,
+      });
+
+      const request = new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "gemini-2.0-flash",
+          messages: [{ role: "user", content: "Hi" }],
+        }),
+      });
+
+      const response = await handler.handle(request, env);
+      expect(response.status).toBe(200);
+
+      expect(capturedHeaders).toBeDefined();
+      expect(capturedHeaders?.get("x-goog-api-key")).toBe(rawApiKey);
+      expect(capturedHeaders?.get("x-goog-api-key")).not.toBe("key_gemini_test_1");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+

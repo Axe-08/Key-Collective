@@ -17,8 +17,8 @@
     onDelete,
   }: Props = $props();
 
-  const privateProviderKeys = $derived(providerKeys.filter((k) => k.pool_type === 'PRIVATE' || !k.pool_type));
-  const communityProviderKeys = $derived(providerKeys.filter((k) => k.pool_type === 'COMMUNITY'));
+  const privateProviderKeys = $derived(providerKeys.filter((k) => !k.pool_type || k.pool_type.toUpperCase() === 'PRIVATE'));
+  const communityProviderKeys = $derived(providerKeys.filter((k) => k.pool_type && k.pool_type.toUpperCase() === 'COMMUNITY'));
 </script>
 
 <section class="space-y-4">

@@ -200,7 +200,7 @@
   });
 </script>
 
-<svelte:window onkeydown={handleKeydown} onclick={handleClickOutside} />
+<svelte:window onclick={handleClickOutside} />
 
 <div class="space-y-6">
   <!-- Top Documentation Bar & Provider Filter Pills -->

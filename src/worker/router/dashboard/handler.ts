@@ -131,7 +131,7 @@ export class DashboardHandler {
 
     // 4. POST /api/keys/:id/test
     if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/test")) {
-      return handleTestKey(pathname, env, tenantId, masterKey);
+      return handleTestKey(pathname, env, tenantId, headerTenant, masterKey);
     }
 
     // 4.5 POST /api/abuse/report-key
