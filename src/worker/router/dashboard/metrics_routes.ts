@@ -12,13 +12,16 @@ export async function handleGetLogs(
   headerTenant: string | null,
   getKeyPool: (tenantId: string, env: WorkerEnv) => KeyPoolContract
 ): Promise<Response> {
-  const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+  const isGlobal = tenantId === "admin";
+  const targetTenantId = isGlobal ? (headerTenant || "default") : tenantId;
+  if (!targetTenantId || targetTenantId === "anonymous" || targetTenantId === "guest") {
+    return Response.json([]);
+  }
   getKeyPool(targetTenantId, env);
   if (!env.DB || typeof env.DB.prepare !== "function") {
     return Response.json([]);
   }
 
-  const isGlobal = tenantId === "admin";
   const logsQuery = isGlobal
     ? `SELECT id, key_id, provider, status_code, latency_ms,
               (prompt_tokens * 4) as bytes_in,
@@ -82,6 +85,20 @@ export async function handleGetStats(
   getKeyPool: (tenantId: string, env: WorkerEnv) => KeyPoolContract
 ): Promise<Response> {
   const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+  if (!targetTenantId || targetTenantId === "anonymous" || targetTenantId === "guest") {
+    return Response.json({
+      total_keys: 0,
+      healthy_keys: 0,
+      rate_limited_keys: 0,
+      invalid_keys: 0,
+      total_rpm_limit: 0,
+      current_rpm_used: 0,
+      daily_quota_limit: 0,
+      daily_quota_used: 0,
+      avg_latency_ms: 0,
+      total_spend_today_microdollars: 0,
+    });
+  }
   getKeyPool(targetTenantId, env);
   let totalKeys = 0;
   let healthyKeys = 0;

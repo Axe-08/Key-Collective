@@ -181,6 +181,19 @@
     if (typeof window !== 'undefined') {
       localStorage.removeItem('kc_auth_token');
       localStorage.removeItem('kc_user');
+      localStorage.removeItem('kc_workbench_projects');
+      localStorage.removeItem('kc_workbench_keys');
+      localStorage.removeItem('devDisplayName');
+      localStorage.removeItem('devAvatarUrl');
+      // Clear any tenant-scoped project/key keys
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('kc_workbench_') || k.startsWith('kc_proj_'))) {
+            localStorage.removeItem(k);
+          }
+        }
+      } catch {}
       document.cookie = 'kc_auth_token=; path=/; Max-Age=0; SameSite=Lax; Secure';
     }
     userAccount = {
@@ -372,7 +385,7 @@
     <!-- TAB 5: Pool Commons (v4 Reciprocal Commons — Community Debt Ledger & Eye-for-an-Eye) -->
     {#if activeTab === 'commons'}
       <PoolCommonsTab 
-        tenantId={userAccount?.id || 'default'}
+        tenantId={userAccount?.id || ''}
         authToken={localStorage.getItem('kc_auth_token') || ''}
       />
     {/if}

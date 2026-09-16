@@ -38,11 +38,8 @@ export class DashboardHandler {
       this.options.masterKey ??
       (env.KC_MASTER_KEY ? String(env.KC_MASTER_KEY) : undefined);
 
-    let tenantId = "default";
+    let tenantId = "anonymous";
     const headerTenant = request.headers.get("x-tenant-id");
-    if (headerTenant && headerTenant.trim().length > 0) {
-      tenantId = headerTenant.trim();
-    }
 
     // 0. OAuth GitHub Callback
     if (method === "GET" && pathname === "/api/auth/github/callback") {
@@ -80,7 +77,7 @@ export class DashboardHandler {
     }
 
     if (rawToken && masterKey && rawToken === masterKey) {
-      tenantId = headerTenant || "admin";
+      tenantId = (headerTenant && headerTenant.trim().length > 0) ? headerTenant.trim() : "admin";
     } else if (rawToken) {
       try {
         const authReq = new Request(request.url, {
@@ -90,7 +87,7 @@ export class DashboardHandler {
           }),
         });
         const authContext = await this.authMiddleware.authenticate(authReq, env);
-        tenantId = headerTenant || authContext.tenantId;
+        tenantId = authContext.tenantId || "anonymous";
       } catch {
         if (method !== "GET") {
           return new Response(

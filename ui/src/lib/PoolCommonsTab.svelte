@@ -17,7 +17,7 @@
   import { onMount } from 'svelte';
   import DebtLedgerWidget from './DebtLedgerWidget.svelte';
 
-  let { initialMetrics, authToken, tenantId = 'default' }: { initialMetrics?: PoolMetrics, authToken?: string, tenantId?: string } = $props();
+  let { initialMetrics, authToken, tenantId = '' }: { initialMetrics?: PoolMetrics, authToken?: string, tenantId?: string } = $props();
 
   let activeSubTab = $state<'community' | 'providers' | 'contribution'>('community');
   

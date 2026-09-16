@@ -49,10 +49,13 @@ async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Re
     return s;
   };
 
-  const tenantProviderResult = await db.prepare(
-    `SELECT DISTINCT provider FROM api_keys WHERE tenant_id = ? AND status != 'invalid'`
-  ).bind(tenantId).all<{ provider: string }>();
-  const tenantProviders = new Set((tenantProviderResult.results ?? []).map(r => normalizeProvider(r.provider)));
+  let tenantProviders = new Set<string>();
+  if (tenantId && tenantId !== 'anonymous' && tenantId !== 'default' && tenantId !== 'guest') {
+    const tenantProviderResult = await db.prepare(
+      `SELECT DISTINCT provider FROM api_keys WHERE tenant_id = ? AND status != 'invalid'`
+    ).bind(tenantId).all<{ provider: string }>();
+    tenantProviders = new Set((tenantProviderResult.results ?? []).map(r => normalizeProvider(r.provider)));
+  }
 
   const canonicalProviders = ['gemini', 'groq', 'sambanova', 'cerebras'];
   const providerMap = new Map<string, {
@@ -107,6 +110,17 @@ async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Re
 }
 
 async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Response> {
+  if (!tenantId || tenantId === 'anonymous' || tenantId === 'default' || tenantId === 'guest') {
+    return Response.json({
+      multiplier: 1.0,
+      multiplier_ceiling: 1.0,
+      community_debt_cu: 0,
+      daily_contributed_cu: 0,
+      trusted_contributor: false,
+      jail_status: 'PRISTINE',
+      consecutive_debt_free_days: 0,
+    });
+  }
   if (!env.DB || typeof (env.DB as { prepare?: unknown }).prepare !== 'function') {
     return Response.json({ error: 'Database unavailable' }, { status: 503 });
   }
@@ -160,6 +174,17 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
 }
 
 async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise<Response> {
+  if (!tenantId || tenantId === 'anonymous' || tenantId === 'default' || tenantId === 'guest') {
+    return Response.json({
+      total_keys: 0,
+      community_active_keys: 0,
+      requests_served_for_community_today: 0,
+      personal_requests_today: 0,
+      cu_contributed_today: 0,
+      cu_consumed_today: 0,
+      net_cu_balance: 0,
+    });
+  }
   if (!env.DB || typeof (env.DB as { prepare?: unknown }).prepare !== 'function') {
     return Response.json({ error: 'Database unavailable' }, { status: 503 });
   }

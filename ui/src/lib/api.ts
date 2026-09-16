@@ -19,9 +19,9 @@ function getAuthHeaders(): Record<string, string> {
     } catch {
       // ignore
     }
-    const token = localStorage.getItem('kc_auth_token') || 'kc_test_token_local_dev_12345';
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    const token = localStorage.getItem('kc_auth_token');
+    if (token && token.trim().length > 0) {
+      headers['Authorization'] = `Bearer ${token.trim()}`;
     }
   }
   return headers;

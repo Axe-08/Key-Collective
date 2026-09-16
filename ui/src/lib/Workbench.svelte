@@ -189,24 +189,26 @@
     }
   });
 
+  const storageKeyPrefix = $derived(account?.id ? `kc_wb_${account.id}` : 'kc_wb_anon');
+
   function persistProjects(updated: ExtendedProject[]) {
     localProjects = updated;
     try {
-      localStorage.setItem('kc_workbench_projects', JSON.stringify(updated));
+      localStorage.setItem(`${storageKeyPrefix}_projects`, JSON.stringify(updated));
     } catch {}
   }
 
   function persistKeys(updated: ExtendedKey[]) {
     localKeys = updated;
     try {
-      localStorage.setItem('kc_workbench_keys', JSON.stringify(updated));
+      localStorage.setItem(`${storageKeyPrefix}_keys`, JSON.stringify(updated));
     } catch {}
   }
 
   $effect(() => {
     let saved: ExtendedProject[] | null = null;
     try {
-      const raw = localStorage.getItem('kc_workbench_projects');
+      const raw = localStorage.getItem(`${storageKeyPrefix}_projects`);
       if (raw) saved = JSON.parse(raw);
     } catch {}
 
@@ -229,7 +231,7 @@
   $effect(() => {
     let savedKeys: ExtendedKey[] | null = null;
     try {
-      const raw = localStorage.getItem('kc_workbench_keys');
+      const raw = localStorage.getItem(`${storageKeyPrefix}_keys`);
       if (raw) savedKeys = JSON.parse(raw);
     } catch {}
 
