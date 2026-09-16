@@ -124,6 +124,10 @@ export async function handleGetKeys(
 
     const isOwner = isGlobal ? true : (tenantId && tenantId !== 'anonymous' && tenantId !== 'guest' && row.tenant_id === tenantId);
 
+    // Privacy: never reveal which tenant owns a community key to non-owners.
+    // Admin (isGlobal) and the key's actual owner always see the real tenant_id.
+    const exposedTenantId = (isGlobal || isOwner) ? row.tenant_id : null;
+
     return {
       id: row.id,
       key_prefix: row.key_prefix,
@@ -146,7 +150,7 @@ export async function handleGetKeys(
       dispatched_today: row.dispatched_today ?? 0,
       dispatched_communal: row.dispatched_communal ?? 0,
       vesting_tier: row.vesting_tier ?? 0,
-      tenant_id: row.tenant_id,
+      tenant_id: exposedTenantId,
       is_owner: isOwner,
     };
   });
