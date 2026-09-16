@@ -11,6 +11,7 @@
     onCreateKeyClick: () => void;
     onOpenSettings: (project: ExtendedProject) => void;
     onRotateKey: (projectId: string) => void;
+    onDeleteProject?: (projectId: string) => void;
     getProjectKeyCount: (projectId: string) => number;
   }
 
@@ -24,6 +25,7 @@
     onCreateKeyClick,
     onOpenSettings,
     onRotateKey,
+    onDeleteProject,
     getProjectKeyCount,
   }: Props = $props();
 </script>
@@ -164,6 +166,17 @@
               <span class="material-symbols-outlined text-[14px]">sync</span>
               Rotate Key
             </button>
+            {#if onDeleteProject}
+              <button
+                type="button"
+                onclick={() => onDeleteProject(project.id)}
+                class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-error hover:bg-error-container/20 font-body-sm text-body-sm transition-colors flex items-center gap-1 cursor-pointer"
+                title="Delete Project"
+              >
+                <span class="material-symbols-outlined text-[14px]">delete</span>
+                Delete
+              </button>
+            {/if}
           </div>
           <button
             type="button"

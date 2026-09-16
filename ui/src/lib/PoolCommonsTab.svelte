@@ -121,8 +121,8 @@
                   <th class="px-6 py-3 text-left">Active Keys</th>
                   <th class="px-6 py-3 text-left">Observation</th>
                   <th class="px-6 py-3 text-left">Quarantined</th>
-                  <th class="px-6 py-3 text-left">W_provider</th>
-                  <th class="px-6 py-3 text-left">Eye-for-Eye</th>
+                  <th class="px-6 py-3 text-left">Capacity Share</th>
+                  <th class="px-6 py-3 text-left">Access</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-outline-variant/20">
@@ -134,7 +134,11 @@
                       <td class="px-6 py-4 whitespace-nowrap">{p.observation_keys ?? 0}</td>
                       <td class="px-6 py-4 whitespace-nowrap">{p.quarantined_keys ?? 0}</td>
                       <td class="px-6 py-4 whitespace-nowrap">{p.w_provider ? `${(p.w_provider * 100).toFixed(0)}%` : '0%'}</td>
-                      <td class="px-6 py-4 whitespace-nowrap">{p.eye_for_eye_accessible ? 'Granted' : 'Locked (Add key)'}</td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-0.5 rounded text-xs font-mono {p.eye_for_eye_accessible ? 'bg-secondary/10 text-secondary border border-secondary/20' : 'bg-outline/10 text-outline border border-outline/20'}">
+                          {p.eye_for_eye_accessible ? 'Granted' : 'Locked (Contribute key)'}
+                        </span>
+                      </td>
                     </tr>
                   {/each}
                 {:else}
@@ -159,16 +163,16 @@
               </div>
             </div>
             <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
-              <div class="text-sm text-on-surface-variant">Jail Status</div>
+              <div class="text-sm text-on-surface-variant">Account Standing</div>
               <div class="text-xl font-semibold flex items-center mt-1">
                 {#if standing?.jail_status === 'PRISTINE' || !standing?.jail_status}
-                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-secondary/10 text-secondary border border-secondary/20">Pristine</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-secondary/10 text-secondary border border-secondary/20">Good Standing</span>
                 {:else if standing?.jail_status === 'SOFT_WARNING'}
-                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">Soft Warning</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">Under Review</span>
                 {:else if standing?.jail_status === 'HARD_JAIL'}
-                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-error/10 text-error border border-error/20">Quota Jail</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-error/10 text-error border border-error/20">Quota Cooldown</span>
                 {:else}
-                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-secondary/10 text-secondary border border-secondary/20">Pristine</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-mono bg-secondary/10 text-secondary border border-secondary/20">Good Standing</span>
                 {/if}
               </div>
             </div>

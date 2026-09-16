@@ -8,6 +8,7 @@
     onArchiveToggle: (projectId: string) => void;
     onSaveName: (projectId: string, name: string) => void;
     onSaveRpm: (projectId: string, rpm: number) => void;
+    onDeleteProject?: (projectId: string) => void;
   }
 
   let {
@@ -17,6 +18,7 @@
     onArchiveToggle,
     onSaveName,
     onSaveRpm,
+    onDeleteProject,
   }: Props = $props();
 
   let editingProjectName = $state(false);
@@ -167,14 +169,28 @@
         </div>
       </div>
 
-      <div class="flex justify-between items-center pt-3 border-t border-outline-variant/20">
-        <button
-          type="button"
-          onclick={() => onArchiveToggle(modalProj.id)}
-          class="px-3 py-1.5 rounded-lg border font-mono text-xs transition-colors cursor-pointer {modalProj.isArchived ? 'bg-secondary/10 border-secondary/30 text-secondary' : 'bg-error-container/20 border-error/20 text-error hover:bg-error-container/40'}"
-        >
-          {modalProj.isArchived ? 'Unarchive Project' : 'Archive Project'}
-        </button>
+      <div class="flex justify-between items-center pt-3 border-t border-outline-variant/20 gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick={() => onArchiveToggle(modalProj.id)}
+            class="px-3 py-1.5 rounded-lg border font-mono text-xs transition-colors cursor-pointer {modalProj.isArchived ? 'bg-secondary/10 border-secondary/30 text-secondary' : 'bg-surface-container border-outline-variant/30 text-on-surface-variant hover:text-on-surface'}"
+          >
+            {modalProj.isArchived ? 'Unarchive' : 'Archive'}
+          </button>
+          {#if onDeleteProject}
+            <button
+              type="button"
+              onclick={() => {
+                onDeleteProject(modalProj.id);
+                onClose();
+              }}
+              class="px-3 py-1.5 rounded-lg border border-error/30 bg-error-container/20 text-error hover:bg-error-container/40 font-mono text-xs transition-colors cursor-pointer"
+            >
+              Delete Project
+            </button>
+          {/if}
+        </div>
         <button
           type="button"
           onclick={() => {

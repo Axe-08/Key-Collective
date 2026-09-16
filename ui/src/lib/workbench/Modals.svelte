@@ -34,6 +34,7 @@
     onArchiveProjectToggle: (projectId: string) => void;
     onSaveProjectName: (projectId: string, name: string) => void;
     onSaveProjectRpm: (projectId: string, rpm: number) => void;
+    onDeleteProject?: (projectId: string) => void;
     localKeys: any[];
 
     // Switch pool modal
@@ -66,6 +67,7 @@
     onArchiveProjectToggle,
     onSaveProjectName,
     onSaveProjectRpm,
+    onDeleteProject,
     localKeys,
     switchPoolModalOpen,
     switchPoolTarget,
@@ -107,6 +109,7 @@
   onArchiveToggle={onArchiveProjectToggle}
   onSaveName={onSaveProjectName}
   onSaveRpm={onSaveProjectRpm}
+  {onDeleteProject}
 />
 
 <SwitchPoolModal

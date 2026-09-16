@@ -81,13 +81,45 @@
       });
   });
 
-  function rotateProviderKey(id: string) {
-    providerKeys = providerKeys.map((k) => {
-      if (k.id === id) {
-        return { ...k, key_prefix: 'kc_prov_' + Math.random().toString(36).substring(2, 9) };
+  async function rotateProviderKey(id: string) {
+    const key = providerKeys.find((k) => k.id === id);
+    const label = key ? `${key.provider} (${key.label})` : id;
+    const newKey = prompt(`Enter new secret API key to rotate ${label}:`);
+    if (!newKey || !newKey.trim()) return;
+
+    try {
+      const res = await fetch(`/api/keys/${id}/rotate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('kc_auth_token')
+            ? { Authorization: `Bearer ${localStorage.getItem('kc_auth_token')}` }
+            : {})
+        },
+        body: JSON.stringify({ new_key: newKey.trim() })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || 'Failed to rotate key on server');
       }
-      return k;
-    });
+      const data = await res.json();
+      providerKeys = providerKeys.map((k) => {
+        if (k.id === id) {
+          return {
+            ...k,
+            key_prefix: data.key_prefix || newKey.trim().slice(0, 8),
+            key_suffix: data.key_suffix || newKey.trim().slice(-4),
+          };
+        }
+        return k;
+      });
+      alert(`API Key ${label} rotated successfully!`);
+      if (onRefreshProviderKeys) {
+        onRefreshProviderKeys();
+      }
+    } catch (e: any) {
+      alert(`Failed to rotate key: ${e?.message || e}`);
+    }
   }
 
   function openSwitchPoolModal(key: any) {
@@ -342,21 +374,90 @@
   function handleRotateKey(keyId: string): void {
     const randomSuffix = Math.random().toString(36).substring(2, 9);
     const newPrefix = `kc_proj_live_${randomSuffix}`;
+    const newSecret = `${newPrefix}${Math.random().toString(36).substring(2, 8)}4e`;
     const updated = localKeys.map((k) => {
       if (k.id === keyId && !k.isRevoked) {
         return {
           ...k,
           tokenPrefix: newPrefix,
-          fullSecret: `${newPrefix}44781d09e`,
+          fullSecret: newSecret,
           displayTime: 'Just now',
         };
       }
       return k;
     });
     persistKeys(updated);
+    localKeys = updated;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(newSecret).catch(() => {});
+    }
+    alert(`Key rotated successfully!\n\nNew Secret: ${newSecret}\n(Copied to clipboard)`);
 
     if (onRotateKey) {
       onRotateKey(keyId);
+    }
+  }
+
+  function handleRotateProjectKey(projectId: string): void {
+    const proj = localProjects.find((p) => p.id === projectId);
+    const projName = proj?.name || projectId;
+    const randomSuffix = Math.random().toString(36).substring(2, 9);
+    const newPrefix = `kc_proj_live_${randomSuffix}`;
+    const newSecret = `${newPrefix}${Math.random().toString(36).substring(2, 8)}4e`;
+
+    let foundKey = false;
+    let updated = localKeys.map((k) => {
+      if (k.projectId === projectId && !k.isRevoked) {
+        foundKey = true;
+        return {
+          ...k,
+          tokenPrefix: newPrefix,
+          fullSecret: newSecret,
+          displayTime: 'Just now',
+        };
+      }
+      return k;
+    });
+
+    if (!foundKey) {
+      const slug = proj?.slug || 'proj';
+      const createdKey: ExtendedKey = {
+        id: `key_${Date.now()}`,
+        projectId,
+        tenantId: account.id,
+        name: `${slug}-gateway-key`,
+        tokenPrefix: newPrefix,
+        tokenHashSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        fullSecret: newSecret,
+        displayTime: 'Just now',
+        displayCreated: `Created ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+        isRevoked: false,
+        lastUsedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+      updated = [createdKey, ...updated];
+    }
+
+    persistKeys(updated);
+    localKeys = updated;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(newSecret).catch(() => {});
+    }
+    alert(`Virtual gateway key rotated for project "${projName}"!\n\nNew Secret: ${newSecret}\n(Copied to clipboard)`);
+  }
+
+  function handleDeleteProject(projectId: string): void {
+    const proj = localProjects.find((p) => p.id === projectId);
+    const projName = proj?.name || projectId;
+    if (!confirm(`Are you sure you want to permanently delete project "${projName}"? All associated keys will be deleted.`)) {
+      return;
+    }
+    localProjects = localProjects.filter((p) => p.id !== projectId);
+    persistProjects(localProjects);
+    localKeys = localKeys.filter((k) => k.projectId !== projectId);
+    persistKeys(localKeys);
+    if (showProjectSettingsModal?.id === projectId) {
+      showProjectSettingsModal = null;
     }
   }
 
@@ -568,7 +669,8 @@
     onCreateProjectClick={() => (showNewProjectModal = true)}
     onCreateKeyClick={() => (showNewKeyModal = true)}
     onOpenSettings={(p) => (showProjectSettingsModal = p)}
-    onRotateKey={handleRotateKey}
+    onRotateKey={handleRotateProjectKey}
+    onDeleteProject={handleDeleteProject}
     {getProjectKeyCount}
   />
 
@@ -653,6 +755,7 @@
     persistProjects(updated);
     showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
   }}
+  onDeleteProject={handleDeleteProject}
   {localKeys}
   {switchPoolModalOpen}
   {switchPoolTarget}

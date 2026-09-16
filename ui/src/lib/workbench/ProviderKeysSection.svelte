@@ -41,10 +41,10 @@
       {#if privateProviderKeys.length === 0}
         <div class="p-4 text-center text-outline text-sm italic border rounded-lg border-outline-variant/20 mb-4">No private provider keys found.</div>
       {:else}
-        <div class="overflow-x-auto border border-outline-variant/20 rounded-lg mb-6">
+        <div class="overflow-x-auto max-h-[260px] overflow-y-auto border border-outline-variant/20 rounded-lg mb-6 custom-scrollbar">
           <table class="w-full text-left border-collapse min-w-[700px]">
-            <thead>
-              <tr class="border-b border-outline-variant/30 bg-surface-container/50">
+            <thead class="sticky top-0 z-10 bg-surface-container shadow-sm">
+              <tr class="border-b border-outline-variant/30">
                 <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
                 <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
                 <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
@@ -79,10 +79,10 @@
       {#if communityProviderKeys.length === 0}
         <div class="p-4 text-center text-outline text-sm italic border rounded-lg border-outline-variant/20 mb-4">No community provider keys found.</div>
       {:else}
-        <div class="overflow-x-auto border border-outline-variant/20 rounded-lg mb-2">
+        <div class="overflow-x-auto max-h-[260px] overflow-y-auto border border-outline-variant/20 rounded-lg mb-2 custom-scrollbar">
           <table class="w-full text-left border-collapse min-w-[700px]">
-            <thead>
-              <tr class="border-b border-outline-variant/30 bg-surface-container/50">
+            <thead class="sticky top-0 z-10 bg-surface-container shadow-sm">
+              <tr class="border-b border-outline-variant/30">
                 <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Provider</th>
                 <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Label</th>
                 <th class="p-3 font-label-md text-label-md font-semibold text-on-surface-variant">Key Prefix</th>
@@ -115,3 +115,21 @@
     {/if}
   </div>
 </section>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+</style>

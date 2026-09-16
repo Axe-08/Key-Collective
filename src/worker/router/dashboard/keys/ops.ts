@@ -9,7 +9,7 @@
 
 import { decryptKey } from "../../../../durable_objects/crypto";
 import { resolvePlaintextKey, clearDecryptedKeyCache } from "../../core/key_resolver";
-import type { KeyInput } from "../../../../crypto/encryption";
+import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption";
 import type { WorkerEnv } from "../../../auth_middleware";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
@@ -196,3 +196,55 @@ export async function handleTestKey(
     message,
   });
 }
+
+export async function handleRotateKeySecret(
+  pathname: string,
+  request: Request,
+  env: WorkerEnv,
+  tenantId: string,
+  headerTenant: string | null,
+  masterKey?: KeyInput
+): Promise<Response> {
+  const keyId = pathname.replace("/api/keys/", "").replace("/rotate", "").trim();
+  if (!keyId) {
+    throw new RouterError("Key ID is required", { statusCode: 400 });
+  }
+  if (!env.DB || typeof env.DB.prepare !== "function") {
+    throw new RouterError("D1 Database binding missing", { statusCode: 500 });
+  }
+  if (!masterKey) {
+    throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
+  }
+
+  const body = (await request.json().catch(() => ({}))) as { new_key?: string };
+  const rawKey = body.new_key?.trim();
+  if (!rawKey) {
+    throw new RouterError("New key string is required", { statusCode: 400 });
+  }
+
+  const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+  const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
+  const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
+
+  const keyPrefix = rawKey.slice(0, 8);
+  const keySuffix = rawKey.slice(-4);
+
+  if (tenantId === "admin") {
+    await env.DB.prepare(
+      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ?"
+    ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId).run();
+  } else {
+    await env.DB.prepare(
+      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
+    ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId, tenantId).run();
+  }
+
+  clearDecryptedKeyCache();
+  return Response.json({
+    success: true,
+    keyId,
+    key_prefix: keyPrefix,
+    key_suffix: keySuffix,
+  });
+}
+

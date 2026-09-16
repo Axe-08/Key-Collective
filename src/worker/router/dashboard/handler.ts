@@ -13,6 +13,7 @@ import {
   handleGetKeys,
   handlePoolMode,
   handlePostKeys,
+  handleRotateKeySecret,
   handleTestKey,
 } from "./key_routes";
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
@@ -127,6 +128,11 @@ export class DashboardHandler {
     // PATCH /api/keys/:id/pool-mode (Anti-Midnight Freeze FR-22)
     if (method === 'PATCH' && /^\/api\/keys\/[^/]+\/pool-mode$/.test(pathname)) {
       return handlePoolMode(pathname, request, env, tenantId);
+    }
+
+    // 3.8 POST /api/keys/:id/rotate
+    if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/rotate")) {
+      return handleRotateKeySecret(pathname, request, env, tenantId, headerTenant, masterKey);
     }
 
     // 4. POST /api/keys/:id/test
