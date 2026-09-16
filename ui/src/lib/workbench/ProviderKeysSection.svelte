@@ -33,7 +33,7 @@
     </div>
   </div>
   
-  <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden flex flex-col p-4 max-h-[300px] overflow-y-auto">
+  <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden flex flex-col p-5 space-y-6">
     {#if providerKeysLoading}
       <div class="p-6 text-center text-outline">Loading provider keys...</div>
     {:else}

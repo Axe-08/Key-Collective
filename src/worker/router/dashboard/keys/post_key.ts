@@ -93,15 +93,16 @@ export async function handlePostKeys(
   const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
   const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
 
-  const commRoutingStatus = body.pool_type ? 'OBSERVATION' : null;
-  const obsUntil = body.pool_type ? Date.now() + 24 * 60 * 60 * 1000 : null;
+  const poolType = body.pool_type?.toUpperCase() === 'COMMUNITY' ? 'COMMUNITY' : 'PRIVATE';
+  const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;
+  const obsUntil = poolType === 'COMMUNITY' ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
   await env.DB.prepare(
     `INSERT INTO api_keys (
       id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
       key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-      community_routing_status, observation_until
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', ?, ?)`
+      pool_type, community_routing_status, observation_until
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', ?, ?, ?)`
   ).bind(
     keyId,
     targetTenantId,
@@ -114,6 +115,7 @@ export async function handlePostKeys(
     rpm_limit,
     rpd_limit,
     priority,
+    poolType,
     commRoutingStatus,
     obsUntil
   ).run();

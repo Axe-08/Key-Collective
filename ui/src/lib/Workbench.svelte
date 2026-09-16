@@ -183,7 +183,7 @@
     } else if (projects && projects.length > 0) {
       localProjects = projects.map((p, idx) => ({
         ...p,
-        assignedRpm: p.maxRpmSubCap ? Math.round(p.maxRpmSubCap * 0.7) : 10,
+        assignedRpm: p.assignedRpm !== undefined ? p.assignedRpm : (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
         latencyMs: 11 + (idx % 3) * 5,
         latency: `${11 + (idx % 3) * 5}ms avg`,
         icon: idx % 2 === 0 ? 'hub' : 'psychology',
@@ -411,7 +411,7 @@
       slug: slug,
       description: newProjectDesc.trim() || 'Custom AI routing project namespace',
       maxRpmSubCap: newProjectRpm,
-      assignedRpm: Math.round(newProjectRpm * 0.7),
+      assignedRpm: 0,
       latencyMs: 14,
       latency: '14ms avg',
       icon: 'folder',
@@ -649,7 +649,7 @@
     showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
   }}
   onSaveProjectRpm={(id, rpm) => {
-    const updated = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.round(rpm * 0.7) } : p);
+    const updated = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.min(p.assignedRpm || 0, rpm) } : p);
     persistProjects(updated);
     showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
   }}

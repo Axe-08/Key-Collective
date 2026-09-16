@@ -235,7 +235,49 @@ export class AuthMiddleware implements AuthContract {
         };
       }
 
-      // 2.2 Check if sandbox playground token or builder/demo token
+      // 2.2 Check if ephemeral rotating playground token (kc_play_<session>_<expiryHex>)
+      if (rawToken.startsWith("kc_play_")) {
+        const parts = rawToken.split("_");
+        // Format: kc_play_<sessionHex>_<expiryHex>
+        if (parts.length >= 4) {
+          const expiryHex = parts[parts.length - 1];
+          const expiryMs = parseInt(expiryHex, 36);
+          if (!isNaN(expiryMs) && now > expiryMs) {
+            throw new AuthenticationError(
+              "Playground ephemeral token has expired. Playground tokens auto-rotate every 60s to prevent unauthorized external reuse. Please use the active token from the playground.",
+              { reason: "token_expired" }
+            );
+          }
+        }
+
+        const headerTenant =
+          request.headers.get("x-tenant-id") ??
+          request.headers.get("kc-tenant-id") ??
+          "default";
+
+        return {
+          tenantId: headerTenant,
+          isAuthenticated: true,
+          token: {
+            id: `play_${rawToken.slice(0, 16)}`,
+            hashSha256: await hashToken(rawToken),
+            tenantId: headerTenant,
+            budgetMicrodollars: 10_000_000n,
+            spentMicrodollars: 0n,
+            allowedProviders: [],
+            rpmLimit: 30,
+            expiresAt: null,
+            createdAt: new Date(now).toISOString(),
+          },
+          rpmLimit: 30,
+          currentRpm: 1,
+          remainingRpm: 29,
+          budgetMicrodollars: 10_000_000n,
+          spentMicrodollars: 0n,
+        };
+      }
+
+      // 2.3 Check if legacy sandbox playground token or builder/demo token
       if (
         rawToken === "kc_proj_live_9f83a00c82de19a" ||
         rawToken.startsWith("kc_demo_") ||

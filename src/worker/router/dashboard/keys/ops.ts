@@ -97,12 +97,18 @@ export async function handlePoolMode(
     ).bind(poolType, commRoutingStatus, obsUntil, keyId).run();
   } else {
     await env.DB.prepare(
-      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ? AND tenant_id = ?"
-    ).bind(poolType, commRoutingStatus, obsUntil, keyId, tenantId).run();
+      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ?, tenant_id = ? WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
+    ).bind(poolType, commRoutingStatus, obsUntil, tenantId, keyId, tenantId).run();
   }
 
   clearDecryptedKeyCache();
-  return Response.json({ success: true, keyId, pool_type: poolType });
+  return Response.json({
+    success: true,
+    keyId,
+    pool_type: poolType,
+    community_routing_status: commRoutingStatus,
+    observation_until: obsUntil
+  });
 }
 
 export async function handleTestKey(

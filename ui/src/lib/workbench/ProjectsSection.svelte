@@ -79,9 +79,9 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     {#each projects as project (project.id)}
       {@const maxCap = project.maxRpmSubCap || 20}
-      {@const assignedRpm = project.assignedRpm || 14}
-      {@const rpmPercent = Math.min(100, Math.round((assignedRpm / maxCap) * 100))}
       {@const keyCount = getProjectKeyCount(project.id)}
+      {@const assignedRpm = project.assignedRpm !== undefined ? project.assignedRpm : (keyCount > 0 ? Math.min(maxCap, keyCount * 5) : 0)}
+      {@const rpmPercent = maxCap > 0 ? Math.min(100, Math.round((assignedRpm / maxCap) * 100)) : 0}
       <div class="specular-card rounded-xl bg-surface-container-low/80 backdrop-blur border border-outline-variant/20 p-5 space-y-4 shadow-sm">
         <div class="flex items-start justify-between">
           <div>

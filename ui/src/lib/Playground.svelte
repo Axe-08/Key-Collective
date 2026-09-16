@@ -17,11 +17,24 @@
 
   const baseUrl = $derived(proxyEndpoint.replace(/\/chat\/completions$/, ''));
 
-  let bearerToken = $state('kc_proj_live_9f83a00c82de19a');
+  function generatePlaygroundToken(): string {
+    const randomSession = Math.random().toString(36).substring(2, 10);
+    // Ephemeral token valid for 60 seconds (expiry hex base36)
+    const expiryTimestamp = Date.now() + 60 * 1000;
+    return `kc_play_${randomSession}_${expiryTimestamp.toString(36)}`;
+  }
+
+  let bearerToken = $state(generatePlaygroundToken());
+  let tokenSecondsRemaining = $state(60);
   let isSessionToken = $state(false);
   let selectedModel = $state('gemini-3.8-flash');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
+
+  function handleRotateToken() {
+    bearerToken = generatePlaygroundToken();
+    tokenSecondsRemaining = 60;
+  }
 
   let availableModels = $state<{ id: string; provider: string }[]>([
     { id: 'gemini-3.8-flash', provider: 'google' },
@@ -39,12 +52,27 @@
   ]);
 
   onMount(() => {
+    let rotationInterval: ReturnType<typeof setInterval> | null = null;
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('kc_auth_token');
-      if (stored && stored.trim().length > 0) {
+      if (stored && stored.trim().length > 0 && !stored.startsWith('kc_play_')) {
         bearerToken = stored.trim();
         isSessionToken = true;
+      } else {
+        bearerToken = generatePlaygroundToken();
+        tokenSecondsRemaining = 60;
       }
+
+      rotationInterval = setInterval(() => {
+        if (!isSessionToken) {
+          tokenSecondsRemaining -= 1;
+          if (tokenSecondsRemaining <= 0) {
+            bearerToken = generatePlaygroundToken();
+            tokenSecondsRemaining = 60;
+          }
+        }
+      }, 1000);
+
       fetch('/v1/models')
         .then((r) => r.json())
         .then((data) => {
@@ -60,6 +88,10 @@
         })
         .catch(() => {});
     }
+
+    return () => {
+      if (rotationInterval) clearInterval(rotationInterval);
+    };
   });
 
   let payloadJson = $state(`{\n  "model": "gemini-3.8-flash",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
@@ -262,12 +294,14 @@ stream = client.chat.completions.create(
       <PlaygroundRequestForm
         bind:bearerToken
         {isSessionToken}
+        secondsRemaining={tokenSecondsRemaining}
         bind:selectedModel
         {availableModels}
         bind:isStreaming
         bind:payloadJson
         {isSending}
         onSendRequest={handleSendRequest}
+        onRotateToken={handleRotateToken}
       />
 
       <!-- Code Snippets Tab Box -->

@@ -2,21 +2,25 @@
   let {
     bearerToken = $bindable(''),
     isSessionToken = false,
+    secondsRemaining = 60,
     selectedModel = $bindable(''),
     availableModels = [],
     isStreaming = $bindable(true),
     payloadJson = $bindable(''),
     isSending = false,
     onSendRequest,
+    onRotateToken,
   }: {
     bearerToken?: string;
     isSessionToken?: boolean;
+    secondsRemaining?: number;
     selectedModel?: string;
     availableModels?: { id: string; provider: string }[];
     isStreaming?: boolean;
     payloadJson?: string;
     isSending?: boolean;
     onSendRequest?: () => void;
+    onRotateToken?: () => void;
   } = $props();
 </script>
 
@@ -35,19 +39,32 @@
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> ACTIVE SESSION
         </span>
       {:else}
-        <span class="text-[10px] text-secondary font-mono flex items-center gap-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> SANDBOX PREFILL
+        <span class="text-[10px] text-primary font-mono flex items-center gap-1.5 bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Auto-rotates in {secondsRemaining}s
         </span>
       {/if}
     </div>
-    <div class="relative">
-      <span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-sm">key</span>
-      <input
-        id="playToken"
-        bind:value={bearerToken}
-        class="w-full pl-8 pr-3 py-1.5 text-xs font-mono rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none"
-        placeholder="Bearer kc_live_..."
-      />
+    <div class="relative flex items-center gap-2">
+      <div class="relative flex-1">
+        <span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-sm">key</span>
+        <input
+          id="playToken"
+          bind:value={bearerToken}
+          class="w-full pl-8 pr-3 py-1.5 text-xs font-mono rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:border-primary focus:outline-none"
+          placeholder="Bearer kc_play_..."
+        />
+      </div>
+      {#if !isSessionToken && onRotateToken}
+        <button
+          type="button"
+          onclick={onRotateToken}
+          class="px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface text-xs font-mono border border-outline-variant/30 flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          title="Rotate Ephemeral Token Now"
+        >
+          <span class="material-symbols-outlined text-[14px]">refresh</span>
+          <span>Rotate</span>
+        </button>
+      {/if}
     </div>
   </div>
 
