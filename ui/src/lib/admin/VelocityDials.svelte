@@ -14,59 +14,14 @@
   }
 
   let {
-    clusterRpmCurrent = 182,
-    clusterRpmMax = 450,
-    tokenVelocityTpm = 94200,
-    tokenVelocityMaxTpm = 300000,
-    spendRateMicrodollarsPerHour = 210000, // 210,000 µ$/hr ($0.21/hr)
-    upstreamLatencyMs = 138,
-    rotationFairnessScore = 98.6,
-    providers = [
-      {
-        provider: 'gemini',
-        name: 'Google Gemini Flash',
-        model: 'gemini-1.5-flash-latest',
-        activeKeys: 12,
-        healthyKeys: 11,
-        rateLimitedKeys: 1,
-        rpmLimit: 180,
-        currentRpm: 78,
-        status: 'healthy',
-      },
-      {
-        provider: 'groq',
-        name: 'Groq LLaMA 3.3',
-        model: 'llama-3.3-70b-versatile',
-        activeKeys: 8,
-        healthyKeys: 8,
-        rateLimitedKeys: 0,
-        rpmLimit: 240,
-        currentRpm: 84,
-        status: 'healthy',
-      },
-      {
-        provider: 'cerebras',
-        name: 'Cerebras Inference',
-        model: 'llama3.1-8b',
-        activeKeys: 4,
-        healthyKeys: 4,
-        rateLimitedKeys: 0,
-        rpmLimit: 240,
-        currentRpm: 16,
-        status: 'healthy',
-      },
-      {
-        provider: 'deepseek',
-        name: 'DeepSeek Reasoner',
-        model: 'deepseek-reasoner',
-        activeKeys: 2,
-        healthyKeys: 2,
-        rateLimitedKeys: 0,
-        rpmLimit: 60,
-        currentRpm: 4,
-        status: 'healthy',
-      },
-    ],
+    clusterRpmCurrent = 0,
+    clusterRpmMax = 100,
+    tokenVelocityTpm = 0,
+    tokenVelocityMaxTpm = 40000,
+    spendRateMicrodollarsPerHour = 0,
+    upstreamLatencyMs = 0,
+    rotationFairnessScore = 100,
+    providers = [],
   }: {
     clusterRpmCurrent?: number;
     clusterRpmMax?: number;

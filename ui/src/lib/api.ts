@@ -287,5 +287,21 @@ export const api = {
       return false;
     }
   },
+
+  async syncUserSession(user: { id: string; email?: string; tier?: string; authProvider?: string }): Promise<{ token?: string } | null> {
+    try {
+      const res = await fetch('/api/auth/sync-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // offline / error fallback
+    }
+    return null;
+  },
 };
 

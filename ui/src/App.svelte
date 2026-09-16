@@ -178,12 +178,24 @@
     userAccount = updatedUser;
     if (typeof window !== 'undefined') {
       localStorage.setItem('kc_user', JSON.stringify(updatedUser));
-      if (!localStorage.getItem('kc_auth_token')) {
-        const token = 'kc_proj_live_9f83a00c82de19a';
-        localStorage.setItem('kc_auth_token', token);
-        document.cookie = `kc_auth_token=${token}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
-      }
     }
+
+    // Persist real user session to D1 and obtain distinct isolated token
+    api.syncUserSession({
+      id: deterministicId,
+      email: updatedUser.primaryEmail,
+      tier,
+      authProvider,
+    }).then((res) => {
+      if (res && res.token) {
+        localStorage.setItem('kc_auth_token', res.token);
+        document.cookie = `kc_auth_token=${encodeURIComponent(res.token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
+      }
+      loadData();
+    }).catch(() => {
+      loadData();
+    });
+
     addToast('success', `Authenticated as @${username} (${tier.toUpperCase()}) via ${authProvider.toUpperCase()}`);
   }
 
@@ -241,9 +253,18 @@
           const parsed = JSON.parse(savedUserStr);
           if (parsed && typeof parsed === 'object' && parsed.tier) {
             userAccount = parsed;
-            if (!localStorage.getItem('kc_auth_token')) {
-              localStorage.setItem('kc_auth_token', 'kc_proj_live_9f83a00c82de19a');
-              document.cookie = 'kc_auth_token=kc_proj_live_9f83a00c82de19a; path=/; Max-Age=2592000; SameSite=Lax; Secure';
+            if (!localStorage.getItem('kc_auth_token') && parsed.id) {
+              api.syncUserSession({
+                id: parsed.id,
+                email: parsed.primaryEmail,
+                tier: parsed.tier,
+                authProvider: parsed.authProvider,
+              }).then((res) => {
+                if (res?.token) {
+                  localStorage.setItem('kc_auth_token', res.token);
+                  document.cookie = `kc_auth_token=${encodeURIComponent(res.token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
+                }
+              });
             }
           }
         } catch {

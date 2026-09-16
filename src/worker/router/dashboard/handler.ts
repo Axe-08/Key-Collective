@@ -7,7 +7,7 @@ import type { AuthMiddleware, WorkerEnv } from "../../auth_middleware";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
-import { handleOAuthGithubCallback } from "./auth_routes";
+import { handleOAuthGithubCallback, handleSyncSession } from "./auth_routes";
 import {
   handleDeleteKey,
   handleGetKeys,
@@ -45,6 +45,11 @@ export class DashboardHandler {
     // 0. OAuth GitHub Callback
     if (method === "GET" && pathname === "/api/auth/github/callback") {
       return handleOAuthGithubCallback(request, env);
+    }
+
+    // 0.1 User Session Sync to D1
+    if (method === "POST" && pathname === "/api/auth/sync-session") {
+      return handleSyncSession(request, env);
     }
 
     // Auth token extraction
@@ -89,6 +94,9 @@ export class DashboardHandler {
         });
         const authContext = await this.authMiddleware.authenticate(authReq, env);
         tenantId = authContext.tenantId || "anonymous";
+        if ((tenantId === "default" || tenantId === "anonymous") && headerTenant && headerTenant.trim().length > 0) {
+          tenantId = headerTenant.trim();
+        }
       } catch {
         if (method !== "GET") {
           return new Response(

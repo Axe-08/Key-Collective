@@ -59,54 +59,6 @@
     },
   });
 
-  // Providers key matrix
-  let providers = $state<ProviderMatrixItem[]>([
-    {
-      provider: 'gemini',
-      name: 'Google Gemini Flash',
-      model: 'gemini-1.5-flash-latest',
-      activeKeys: 12,
-      healthyKeys: 11,
-      rateLimitedKeys: 1,
-      rpmLimit: 180,
-      currentRpm: 78,
-      status: 'healthy',
-    },
-    {
-      provider: 'groq',
-      name: 'Groq LLaMA 3.3',
-      model: 'llama-3.3-70b-versatile',
-      activeKeys: 8,
-      healthyKeys: 8,
-      rateLimitedKeys: 0,
-      rpmLimit: 240,
-      currentRpm: 84,
-      status: 'healthy',
-    },
-    {
-      provider: 'cerebras',
-      name: 'Cerebras Inference',
-      model: 'llama3.1-8b',
-      activeKeys: 4,
-      healthyKeys: 4,
-      rateLimitedKeys: 0,
-      rpmLimit: 240,
-      currentRpm: 16,
-      status: 'healthy',
-    },
-    {
-      provider: 'deepseek',
-      name: 'DeepSeek Reasoner',
-      model: 'deepseek-reasoner',
-      activeKeys: 2,
-      healthyKeys: 2,
-      rateLimitedKeys: 0,
-      rpmLimit: 60,
-      currentRpm: 4,
-      status: 'healthy',
-    },
-  ]);
-
   // Live tenants and audit logs from D1 database (zero mock data)
   let tenants = $state<any[]>([]);
   let auditLogs = $state<AuditLogEntry[]>([]);
@@ -117,6 +69,14 @@
     quarantinedKeys: number;
     privateKeys: number;
     totalDebtMicroCu: number;
+    clusterRpmCurrent?: number;
+    clusterRpmMax?: number;
+    tokenVelocityTpm?: number;
+    tokenVelocityMaxTpm?: number;
+    spendRateMicrodollarsPerHour?: number;
+    upstreamLatencyMs?: number;
+    rotationFairnessScore?: number;
+    providers?: ProviderMatrixItem[];
   }>({
     totalKeys: 0,
     activeCommunityKeys: 0,
@@ -124,8 +84,28 @@
     quarantinedKeys: 0,
     privateKeys: 0,
     totalDebtMicroCu: 0,
+    clusterRpmCurrent: 0,
+    clusterRpmMax: 100,
+    tokenVelocityTpm: 0,
+    tokenVelocityMaxTpm: 40000,
+    spendRateMicrodollarsPerHour: 0,
+    upstreamLatencyMs: 0,
+    rotationFairnessScore: 100,
+    providers: [],
   });
   let isLoading = $state(false);
+
+  // Providers key matrix defaults to empty or live poolSummary
+  let providers = $derived<ProviderMatrixItem[]>(
+    poolSummary.providers && poolSummary.providers.length > 0
+      ? poolSummary.providers
+      : [
+          { provider: 'gemini', name: 'Google Gemini Flash', model: 'gemini-1.5-flash-latest', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
+          { provider: 'groq', name: 'Groq LLaMA 3.3', model: 'llama-3.3-70b-versatile', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
+          { provider: 'cerebras', name: 'Cerebras Inference', model: 'llama3.1-8b', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
+          { provider: 'deepseek', name: 'DeepSeek Reasoner', model: 'deepseek-reasoner', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
+        ]
+  );
 
   async function loadAdminData() {
     isLoading = true;
@@ -391,13 +371,13 @@
     <!-- Velocity Dials Component Section -->
     <section class="space-y-4">
       <VelocityDials
-        clusterRpmCurrent={totalClusterRpm}
-        clusterRpmMax={450}
-        tokenVelocityTpm={94200}
-        tokenVelocityMaxTpm={300000}
-        spendRateMicrodollarsPerHour={210000}
-        upstreamLatencyMs={138}
-        rotationFairnessScore={98.6}
+        clusterRpmCurrent={poolSummary.clusterRpmCurrent ?? 0}
+        clusterRpmMax={poolSummary.clusterRpmMax ?? 100}
+        tokenVelocityTpm={poolSummary.tokenVelocityTpm ?? 0}
+        tokenVelocityMaxTpm={poolSummary.tokenVelocityMaxTpm ?? 40000}
+        spendRateMicrodollarsPerHour={poolSummary.spendRateMicrodollarsPerHour ?? 0}
+        upstreamLatencyMs={poolSummary.upstreamLatencyMs ?? 0}
+        rotationFairnessScore={poolSummary.rotationFairnessScore ?? 100}
         {providers}
       />
     </section>

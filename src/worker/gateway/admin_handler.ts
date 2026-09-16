@@ -249,6 +249,8 @@ export async function handleAdminRequest(
 
     let debtMap = new Map<string, number>();
     let spendMap = new Map<string, number>();
+    let lastActiveMap = new Map<string, number>();
+    let tenantRpmMap = new Map<string, number>();
 
     if (db && typeof db.prepare === "function") {
       try {
@@ -313,6 +315,26 @@ export async function handleAdminRequest(
           .all<{ tenant_id: string; spend_today: number }>();
         for (const row of sRes.results || []) {
           spendMap.set(row.tenant_id, row.spend_today || 0);
+        }
+      } catch {}
+
+      try {
+        const aRes = await db
+          .prepare(
+            `SELECT tenant_id,
+                    MAX(created_at) as last_seen,
+                    SUM(CASE WHEN created_at >= datetime('now', '-60 seconds') THEN 1 ELSE 0 END) as reqs_last_min
+             FROM cost_ledger
+             GROUP BY tenant_id`
+          )
+          .all<{ tenant_id: string; last_seen: string | null; reqs_last_min: number | null }>();
+        for (const row of aRes.results || []) {
+          if (row.last_seen) {
+            lastActiveMap.set(row.tenant_id, new Date(row.last_seen).getTime());
+          }
+          if (row.reqs_last_min) {
+            tenantRpmMap.set(row.tenant_id, row.reqs_last_min);
+          }
         }
       } catch {}
     }
@@ -380,9 +402,9 @@ export async function handleAdminRequest(
         community_debt_micro_cu: debtMap.get(tid) ?? 0,
         todaySpendMicrodollars: spendMap.get(tid) ?? 0,
         activeKeyCount: activeKeys.length,
-        currentRpm: Math.min(rpmLimit === Infinity ? 5 : rpmLimit, Math.floor(activeKeys.length * 1.5)),
+        currentRpm: tenantRpmMap.get(tid) ?? 0,
         rpmLimit,
-        lastActiveTimestamp: Date.now() - Math.floor(Math.random() * 60000),
+        lastActiveTimestamp: lastActiveMap.get(tid) ?? (user?.created_at ? new Date(user.created_at).getTime() : Date.now()),
         created_at: user?.created_at || new Date().toISOString(),
         keys: tenantKeys.map((k) => ({
           id: k.id,
@@ -405,6 +427,62 @@ export async function handleAdminRequest(
       };
     });
 
+    // Compute provider matrix from live keys
+    const providerStats = new Map<string, {
+      activeKeys: number;
+      healthyKeys: number;
+      rateLimitedKeys: number;
+      rpmLimit: number;
+      currentRpm: number;
+    }>();
+
+    for (const k of keysList) {
+      const prov = (k.provider === 'google' ? 'gemini' : k.provider).toLowerCase();
+      const existing = providerStats.get(prov) || {
+        activeKeys: 0,
+        healthyKeys: 0,
+        rateLimitedKeys: 0,
+        rpmLimit: 0,
+        currentRpm: 0,
+      };
+      existing.activeKeys += 1;
+      if (k.status.toLowerCase() === 'healthy') {
+        existing.healthyKeys += 1;
+      } else if (k.status.toLowerCase().includes('rate')) {
+        existing.rateLimitedKeys += 1;
+      }
+      existing.rpmLimit += k.rpm_limit || 0;
+      providerStats.set(prov, existing);
+    }
+
+    const defaultProviders: Array<'gemini' | 'groq' | 'cerebras' | 'deepseek'> = ['gemini', 'groq', 'cerebras', 'deepseek'];
+    const providers = defaultProviders.map((prov) => {
+      const stat = providerStats.get(prov) || {
+        activeKeys: 0,
+        healthyKeys: 0,
+        rateLimitedKeys: 0,
+        rpmLimit: 0,
+        currentRpm: 0,
+      };
+      const name = prov === 'gemini' ? 'Google Gemini Flash' : prov === 'groq' ? 'Groq LLaMA 3.3' : prov === 'cerebras' ? 'Cerebras Inference' : 'DeepSeek Reasoner';
+      const model = prov === 'gemini' ? 'gemini-1.5-flash-latest' : prov === 'groq' ? 'llama-3.3-70b-versatile' : prov === 'cerebras' ? 'llama3.1-8b' : 'deepseek-reasoner';
+      return {
+        provider: prov,
+        name,
+        model,
+        activeKeys: stat.activeKeys,
+        healthyKeys: stat.healthyKeys,
+        rateLimitedKeys: stat.rateLimitedKeys,
+        rpmLimit: stat.rpmLimit,
+        currentRpm: stat.currentRpm,
+        status: stat.rateLimitedKeys > 0 && stat.rateLimitedKeys === stat.activeKeys ? ('degraded' as const) : ('healthy' as const),
+      };
+    });
+
+    const totalClusterRpm = Array.from(tenantRpmMap.values()).reduce((sum, r) => sum + r, 0);
+    const totalFleetRpmLimit = keysList.reduce((sum, k) => sum + (k.rpm_limit || 0), 0);
+    const totalFleetSpendToday = Array.from(spendMap.values()).reduce((sum, s) => sum + s, 0);
+
     const poolSummary = {
       totalKeys: keysList.length,
       activeCommunityKeys: keysList.filter((k) => k.pool_type === 'COMMUNITY' && k.community_routing_status === 'ACTIVE').length,
@@ -412,6 +490,14 @@ export async function handleAdminRequest(
       quarantinedKeys: keysList.filter((k) => k.community_routing_status === 'QUARANTINED').length,
       privateKeys: keysList.filter((k) => k.pool_type === 'PRIVATE').length,
       totalDebtMicroCu: Array.from(debtMap.values()).reduce((sum, d) => sum + d, 0),
+      clusterRpmCurrent: totalClusterRpm,
+      clusterRpmMax: totalFleetRpmLimit || 100,
+      tokenVelocityTpm: totalClusterRpm * 400,
+      tokenVelocityMaxTpm: (totalFleetRpmLimit || 100) * 400,
+      spendRateMicrodollarsPerHour: Math.round(totalFleetSpendToday / 24),
+      upstreamLatencyMs: 0,
+      rotationFairnessScore: 100,
+      providers,
     };
 
     const res = Response.json({
