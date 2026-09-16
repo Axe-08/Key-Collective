@@ -231,7 +231,7 @@ export class DemoDO implements DurableObject {
       const message =
         rateLimit.reason === "global_rpm_exceeded"
           ? "Demo pool saturated: 20 RPM limit. Try again in 30s."
-          : `IP demo quota exceeded (${rateLimit.reason === "ip_rpd_exceeded" ? "25 RPD" : "3 RPM"} limit). Please sign in or wait.`;
+          : `IP demo quota exceeded (${rateLimit.reason === "ip_rpd_exceeded" ? "5 RPD" : "1 RPM"} limit). Please sign in or wait.`;
 
       return {
         allowed: false,

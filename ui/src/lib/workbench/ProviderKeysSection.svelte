@@ -4,6 +4,7 @@
   interface Props {
     providerKeys: APIKey[];
     providerKeysLoading: boolean;
+    authProvider?: 'github' | 'google' | 'email' | 'demo';
     onRotate: (id: string) => void;
     onOpenSwitchPool: (key: APIKey) => void;
     onDelete: (id: string) => void;
@@ -12,13 +13,21 @@
   let {
     providerKeys,
     providerKeysLoading,
+    authProvider,
     onRotate,
     onOpenSwitchPool,
     onDelete,
   }: Props = $props();
 
-  const privateProviderKeys = $derived(providerKeys.filter((k) => !k.pool_type || k.pool_type.toUpperCase() === 'PRIVATE'));
-  const communityProviderKeys = $derived(providerKeys.filter((k) => k.pool_type && k.pool_type.toUpperCase() === 'COMMUNITY'));
+  const canContributeToCommunity = $derived(authProvider === 'github');
+
+  // Only show keys owned by the current user
+  const privateProviderKeys = $derived(providerKeys.filter((k) =>
+    (!k.pool_type || k.pool_type.toUpperCase() === 'PRIVATE') && k.is_owner !== false
+  ));
+  const communityProviderKeys = $derived(providerKeys.filter((k) =>
+    k.pool_type && k.pool_type.toUpperCase() === 'COMMUNITY' && k.is_owner === true
+  ));
 </script>
 
 <section class="space-y-4">
@@ -65,7 +74,9 @@
                   </td>
                   <td class="p-3 flex items-center gap-2">
                     <button class="text-xs text-primary hover:underline cursor-pointer" onclick={() => onRotate(k.id)}>Rotate</button>
-                    <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => onOpenSwitchPool(k)}>Switch to Community</button>
+                    {#if canContributeToCommunity}
+                      <button class="text-xs text-outline hover:underline cursor-pointer" onclick={() => onOpenSwitchPool(k)}>Switch to Community</button>
+                    {/if}
                     <button class="text-xs text-error hover:underline cursor-pointer" onclick={() => onDelete(k.id)}>Delete</button>
                   </td>
                 </tr>

@@ -22,7 +22,7 @@
     userAccount?: UserAccount;
     onClose: () => void;
     onSelectTier: (tier: UserTier) => void;
-    onSimulateLogin: (username: string, tier: UserTier, email?: string, avatarUrl?: string) => void;
+    onSimulateLogin: (username: string, tier: UserTier, email?: string, avatarUrl?: string, authProvider?: 'github' | 'google' | 'email' | 'demo') => void;
     onEmailIngress?: (email: string) => void;
   } = $props();
 
@@ -98,7 +98,7 @@
       if (onEmailIngress) {
         onEmailIngress(email);
       }
-      onSimulateLogin(email.split("@")[0] || "dev-probationary", "probationary");
+      onSimulateLogin(email.split("@")[0] || "dev-probationary", "probationary", email, undefined, "email");
       onSelectTier("probationary");
 
       emailSuccess = "Turnstile passed! Assigned Probationary Tier (2 RPM / 50 RPD, 50,000 µ$ budget). Ready for GitHub elevation.";
@@ -146,7 +146,7 @@
       verificationStep = "4/4 Elevating to Builder Tier (60 RPM / 10,000 RPD)...";
 
       await new Promise((resolve) => setTimeout(resolve, 300));
-      onSimulateLogin("collective-dev", "builder");
+      onSimulateLogin("collective-dev", "builder", undefined, undefined, "github");
       onSelectTier("builder");
       isVerifying = false;
       onClose();
@@ -160,7 +160,7 @@
   function handleLaunchDemo() {
     isDemoLaunching = true;
     setTimeout(() => {
-      onSimulateLogin("ephemeral-guest", "demo");
+      onSimulateLogin("ephemeral-guest", "demo", undefined, undefined, "demo");
       onSelectTier("demo");
       isDemoLaunching = false;
       onClose();
@@ -329,7 +329,8 @@
                         user.displayName || user.email?.split("@")[0] || "Google User",
                         "builder",
                         user.email || undefined,
-                        user.photoURL || undefined
+                        user.photoURL || undefined,
+                        "google"
                       );
                       onSelectTier("builder");
                       onClose();

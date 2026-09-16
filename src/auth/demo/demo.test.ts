@@ -111,8 +111,8 @@ describe("Demo Subsystem (src/auth/demo)", () => {
   describe("Constants & Configuration", () => {
     it("exports default rate limits and storage keys", () => {
       expect(DEFAULT_ROTATION_INTERVAL_MS).toBe(15 * 60 * 1000);
-      expect(DEFAULT_IP_RPM_LIMIT).toBe(3);
-      expect(DEFAULT_IP_RPD_LIMIT).toBe(25);
+      expect(DEFAULT_IP_RPM_LIMIT).toBe(1);
+      expect(DEFAULT_IP_RPD_LIMIT).toBe(5);
       expect(DEFAULT_GLOBAL_RPM_LIMIT).toBe(20);
       expect(DEFAULT_STALE_PRUNE_MS).toBe(60 * 60 * 1000);
       expect(STORAGE_KEY_TOKEN).toBe("demo:token");

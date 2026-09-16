@@ -25,6 +25,10 @@ export async function handleDeleteKey(
     throw new RouterError("Key ID is required", { statusCode: 400 });
   }
 
+  if (!tenantId || tenantId === "anonymous" || tenantId === "guest") {
+    throw new RouterError("Authentication required to delete keys", { statusCode: 401 });
+  }
+
   if (env.DB && typeof env.DB.prepare === "function") {
     if (tenantId === "admin") {
       await env.DB.prepare("DELETE FROM api_keys WHERE id = ?").bind(keyId).run();
@@ -209,6 +213,9 @@ export async function handleRotateKeySecret(
   if (!keyId) {
     throw new RouterError("Key ID is required", { statusCode: 400 });
   }
+  if (!tenantId || tenantId === "anonymous" || tenantId === "guest") {
+    throw new RouterError("Authentication required to rotate keys", { statusCode: 401 });
+  }
   if (!env.DB || typeof env.DB.prepare !== "function") {
     throw new RouterError("D1 Database binding missing", { statusCode: 500 });
   }
@@ -220,6 +227,16 @@ export async function handleRotateKeySecret(
   const rawKey = body.new_key?.trim();
   if (!rawKey) {
     throw new RouterError("New key string is required", { statusCode: 400 });
+  }
+
+  // Verify key exists and caller is owner
+  if (tenantId !== "admin") {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM api_keys WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
+    ).bind(keyId, tenantId).first<{ id: string }>();
+    if (!existing) {
+      throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
+    }
   }
 
   const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;

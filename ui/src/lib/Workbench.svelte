@@ -589,6 +589,33 @@
 </script>
 
 <main class="flex-1 p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto w-full">
+  <!-- Demo / Unauthenticated Gate Overlay -->
+  {#if account.tier === 'demo' || !account.id}
+    <div class="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[#090B10]/90 backdrop-blur-xl">
+      <div class="flex flex-col items-center gap-6 max-w-md text-center p-8 rounded-2xl border border-outline-variant/30 bg-surface-container-low shadow-2xl">
+        <span class="material-symbols-outlined text-[56px] text-primary">lock</span>
+        <div>
+          <h2 class="font-headline-md text-headline-md font-semibold text-on-surface mb-2">Developer Workbench</h2>
+          <p class="font-body-md text-body-md text-outline">
+            Sign in with <strong class="text-on-surface">GitHub</strong> or <strong class="text-on-surface">Google</strong> to access the Developer Workbench and manage your API keys, projects, and provider pools.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary font-label-sm text-label-sm">
+          <span class="material-symbols-outlined text-[16px]">info</span>
+          Demo mode has limited Playground access only (1 RPM · 5 RPD)
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Google-only: community pool notice -->
+  {#if account.authProvider === 'google' && account.tier !== 'demo' && account.id}
+    <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/8 border border-secondary/20 text-secondary font-body-sm text-body-sm">
+      <span class="material-symbols-outlined text-[18px]">info</span>
+      <span>You're signed in with Google. Community pool contributions require a <strong>GitHub</strong> account — private pools are fully available.</span>
+    </div>
+  {/if}
+
   <!-- Top Title & Quick Actions Row -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
@@ -680,6 +707,7 @@
   <ProviderKeysSection
     {providerKeys}
     {providerKeysLoading}
+    authProvider={account.authProvider}
     onRotate={rotateProviderKey}
     onOpenSwitchPool={openSwitchPoolModal}
     onDelete={deleteProviderKey}

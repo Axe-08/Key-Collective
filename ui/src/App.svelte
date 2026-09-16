@@ -154,14 +154,24 @@
     addToast('success', `Authorization Tier updated to: ${tier.toUpperCase()}`);
   }
 
-  function handleSimulateLogin(username: string, tier: UserTier, email?: string, avatarUrl?: string) {
+  function handleSimulateLogin(username: string, tier: UserTier, email?: string, avatarUrl?: string, authProvider: 'github' | 'google' | 'email' | 'demo' = 'github') {
+    const cleanUser = username.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'dev';
+    const deterministicId = authProvider === 'google'
+      ? `usr_goog_${cleanUser}`
+      : authProvider === 'email'
+      ? `usr_em_${cleanUser}`
+      : authProvider === 'demo'
+      ? 'usr_demo'
+      : `usr_gh_${cleanUser}`;
+
     const updatedUser: UserAccount = {
       ...userAccount,
-      id: userAccount.id || `usr_${Date.now()}`,
+      id: deterministicId,
       githubUsername: username,
-      primaryEmail: email || userAccount.primaryEmail || `${username.toLowerCase().replace(/\s+/g, '')}@users.noreply.kc`,
+      primaryEmail: email || userAccount.primaryEmail || `${cleanUser}@users.noreply.kc`,
       avatarUrl: avatarUrl || userAccount.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(username)}`,
       tier,
+      authProvider,
       sybilScore: tier === 'probationary' ? 35 : tier === 'demo' ? 20 : 94,
       updatedAt: new Date().toISOString(),
     };
@@ -174,26 +184,15 @@
         document.cookie = `kc_auth_token=${token}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
       }
     }
-    addToast('success', `Authenticated as @${username} (${tier.toUpperCase()})`);
+    addToast('success', `Authenticated as @${username} (${tier.toUpperCase()}) via ${authProvider.toUpperCase()}`);
   }
 
   function handleLogout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('kc_auth_token');
       localStorage.removeItem('kc_user');
-      localStorage.removeItem('kc_workbench_projects');
-      localStorage.removeItem('kc_workbench_keys');
       localStorage.removeItem('devDisplayName');
       localStorage.removeItem('devAvatarUrl');
-      // Clear any tenant-scoped project/key keys
-      try {
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const k = localStorage.key(i);
-          if (k && (k.startsWith('kc_workbench_') || k.startsWith('kc_proj_'))) {
-            localStorage.removeItem(k);
-          }
-        }
-      } catch {}
       document.cookie = 'kc_auth_token=; path=/; Max-Age=0; SameSite=Lax; Secure';
     }
     userAccount = {

@@ -27,6 +27,10 @@ export async function handlePostKeys(
     throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
   }
 
+  if (!tenantId || tenantId === "anonymous" || tenantId === "guest") {
+    throw new RouterError("Authentication required to add API keys", { statusCode: 401 });
+  }
+
   const turnstileToken = request.headers.get("x-turnstile-token") || "";
   const turnstileSecret = env.TURNSTILE_SECRET as string | undefined;
   const tsResult = await verifyTurnstileToken(turnstileToken, { secretKey: turnstileSecret });

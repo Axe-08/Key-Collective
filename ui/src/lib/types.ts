@@ -27,6 +27,8 @@ export interface APIKey {
   dispatched_today?: number;
   dispatched_communal?: number;
   vesting_tier?: 0 | 1 | 2;
+  tenant_id?: string;
+  is_owner?: boolean;
 }
 
 export interface RequestLog {

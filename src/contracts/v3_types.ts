@@ -108,6 +108,7 @@ export interface UserAccount {
   readonly registrationIp: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly authProvider?: 'github' | 'google' | 'email' | 'demo';
 }
 
 /**

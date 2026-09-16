@@ -195,7 +195,10 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     if (this.keysMap.size === 0 && this.env.DB && typeof this.env.DB.prepare === "function") {
       try {
         const stmt = this.env.DB.prepare(
-          "SELECT id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, rpm_limit, rpd_limit, priority, status FROM api_keys WHERE tenant_id = ? AND status = 'Healthy'"
+          `SELECT id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, rpm_limit, rpd_limit, priority, status 
+           FROM api_keys 
+           WHERE status = 'Healthy' 
+             AND (tenant_id = ? OR (pool_type = 'COMMUNITY' AND community_routing_status = 'ACTIVE'))`
         ).bind(this.tenantId);
         const result = await stmt.all<{
           id: string;

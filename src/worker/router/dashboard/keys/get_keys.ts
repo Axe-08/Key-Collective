@@ -21,16 +21,16 @@ export async function handleGetKeys(
 
   let keysQuery = "";
   if (isGlobal) {
-    keysQuery = `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
+    keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
        FROM api_keys
        ORDER BY priority ASC, created_at DESC`;
   } else if (isUnauthenticated) {
-    keysQuery = `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
+    keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
        FROM api_keys
        WHERE pool_type = 'COMMUNITY'
        ORDER BY priority ASC, created_at DESC`;
   } else {
-    keysQuery = `SELECT id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
+    keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
        FROM api_keys
        WHERE pool_type = 'COMMUNITY' OR (pool_type = 'PRIVATE' AND tenant_id = ?)
        ORDER BY priority ASC, created_at DESC`;
@@ -39,6 +39,7 @@ export async function handleGetKeys(
   const keysResult = (isGlobal || isUnauthenticated)
     ? await env.DB.prepare(keysQuery).all<{
         id: string;
+        tenant_id: string;
         label: string;
         provider: string;
         key_prefix: string;
@@ -58,6 +59,7 @@ export async function handleGetKeys(
       }>()
     : await env.DB.prepare(keysQuery).bind(tenantId).all<{
         id: string;
+        tenant_id: string;
         label: string;
         provider: string;
         key_prefix: string;
@@ -120,6 +122,8 @@ export async function handleGetKeys(
       ? "disabled"
       : "healthy";
 
+    const isOwner = isGlobal ? true : (tenantId && tenantId !== 'anonymous' && tenantId !== 'guest' && row.tenant_id === tenantId);
+
     return {
       id: row.id,
       key_prefix: row.key_prefix,
@@ -142,6 +146,8 @@ export async function handleGetKeys(
       dispatched_today: row.dispatched_today ?? 0,
       dispatched_communal: row.dispatched_communal ?? 0,
       vesting_tier: row.vesting_tier ?? 0,
+      tenant_id: row.tenant_id,
+      is_owner: isOwner,
     };
   });
 
