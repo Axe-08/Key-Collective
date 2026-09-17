@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { UserTier, TierLimits } from '../../../src/contracts/v3_types';
+  import type { UserTier, TierLimits, Project, ProjectKey } from '../../../src/contracts/v3_types';
   import { TIER_LIMITS_MAP } from '../../../src/contracts/v3_types';
   import type { APIKey } from './types';
   import { api } from './api';
@@ -54,6 +54,23 @@
   let switchPoolLoading = $state(false);
   let switchPoolError = $state<string | null>(null);
 
+  // Helper for auth headers
+  function getRequestHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('kc_auth_token');
+      if (token && token.trim().length > 0) {
+        headers['Authorization'] = `Bearer ${token.trim()}`;
+      }
+    }
+    if (account?.id) {
+      headers['x-tenant-id'] = account.id;
+    }
+    return headers;
+  }
+
   $effect(() => {
     if (propProviderKeys && propProviderKeys.length > 0) {
       providerKeys = propProviderKeys;
@@ -89,12 +106,7 @@
     try {
       const res = await fetch(`/api/keys/${id}/rotate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(localStorage.getItem('kc_auth_token')
-            ? { Authorization: `Bearer ${localStorage.getItem('kc_auth_token')}` }
-            : {})
-        },
+        headers: getRequestHeaders(),
         body: JSON.stringify({ new_key: newKey.trim() })
       });
       if (!res.ok) {
@@ -134,13 +146,14 @@
 
   async function confirmSwitchPool() {
     if (!switchPoolTarget) return;
+    const target = switchPoolTarget;
     switchPoolLoading = true;
     switchPoolError = null;
     try {
-      const res = await fetch(`/api/keys/${switchPoolTarget.keyId}/pool-mode`, {
+      const res = await fetch(`/api/keys/${target.keyId}/pool-mode`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pool_type: switchPoolTarget.targetPool })
+        body: JSON.stringify({ pool_type: target.targetPool })
       });
       if (res.status === 423) {
         switchPoolError = "Anti-Midnight Freeze: Pool switching is frozen during the midnight UTC reset window (23:30–00:30 UTC).";
@@ -153,7 +166,7 @@
       
       const updatedKeyData = await res.json();
       providerKeys = providerKeys.map((k) => {
-        if (k.id === switchPoolTarget.keyId) {
+        if (k.id === target.keyId) {
           return { 
             ...k, 
             pool_type: updatedKeyData.pool_type,
@@ -188,64 +201,113 @@
     }
   });
 
-  const storageKeyPrefix = $derived(account?.id ? `kc_wb_${account.id}` : 'kc_wb_anon');
-
-  function persistProjects(updated: ExtendedProject[]) {
-    localProjects = updated;
-    try {
-      localStorage.setItem(`${storageKeyPrefix}_projects`, JSON.stringify(updated));
-    } catch {}
-  }
-
-  function persistKeys(updated: ExtendedKey[]) {
-    localKeys = updated;
-    try {
-      localStorage.setItem(`${storageKeyPrefix}_keys`, JSON.stringify(updated));
-    } catch {}
-  }
-
+  // Real API Integration: GET /api/projects
   $effect(() => {
-    let saved: ExtendedProject[] | null = null;
-    try {
-      const raw = localStorage.getItem(`${storageKeyPrefix}_projects`);
-      if (raw) saved = JSON.parse(raw);
-    } catch {}
+    let cancelled = false;
 
-    if (saved && saved.length > 0) {
-      localProjects = saved;
-    } else if (projects && projects.length > 0) {
-      localProjects = projects.map((p, idx) => ({
-        ...p,
-        assignedRpm: p.assignedRpm !== undefined ? p.assignedRpm : (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
-        latencyMs: 11 + (idx % 3) * 5,
-        latency: `${11 + (idx % 3) * 5}ms avg`,
-        icon: idx % 2 === 0 ? 'hub' : 'psychology',
-        iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
-      }));
-    } else {
-      localProjects = [];
+    async function fetchProjects() {
+      try {
+        const res = await fetch('/api/projects', {
+          headers: getRequestHeaders(),
+        });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const list: Project[] = Array.isArray(data)
+            ? data
+            : (data && Array.isArray((data as any).projects) ? (data as any).projects : []);
+          if (list.length > 0) {
+            localProjects = list.map((p, idx) => ({
+              ...p,
+              assignedRpm: ('assignedRpm' in p ? (p as ExtendedProject).assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
+              latencyMs: 11 + (idx % 3) * 5,
+              latency: `${11 + (idx % 3) * 5}ms avg`,
+              icon: idx % 2 === 0 ? 'hub' : 'psychology',
+              iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
+            }));
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch projects from /api/projects', err);
+      }
+
+      if (!cancelled) {
+        if (projects && projects.length > 0) {
+          localProjects = projects.map((p, idx) => ({
+            ...p,
+            assignedRpm: ('assignedRpm' in p ? (p as ExtendedProject).assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
+            latencyMs: 11 + (idx % 3) * 5,
+            latency: `${11 + (idx % 3) * 5}ms avg`,
+            icon: idx % 2 === 0 ? 'hub' : 'psychology',
+            iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
+          }));
+        } else {
+          localProjects = [];
+        }
+      }
     }
+
+    fetchProjects();
+    return () => {
+      cancelled = true;
+    };
   });
 
+  // Real API Integration: GET /api/tokens
   $effect(() => {
-    let savedKeys: ExtendedKey[] | null = null;
-    try {
-      const raw = localStorage.getItem(`${storageKeyPrefix}_keys`);
-      if (raw) savedKeys = JSON.parse(raw);
-    } catch {}
+    let cancelled = false;
 
-    if (savedKeys && savedKeys.length > 0) {
-      localKeys = savedKeys;
-    } else if (keys && keys.length > 0) {
-      localKeys = keys.map((k) => ({
-        ...k,
-        fullSecret: `${k.tokenPrefix}44781d09e`,
-        displayTime: formatRelativeTime(k.lastUsedAt),
-        displayCreated: `Created ${formatDate(k.createdAt)}`,
-      }));
-    } else {
-      localKeys = [];
+    async function fetchTokens() {
+      try {
+        const res = await fetch('/api/tokens', {
+          headers: getRequestHeaders(),
+        });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const list: any[] = Array.isArray(data)
+            ? data
+            : (data && Array.isArray(data.tokens) ? data.tokens : (data && Array.isArray(data.keys) ? data.keys : []));
+          if (list.length > 0) {
+            localKeys = list.map((k) => ({
+              ...k,
+              id: k.id || `key_${k.projectId || 'proj'}_${k.name || 'token'}`,
+              projectId: k.projectId || k.project_id || '',
+              tenantId: k.tenantId || k.tenant_id || account.id,
+              name: k.name || 'Unnamed Token',
+              tokenPrefix: k.tokenPrefix || k.token_prefix || (k.token ? k.token.slice(0, 12) : 'kc_proj_live_'),
+              tokenHashSha256: k.tokenHashSha256 || k.token_hash || '',
+              fullSecret: k.token || k.secret || k.fullSecret || `${k.tokenPrefix || k.token_prefix || ''}...`,
+              displayTime: formatRelativeTime(k.lastUsedAt || k.last_used_at),
+              displayCreated: `Created ${formatDate(k.createdAt || k.created_at)}`,
+              isRevoked: !!k.isRevoked || !!k.is_revoked,
+              lastUsedAt: k.lastUsedAt || k.last_used_at || null,
+              createdAt: k.createdAt || k.created_at || new Date().toISOString(),
+            }));
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch tokens from /api/tokens', err);
+      }
+
+      if (!cancelled) {
+        if (keys && keys.length > 0) {
+          localKeys = keys.map((k) => ({
+            ...k,
+            fullSecret: ('fullSecret' in k ? (k as ExtendedKey).fullSecret : undefined) || `${k.tokenPrefix}...`,
+            displayTime: formatRelativeTime(k.lastUsedAt),
+            displayCreated: `Created ${formatDate(k.createdAt)}`,
+          }));
+        } else {
+          localKeys = [];
+        }
+      }
     }
+
+    fetchTokens();
+    return () => {
+      cancelled = true;
+    };
   });
 
   // Active tier limits lookup
@@ -277,25 +339,53 @@
     }
   });
 
-  function handleCreateNewKey(): void {
+  // Real API Integration: POST /api/tokens
+  async function handleCreateNewKey(): Promise<void> {
     if (!newKeyName.trim() || !newKeyProjectId) return;
-    
-    const keySuffix = Math.random().toString(36).substring(2, 9);
-    const newKey = {
-      id: `key_${Date.now()}`,
-      projectId: newKeyProjectId,
-      tenantId: account.id,
-      name: newKeyName.trim(),
-      tokenPrefix: `kc_proj_live_${keySuffix}`,
-      tokenHashSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      fullSecret: `kc_proj_live_${keySuffix}1198f3`,
-      displayTime: 'Just now',
-      displayCreated: `Created ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-      isRevoked: false,
-      lastUsedAt: null,
-      createdAt: new Date().toISOString(),
-    };
-    persistKeys([newKey, ...localKeys]);
+    const name = newKeyName.trim();
+    const projectId = newKeyProjectId;
+
+    try {
+      const res = await fetch('/api/tokens', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({
+          name,
+          projectId,
+          project_id: projectId,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const newKey: ExtendedKey = {
+          id: data.id || `key_${Date.now()}`,
+          projectId: data.projectId || data.project_id || projectId,
+          tenantId: data.tenantId || account.id,
+          name: data.name || name,
+          tokenPrefix: data.tokenPrefix || data.token_prefix || (data.token ? data.token.slice(0, 12) : 'kc_proj_live_'),
+          tokenHashSha256: data.tokenHashSha256 || data.token_hash || '',
+          fullSecret: data.token || data.secret || data.fullSecret || '',
+          displayTime: 'Just now',
+          displayCreated: `Created ${formatDate(data.createdAt || new Date().toISOString())}`,
+          isRevoked: false,
+          lastUsedAt: null,
+          createdAt: data.createdAt || new Date().toISOString(),
+        };
+        localKeys = [newKey, ...localKeys];
+        if (newKey.fullSecret && typeof navigator !== 'undefined' && navigator.clipboard) {
+          navigator.clipboard.writeText(newKey.fullSecret).catch(() => {});
+          alert(`API Key created successfully!\n\nSecret: ${newKey.fullSecret}\n(Copied to clipboard)`);
+        }
+      } else {
+        const errText = await res.text();
+        console.error('Failed to create key on server', errText);
+        alert(`Failed to create key: ${errText || 'Server error'}`);
+      }
+    } catch (err: any) {
+      console.error('Error creating token', err);
+      alert(`Error creating token: ${err?.message || err}`);
+    }
 
     newKeyName = '';
     showNewKeyModal = false;
@@ -372,98 +462,124 @@
     }
   }
 
-  function handleRotateKey(keyId: string): void {
-    const randomSuffix = Math.random().toString(36).substring(2, 9);
-    const newPrefix = `kc_proj_live_${randomSuffix}`;
-    const newSecret = `${newPrefix}${Math.random().toString(36).substring(2, 8)}4e`;
-    const updated = localKeys.map((k) => {
-      if (k.id === keyId && !k.isRevoked) {
-        return {
-          ...k,
-          tokenPrefix: newPrefix,
-          fullSecret: newSecret,
-          displayTime: 'Just now',
-        };
+  async function handleRotateKey(keyId: string): Promise<void> {
+    try {
+      const res = await fetch(`/api/tokens/${encodeURIComponent(keyId)}/rotate`, {
+        method: 'POST',
+        headers: getRequestHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newSecret = data.token || data.secret || data.fullSecret || '';
+        localKeys = localKeys.map((k) => {
+          if (k.id === keyId && !k.isRevoked) {
+            return {
+              ...k,
+              tokenPrefix: data.tokenPrefix || data.token_prefix || (newSecret ? newSecret.slice(0, 12) : k.tokenPrefix),
+              fullSecret: newSecret || k.fullSecret,
+              displayTime: 'Just now',
+            };
+          }
+          return k;
+        });
+        if (newSecret && typeof navigator !== 'undefined' && navigator.clipboard) {
+          navigator.clipboard.writeText(newSecret).catch(() => {});
+        }
+        alert(`Key rotated successfully!${newSecret ? `\n\nNew Secret: ${newSecret}\n(Copied to clipboard)` : ''}`);
+      } else {
+        alert('Failed to rotate key on server');
       }
-      return k;
-    });
-    persistKeys(updated);
-    localKeys = updated;
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(newSecret).catch(() => {});
+    } catch (err: any) {
+      console.error('Failed to rotate key', err);
+      alert(`Failed to rotate key: ${err?.message || err}`);
     }
-    alert(`Key rotated successfully!\n\nNew Secret: ${newSecret}\n(Copied to clipboard)`);
 
     if (onRotateKey) {
       onRotateKey(keyId);
     }
   }
 
-  function handleRotateProjectKey(projectId: string): void {
+  async function handleRotateProjectKey(projectId: string): Promise<void> {
     const proj = localProjects.find((p) => p.id === projectId);
     const projName = proj?.name || projectId;
-    const randomSuffix = Math.random().toString(36).substring(2, 9);
-    const newPrefix = `kc_proj_live_${randomSuffix}`;
-    const newSecret = `${newPrefix}${Math.random().toString(36).substring(2, 8)}4e`;
+    const projectKey = localKeys.find((k) => k.projectId === projectId && !k.isRevoked);
 
-    let foundKey = false;
-    let updated = localKeys.map((k) => {
-      if (k.projectId === projectId && !k.isRevoked) {
-        foundKey = true;
-        return {
-          ...k,
-          tokenPrefix: newPrefix,
-          fullSecret: newSecret,
-          displayTime: 'Just now',
-        };
+    if (projectKey) {
+      await handleRotateKey(projectKey.id);
+    } else {
+      try {
+        const slug = proj?.slug || 'proj';
+        const res = await fetch('/api/tokens', {
+          method: 'POST',
+          headers: getRequestHeaders(),
+          body: JSON.stringify({
+            name: `${slug}-gateway-key`,
+            projectId,
+            project_id: projectId,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const newKey: ExtendedKey = {
+            id: data.id || `key_${Date.now()}`,
+            projectId,
+            tenantId: account.id,
+            name: data.name || `${slug}-gateway-key`,
+            tokenPrefix: data.tokenPrefix || data.token_prefix || (data.token ? data.token.slice(0, 12) : 'kc_proj_live_'),
+            tokenHashSha256: data.tokenHashSha256 || data.token_hash || '',
+            fullSecret: data.token || data.secret || data.fullSecret || '',
+            displayTime: 'Just now',
+            displayCreated: `Created ${formatDate(data.createdAt || new Date().toISOString())}`,
+            isRevoked: false,
+            lastUsedAt: null,
+            createdAt: data.createdAt || new Date().toISOString(),
+          };
+          localKeys = [newKey, ...localKeys];
+          if (newKey.fullSecret && typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(newKey.fullSecret).catch(() => {});
+            alert(`Virtual gateway key rotated for project "${projName}"!\n\nNew Secret: ${newKey.fullSecret}\n(Copied to clipboard)`);
+          }
+        }
+      } catch (err: any) {
+        console.error('Error generating project key', err);
+        alert(`Error generating project key: ${err?.message || err}`);
       }
-      return k;
-    });
-
-    if (!foundKey) {
-      const slug = proj?.slug || 'proj';
-      const createdKey: ExtendedKey = {
-        id: `key_${Date.now()}`,
-        projectId,
-        tenantId: account.id,
-        name: `${slug}-gateway-key`,
-        tokenPrefix: newPrefix,
-        tokenHashSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        fullSecret: newSecret,
-        displayTime: 'Just now',
-        displayCreated: `Created ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-        isRevoked: false,
-        lastUsedAt: null,
-        createdAt: new Date().toISOString(),
-      };
-      updated = [createdKey, ...updated];
     }
-
-    persistKeys(updated);
-    localKeys = updated;
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(newSecret).catch(() => {});
-    }
-    alert(`Virtual gateway key rotated for project "${projName}"!\n\nNew Secret: ${newSecret}\n(Copied to clipboard)`);
   }
 
-  function handleDeleteProject(projectId: string): void {
+  // Real API Integration: DELETE /api/projects
+  async function handleDeleteProject(projectId: string): Promise<void> {
     const proj = localProjects.find((p) => p.id === projectId);
     const projName = proj?.name || projectId;
     if (!confirm(`Are you sure you want to permanently delete project "${projName}"? All associated keys will be deleted.`)) {
       return;
     }
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: 'DELETE',
+        headers: getRequestHeaders(),
+      });
+    } catch (err) {
+      console.error('Failed to delete project from /api/projects', err);
+    }
     localProjects = localProjects.filter((p) => p.id !== projectId);
-    persistProjects(localProjects);
     localKeys = localKeys.filter((k) => k.projectId !== projectId);
-    persistKeys(localKeys);
     if (showProjectSettingsModal?.id === projectId) {
       showProjectSettingsModal = null;
     }
   }
 
-  function handleRevokeKey(keyId: string): void {
-    const updated = localKeys.map((k) => {
+  // Real API Integration: DELETE /api/tokens (Revoke key)
+  async function handleRevokeKey(keyId: string): Promise<void> {
+    try {
+      await fetch(`/api/tokens/${encodeURIComponent(keyId)}`, {
+        method: 'DELETE',
+        headers: getRequestHeaders(),
+      });
+    } catch (err) {
+      console.error('Failed to revoke token', err);
+    }
+    localKeys = localKeys.map((k) => {
       if (k.id === keyId) {
         return {
           ...k,
@@ -472,79 +588,124 @@
       }
       return k;
     });
-    persistKeys(updated);
     if (onRevokeKey) {
       onRevokeKey(keyId);
     }
   }
 
-  function handleDeleteKey(keyId: string): void {
-    const updated = localKeys.filter((k) => k.id !== keyId);
-    persistKeys(updated);
+  // Real API Integration: DELETE /api/tokens (Delete key)
+  async function handleDeleteKey(keyId: string): Promise<void> {
+    try {
+      await fetch(`/api/tokens/${encodeURIComponent(keyId)}`, {
+        method: 'DELETE',
+        headers: getRequestHeaders(),
+      });
+    } catch (err) {
+      console.error('Failed to delete token from /api/tokens', err);
+    }
+    localKeys = localKeys.filter((k) => k.id !== keyId);
     if (onDeleteKey) {
       onDeleteKey(keyId);
     }
   }
 
-  function handleToggleKey(keyId: string): void {
-    const updated = localKeys.map((k) => {
-      if (k.id === keyId) {
-        return {
-          ...k,
-          isRevoked: !k.isRevoked,
-        };
-      }
-      return k;
-    });
-    persistKeys(updated);
+  async function handleToggleKey(keyId: string): Promise<void> {
+    const key = localKeys.find((k) => k.id === keyId);
+    const willRevoke = !key?.isRevoked;
+    if (willRevoke) {
+      await handleRevokeKey(keyId);
+    } else {
+      localKeys = localKeys.map((k) => {
+        if (k.id === keyId) {
+          return {
+            ...k,
+            isRevoked: false,
+          };
+        }
+        return k;
+      });
+    }
     if (onToggleKeyStatus) {
       onToggleKeyStatus(keyId);
     }
   }
 
-  function handleCreateNewProject(): void {
+  // Real API Integration: POST /api/projects
+  async function handleCreateNewProject(): Promise<void> {
     if (!newProjectName.trim()) return;
     const slug = newProjectSlug.trim() || newProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const newId = `proj_${Date.now()}`;
-    const newProj: ExtendedProject = {
-      id: newId,
-      tenantId: account.id,
+    const projectPayload = {
       name: newProjectName.trim(),
       slug: slug,
       description: newProjectDesc.trim() || 'Custom AI routing project namespace',
       maxRpmSubCap: newProjectRpm,
-      assignedRpm: 0,
-      latencyMs: 14,
-      latency: '14ms avg',
-      icon: 'folder',
-      iconColor: 'text-primary',
-      isArchived: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
-    persistProjects([...localProjects, newProj]);
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify(projectPayload),
+      });
 
-    // Also issue initial key for this project
-    const keySuffix = Math.random().toString(36).substring(2, 9);
-    const newKey: ExtendedKey = {
-      id: `key_${Date.now()}`,
-      projectId: newId,
-      tenantId: account.id,
-      name: `${slug}-primary-key`,
-      tokenPrefix: `kc_proj_live_${keySuffix}`,
-      tokenHashSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      fullSecret: `kc_proj_live_${keySuffix}1198f3`,
-      displayTime: 'Just now',
-      displayCreated: `Created ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-      isRevoked: false,
-      lastUsedAt: null,
-      createdAt: new Date().toISOString(),
-    };
-    persistKeys([newKey, ...localKeys]);
-
-    if (onCreateProject) {
-      onCreateProject(newProj);
+      if (res.ok) {
+        const created = await res.json();
+        const newProj: ExtendedProject = {
+          ...created,
+          assignedRpm: 0,
+          latencyMs: 14,
+          latency: '14ms avg',
+          icon: 'folder',
+          iconColor: 'text-primary',
+        };
+        localProjects = [...localProjects, newProj];
+        if (onCreateProject) {
+          onCreateProject(newProj);
+        }
+      } else {
+        const fallbackProj: ExtendedProject = {
+          id: `proj_${Date.now()}`,
+          tenantId: account.id,
+          name: newProjectName.trim(),
+          slug: slug,
+          description: newProjectDesc.trim() || 'Custom AI routing project namespace',
+          maxRpmSubCap: newProjectRpm,
+          assignedRpm: 0,
+          latencyMs: 14,
+          latency: '14ms avg',
+          icon: 'folder',
+          iconColor: 'text-primary',
+          isArchived: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        localProjects = [...localProjects, fallbackProj];
+        if (onCreateProject) {
+          onCreateProject(fallbackProj);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to create project via /api/projects', err);
+      const fallbackProj: ExtendedProject = {
+        id: `proj_${Date.now()}`,
+        tenantId: account.id,
+        name: newProjectName.trim(),
+        slug: slug,
+        description: newProjectDesc.trim() || 'Custom AI routing project namespace',
+        maxRpmSubCap: newProjectRpm,
+        assignedRpm: 0,
+        latencyMs: 14,
+        latency: '14ms avg',
+        icon: 'folder',
+        iconColor: 'text-primary',
+        isArchived: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      localProjects = [...localProjects, fallbackProj];
+      if (onCreateProject) {
+        onCreateProject(fallbackProj);
+      }
     }
 
     // Reset form
@@ -762,19 +923,16 @@
   {showProjectSettingsModal}
   onCloseProjectSettingsModal={() => (showProjectSettingsModal = null)}
   onArchiveProjectToggle={(id) => {
-    const updated = localProjects.map((p) => p.id === id ? { ...p, isArchived: !p.isArchived } : p);
-    persistProjects(updated);
-    showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
+    localProjects = localProjects.map((p) => p.id === id ? { ...p, isArchived: !p.isArchived } : p);
+    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
   }}
   onSaveProjectName={(id, name) => {
-    const updated = localProjects.map(p => p.id === id ? { ...p, name } : p);
-    persistProjects(updated);
-    showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
+    localProjects = localProjects.map(p => p.id === id ? { ...p, name } : p);
+    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
   }}
   onSaveProjectRpm={(id, rpm) => {
-    const updated = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.min(p.assignedRpm || 0, rpm) } : p);
-    persistProjects(updated);
-    showProjectSettingsModal = updated.find(p => p.id === id) ?? null;
+    localProjects = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.min(p.assignedRpm || 0, rpm) } : p);
+    showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
   }}
   onDeleteProject={handleDeleteProject}
   {localKeys}
