@@ -14,6 +14,8 @@ import type { WorkerEnv } from "./worker/auth_middleware";
 export interface Env {
   KEY_POOL: DurableObjectNamespace;
   DEMO_POOL?: DurableObjectNamespace;
+  POOL_COORDINATOR?: DurableObjectNamespace;
+  TENANT_QUOTA?: DurableObjectNamespace;
   DB: D1Database;
   TELEMETRY?: AnalyticsEngineDataset;
   KC_MASTER_KEY?: string;
@@ -25,6 +27,7 @@ export type { HealthResponse, WorkerEnv, WorkerOptions };
 export { KeyPoolDO } from "./durable_objects/key_pool_do";
 export { DemoDO } from "./auth/demo_do";
 export { PoolCoordinatorDO } from "./pool/coordinator_do";
+export { TenantQuotaDO } from "./quota/tenant_do";
 export { createWorker, MainWorker };
 
 // Cloudflare Worker Default Fetch Handler

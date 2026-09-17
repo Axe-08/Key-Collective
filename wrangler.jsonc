@@ -19,6 +19,10 @@
       {
         "name": "POOL_COORDINATOR",
         "class_name": "PoolCoordinatorDO"
+      },
+      {
+        "name": "TENANT_QUOTA",
+        "class_name": "TenantQuotaDO"
       }
     ]
   },
@@ -39,6 +43,12 @@
       "tag": "v4",
       "new_sqlite_classes": [
         "PoolCoordinatorDO"
+      ]
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": [
+        "TenantQuotaDO"
       ]
     }
   ],
@@ -103,6 +113,10 @@
           {
             "name": "DEMO_POOL",
             "class_name": "DemoDO"
+          },
+          {
+            "name": "TENANT_QUOTA",
+            "class_name": "TenantQuotaDO"
           }
         ]
       },
@@ -148,6 +162,10 @@
           {
             "name": "DEMO_POOL",
             "class_name": "DemoDO"
+          },
+          {
+            "name": "TENANT_QUOTA",
+            "class_name": "TenantQuotaDO"
           }
         ]
       },
