@@ -4,6 +4,7 @@
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { AuthMiddleware, WorkerEnv } from "../../auth_middleware";
+import type { WorkerEnv as AppWorkerEnv } from "../../env";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
@@ -16,11 +17,21 @@ import {
   handleRotateKeySecret,
   handleTestKey,
 } from "./key_routes";
+import {
+  handleDeleteProject,
+  handleGetProjects,
+  handlePostProjects,
+} from "./project_routes";
+import {
+  handleDeleteToken,
+  handleGetTokens,
+  handlePostTokens,
+} from "./token_routes";
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
 import { handleAdminRequest } from "../../gateway/admin_handler";
 
-export class DashboardHandler {
+export class DashboardRouter {
   constructor(
     private readonly options: RouterHandlerOptions,
     private readonly authMiddleware: AuthMiddleware,
@@ -136,6 +147,7 @@ export class DashboardHandler {
       return handleAdminRequest(request, env, this as any, this.options, _ctx);
     }
 
+    // 1. GET /api/keys
     if (method === "GET" && pathname === "/api/keys") {
       return handleGetKeys(env, tenantId);
     }
@@ -151,7 +163,7 @@ export class DashboardHandler {
     }
 
     // PATCH /api/keys/:id/pool-mode (Anti-Midnight Freeze FR-22)
-    if (method === 'PATCH' && /^\/api\/keys\/[^/]+\/pool-mode$/.test(pathname)) {
+    if (method === "PATCH" && /^\/api\/keys\/[^/]+\/pool-mode$/.test(pathname)) {
       return handlePoolMode(pathname, request, env, tenantId);
     }
 
@@ -163,6 +175,32 @@ export class DashboardHandler {
     // 4. POST /api/keys/:id/test
     if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/test")) {
       return handleTestKey(pathname, env, tenantId, headerTenant, masterKey);
+    }
+
+    // 4.1 Projects APIs
+    if (method === "GET" && (pathname === "/api/projects" || pathname === "/api/projects/")) {
+      return handleGetProjects(request, env as unknown as AppWorkerEnv, tenantId);
+    }
+
+    if (method === "POST" && (pathname === "/api/projects" || pathname === "/api/projects/")) {
+      return handlePostProjects(request, env as unknown as AppWorkerEnv, tenantId);
+    }
+
+    if (method === "DELETE" && (pathname === "/api/projects" || pathname.startsWith("/api/projects/"))) {
+      return handleDeleteProject(pathname, env as unknown as AppWorkerEnv, tenantId);
+    }
+
+    // 4.2 Auth Tokens APIs
+    if (method === "GET" && (pathname === "/api/tokens" || pathname === "/api/tokens/")) {
+      return handleGetTokens(request, env as unknown as AppWorkerEnv, tenantId);
+    }
+
+    if (method === "POST" && (pathname === "/api/tokens" || pathname === "/api/tokens/")) {
+      return handlePostTokens(request, env as unknown as AppWorkerEnv, tenantId);
+    }
+
+    if (method === "DELETE" && (pathname === "/api/tokens" || pathname.startsWith("/api/tokens/"))) {
+      return handleDeleteToken(pathname, env as unknown as AppWorkerEnv, tenantId);
     }
 
     // 4.5 POST /api/abuse/report-key
@@ -198,3 +236,5 @@ export class DashboardHandler {
     );
   }
 }
+
+export { DashboardRouter as DashboardHandler };
