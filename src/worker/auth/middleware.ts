@@ -14,6 +14,7 @@ import {
 } from "../../durable_objects/rate_limiter";
 import {
   AuthenticationError,
+  TenantIsolationError,
 } from "../../errors/auth_errors";
 import { DomainError } from "../../errors/domain_error";
 import {
@@ -380,9 +381,214 @@ export class AuthMiddleware implements AuthContract {
       }
     }
 
-    // 6. Sliding-Window RPM Rate Limiting
+    // 6. Sliding-Window RPM Rate Limiting & Quota Consumption
     const effectiveRpm =
       mergedOptions.rpmLimitOverride ?? record.rpmLimit ?? DEFAULT_RPM_LIMIT;
+
+    const tenantQuota =
+      env &&
+      typeof env === "object" &&
+      !(typeof (env as D1Database).prepare === "function") &&
+      "TENANT_QUOTA" in env &&
+      (env as WorkerEnv).TENANT_QUOTA
+        ? (env as WorkerEnv).TENANT_QUOTA
+        : mergedOptions.tenantQuota;
+
+    if (tenantQuota) {
+      const targetTenantId = record.tenantId;
+      const doId = tenantQuota.idFromName(targetTenantId);
+      let stub: any = doId;
+      if (typeof tenantQuota.get === "function") {
+        if (typeof stub?.consumeQuota !== "function" && typeof stub?.fetch !== "function") {
+          stub = tenantQuota.get(stub);
+        } else {
+          try {
+            const fromGet = tenantQuota.get(stub) as any;
+            if (fromGet && (typeof fromGet.consumeQuota === "function" || typeof fromGet.fetch === "function")) {
+              stub = fromGet;
+            }
+          } catch {
+            // Keep stub
+          }
+        }
+      }
+
+      const projectId =
+        request.headers.get("x-project-id") ??
+        request.headers.get("kc-project-id") ??
+        undefined;
+
+      let currentRpm: number;
+      let remainingRpm: number;
+      let effectiveRpmLimit: number = effectiveRpm;
+
+      if (typeof stub?.consumeQuota === "function") {
+        const consumeReq: any = {
+          tenantId: targetTenantId,
+          costMicrodollars: incomingCost,
+          count: 1,
+        };
+        if (projectId) {
+          consumeReq.projectId = projectId;
+        }
+        if (mergedOptions.rpmLimitOverride !== undefined) {
+          consumeReq.projectMaxSubCap = mergedOptions.rpmLimitOverride;
+        }
+
+        const quotaResult = await stub.consumeQuota(consumeReq);
+
+        if (!quotaResult.allowed) {
+          const errorCode = quotaResult.errorCode ?? quotaResult.error_code;
+          if (
+            errorCode === "USER_DAILY_QUOTA_EXHAUSTED" ||
+            quotaResult.reason === "rpd_limit_exceeded"
+          ) {
+            throw new QuotaExceededError(
+              quotaResult.error ??
+                `Daily request quota exceeded for tenant '${targetTenantId}': RPD limit reached (${quotaResult.currentRpd}/${quotaResult.rpdLimit})`,
+              {
+                tenantId: targetTenantId,
+                quotaType: "rpd",
+                limit: quotaResult.rpdLimit,
+                consumed: quotaResult.currentRpd,
+              }
+            );
+          }
+
+          const retryAfter =
+            quotaResult.retryAfterSeconds ??
+            quotaResult.retry_after_seconds ??
+            60;
+          throw new RateLimitExceededError(
+            quotaResult.error ??
+              `Rate limit exceeded for tenant '${targetTenantId}': RPM limit reached (${quotaResult.currentRpm}/${quotaResult.rpmLimit})`,
+            {
+              tenantId: targetTenantId,
+              keyId: record.id,
+              rpmLimit: quotaResult.rpmLimit ?? effectiveRpm,
+              currentRpm: quotaResult.currentRpm ?? effectiveRpm,
+              retryAfterSeconds: retryAfter,
+            }
+          );
+        }
+
+        currentRpm = quotaResult.currentRpm;
+        effectiveRpmLimit = quotaResult.rpmLimit ?? effectiveRpm;
+        remainingRpm =
+          quotaResult.remainingRpm ??
+          Math.max(0, effectiveRpmLimit - currentRpm);
+      } else if (typeof stub?.fetch === "function") {
+        const res = await stub.fetch("http://tenant-quota/consume", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-tenant-id": targetTenantId,
+            ...(projectId ? { "x-project-id": projectId } : {}),
+          },
+          body: JSON.stringify({
+            tenantId: targetTenantId,
+            costMicrodollars: incomingCost.toString(),
+            count: 1,
+            ...(projectId ? { projectId } : {}),
+            ...(mergedOptions.rpmLimitOverride !== undefined
+              ? { projectMaxSubCap: mergedOptions.rpmLimitOverride }
+              : {}),
+          }),
+        });
+
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as Record<string, any>;
+          if (res.status === 403) {
+            throw new TenantIsolationError(
+              data.error ??
+                `Tenant isolation violation for tenant '${targetTenantId}'`,
+              { tenantId: targetTenantId }
+            );
+          }
+
+          const errorCode = data.errorCode ?? data.error_code ?? data.code;
+          if (
+            errorCode === "USER_DAILY_QUOTA_EXHAUSTED" ||
+            data.reason === "rpd_limit_exceeded"
+          ) {
+            throw new QuotaExceededError(
+              data.error ??
+                `Daily request quota exceeded for tenant '${targetTenantId}'`,
+              {
+                tenantId: targetTenantId,
+                quotaType: "rpd",
+                limit: data.rpdLimit,
+                consumed: data.currentRpd,
+              }
+            );
+          }
+
+          const retryHeader = res.headers?.get?.("retry-after");
+          const retryAfterSeconds = retryHeader
+            ? parseInt(retryHeader, 10)
+            : (data.retryAfterSeconds ?? data.retry_after_seconds ?? 60);
+
+          throw new RateLimitExceededError(
+            data.error ??
+              `Rate limit exceeded for tenant '${targetTenantId}': RPM limit reached`,
+            {
+              tenantId: targetTenantId,
+              keyId: record.id,
+              rpmLimit: data.rpmLimit ?? effectiveRpm,
+              currentRpm: data.currentRpm ?? effectiveRpm,
+              retryAfterSeconds: isNaN(retryAfterSeconds) ? 60 : retryAfterSeconds,
+            }
+          );
+        }
+
+        const data = (await res.json().catch(() => ({}))) as Record<string, any>;
+        if (data.allowed === false) {
+          const retryHeader = res.headers?.get?.("retry-after");
+          const retryAfterSeconds = retryHeader
+            ? parseInt(retryHeader, 10)
+            : (data.retryAfterSeconds ?? data.retry_after_seconds ?? 60);
+
+          throw new RateLimitExceededError(
+            data.error ??
+              `Rate limit exceeded for tenant '${targetTenantId}': RPM limit reached`,
+            {
+              tenantId: targetTenantId,
+              keyId: record.id,
+              rpmLimit: data.rpmLimit ?? effectiveRpm,
+              currentRpm: data.currentRpm ?? effectiveRpm,
+              retryAfterSeconds: isNaN(retryAfterSeconds) ? 60 : retryAfterSeconds,
+            }
+          );
+        }
+
+        currentRpm = data.currentRpm ?? 1;
+        effectiveRpmLimit = data.rpmLimit ?? effectiveRpm;
+        remainingRpm =
+          data.remainingRpm ?? Math.max(0, effectiveRpmLimit - currentRpm);
+      } else {
+        throw new AuthenticationError(
+          `Tenant quota stub for '${targetTenantId}' does not support RPC or fetch`,
+          { reason: "invalid_tenant_quota_stub" }
+        );
+      }
+
+      const budgetRemainingMicrodollars =
+        budget > 0n ? budget - spent : undefined;
+
+      return {
+        tenantId: record.tenantId,
+        isAuthenticated: true,
+        token: record,
+        rpmLimit: effectiveRpmLimit,
+        currentRpm,
+        remainingRpm,
+        budgetMicrodollars: budget,
+        spentMicrodollars: spent,
+        budgetRemainingMicrodollars,
+      };
+    }
+
+    // Fallback: in-memory RateLimiter when env.TENANT_QUOTA is undefined
     const limiter = this.getRateLimiter(
       record.tenantId,
       effectiveRpm,

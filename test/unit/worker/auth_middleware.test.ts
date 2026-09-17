@@ -846,4 +846,330 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       expect(await storage.get("key2")).toBeUndefined();
     });
   });
+
+  describe("TenantQuota Durable Object Delegation (env.TENANT_QUOTA)", () => {
+    it("delegates quota consumption to env.TENANT_QUOTA.idFromName(tenantId) via DO RPC", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+      });
+
+      const mockConsumeQuota = vi.fn().mockResolvedValue({
+        allowed: true,
+        tenantId: TEST_TENANT,
+        tier: "builder",
+        currentRpm: 7,
+        rpmLimit: 20,
+        currentRpd: 15,
+        rpdLimit: 2000,
+        remainingRpm: 13,
+        remainingRpd: 1985,
+        totalCostMicrodollars: "0",
+      });
+
+      const mockStub = {
+        consumeQuota: mockConsumeQuota,
+      };
+
+      const mockEnv = {
+        DB: mockDb,
+        TENANT_QUOTA: {
+          idFromName: vi.fn().mockReturnValue({ toString: () => TEST_TENANT }),
+          get: vi.fn().mockReturnValue(mockStub),
+        } as any,
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      const ctx = await middleware.authenticate(req, mockEnv);
+
+      expect(mockEnv.TENANT_QUOTA.idFromName).toHaveBeenCalledWith(TEST_TENANT);
+      expect(mockConsumeQuota).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TEST_TENANT,
+          costMicrodollars: 0n,
+          count: 1,
+        })
+      );
+      expect(ctx.isAuthenticated).toBe(true);
+      expect(ctx.currentRpm).toBe(7);
+      expect(ctx.rpmLimit).toBe(20);
+      expect(ctx.remainingRpm).toBe(13);
+    });
+
+    it("supports mock where idFromName directly returns the DO stub", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+      });
+
+      const mockConsumeQuota = vi.fn().mockResolvedValue({
+        allowed: true,
+        tenantId: TEST_TENANT,
+        tier: "builder",
+        currentRpm: 2,
+        rpmLimit: 20,
+        remainingRpm: 18,
+        totalCostMicrodollars: "0",
+      });
+
+      const mockStub = {
+        consumeQuota: mockConsumeQuota,
+      };
+
+      const mockEnv = {
+        DB: mockDb,
+        TENANT_QUOTA: {
+          idFromName: vi.fn().mockReturnValue(mockStub),
+        } as any,
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      const ctx = await middleware.authenticate(req, mockEnv);
+      expect(ctx.currentRpm).toBe(2);
+      expect(ctx.remainingRpm).toBe(18);
+    });
+
+    it("throws RateLimitExceededError when DO RPC returns allowed: false with USER_QUOTA_EXHAUSTED", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+      });
+
+      const mockStub = {
+        consumeQuota: vi.fn().mockResolvedValue({
+          allowed: false,
+          tenantId: TEST_TENANT,
+          tier: "builder",
+          currentRpm: 20,
+          rpmLimit: 20,
+          remainingRpm: 0,
+          retryAfterSeconds: 35,
+          errorCode: "USER_QUOTA_EXHAUSTED",
+          error: "User quota ceiling exceeded",
+        }),
+      };
+
+      const mockEnv = {
+        DB: mockDb,
+        TENANT_QUOTA: {
+          idFromName: vi.fn().mockReturnValue(mockStub),
+        } as any,
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      await expect(middleware.authenticate(req, mockEnv)).rejects.toThrow(
+        RateLimitExceededError
+      );
+    });
+
+    it("throws QuotaExceededError when DO RPC returns allowed: false with USER_DAILY_QUOTA_EXHAUSTED", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+      });
+
+      const mockStub = {
+        consumeQuota: vi.fn().mockResolvedValue({
+          allowed: false,
+          tenantId: TEST_TENANT,
+          tier: "builder",
+          currentRpd: 2000,
+          rpdLimit: 2000,
+          remainingRpd: 0,
+          errorCode: "USER_DAILY_QUOTA_EXHAUSTED",
+          error: "User daily quota ceiling exceeded",
+        }),
+      };
+
+      const mockEnv = {
+        DB: mockDb,
+        TENANT_QUOTA: {
+          idFromName: vi.fn().mockReturnValue(mockStub),
+        } as any,
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      await expect(middleware.authenticate(req, mockEnv)).rejects.toThrow(
+        QuotaExceededError
+      );
+    });
+
+    it("delegates quota consumption to env.TENANT_QUOTA via DO fetch when consumeQuota is absent", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            allowed: true,
+            tenantId: TEST_TENANT,
+            currentRpm: 4,
+            rpmLimit: 20,
+            remainingRpm: 16,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+
+      const mockStub = {
+        fetch: mockFetch,
+      };
+
+      const mockEnv = {
+        DB: mockDb,
+        TENANT_QUOTA: {
+          idFromName: vi.fn().mockReturnValue(mockStub),
+        } as any,
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      const ctx = await middleware.authenticate(req, mockEnv);
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://tenant-quota/consume",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "x-tenant-id": TEST_TENANT,
+          }),
+        })
+      );
+      expect(ctx.currentRpm).toBe(4);
+      expect(ctx.remainingRpm).toBe(16);
+    });
+
+    it("throws RateLimitExceededError when DO fetch returns 429", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            allowed: false,
+            error: "Rate limit exceeded",
+            currentRpm: 20,
+            rpmLimit: 20,
+          }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": "42",
+            },
+          }
+        )
+      );
+
+      const mockEnv = {
+        DB: mockDb,
+        TENANT_QUOTA: {
+          idFromName: vi.fn().mockReturnValue({ fetch: mockFetch }),
+        } as any,
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      await expect(middleware.authenticate(req, mockEnv)).rejects.toThrow(
+        RateLimitExceededError
+      );
+    });
+
+    it("throws TenantIsolationError when DO fetch returns 403", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: "Tenant isolation violation",
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        )
+      );
+
+      const mockEnv = {
+        DB: mockDb,
+        TENANT_QUOTA: {
+          idFromName: vi.fn().mockReturnValue({ fetch: mockFetch }),
+        } as any,
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      await expect(middleware.authenticate(req, mockEnv)).rejects.toThrow(
+        TenantIsolationError
+      );
+    });
+
+    it("falls back to in-memory rate limiting when env.TENANT_QUOTA is undefined", async () => {
+      await authRepo.createToken({
+        token: TEST_TOKEN,
+        tenantId: TEST_TENANT,
+        budgetMicrodollars: 1_000_000n,
+        spentMicrodollars: 0n,
+        rpmLimit: 10,
+      });
+
+      const mockEnv = {
+        DB: mockDb,
+        // TENANT_QUOTA is undefined
+      };
+
+      const middleware = new AuthMiddleware({ authRepo });
+      const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+
+      const ctx = await middleware.authenticate(req, mockEnv);
+      expect(ctx.isAuthenticated).toBe(true);
+      expect(ctx.rpmLimit).toBe(10);
+      expect(ctx.currentRpm).toBe(1);
+      expect(ctx.remainingRpm).toBe(9);
+    });
+  });
 });

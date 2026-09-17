@@ -19,6 +19,7 @@ import {
 export interface WorkerEnv {
   DB?: D1Database;
   KEY_POOL?: DurableObjectNamespace;
+  TENANT_QUOTA?: DurableObjectNamespace;
   TELEMETRY?: AnalyticsEngineDataset;
   KC_MASTER_KEY?: string;
   ASSETS?: { fetch(request: Request | string): Promise<Response> };
@@ -81,6 +82,8 @@ export interface AuthMiddlewareOptions {
    * If false, returns an AuthMiddlewareFailure object.
    */
   throwOnError?: boolean;
+  /** Optional TenantQuota DurableObject namespace override */
+  tenantQuota?: DurableObjectNamespace;
 }
 
 /**
