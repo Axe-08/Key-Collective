@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 // UI (Svelte) tests run via `cd ui && npx vitest run` with ui/vitest.config.ts.
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.{test,spec}.ts', 'test/**/*.test.ts', 'tests/**/*.test.ts'],
     exclude: ['ui/**'],
     passWithNoTests: true,
     environment: 'node',

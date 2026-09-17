@@ -74,13 +74,15 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     }
     this.tenantId = resolvedTenant;
 
-    (this.ctx.storage as any).getAlarm().then((alarm: number | null) => {
-      if (!alarm) {
-        const tomorrow = new Date(Date.now());
-        tomorrow.setUTCHours(24, 0, 0, 0);
-        (this.ctx.storage as any).setAlarm(tomorrow.getTime());
-      }
-    });
+    if (typeof (this.ctx.storage as any)?.getAlarm === "function") {
+      (this.ctx.storage as any).getAlarm().then((alarm: number | null) => {
+        if (!alarm && typeof (this.ctx.storage as any)?.setAlarm === "function") {
+          const tomorrow = new Date(Date.now());
+          tomorrow.setUTCHours(24, 0, 0, 0);
+          (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+        }
+      }).catch(() => {});
+    }
 
     // Initialize dependencies
     this.circuitBreaker =

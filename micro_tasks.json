@@ -1,0 +1,42 @@
+[
+  {
+    "task_id": "migration_consolidation",
+    "description": "Ensure migrations/0001_initial_schema.sql exists and aligns with src/storage/migrations/0001_initial_schema.sql",
+    "instructions": "Ensure migrations/0001_initial_schema.sql exists and aligns with src/storage/migrations/0001_initial_schema.sql.",
+    "context_bundle": {
+      "files_to_modify": [
+        "migrations/0001_initial_schema.sql",
+        "src/storage/migrations/0001_initial_schema.sql"
+      ],
+      "exact_signatures": "",
+      "verify_command": "diff migrations/0001_initial_schema.sql src/storage/migrations/0001_initial_schema.sql"
+    }
+  },
+  {
+    "task_id": "legacy_cleanup",
+    "description": "Delete legacy and redundant files",
+    "instructions": "Delete ui/ui.go, docs/SCORECARD.md.md, src/worker/auth.ts, src/worker/telemetry.ts.",
+    "context_bundle": {
+      "files_to_delete": [
+        "ui/ui.go",
+        "docs/SCORECARD.md.md",
+        "src/worker/auth.ts",
+        "src/worker/telemetry.ts"
+      ],
+      "exact_signatures": "",
+      "verify_command": "test ! -f ui/ui.go && test ! -f docs/SCORECARD.md.md && test ! -f src/worker/auth.ts && test ! -f src/worker/telemetry.ts"
+    }
+  },
+  {
+    "task_id": "test_harmonization",
+    "description": "Update vitest.config.ts test inclusion",
+    "instructions": "Update vitest.config.ts test inclusion to include: ['src/**/*.{test,spec}.ts', 'test/**/*.test.ts', 'tests/**/*.test.ts']",
+    "context_bundle": {
+      "files_to_modify": [
+        "vitest.config.ts"
+      ],
+      "exact_signatures": "include: ['src/**/*.{test,spec}.ts', 'test/**/*.test.ts', 'tests/**/*.test.ts']",
+      "verify_command": "npx vitest run"
+    }
+  }
+]
