@@ -151,6 +151,11 @@ export async function executeCascadeRouting(
 
       // 7. Record KeyPool success and usage (non-blocking hot path)
       if (context.keyPool && keyId) {
+        if (typeof context.keyPool.recordDispatch === "function") {
+          try {
+            context.keyPool.recordDispatch(keyId, !selfKeyRouted);
+          } catch {}
+        }
         context.keyPool.recordResult(keyId, true).catch(() => {});
         if (costMicrodollars > 0n) {
           context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});

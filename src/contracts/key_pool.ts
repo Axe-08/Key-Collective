@@ -23,4 +23,5 @@ export interface KeyPoolContract {
     getKey(provider: string): Promise<string>;
     recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;
     recordResult(keyId: string, success: boolean): Promise<void>;
+    recordDispatch?(keyId: string, isCommunal: boolean): Promise<void> | void;
 }

@@ -102,6 +102,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
       options?.keySelector ??
       new KeySelector<EncryptedKey>({
         tenantId: this.tenantId,
+        defaultStrategy: "priority",
         circuitBreaker: this.circuitBreaker,
         rateLimiter: this.rateLimiter,
         storage: this.ctx.storage,
@@ -197,10 +198,14 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     if (this.keysMap.size === 0 && this.env.DB && typeof this.env.DB.prepare === "function") {
       try {
         const stmt = this.env.DB.prepare(
-          `SELECT id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, rpm_limit, rpd_limit, priority, status 
-           FROM api_keys 
-           WHERE status = 'Healthy' 
-             AND (tenant_id = ? OR (pool_type = 'COMMUNITY' AND community_routing_status = 'ACTIVE'))`
+          `SELECT k.id, k.tenant_id, k.label, k.provider, k.encrypted_key_b64, k.nonce_b64, 
+                  k.rpm_limit, k.rpd_limit, k.priority, k.status, k.pool_type,
+                  k.dispatched_today, k.dispatched_communal,
+                  COALESCE(cs.community_debt_micro_cu, 0) as owner_debt
+           FROM api_keys k
+           LEFT JOIN contributor_standing cs ON cs.tenant_id = k.tenant_id
+           WHERE k.status = 'Healthy' 
+             AND (k.tenant_id = ? OR (k.pool_type = 'COMMUNITY' AND k.community_routing_status = 'ACTIVE'))`
         ).bind(this.tenantId);
         const result = await stmt.all<{
           id: string;
@@ -213,20 +218,41 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
           rpd_limit: number;
           priority: number;
           status: string;
+          pool_type?: string;
+          dispatched_today?: number;
+          dispatched_communal?: number;
+          owner_debt?: number;
         }>();
         if (result.results && result.results.length > 0) {
-          const d1Keys: EncryptedKey[] = result.results.map((row) => ({
-            id: row.id,
-            tenantId: this.tenantId,
-            provider: row.provider,
-            ciphertext: row.encrypted_key_b64,
-            nonce: row.nonce_b64,
-            label: row.label,
-            priority: row.priority,
-            rpmLimit: row.rpm_limit,
-            rpdLimit: row.rpd_limit,
-            status: row.status,
-          }));
+          const d1Keys: EncryptedKey[] = result.results.map((row) => {
+            const isOwnKey = row.tenant_id === this.tenantId;
+            const totalDispatched = (row.dispatched_today ?? 0) + (this.dispatchedToday.get(row.id) ?? 0);
+            const communalDispatched = (row.dispatched_communal ?? 0) + (this.dispatchedCommunal.get(row.id) ?? 0);
+            const ratio = totalDispatched > 0 ? communalDispatched / totalDispatched : 0;
+            const isParasite = totalDispatched > 0 && ratio < 0.1;
+            const isHero = totalDispatched > 0 && ratio >= 0.8;
+
+            let calculatedPriority = isOwnKey ? 10000 : 0;
+            if (!isOwnKey) {
+              const debtBoost = Math.min(5000, Math.floor(Number(row.owner_debt ?? 0) / 1000));
+              calculatedPriority += debtBoost;
+              if (isParasite) calculatedPriority += 2000;
+              if (isHero) calculatedPriority -= 1000;
+            }
+
+            return {
+              id: row.id,
+              tenantId: this.tenantId,
+              provider: row.provider,
+              ciphertext: row.encrypted_key_b64,
+              nonce: row.nonce_b64,
+              label: row.label,
+              priority: calculatedPriority,
+              rpmLimit: row.rpm_limit,
+              rpdLimit: row.rpd_limit,
+              status: row.status,
+            };
+          });
           for (const k of d1Keys) {
             this.keysMap.set(k.id, k);
           }
@@ -345,12 +371,20 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   }
 
   public recordDispatch(keyId: string, isCommunal: boolean): void {
-    const today = this.dispatchedToday.get(keyId) || 0;
-    this.dispatchedToday.set(keyId, today + 1);
+    const today = (this.dispatchedToday.get(keyId) || 0) + 1;
+    this.dispatchedToday.set(keyId, today);
 
+    let communal = this.dispatchedCommunal.get(keyId) || 0;
     if (isCommunal) {
-      const communal = this.dispatchedCommunal.get(keyId) || 0;
-      this.dispatchedCommunal.set(keyId, communal + 1);
+      communal += 1;
+      this.dispatchedCommunal.set(keyId, communal);
+    }
+
+    if (this.ctx.storage && typeof this.ctx.storage.put === "function") {
+      this.ctx.storage.put(`dispatch:today:${keyId}`, today).catch(() => {});
+      if (isCommunal) {
+        this.ctx.storage.put(`dispatch:communal:${keyId}`, communal).catch(() => {});
+      }
     }
   }
 
