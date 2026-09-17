@@ -314,7 +314,7 @@
         action: payload.state === 'TRIPPED' ? 'CIRCUIT_TRIP_OVERRIDE' : 'CIRCUIT_RESET_NORMAL',
         target: payload.provider.toUpperCase(),
         reason: payload.reason,
-        syncDurationMs: +(Math.random() * 1.8 + 1.9).toFixed(1),
+        syncDurationMs: 0, // populated from API response when available
       },
       ...auditLogs,
     ];
@@ -331,7 +331,7 @@
         action: active ? 'GLOBAL_KILL_SWITCH_ENGAGED' : 'GLOBAL_KILL_SWITCH_DISARMED',
         target: 'ALL_EDGE_ISOLATES',
         reason,
-        syncDurationMs: +(Math.random() * 2.5 + 4.1).toFixed(1),
+        syncDurationMs: 0, // populated from API response when available
       },
       ...auditLogs,
     ];

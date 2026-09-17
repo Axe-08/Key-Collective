@@ -19,5 +19,3 @@ export * from "./evaluator";
 export * from "./fallback";
 export * from "./router";
 
-// Backward-compatible export matching src/router/cascade.ts
-export { routeRequest, type AppContext } from "../cascade";

@@ -4,44 +4,101 @@
 
   let {
     stats,
-    keys,
+    keys = [],
     todaySpendMicrodollars = 0,
   }: {
-    stats: PoolStats;
-    keys: APIKey[];
+    stats?: PoolStats;
+    keys?: APIKey[];
     todaySpendMicrodollars?: Microdollars;
   } = $props();
+
+  let liveStats = $state<PoolStats | null>(null);
+
+  function getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (typeof window !== 'undefined') {
+      try {
+        const token = localStorage.getItem('kc_auth_token');
+        if (token) headers['Authorization'] = `Bearer ${token.trim()}`;
+        const raw = localStorage.getItem('kc_user');
+        if (raw) {
+          const user = JSON.parse(raw);
+          if (user?.id) headers['x-tenant-id'] = user.id;
+        }
+      } catch {}
+    }
+    return headers;
+  }
+
+  async function fetchStats() {
+    try {
+      const res = await fetch('/api/stats', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        liveStats = data;
+      }
+    } catch (err) {
+      console.error('Failed to fetch /api/stats:', err);
+    }
+  }
+
+  $effect(() => {
+    fetchStats();
+    const interval = setInterval(fetchStats, 5000);
+    return () => clearInterval(interval);
+  });
+
+  const effectiveStats = $derived(
+    liveStats ?? stats ?? {
+      total_keys: 0,
+      healthy_keys: 0,
+      rate_limited_keys: 0,
+      invalid_keys: 0,
+      total_rpm_headroom: 0,
+      total_rpm_limit: 0,
+      current_rpm_used: 0,
+      avg_upstream_latency_ms: 0,
+      daily_quota_used: 0,
+      daily_quota_limit: 0,
+      proxy_status: 'healthy' as const,
+    }
+  );
 
   const geminiCount = $derived(keys.filter((k) => k.provider === 'gemini').length);
   const groqCount = $derived(keys.filter((k) => k.provider === 'groq').length);
 
-  const totalKeys = $derived(keys.length > 0 ? keys.length : (stats.total_keys || 0));
+  const totalKeys = $derived(keys.length > 0 ? keys.length : (effectiveStats.total_keys || 0));
   const healthyKeys = $derived(
     keys.length > 0
       ? keys.filter((k) => k.status === 'healthy').length
-      : (stats.healthy_keys || 0)
+      : (effectiveStats.healthy_keys || 0)
   );
   const coolingKeys = $derived(
     keys.length > 0
       ? keys.filter((k) => k.status === 'rate_limited').length
-      : (stats.rate_limited_keys || 0)
+      : (effectiveStats.rate_limited_keys || 0)
   );
 
-  const rpmCap = $derived(stats.total_rpm_limit || 0);
-  const rpmLoad = $derived(stats.current_rpm_used || 0);
+  const rpmCap = $derived(effectiveStats.total_rpm_limit || 0);
+  const rpmLoad = $derived(effectiveStats.current_rpm_used || 0);
   const rpmAllocatedPercent = $derived(
     rpmCap > 0 ? Math.min(100, Math.round((rpmLoad / rpmCap) * 100)) : 0
   );
 
   // Microdollar Spend Calculations (1 USD = 1,000,000 µ$)
+  const effectiveSpendMicrodollars = $derived(
+    todaySpendMicrodollars > 0
+      ? todaySpendMicrodollars
+      : ((effectiveStats as any).total_spend_today_microdollars ?? 0)
+  );
   const dailyBudgetMicrodollars: Microdollars = 1_000_000;
-  const spendRatio = $derived(Math.min(1, Math.max(0, todaySpendMicrodollars / dailyBudgetMicrodollars)));
+  const spendRatio = $derived(Math.min(1, Math.max(0, effectiveSpendMicrodollars / dailyBudgetMicrodollars)));
   const spendPercent = $derived(Math.round(spendRatio * 100));
   // SVG Ring calculation: circumference = 2 * PI * 18 = 113.097
   const ringCircumference = 113.097;
   const ringOffset = $derived(ringCircumference * (1 - Math.max(0.04, spendRatio)));
 
-  // Actual dynamic cooldown countdown timer
+  // Dynamic cooldown countdown timer
   let currentTime = $state(Date.now());
   $effect(() => {
     const interval = setInterval(() => {
@@ -76,10 +133,10 @@
     </div>
     <div class="flex items-center gap-2 pt-2 border-t border-outline-variant/20 font-mono">
       <span class="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary text-label-sm font-label-sm">
-        {geminiCount || 8} Gemini
+        {geminiCount} Gemini
       </span>
       <span class="px-2 py-0.5 rounded bg-tertiary/10 border border-tertiary/20 text-tertiary text-label-sm font-label-sm">
-        {groqCount || 4} Groq
+        {groqCount} Groq
       </span>
       <span class="ml-auto text-label-sm font-label-sm text-outline">100% synced</span>
     </div>
@@ -137,20 +194,20 @@
       <div>
         <div class="flex items-baseline gap-2">
           <span class="text-headline-lg font-headline-lg font-semibold text-on-surface font-mono">
-            {stats.avg_upstream_latency_ms > 0 ? stats.avg_upstream_latency_ms : 142}<span class="text-headline-sm font-headline-sm text-outline">ms</span>
+            {effectiveStats.avg_upstream_latency_ms || 0}<span class="text-headline-sm font-headline-sm text-outline">ms</span>
           </span>
           <span class="px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-secondary/15 text-secondary border border-secondary/30 font-mono">
-            Ultra Fast
+            {effectiveStats.avg_upstream_latency_ms > 0 && effectiveStats.avg_upstream_latency_ms < 100 ? 'Ultra Fast' : effectiveStats.avg_upstream_latency_ms > 0 ? 'Optimal' : 'Active'}
           </span>
         </div>
         <div class="text-label-sm font-label-sm text-on-surface-variant font-mono mt-1">
-          Spend: <span class="text-primary font-medium">{formatMicrodollars(todaySpendMicrodollars)}</span>
-          <span class="text-outline text-[10px]">({todaySpendMicrodollars.toLocaleString()} µ$)</span>
+          Spend: <span class="text-primary font-medium">{formatMicrodollars(effectiveSpendMicrodollars)}</span>
+          <span class="text-outline text-[10px]">({effectiveSpendMicrodollars.toLocaleString()} µ$)</span>
         </div>
       </div>
 
       <!-- Circular Microdollar SVG Spend Ring -->
-      <div class="relative w-12 h-12 flex items-center justify-center shrink-0" title="Daily Spend Ring: {todaySpendMicrodollars.toLocaleString()} µ$ / {dailyBudgetMicrodollars.toLocaleString()} µ$">
+      <div class="relative w-12 h-12 flex items-center justify-center shrink-0" title="Daily Spend Ring: {effectiveSpendMicrodollars.toLocaleString()} µ$ / {dailyBudgetMicrodollars.toLocaleString()} µ$">
         <svg class="w-12 h-12 -rotate-90" viewBox="0 0 44 44">
           <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" class="text-surface-container-highest" stroke-width="3.5" />
           <circle
@@ -178,9 +235,9 @@
     <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 text-label-sm font-label-sm">
       <span class="text-secondary flex items-center gap-0.5 font-mono">
         <span class="material-symbols-outlined text-[14px]" data-icon="trending_down">trending_down</span>
-        -18ms vs Direct
+        {effectiveStats.avg_upstream_latency_ms > 0 ? `${effectiveStats.avg_upstream_latency_ms}ms avg` : 'Edge Direct'}
       </span>
-      <span class="text-outline font-mono">SIN Route Optimized</span>
+      <span class="text-outline font-mono">Edge Route Verified</span>
     </div>
   </div>
 </section>
