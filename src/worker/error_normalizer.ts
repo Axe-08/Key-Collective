@@ -32,6 +32,24 @@ export function sanitizeErrorBody(raw: string): string {
     .replace(CLOUD_TRACE_PATTERN, '[TRACE_REDACTED]');
 }
 
+export function createErrorSanitizerTransform(): TransformStream<Uint8Array | string, Uint8Array> {
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  return new TransformStream<Uint8Array | string, Uint8Array>({
+    transform(chunk: Uint8Array | string, controller: TransformStreamDefaultController<Uint8Array>) {
+      const text = typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true });
+      const sanitized = sanitizeErrorBody(text);
+      controller.enqueue(encoder.encode(sanitized));
+    },
+    flush(controller: TransformStreamDefaultController<Uint8Array>) {
+      const remaining = decoder.decode();
+      if (remaining) {
+        controller.enqueue(encoder.encode(sanitizeErrorBody(remaining)));
+      }
+    },
+  });
+}
+
 export function normalizeUpstreamResponse(
   upstream: Response,
   kcRequestId: string,
@@ -42,5 +60,16 @@ export function normalizeUpstreamResponse(
   cleanHeaders.set('x-kc-request-id', kcRequestId);
   if (modelUsed) cleanHeaders.set('x-kc-model-used', modelUsed);
   if (provider) cleanHeaders.set('x-kc-provider', provider);
-  return new Response(upstream.body, { status: upstream.status, headers: cleanHeaders });
+
+  let body = upstream.body;
+  if (upstream.status >= 400 && body) {
+    body = body.pipeThrough(createErrorSanitizerTransform());
+    cleanHeaders.delete('content-length');
+  }
+
+  return new Response(body, {
+    status: upstream.status,
+    headers: cleanHeaders,
+  });
 }
+
