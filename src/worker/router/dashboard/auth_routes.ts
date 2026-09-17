@@ -50,8 +50,45 @@ export async function handleOAuthGithubCallback(
     console.error("GitHub OAuth Error:", err);
   }
 
-  const mockToken = "kc_bld_" + crypto.randomUUID().replace(/-/g, "") + "9a8f";
   const userLogin = profileData?.login || "collective-dev";
+  const tenantId = profileData?.id ? `gh_${profileData.id}` : `gh_${userLogin}`;
+  const email = profileData?.email || `${userLogin}@users.noreply.github.com`;
+  const tier = "max";
+  const sybilScore = 95;
+
+  let token = `kc_${tier}_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  let tokenHash = "";
+
+  if (env.DB && typeof env.DB.prepare === "function") {
+    try {
+      // 1. Upsert into users table
+      await env.DB.prepare(
+        `INSERT INTO users (id, email, tier, role, sybil_score, auth_phase, is_quarantined, created_at)
+         VALUES (?, ?, ?, 'user', ?, 3, 0, CURRENT_TIMESTAMP)
+         ON CONFLICT(id) DO UPDATE SET
+           email = excluded.email,
+           tier = COALESCE(users.tier, excluded.tier)`
+      ).bind(tenantId, email, tier, sybilScore).run();
+
+      // 2. Hash token using Web Crypto SHA-256
+      const digestBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+      tokenHash = Array.from(new Uint8Array(digestBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      // 3. Insert or update auth_token for this tenant
+      const tokenId = `tok_${tenantId.slice(0, 12)}_${Date.now().toString(36)}`;
+      const rpmLimit = 60;
+      const budget = 50_000_000;
+
+      await env.DB.prepare(
+        `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at)
+         VALUES (?, ?, ?, ?, 0, '[]', ?, null, CURRENT_TIMESTAMP)`
+      ).bind(tokenId, tokenHash, tenantId, budget, rpmLimit).run();
+    } catch (err: any) {
+      console.error("Failed to persist GitHub OAuth user session into D1:", err);
+    }
+  }
 
   const html = `<!DOCTYPE html>
 <html>
@@ -60,10 +97,10 @@ export async function handleOAuthGithubCallback(
 <p>Authentication successful for ${userLogin}. Redirecting...</p>
 <script>
   if (window.opener) {
-    window.opener.postMessage({ type: "OAUTH_CALLBACK", token: "${mockToken}", tier: "builder" }, "*");
+    window.opener.postMessage({ type: "OAUTH_CALLBACK", token: "${token}", tier: "${tier}" }, "*");
     window.close();
   } else {
-    window.location.href = "/?token=${mockToken}";
+    window.location.href = "/?token=${token}";
   }
 </script>
 </body>
@@ -105,8 +142,14 @@ export async function handleSyncSession(
   }
 
   const email = body.email?.trim() || `${tenantId}@users.noreply.kc`;
-  const tier = body.tier?.trim() || (body.authProvider === "google" ? "builder" : body.authProvider === "github" ? "max" : "demo");
+  let tier = body.tier?.trim() || (body.authProvider === "google" ? "builder" : body.authProvider === "github" ? "max" : "demo");
   const authProvider = body.authProvider?.trim() || "github";
+
+  // Tier-escalation guard: prevent unauthorized tier escalation to privileged tiers
+  if ((tier === "admin" || tier === "ultra") && authProvider !== "internal") {
+    tier = "max";
+  }
+
   const sybilScore = tier === "probationary" ? 35 : tier === "demo" ? 20 : 95;
 
   let token = `kc_${tier}_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
@@ -163,4 +206,3 @@ export async function handleSyncSession(
     }
   );
 }
-
