@@ -57,6 +57,30 @@
       "pass_rate": 100.0,
       "escalations": 0,
       "commits": 0
+    },
+    "pod-quota-security": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-packaging-tests": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-dashboard-apis": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
+    },
+    "pod-ui-real-wiring": {
+      "tasks": 0,
+      "pass_rate": 100.0,
+      "escalations": 0,
+      "commits": 0
     }
   }
 }
