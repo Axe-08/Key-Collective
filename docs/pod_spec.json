@@ -1,39 +1,95 @@
 [
   {
-    "pod_id": "pod-crypto-migrations",
-    "branch": "hive/pod-crypto-migrations",
+    "pod_id": "pod-keypool-priority",
+    "name": "KeyPool Priority Selection & Hot-Path Dispatch",
+    "branch": "hive/pod-keypool-priority",
     "scope": [
-      "migrations/*",
-      "src/crypto/*"
-    ]
+      "src/durable_objects/key_pool/",
+      "src/durable_objects/key_selector/",
+      "src/worker/router/chat/",
+      "src/pool/"
+    ],
+    "contracts": [
+      "src/contracts/key_pool.ts",
+      "src/contracts/router.ts",
+      "src/contracts/v3_types.ts",
+      "src/contracts/v4_types.ts"
+    ],
+    "dependencies": [],
+    "model_tier": "pro"
   },
   {
-    "pod_id": "pod-ingress-verification",
-    "branch": "hive/pod-ingress-verification",
+    "pod_id": "pod-quota-security",
+    "name": "Tenant Quota DO & Security Hardening",
+    "branch": "hive/pod-quota-security",
     "scope": [
-      "src/ingress/*"
-    ]
+      "src/quota/tenant/",
+      "src/worker/auth/",
+      "src/worker/error_normalizer.ts",
+      "src/worker/router/dashboard/abuse_routes.ts",
+      "wrangler.jsonc",
+      "src/index.ts"
+    ],
+    "contracts": [
+      "src/contracts/auth.ts",
+      "src/contracts/router.ts"
+    ],
+    "dependencies": [],
+    "model_tier": "pro"
   },
   {
-    "pod_id": "pod-pool-coordinator",
-    "branch": "hive/pod-pool-coordinator",
+    "pod_id": "pod-dashboard-apis",
+    "name": "Dashboard Projects & Token REST APIs",
+    "branch": "hive/pod-dashboard-apis",
     "scope": [
-      "src/coordinator/*",
-      "src/router/*"
-    ]
+      "src/worker/router/dashboard/project_routes.ts",
+      "src/worker/router/dashboard/token_routes.ts",
+      "src/worker/router/dashboard/handler.ts",
+      "src/worker/router/dashboard/auth_routes.ts"
+    ],
+    "contracts": [
+      "src/contracts/auth.ts",
+      "src/contracts/router.ts"
+    ],
+    "dependencies": [],
+    "model_tier": "pro"
   },
   {
-    "pod_id": "pod-gateway-hardening",
-    "branch": "hive/pod-gateway-hardening",
+    "pod_id": "pod-ui-real-wiring",
+    "name": "Svelte UI Real-Wiring & Mock Purge",
+    "branch": "hive/pod-ui-real-wiring",
     "scope": [
-      "src/gateway/*"
-    ]
+      "ui/src/lib/Workbench.svelte",
+      "ui/src/lib/workbench/IdentityCard.svelte",
+      "ui/src/lib/MetricCards.svelte",
+      "ui/src/lib/DebtLedgerWidget.svelte",
+      "ui/src/lib/admin/AdminView.svelte",
+      "ui/src/lib/OAuthModal.svelte"
+    ],
+    "contracts": [
+      "src/contracts/router.ts",
+      "src/contracts/v3_5_types.ts"
+    ],
+    "dependencies": [],
+    "model_tier": "pro"
   },
   {
-    "pod_id": "pod-ui-commons",
-    "branch": "hive/pod-ui-commons",
+    "pod_id": "pod-packaging-tests",
+    "name": "Migration Consolidation & Test Harmonization",
+    "branch": "hive/pod-packaging-tests",
     "scope": [
-      "ui/*"
-    ]
+      "migrations/",
+      "src/storage/migrations/",
+      "vitest.config.ts",
+      "ui/ui.go",
+      "docs/SCORECARD.md.md",
+      "src/worker/auth.ts",
+      "src/worker/telemetry.ts"
+    ],
+    "contracts": [
+      "src/contracts/index.ts"
+    ],
+    "dependencies": [],
+    "model_tier": "pro"
   }
 ]
