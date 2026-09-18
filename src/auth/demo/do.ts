@@ -293,15 +293,22 @@ export class DemoDO implements DurableObject {
       "access-control-allow-origin": "*",
     };
 
-    // 2. GET /token or /api/demo/token or /
+    // 2. GET or POST /token or /api/demo/token or /
     if (
-      method === "GET" &&
+      (method === "GET" || method === "POST") &&
       (url.pathname === "/token" ||
         url.pathname === "/api/demo/token" ||
         url.pathname === "/")
     ) {
       const tokenData = await this.getActiveDemoToken();
-      return Response.json(tokenData, { headers: jsonHeaders });
+      const expiresInSeconds = Math.max(
+        0,
+        Math.floor((tokenData.expiresAt - this.now()) / 1000)
+      );
+      return Response.json(
+        { ...tokenData, expiresInSeconds },
+        { headers: jsonHeaders }
+      );
     }
 
     // 3. GET /limits?ip=...

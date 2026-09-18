@@ -62,6 +62,13 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       expect(result.tier).toBe("builder");
     });
 
+    it("rejects arbitrary non-test token when secretKey is absent", async () => {
+      const { verifyTurnstileToken } = await import("./sybil");
+      const res = await verifyTurnstileToken("some-unverified-production-token", {});
+      expect(res.success).toBe(false);
+      expect(res.errorCodes).toContain("missing-secret-key");
+    });
+
     it("detects bot and immediately sets score to 0 with suspended tier for invalid token", async () => {
       const user: SybilUserInput = {
         username: "botuser",

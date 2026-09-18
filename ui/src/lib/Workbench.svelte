@@ -216,14 +216,18 @@
             ? data
             : (data && Array.isArray((data as any).projects) ? (data as any).projects : []);
           if (list.length > 0) {
-            localProjects = list.map((p, idx) => ({
-              ...p,
-              assignedRpm: ('assignedRpm' in p ? (p as ExtendedProject).assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
-              latencyMs: 11 + (idx % 3) * 5,
-              latency: `${11 + (idx % 3) * 5}ms avg`,
-              icon: idx % 2 === 0 ? 'hub' : 'psychology',
-              iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
-            }));
+            localProjects = list.map((p, idx) => {
+              const ext = p as ExtendedProject;
+              const lat = typeof ext.latencyMs === 'number' ? ext.latencyMs : null;
+              return {
+                ...p,
+                assignedRpm: ('assignedRpm' in p ? ext.assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
+                latencyMs: lat,
+                latency: lat !== null ? `${lat}ms avg` : '—',
+                icon: idx % 2 === 0 ? 'hub' : 'psychology',
+                iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
+              };
+            });
             return;
           }
         }
@@ -233,14 +237,18 @@
 
       if (!cancelled) {
         if (projects && projects.length > 0) {
-          localProjects = projects.map((p, idx) => ({
-            ...p,
-            assignedRpm: ('assignedRpm' in p ? (p as ExtendedProject).assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
-            latencyMs: 11 + (idx % 3) * 5,
-            latency: `${11 + (idx % 3) * 5}ms avg`,
-            icon: idx % 2 === 0 ? 'hub' : 'psychology',
-            iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
-          }));
+          localProjects = projects.map((p, idx) => {
+            const ext = p as ExtendedProject;
+            const lat = typeof ext.latencyMs === 'number' ? ext.latencyMs : null;
+            return {
+              ...p,
+              assignedRpm: ('assignedRpm' in p ? ext.assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
+              latencyMs: lat,
+              latency: lat !== null ? `${lat}ms avg` : '—',
+              icon: idx % 2 === 0 ? 'hub' : 'psychology',
+              iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
+            };
+          });
         } else {
           localProjects = [];
         }

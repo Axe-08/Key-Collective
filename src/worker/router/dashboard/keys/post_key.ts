@@ -90,7 +90,9 @@ export async function handlePostKeys(
 
   const keyPrefix = rawKey.slice(0, 8);
   const keySuffix = rawKey.slice(-4);
-  const keyId = `key_${body.provider}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  const randBytes = crypto.getRandomValues(new Uint8Array(3));
+  const randHex = Array.from(randBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const keyId = `key_${body.provider}_${Date.now().toString(36)}_${randHex}`;
 
   const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
 

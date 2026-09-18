@@ -67,39 +67,17 @@ export const api = {
     const prefix = payload.key.slice(0, 8) || (payload.provider === 'gemini' ? 'AIzaSy' : 'gsk_');
     const suffix = payload.key.slice(-4) || '99xx';
 
-    try {
-      const res = await fetch('/api/keys', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        const newKey = await res.json();
-        return newKey;
-      }
-    } catch {
-      // Fallback
+    const res = await fetch('/api/keys', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const newKey = await res.json();
+      return newKey;
     }
-
-    const newKey: APIKey = {
-      id: `key_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
-      key_prefix: prefix,
-      key_suffix: suffix,
-      provider: payload.provider,
-      label: payload.label.trim() || `${payload.provider}-key-${memoryKeys.length + 1}`,
-      rpm_limit: payload.rpm_limit,
-      rpd_limit: payload.rpd_limit,
-      priority: payload.priority,
-      status: 'healthy',
-      requests_this_min: 0,
-      requests_today: 0,
-      total_requests: 0,
-      avg_latency_ms: 0,
-      created_at: new Date().toISOString(),
-    };
-
-    memoryKeys = [newKey, ...memoryKeys];
-    return newKey;
+    const errData = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(errData.error || `Failed to register key (HTTP ${res.status})`);
   },
 
   async deleteKey(id: string): Promise<boolean> {

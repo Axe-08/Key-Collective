@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   adminRouter,
   verifyAdmin,
-  createMockRequest,
-  createMockResponse,
   resetAdminStore,
   getTenants,
   updateTenantTier,
@@ -11,6 +9,10 @@ import {
   getPoolHealth,
   resetCircuitBreakers,
 } from "../../src/admin/admin_router";
+import {
+  createMockRequest,
+  createMockResponse,
+} from "../../src/admin/router/mocks";
 
 describe("Admin Surveillance Router & Zero-Knowledge Denial (T1 Verification)", () => {
   beforeEach(() => {

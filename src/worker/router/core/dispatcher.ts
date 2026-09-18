@@ -24,6 +24,7 @@ import type { DashboardHandler } from "../dashboard_handler";
 import type { ChatHandler } from "../chat_handler";
 import type { RouterHandlerOptions } from "../types";
 import type { RouterContextResolver } from "./resolver";
+import { handleDemoTokenRequest } from "../demo_routes";
 
 export interface DispatchParams {
   request: Request;
@@ -122,6 +123,14 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
 
   if (method === "GET" && (pathname === "/openapi.json" || pathname === "/v1/openapi.json")) {
     return modelRoutes.handleOpenApiSpec();
+  }
+
+  // 1.05 Ephemeral Demo Sandbox Token Issuance
+  if (
+    (method === "POST" || method === "GET") &&
+    (pathname === "/v1/demo/token" || pathname === "/demo/token" || pathname === "/api/demo/token")
+  ) {
+    return await handleDemoTokenRequest(request, env);
   }
 
   // 1.1 Public Model Discovery

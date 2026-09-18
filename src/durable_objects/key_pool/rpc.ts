@@ -3,7 +3,8 @@
  * KeyPoolDO HTTP RPC Request Dispatcher
  */
 
-import { EncryptedKey } from "../../contracts/key_pool";
+import { EncryptedKey, KeyMetrics } from "../../contracts/key_pool";
+import { CapacitySummary } from "../key_selector/types";
 import { DomainError } from "../../errors/domain_error";
 import { InvalidKeyError } from "../../errors/key_errors";
 import { isEncryptedKey } from "./types";
@@ -22,8 +23,8 @@ export interface KeyPoolRpcHandlerContext {
   addKeys: (keys: EncryptedKey[]) => Promise<void>;
   setKeys: (keys: EncryptedKey[]) => Promise<void>;
   removeKey: (keyId: string) => Promise<boolean>;
-  getKeyMetrics: (keyId: string) => Promise<any>;
-  getCapacitySummary: (provider?: string) => Promise<any>;
+  getKeyMetrics: (keyId: string) => Promise<KeyMetrics>;
+  getCapacitySummary: (provider?: string) => Promise<CapacitySummary>;
   now: () => number;
   keysCount: () => number;
 }

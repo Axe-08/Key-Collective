@@ -4,6 +4,30 @@
 
 import type { WorkerEnv } from "../../auth_middleware";
 
+interface GithubTokenResponse {
+  access_token?: string;
+  token_type?: string;
+  scope?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface GithubProfile {
+  id?: number;
+  login?: string;
+  email?: string | null;
+  avatar_url?: string | null;
+  name?: string | null;
+}
+
+interface SyncSessionBody {
+  id?: string;
+  email?: string;
+  tier?: string;
+  authProvider?: string;
+  username?: string;
+}
+
 export async function handleOAuthGithubCallback(
   request: Request,
   env: WorkerEnv
@@ -16,7 +40,7 @@ export async function handleOAuthGithubCallback(
     return new Response("Missing code parameter", { status: 400 });
   }
 
-  let profileData: any = null;
+  let profileData: GithubProfile | null = null;
   let accessToken: string | null = null;
 
   try {
@@ -34,8 +58,8 @@ export async function handleOAuthGithubCallback(
       }),
     });
 
-    const tokenData: any = await tokenRes.json();
-    accessToken = tokenData.access_token;
+    const tokenData = (await tokenRes.json()) as GithubTokenResponse;
+    accessToken = tokenData.access_token ?? null;
 
     if (accessToken) {
       const userRes = await fetch("https://api.github.com/user", {
@@ -44,10 +68,10 @@ export async function handleOAuthGithubCallback(
           "User-Agent": "KeyCollective",
         },
       });
-      profileData = await userRes.json();
+      profileData = (await userRes.json()) as GithubProfile;
     }
-  } catch (err) {
-    console.error("GitHub OAuth Error:", err);
+  } catch (err: unknown) {
+    console.error("GitHub OAuth Error:", err instanceof Error ? err.message : String(err));
   }
 
   const userLogin = profileData?.login || "collective-dev";
@@ -85,8 +109,8 @@ export async function handleOAuthGithubCallback(
         `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at)
          VALUES (?, ?, ?, ?, 0, '[]', ?, null, CURRENT_TIMESTAMP)`
       ).bind(tokenId, tokenHash, tenantId, budget, rpmLimit).run();
-    } catch (err: any) {
-      console.error("Failed to persist GitHub OAuth user session into D1:", err);
+    } catch (err: unknown) {
+      console.error("Failed to persist GitHub OAuth user session into D1:", err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -125,7 +149,7 @@ export async function handleSyncSession(
   } = {};
 
   try {
-    body = (await request.json()) as any;
+    body = (await request.json()) as SyncSessionBody;
   } catch {
     return new Response(JSON.stringify({ error: { message: "Invalid JSON body", code: "BAD_REQUEST", statusCode: 400 } }), {
       status: 400,
@@ -181,8 +205,8 @@ export async function handleSyncSession(
         `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at)
          VALUES (?, ?, ?, ?, 0, '[]', ?, null, CURRENT_TIMESTAMP)`
       ).bind(tokenId, tokenHash, tenantId, budget, rpmLimit).run();
-    } catch (err: any) {
-      console.error("Failed to persist user session into D1:", err);
+    } catch (err: unknown) {
+      console.error("Failed to persist user session into D1:", err instanceof Error ? err.message : String(err));
     }
   }
 

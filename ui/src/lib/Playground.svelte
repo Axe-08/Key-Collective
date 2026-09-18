@@ -17,23 +17,33 @@
 
   const baseUrl = $derived(proxyEndpoint.replace(/\/chat\/completions$/, ''));
 
-  function generatePlaygroundToken(): string {
-    const randomSession = Math.random().toString(36).substring(2, 10);
-    // Ephemeral token valid for 60 seconds (expiry hex base36)
-    const expiryTimestamp = Date.now() + 60 * 1000;
-    return `kc_play_${randomSession}_${expiryTimestamp.toString(36)}`;
-  }
-
-  let bearerToken = $state(generatePlaygroundToken());
-  let tokenSecondsRemaining = $state(60);
+  let bearerToken = $state('');
+  let tokenSecondsRemaining = $state(900);
   let isSessionToken = $state(false);
   let selectedModel = $state('gemini-3.8-flash');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
 
+  async function fetchDemoToken() {
+    try {
+      const res = await fetch('/v1/demo/token', { method: 'POST' });
+      if (res.ok) {
+        const data = (await res.json()) as { token?: string; expiresInSeconds?: number };
+        if (data?.token) {
+          bearerToken = data.token;
+          tokenSecondsRemaining = data.expiresInSeconds ?? 900;
+          return;
+        }
+      }
+    } catch {}
+    bearerToken = '';
+    liveStatus = 'Demo token unavailable — check network or sign in';
+  }
+
   function handleRotateToken() {
-    bearerToken = generatePlaygroundToken();
-    tokenSecondsRemaining = 60;
+    if (!isSessionToken) {
+      fetchDemoToken();
+    }
   }
 
   let availableModels = $state<{ id: string; provider: string }[]>([
@@ -55,20 +65,18 @@
     let rotationInterval: ReturnType<typeof setInterval> | null = null;
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('kc_auth_token');
-      if (stored && stored.trim().length > 0 && !stored.startsWith('kc_play_')) {
+      if (stored && stored.trim().length > 0 && !stored.startsWith('kc_play_') && !stored.startsWith('kc_demo_')) {
         bearerToken = stored.trim();
         isSessionToken = true;
       } else {
-        bearerToken = generatePlaygroundToken();
-        tokenSecondsRemaining = 60;
+        fetchDemoToken();
       }
 
       rotationInterval = setInterval(() => {
         if (!isSessionToken) {
           tokenSecondsRemaining -= 1;
           if (tokenSecondsRemaining <= 0) {
-            bearerToken = generatePlaygroundToken();
-            tokenSecondsRemaining = 60;
+            fetchDemoToken();
           }
         }
       }, 1000);

@@ -16,23 +16,26 @@
     onClose,
     onSelectTier,
     onSimulateLogin,
-    onEmailIngress,
   }: {
     isOpen: boolean;
     userAccount?: UserAccount;
     onClose: () => void;
     onSelectTier: (tier: UserTier) => void;
-    onSimulateLogin: (username: string, tier: UserTier, email?: string, avatarUrl?: string, authProvider?: 'github' | 'google' | 'email' | 'demo') => void;
-    onEmailIngress?: (email: string) => void;
+    onSimulateLogin: (
+      username: string,
+      tier: UserTier,
+      email?: string,
+      avatarUrl?: string,
+      authProvider?: 'github' | 'google' | 'demo',
+      sessionToken?: string,
+      explicitId?: string
+    ) => void;
   } = $props();
 
   // State Management
   let isVerifying = $state(false);
   let isDemoLaunching = $state(false);
-  let isEmailSubmitting = $state(false);
-  let emailInput = $state("");
   let emailError = $state("");
-  let emailSuccess = $state("");
   let verificationStep = $state("");
   let showPkceInspector = $state(false);
 
@@ -71,100 +74,64 @@
     return bundle;
   }
 
-  // Phase 1: Email Ingress Handler (Probationary Tier)
-  async function handleEmailIngressSubmit(e: SubmitEvent) {
-    e.preventDefault();
-    emailError = "";
-    emailSuccess = "";
-
-    const email = emailInput.trim();
-    const rfc5321Regex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-    if (!email || !rfc5321Regex.test(email)) {
-      emailError = "Please provide a valid developer email address.";
-      return;
-    }
-
-    const domain = email.split("@")[1]?.toLowerCase();
-    const disposableDomains = ["mailinator.com", "temp-mail.org", "10minutemail.com", "guerrillamail.com"];
-    if (domain && disposableDomains.includes(domain)) {
-      emailError = "Disposable email provider rejected by Layer 4 MX filter.";
-      return;
-    }
-
-    isEmailSubmitting = true;
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-
-      if (onEmailIngress) {
-        onEmailIngress(email);
-      }
-      onSimulateLogin(email.split("@")[0] || "dev-probationary", "probationary", email, undefined, "email");
-      onSelectTier("probationary");
-
-      emailSuccess = "Turnstile passed! Assigned Probationary Tier (2 RPM / 50 RPD, 50,000 µ$ budget). Ready for GitHub elevation.";
-    } finally {
-      isEmailSubmitting = false;
-    }
-  }
-
-  // Phase 2: Real PKCE Redirect Initiation & Verification Flow
-  async function handleGithubPKCEAuth(mode: "real_redirect" | "instant_simulation" = "real_redirect") {
+  // Phase 2: Real PKCE Redirect Initiation Flow (Zero Simulation)
+  async function handleGithubPKCEAuth() {
     isVerifying = true;
     emailError = "";
 
     try {
-      verificationStep = "1/4 Generating RFC 7636 PKCE S256 Challenge...";
+      verificationStep = "1/3 Generating RFC 7636 PKCE S256 Challenge...";
       const bundle = await initPKCEBundle();
 
       await new Promise((resolve) => setTimeout(resolve, 350));
-      verificationStep = "2/4 Verifying Cloudflare Turnstile bot proof...";
+      verificationStep = "2/3 Verifying Cloudflare Turnstile bot proof...";
 
-      if (mode === "real_redirect") {
-        verificationStep = "3/4 Redirecting to GitHub OAuth Gateway...";
-        await new Promise((resolve) => setTimeout(resolve, 400));
-
-        // Real redirect to GitHub OAuth authorize endpoint
-        const clientId =
-          typeof window !== "undefined" && (window as any).__GITHUB_CLIENT_ID__
-            ? (window as any).__GITHUB_CLIENT_ID__
-            : "Ov23lijtT90CwzFc8jcy";
-        const redirectUri =
-          typeof window !== "undefined" ? `${window.location.origin}/api/auth/github/callback` : "";
-        const scope = encodeURIComponent("read:user user:email");
-
-        const authorizeUrl = `https://github.com/login/oauth/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${encodeURIComponent(bundle.stateToken)}&code_challenge=${encodeURIComponent(bundle.challenge)}&code_challenge_method=S256`;
-
-        // Redirect to real OAuth
-        window.location.href = authorizeUrl;
-        return;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      verificationStep = "3/4 Evaluating 5-Layer Anti-Sybil Consensus...";
-
+      verificationStep = "3/3 Redirecting to GitHub OAuth Gateway...";
       await new Promise((resolve) => setTimeout(resolve, 400));
-      verificationStep = "4/4 Elevating to Max Tier (Private + Communal Pool Access)...";
 
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      onSimulateLogin("collective-dev", "max", undefined, undefined, "github");
-      onSelectTier("max");
-      isVerifying = false;
-      onClose();
-    } catch (err: any) {
-      emailError = `PKCE initialization failed: ${err?.message || "Crypto error"}`;
+      const clientId =
+        typeof window !== "undefined" && (window as any).__GITHUB_CLIENT_ID__
+          ? (window as any).__GITHUB_CLIENT_ID__
+          : "Ov23lijtT90CwzFc8jcy";
+      const redirectUri =
+        typeof window !== "undefined" ? `${window.location.origin}/api/auth/github/callback` : "";
+      const scope = encodeURIComponent("read:user user:email");
+
+      const authorizeUrl = `https://github.com/login/oauth/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${encodeURIComponent(bundle.stateToken)}&code_challenge=${encodeURIComponent(bundle.challenge)}&code_challenge_method=S256`;
+
+      window.location.href = authorizeUrl;
+    } catch (err: unknown) {
+      emailError = `PKCE initialization failed: ${err instanceof Error ? err.message : "Crypto error"}`;
       isVerifying = false;
     }
   }
 
-  // Quick Start Sandbox (15-Min Ephemeral Sandbox)
-  function handleLaunchDemo() {
+  // Quick Start Sandbox (Delegates to DemoDO /v1/demo/token)
+  async function handleLaunchDemo() {
     isDemoLaunching = true;
-    setTimeout(() => {
+    try {
+      const res = await fetch("/v1/demo/token", { method: "POST" });
+      const data = res.ok
+        ? ((await res.json()) as { token?: string })
+        : null;
+
+      onSimulateLogin(
+        "ephemeral-guest",
+        "demo",
+        undefined,
+        undefined,
+        "demo",
+        data?.token
+      );
+      onSelectTier("demo");
+      onClose();
+    } catch {
       onSimulateLogin("ephemeral-guest", "demo", undefined, undefined, "demo");
       onSelectTier("demo");
-      isDemoLaunching = false;
       onClose();
-    }, 450);
+    } finally {
+      isDemoLaunching = false;
+    }
   }
 </script>
 
@@ -243,34 +210,6 @@
                 </span>
               </div>
 
-              <!-- Phase 1: Email Ingress Option if Anonymous/Unverified -->
-              {#if !isBuilderOrHigher && !isProbationary}
-                <form onsubmit={handleEmailIngressSubmit} class="p-3.5 rounded-lg bg-black/20 border border-white/[0.06] space-y-2.5">
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-white/80 font-medium flex items-center gap-1.5">
-                      <span class="material-symbols-outlined text-xs text-amber-400">mark_email_read</span>
-                      Phase 1: Quick Email Ingress
-                    </span>
-                    <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Turnstile Nonce Ready</span>
-                  </div>
-                  <div class="flex gap-2">
-                    <input
-                      type="email"
-                      bind:value={emailInput}
-                      placeholder="developer@company.com"
-                      class="flex-1 px-3 py-2 text-xs bg-white/[0.04] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-400 font-mono"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isEmailSubmitting}
-                      class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white font-mono text-xs font-medium border border-white/10 transition cursor-pointer disabled:opacity-50"
-                    >
-                      {isEmailSubmitting ? "Verifying..." : "Claim 2 RPM"}
-                    </button>
-                  </div>
-                </form>
-              {/if}
-
               <!-- Feedback Messages -->
               {#if emailError}
                 <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center gap-2">
@@ -279,18 +218,11 @@
                 </div>
               {/if}
 
-              {#if emailSuccess}
-                <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono flex items-center gap-2">
-                  <span class="material-symbols-outlined text-sm">verified</span>
-                  <span>{emailSuccess}</span>
-                </div>
-              {/if}
-
               <!-- GitHub Primary OAuth Button (Real PKCE / Instant Elevation) -->
               <div class="space-y-2">
                 <button
                   type="button"
-                  onclick={() => handleGithubPKCEAuth("real_redirect")}
+                  onclick={() => handleGithubPKCEAuth()}
                   disabled={isVerifying}
                   class="w-full shimmer-btn bg-[#1a1e28] hover:bg-[#222836] border border-white/20 hover:border-white/40 text-white font-medium py-3.5 px-5 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-black/40 active:scale-[0.99] group-hover:border-indigo-400/50 cursor-pointer disabled:opacity-50"
                 >
@@ -322,15 +254,39 @@
                       verificationStep = "Authenticating with Google...";
                       const { signInWithPopup, auth, googleProvider } = await import("./firebase");
                       const result = await signInWithPopup(auth, googleProvider);
-                      // On success
                       isVerifying = false;
                       const user = result.user;
+                      const explicitId = `usr_goog_${user.uid}`;
+
+                      // Persist user session to D1 and obtain isolated token
+                      let sessionToken: string | undefined = undefined;
+                      try {
+                        const syncRes = await fetch("/api/auth/sync-session", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            id: explicitId,
+                            email: user.email ?? undefined,
+                            authProvider: "google",
+                            tier: "builder",
+                          }),
+                        });
+                        if (syncRes.ok) {
+                          const syncData = (await syncRes.json()) as { token?: string };
+                          sessionToken = syncData.token;
+                        }
+                      } catch (syncErr) {
+                        console.error("Failed to sync Google user to D1:", syncErr);
+                      }
+
                       onSimulateLogin(
                         user.displayName || user.email?.split("@")[0] || "Google User",
                         "builder",
                         user.email || undefined,
                         user.photoURL || undefined,
-                        "google"
+                        "google",
+                        sessionToken,
+                        explicitId
                       );
                       onSelectTier("builder");
                       onClose();
@@ -357,7 +313,7 @@
                 <div class="flex items-center justify-between text-[11px] font-mono text-white/50 px-1">
                   <button
                     type="button"
-                    onclick={() => handleGithubPKCEAuth("real_redirect")}
+                    onclick={() => handleGithubPKCEAuth()}
                     class="hover:text-indigo-300 underline decoration-indigo-500/40 cursor-pointer flex items-center gap-1"
                   >
                     <span class="material-symbols-outlined text-[13px]">open_in_new</span>

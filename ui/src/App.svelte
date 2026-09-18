@@ -154,12 +154,20 @@
     addToast('success', `Authorization Tier updated to: ${tier.toUpperCase()}`);
   }
 
-  function handleSimulateLogin(username: string, tier: UserTier, email?: string, avatarUrl?: string, authProvider: 'github' | 'google' | 'email' | 'demo' = 'github') {
+  function handleSimulateLogin(
+    username: string,
+    tier: UserTier,
+    email?: string,
+    avatarUrl?: string,
+    authProvider: 'github' | 'google' | 'demo' = 'github',
+    sessionToken?: string,
+    explicitId?: string
+  ) {
     const cleanUser = username.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'dev';
-    const deterministicId = authProvider === 'google'
+    const deterministicId = explicitId
+      ? explicitId
+      : authProvider === 'google'
       ? `usr_goog_${cleanUser}`
-      : authProvider === 'email'
-      ? `usr_em_${cleanUser}`
       : authProvider === 'demo'
       ? 'usr_demo'
       : `usr_gh_${cleanUser}`;
@@ -180,21 +188,29 @@
       localStorage.setItem('kc_user', JSON.stringify(updatedUser));
     }
 
-    // Persist real user session to D1 and obtain distinct isolated token
-    api.syncUserSession({
-      id: deterministicId,
-      email: updatedUser.primaryEmail,
-      tier,
-      authProvider,
-    }).then((res) => {
-      if (res && res.token) {
-        localStorage.setItem('kc_auth_token', res.token);
-        document.cookie = `kc_auth_token=${encodeURIComponent(res.token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
+    if (sessionToken) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('kc_auth_token', sessionToken);
+        document.cookie = `kc_auth_token=${encodeURIComponent(sessionToken)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
       }
       loadData();
-    }).catch(() => {
-      loadData();
-    });
+    } else {
+      // Persist real user session to D1 and obtain distinct isolated token
+      api.syncUserSession({
+        id: deterministicId,
+        email: updatedUser.primaryEmail,
+        tier,
+        authProvider,
+      }).then((res) => {
+        if (res && res.token) {
+          localStorage.setItem('kc_auth_token', res.token);
+          document.cookie = `kc_auth_token=${encodeURIComponent(res.token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
+        }
+        loadData();
+      }).catch(() => {
+        loadData();
+      });
+    }
 
     addToast('success', `Authenticated as @${username} (${tier.toUpperCase()}) via ${authProvider.toUpperCase()}`);
   }
@@ -422,7 +438,7 @@
   <ReportKeyModal
     isOpen={isReportModalOpen}
     onClose={() => (isReportModalOpen = false)}
-    onSuccess={(msg) => addToast({ type: 'success', message: msg, duration: 4000 })}
+    onSuccess={(msg) => addToast('success', msg)}
   />
 
   <!-- OAuth & Tier Selection Modal -->

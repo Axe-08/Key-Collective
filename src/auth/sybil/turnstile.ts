@@ -100,10 +100,10 @@ export async function verifyTurnstileToken(
     }
   }
 
-  // Fallback: Default mock pass if token looks like a general mock non-empty token
+  // No secretKey and not an official test token -> reject.
+  // Prevents silent bot bypass if TURNSTILE_SECRET_KEY is missing from env.
   return {
-    success: true,
-    challengeTs: new Date().toISOString(),
-    hostname: "key-col.axe08.tech",
+    success: false,
+    errorCodes: ["missing-secret-key"],
   };
 }
