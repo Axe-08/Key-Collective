@@ -1,6 +1,12 @@
 import type { KeyInput } from "../../../crypto";
 
 /**
+ * Fixed-point int64 microdollars (1 USD = 1,000,000 µ$).
+ * Zero floating-point math allowed for financial values (GEMINI.md Invariant).
+ */
+export type Microdollars = bigint;
+
+/**
  * Default fallback secret used if neither constructor masterKey,
  * method encryptionKey, nor KC_MASTER_KEY environment secret is provided.
  */
@@ -38,9 +44,9 @@ export interface AuthTokenRecord {
   /** 12-byte initialization vector / nonce in base64 format */
   nonceB64?: string | null;
   /** Spending budget ceiling in int64 microdollars (0n = unlimited / no ceiling) */
-  budgetMicrodollars: bigint;
+  budgetMicrodollars: Microdollars;
   /** Total spend accumulated in int64 microdollars */
-  spentMicrodollars: bigint;
+  spentMicrodollars: Microdollars;
   /** List of allowed model provider names (empty array means all providers allowed) */
   allowedProviders: string[];
   /** Requests-per-minute rate limit */
@@ -64,9 +70,9 @@ export interface CreateAuthTokenParams {
   /** Optional encryption master key or secret passphrase. Overrides repository default. */
   encryptionKey?: KeyInput;
   /** Spending budget ceiling in int64 microdollars (defaults to 0n = unlimited). */
-  budgetMicrodollars?: bigint | number;
+  budgetMicrodollars?: Microdollars | number;
   /** Initial spend in int64 microdollars (defaults to 0n). */
-  spentMicrodollars?: bigint | number;
+  spentMicrodollars?: Microdollars | number;
   /** List of allowed providers (e.g. ['google', 'openai']). Defaults to [] (all allowed). */
   allowedProviders?: string[];
   /** Requests-per-minute rate limit (defaults to DEFAULT_RPM_LIMIT = 60). */

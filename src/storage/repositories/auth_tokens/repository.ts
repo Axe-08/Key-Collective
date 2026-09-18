@@ -10,6 +10,7 @@ import type {
   AuthTokenRepositoryConfig,
   TokenValidationResult,
   UpdateAuthTokenParams,
+  Microdollars,
 } from "./types";
 import { DEFAULT_AUTH_TOKEN_MASTER_KEY } from "./types";
 import { mapRowToAuthTokenRecord } from "./mapper";
@@ -223,9 +224,14 @@ export class AuthTokensRepository {
       return null;
     }
 
-    if (tenantId) {
+    if (tenantId !== undefined) {
+      const cleanTenantId = tenantId.trim();
+      if (!cleanTenantId) {
+        throw new TenantIsolationError("Tenant ID cannot be empty");
+      }
+
       const query = "SELECT * FROM auth_tokens WHERE id = ? AND tenant_id = ? LIMIT 1";
-      const row = await this.db.prepare(query).bind(id.trim(), tenantId.trim()).first<AuthTokenRow>();
+      const row = await this.db.prepare(query).bind(id.trim(), cleanTenantId).first<AuthTokenRow>();
       if (row) {
         return mapRowToAuthTokenRecord(row);
       }
@@ -233,10 +239,10 @@ export class AuthTokensRepository {
       // Check if ID exists under another tenant to detect cross-tenant access violation
       const crossTenantQuery = "SELECT tenant_id FROM auth_tokens WHERE id = ? LIMIT 1";
       const crossRow = await this.db.prepare(crossTenantQuery).bind(id.trim()).first<{ tenant_id: string }>();
-      if (crossRow && crossRow.tenant_id !== tenantId.trim()) {
+      if (crossRow && crossRow.tenant_id !== cleanTenantId) {
         throw new TenantIsolationError(
           `Token '${id}' belongs to another tenant. Cross-tenant access forbidden.`,
-          { tenantId: tenantId.trim(), attemptedTenantId: crossRow.tenant_id, resourceId: id.trim() }
+          { tenantId: cleanTenantId, attemptedTenantId: crossRow.tenant_id, resourceId: id.trim() }
         );
       }
       return null;
@@ -296,14 +302,19 @@ export class AuthTokensRepository {
       return false;
     }
 
-    if (tenantId) {
-      const existing = await this.findById(id, tenantId);
+    if (tenantId !== undefined) {
+      const cleanTenantId = tenantId.trim();
+      if (!cleanTenantId) {
+        throw new TenantIsolationError("Tenant ID cannot be empty");
+      }
+
+      const existing = await this.findById(id, cleanTenantId);
       if (!existing) {
         return false;
       }
 
       const query = "DELETE FROM auth_tokens WHERE id = ? AND tenant_id = ?";
-      const res = await this.db.prepare(query).bind(id.trim(), tenantId.trim()).run();
+      const res = await this.db.prepare(query).bind(id.trim(), cleanTenantId).run();
       return (res.meta?.changes ?? 0) > 0;
     }
 
@@ -321,13 +332,18 @@ export class AuthTokensRepository {
     }
 
     const nowIso = new Date().toISOString();
-    if (tenantId) {
-      const existing = await this.findById(id, tenantId);
+    if (tenantId !== undefined) {
+      const cleanTenantId = tenantId.trim();
+      if (!cleanTenantId) {
+        throw new TenantIsolationError("Tenant ID cannot be empty");
+      }
+
+      const existing = await this.findById(id, cleanTenantId);
       if (!existing) {
         return false;
       }
       const query = "UPDATE auth_tokens SET expires_at = ? WHERE id = ? AND tenant_id = ?";
-      const res = await this.db.prepare(query).bind(nowIso, id.trim(), tenantId.trim()).run();
+      const res = await this.db.prepare(query).bind(nowIso, id.trim(), cleanTenantId).run();
       return (res.meta?.changes ?? 0) > 0;
     }
 
@@ -342,7 +358,7 @@ export class AuthTokensRepository {
   public async updateBudget(
     id: string,
     tenantId: string,
-    budgetMicrodollars: bigint | number
+    budgetMicrodollars: Microdollars | number
   ): Promise<boolean> {
     const budget =
       typeof budgetMicrodollars === "bigint"
@@ -369,8 +385,8 @@ export class AuthTokensRepository {
   public async recordSpend(
     id: string,
     tenantId: string,
-    spendMicrodollars: bigint | number
-  ): Promise<bigint> {
+    spendMicrodollars: Microdollars | number
+  ): Promise<Microdollars> {
     const spend =
       typeof spendMicrodollars === "bigint"
         ? spendMicrodollars
