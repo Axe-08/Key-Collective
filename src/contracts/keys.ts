@@ -1,0 +1,1 @@
+export const TOKENS_PER_REQUEST_ESTIMATE = 400;

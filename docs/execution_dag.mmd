@@ -1,41 +1,20 @@
-flowchart TD
-    %% Key Collective HIVE Execution DAG (Workflow 2 Stage 1)
-
-    subgraph Contracts ["Frozen Interface Contracts (src/contracts/)"]
-        C_KP["key_pool.ts<br/>(KeyPoolContract, EncryptedKey)"]
-        C_AUTH["auth.ts<br/>(AuthContext, TenantQuota)"]
-        C_ROUTER["router.ts<br/>(RouteDecision, UpstreamSpec)"]
-        C_V3["v3_types.ts / v4_types.ts<br/>(Provider API Schemas)"]
-        C_V35["v3_5_types.ts<br/>(Project & Token Schemas)"]
+graph TD
+    subgraph Phase1 [Contract Freezing]
+        C1[freeze_contracts]
     end
 
-    subgraph Pods ["Parallel Execution Pods (Disjoint File Scopes)"]
-        P1["<b>Pod 1: pod-keypool-priority</b><br/>KeyPool Dynamic Priority Selection<br/>• src/durable_objects/key_pool/<br/>• src/durable_objects/key_selector/<br/>• src/worker/router/chat/<br/>• src/pool/"]
-        P2["<b>Pod 2: pod-quota-security</b><br/>Tenant Quota DO & Edge Security<br/>• src/quota/tenant/<br/>• src/worker/auth/<br/>• src/worker/error_normalizer.ts<br/>• src/worker/router/dashboard/abuse_routes.ts<br/>• wrangler.jsonc, src/index.ts"]
-        P3["<b>Pod 3: pod-dashboard-apis</b><br/>REST APIs for Projects & Tokens<br/>• src/worker/router/dashboard/project_routes.ts<br/>• src/worker/router/dashboard/token_routes.ts<br/>• src/worker/router/dashboard/handler.ts<br/>• src/worker/router/dashboard/auth_routes.ts"]
-        P4["<b>Pod 4: pod-ui-real-wiring</b><br/>Svelte UI Real-Wiring & Mock Purge<br/>• ui/src/lib/Workbench.svelte<br/>• ui/src/lib/workbench/IdentityCard.svelte<br/>• ui/src/lib/MetricCards.svelte<br/>• ui/src/lib/DebtLedgerWidget.svelte<br/>• ui/src/lib/admin/AdminView.svelte<br/>• ui/src/lib/OAuthModal.svelte"]
-        P5["<b>Pod 5: pod-packaging-tests</b><br/>Migrations, Cleanups & Vitest Suite<br/>• migrations/<br/>• src/storage/migrations/<br/>• vitest.config.ts<br/>• ui/ui.go, docs/SCORECARD.md.md<br/>• src/worker/auth.ts, src/worker/telemetry.ts"]
+    subgraph Phase2 [Concurrent Execution]
+        P1[pod-security-core]
+        P2[pod-coordinator-cross-tenant]
+        P3[pod-metrics-telemetry]
+        P4[pod-routing-governance]
+        P5[pod-structural-cleanup]
+        P6[pod-frontend-clarity]
     end
 
-    subgraph Integration ["Stage 3: Integration & Release"]
-        INT["Sequential Rebase-Merge & Master Quality Gate<br/>(make gate < 10s)"]
-    end
-
-    %% Contract dependencies
-    C_KP --> P1
-    C_ROUTER --> P1
-    C_V3 --> P1
-    C_AUTH --> P2
-    C_ROUTER --> P2
-    C_AUTH --> P3
-    C_ROUTER --> P3
-    C_ROUTER --> P4
-    C_V35 --> P4
-    Contracts --> P5
-
-    %% Execution flow
-    P1 --> INT
-    P2 --> INT
-    P3 --> INT
-    P4 --> INT
-    P5 --> INT
+    C1 --> P1
+    C1 --> P2
+    C1 --> P3
+    C1 --> P4
+    C1 --> P5
+    C1 --> P6

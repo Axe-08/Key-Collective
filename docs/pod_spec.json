@@ -1,95 +1,80 @@
 [
   {
-    "pod_id": "pod-keypool-priority",
-    "name": "KeyPool Priority Selection & Hot-Path Dispatch",
-    "branch": "hive/pod-keypool-priority",
-    "scope": [
-      "src/durable_objects/key_pool/",
-      "src/durable_objects/key_selector/",
-      "src/worker/router/chat/",
-      "src/pool/"
-    ],
-    "contracts": [
-      "src/contracts/key_pool.ts",
-      "src/contracts/router.ts",
-      "src/contracts/v3_types.ts",
-      "src/contracts/v4_types.ts"
-    ],
-    "dependencies": [],
-    "model_tier": "pro"
+    "pod_id": "pod-security-core",
+    "name": "Security Core",
+    "files": [
+      "src/storage/repositories/auth_tokens/types.ts",
+      "src/storage/repositories/auth_tokens/repository.ts",
+      "src/worker/gateway/admin_verifier.ts",
+      "src/worker/gateway/console_handler.ts",
+      "src/worker/router/dashboard/token_routes.ts"
+    ]
   },
   {
-    "pod_id": "pod-quota-security",
-    "name": "Tenant Quota DO & Security Hardening",
-    "branch": "hive/pod-quota-security",
-    "scope": [
-      "src/quota/tenant/",
-      "src/worker/auth/",
-      "src/worker/error_normalizer.ts",
-      "src/worker/router/dashboard/abuse_routes.ts",
-      "wrangler.jsonc",
-      "src/index.ts"
-    ],
-    "contracts": [
-      "src/contracts/auth.ts",
-      "src/contracts/router.ts"
-    ],
-    "dependencies": [],
-    "model_tier": "pro"
+    "pod_id": "pod-coordinator-cross-tenant",
+    "name": "Coordinator Cross-Tenant",
+    "files": [
+      "src/pool/coordinator_do.ts",
+      "src/worker/pool_routes.ts",
+      "src/worker/router/chat/handler.ts",
+      "src/index.ts",
+      "tests/pool/coordinator_do.test.ts",
+      "tests/integration/coordinator_wiring.test.ts"
+    ]
   },
   {
-    "pod_id": "pod-dashboard-apis",
-    "name": "Dashboard Projects & Token REST APIs",
-    "branch": "hive/pod-dashboard-apis",
-    "scope": [
-      "src/worker/router/dashboard/project_routes.ts",
-      "src/worker/router/dashboard/token_routes.ts",
+    "pod_id": "pod-metrics-telemetry",
+    "name": "Metrics Telemetry",
+    "files": [
       "src/worker/router/dashboard/handler.ts",
+      "src/worker/router/dashboard/keys/ops.ts",
+      "src/worker/router/dashboard/metrics_routes.ts",
+      "src/worker/router/dashboard/keys/post_key.ts",
+      "src/worker/gateway/admin_handler.ts",
+      "src/utils/logger.ts"
+    ]
+  },
+  {
+    "pod_id": "pod-routing-governance",
+    "name": "Routing Governance",
+    "files": [
+      "src/worker/router/core/dispatcher.ts",
+      "src/worker/router/demo_routes.ts",
+      "src/types/config.ts",
+      "wrangler.jsonc",
+      "src/worker/gateway/subdomain.ts",
       "src/worker/router/dashboard/auth_routes.ts"
-    ],
-    "contracts": [
-      "src/contracts/auth.ts",
-      "src/contracts/router.ts"
-    ],
-    "dependencies": [],
-    "model_tier": "pro"
+    ]
   },
   {
-    "pod_id": "pod-ui-real-wiring",
-    "name": "Svelte UI Real-Wiring & Mock Purge",
-    "branch": "hive/pod-ui-real-wiring",
-    "scope": [
-      "ui/src/lib/Workbench.svelte",
-      "ui/src/lib/workbench/IdentityCard.svelte",
-      "ui/src/lib/MetricCards.svelte",
-      "ui/src/lib/DebtLedgerWidget.svelte",
-      "ui/src/lib/admin/AdminView.svelte",
-      "ui/src/lib/OAuthModal.svelte"
-    ],
-    "contracts": [
-      "src/contracts/router.ts",
-      "src/contracts/v3_5_types.ts"
-    ],
-    "dependencies": [],
-    "model_tier": "pro"
+    "pod_id": "pod-structural-cleanup",
+    "name": "Structural Cleanup",
+    "files": [
+      "src/worker/router/chat_handler.ts",
+      "src/worker/router/dashboard_handler.ts",
+      "src/worker/router/index.ts",
+      "src/auth/index.ts",
+      "src/auth/types.ts",
+      "src/storage/d1.spec.ts",
+      "src/storage/do.spec.ts",
+      "tests/fixtures/d1_mock.ts",
+      "tests/fixtures/do_mock.ts",
+      "src/utils/providers.ts",
+      "vitest.config.ts"
+    ]
   },
   {
-    "pod_id": "pod-packaging-tests",
-    "name": "Migration Consolidation & Test Harmonization",
-    "branch": "hive/pod-packaging-tests",
-    "scope": [
-      "migrations/",
-      "src/storage/migrations/",
-      "vitest.config.ts",
-      "ui/ui.go",
-      "docs/SCORECARD.md.md",
-      "src/worker/auth.ts",
-      "src/worker/telemetry.ts"
-    ],
-    "contracts": [
-      "src/contracts/index.ts"
-    ],
-    "dependencies": [],
-    "model_tier": "pro"
+    "pod_id": "pod-frontend-clarity",
+    "name": "Frontend Clarity",
+    "files": [
+      "src/ui/CodePlayground.svelte",
+      "src/ui/PricingTable.svelte",
+      "src/ui/api.ts",
+      "src/ui/MetricCards.svelte",
+      "src/ui/KeysTable.svelte",
+      "src/ui/TelemetryCharts.svelte",
+      "src/ui/PoolCommonsTab.svelte",
+      "src/ui/VelocityDials.svelte"
+    ]
   }
 ]

@@ -8,7 +8,7 @@
         "migrations/0001_initial_schema.sql",
         "src/storage/migrations/0001_initial_schema.sql"
       ],
-      "exact_signatures": "",
+      "exact_signatures": "N/A - SQL files only",
       "verify_command": "diff migrations/0001_initial_schema.sql src/storage/migrations/0001_initial_schema.sql"
     }
   },
@@ -23,7 +23,7 @@
         "src/worker/auth.ts",
         "src/worker/telemetry.ts"
       ],
-      "exact_signatures": "",
+      "exact_signatures": "N/A - File deletion only",
       "verify_command": "test ! -f ui/ui.go && test ! -f docs/SCORECARD.md.md && test ! -f src/worker/auth.ts && test ! -f src/worker/telemetry.ts"
     }
   },
@@ -37,6 +37,75 @@
       ],
       "exact_signatures": "include: ['src/**/*.{test,spec}.ts', 'test/**/*.test.ts', 'tests/**/*.test.ts']",
       "verify_command": "npx vitest run"
+    }
+  },
+  {
+    "task_id": "GOV-001",
+    "description": "Implement strict Subdomain Host Routing logic at the edge isolate dispatcher.",
+    "files": [
+      "src/worker/router/core/dispatcher.ts",
+      "src/worker/gateway/subdomain.ts"
+    ],
+    "contracts": [
+      "v3_5_types.ts"
+    ],
+    "dependencies": [],
+    "estimated_complexity": "medium",
+    "acceptance_criteria": [
+      "dispatcher.ts extracts the Host header and uses resolveHostRoute.",
+      "Apex domain requests receive an HTTP 301 Redirect to console.*.",
+      "admin.* subdomain requests without an 'admin' tier token receive an obfuscated 404 Not Found.",
+      "admin.* subdomain requests with an 'admin' tier token correctly pass through.",
+      "console.* subdomain requests route to the ASSETS binding.",
+      "api.* continues the standard DO proxy routing."
+    ],
+    "context_bundle": {
+      "exact_signatures": "export async function dispatchRoute(params: DispatchParams): Promise<Response>;",
+      "contract_snippets": [
+        "export type EdgeSubdomain = 'api' | 'console' | 'admin' | 'apex';",
+        "export interface HostRouteDecision { readonly host: string; readonly subdomain: EdgeSubdomain; }"
+      ],
+      "implementation_notes": "Call resolveHostRoute(request.headers.get('host') || '') early in dispatchRoute. Use the HostRouteDecision to gate behavior. Return `Response.redirect('https://console.key-col.axe08.tech', 301)` for apex.",
+      "test_scenarios": [
+        "Apex host redirects to console",
+        "Admin host without auth returns 404",
+        "Admin host with non-admin token returns 404",
+        "Admin host with admin token passes",
+        "Console host passes to ASSETS"
+      ],
+      "verify_command": "npx vitest run tests/worker/router/core/dispatcher.test.ts"
+    }
+  },
+  {
+    "task_id": "GOV-002",
+    "description": "Enforce Phase 2 Anti-Sybil Elevation Gate in GitHub OAuth Callback.",
+    "files": [
+      "src/worker/router/dashboard/auth_routes.ts"
+    ],
+    "contracts": [
+      "v3_5_types.ts"
+    ],
+    "dependencies": [],
+    "estimated_complexity": "high",
+    "acceptance_criteria": [
+      "handleOAuthGithubCallback parses 'created_at' from GitHub API.",
+      "Rejects tier promotion if account is < 60 days old.",
+      "Validates activity level to ensure > 15 public commits.",
+      "Calculates SybilProofResult and conditionally assigns tier (probationary, builder, max).",
+      "Strips internal tiers ('ultra', 'admin') from the JSON payload in handleSyncSession."
+    ],
+    "context_bundle": {
+      "exact_signatures": "export async function handleOAuthGithubCallback(request: Request, env: WorkerEnv): Promise<Response>;\nexport async function handleSyncSession(request: Request, env: WorkerEnv): Promise<Response>;",
+      "contract_snippets": [
+        "export interface SybilProofResult { readonly layer1AccountAgeDays: number; readonly layer1Passed: boolean; }"
+      ],
+      "implementation_notes": "Use fetch to the GitHub API for user data. Calculate the account age using Date.now() - new Date(profile.created_at).getTime(). For handleSyncSession, ensure the response body maps 'ultra' and 'admin' back to 'max'.",
+      "test_scenarios": [
+        "Github account < 60 days gets probationary",
+        "Github account >= 60 days + active gets builder/max",
+        "handleSyncSession strips 'ultra' mapping to 'max' for public"
+      ],
+      "verify_command": "npx vitest run tests/worker/router/dashboard/auth_routes.test.ts"
     }
   }
 ]
