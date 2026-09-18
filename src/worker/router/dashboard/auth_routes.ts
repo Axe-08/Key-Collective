@@ -225,7 +225,7 @@ export async function handleSyncSession(
       status: 200,
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "Set-Cookie": `kc_auth_token=${encodeURIComponent(token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`,
+        "Set-Cookie": `kc_auth_token=${encodeURIComponent(token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure; HttpOnly`,
       },
     }
   );

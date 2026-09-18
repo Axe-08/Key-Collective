@@ -203,7 +203,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
 
   beforeEach(async () => {
     mockDb = new MockD1Database();
-    authRepo = new AuthTokensRepository(mockDb);
+    authRepo = new AuthTokensRepository(mockDb, "test-master-auth-key-32bytes-long!");
     middleware = new AuthMiddleware({ authRepo });
   });
 

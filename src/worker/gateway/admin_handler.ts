@@ -691,7 +691,7 @@ export async function handleAdminRequest(
       const headers = new Headers(assetRes.headers);
       headers.append(
         "Set-Cookie",
-        `kc_auth_token=${encodeURIComponent(queryToken)}; Path=/; SameSite=Lax; Secure`
+        `kc_auth_token=${encodeURIComponent(queryToken)}; Path=/; SameSite=Lax; Secure; HttpOnly`
       );
       assetRes = new Response(assetRes.body, {
         status: assetRes.status,

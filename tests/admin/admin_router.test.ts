@@ -59,7 +59,7 @@ function createMockEnv(overrides: Partial<WorkerEnv> = {}): WorkerEnv {
   };
 
   return {
-    KC_MASTER_KEY: "admin-master-key-secret-12345",
+    ADMIN_TOKEN: "admin-master-key-secret-12345",
     DB: mockDb as any,
     ...overrides,
   } as unknown as WorkerEnv;
@@ -87,13 +87,25 @@ describe("Admin Gateway & Zero-Knowledge Verification (Production Invariants)", 
       expect(verified).toBe(false);
     });
 
-    it("returns true when request matches KC_MASTER_KEY", async () => {
+    it("returns true when request matches ADMIN_TOKEN", async () => {
       const req = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
         headers: { Authorization: "Bearer admin-master-key-secret-12345" },
       });
       const env = createMockEnv();
       const verified = await verifyAdminRequest(req, env);
       expect(verified).toBe(true);
+    });
+
+    it("returns false when request matches KC_MASTER_KEY but not ADMIN_TOKEN", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
+        headers: { Authorization: "Bearer kc-encryption-key-only" },
+      });
+      const env = createMockEnv({
+        ADMIN_TOKEN: "admin-secret-token",
+        KC_MASTER_KEY: "kc-encryption-key-only",
+      });
+      const verified = await verifyAdminRequest(req, env);
+      expect(verified).toBe(false);
     });
 
     it("supports token query param for browser address bar navigation", async () => {

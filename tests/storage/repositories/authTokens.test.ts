@@ -18,14 +18,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   AuthTokensRepository,
-  DEFAULT_AUTH_TOKEN_MASTER_KEY,
   mapRowToAuthTokenRecord,
   AuthTokenRow,
   AuthTokenRecord,
 } from "../../../src/storage/repositories/auth_tokens/index";
 import { hashToken, decrypt, encrypt } from "../../../src/crypto";
 import { AuthenticationError, TenantIsolationError } from "../../../src/errors/auth_errors";
-import { DecryptionError } from "../../../src/errors/key_errors";
+import { DecryptionError, EncryptionError } from "../../../src/errors/key_errors";
 
 function createMeta(changes = 0): D1Meta & Record<string, unknown> {
   return {
@@ -404,20 +403,24 @@ describe("AuthTokensRepository", () => {
       await expect(repo.decryptToken(created, CUSTOM_KEY)).rejects.toThrow(DecryptionError);
     });
 
-    it("falls back to default master key if none specified in constructor or params", async () => {
-      const repoNoKey = new AuthTokensRepository(db);
-      const plainToken = "kc_token_default_key_abc";
+    it("throws EncryptionError if no master key specified in constructor, params, or environment", async () => {
+      const origKey = process.env.KC_MASTER_KEY;
+      delete process.env.KC_MASTER_KEY;
+      try {
+        const repoNoKey = new AuthTokensRepository(db);
+        const plainToken = "kc_token_default_key_abc";
 
-      const created = await repoNoKey.createToken({
-        token: plainToken,
-        tenantId: "t_default",
-      });
-
-      expect(created.encryptedTokenB64).toBeDefined();
-      expect(created.nonceB64).toBeDefined();
-
-      const decrypted = await repoNoKey.decryptToken(created);
-      expect(decrypted).toBe(plainToken);
+        await expect(
+          repoNoKey.createToken({
+            token: plainToken,
+            tenantId: "t_default",
+          })
+        ).rejects.toThrow(EncryptionError);
+      } finally {
+        if (origKey !== undefined) {
+          process.env.KC_MASTER_KEY = origKey;
+        }
+      }
     });
 
     it("throws DecryptionError when ciphertext is tampered", async () => {

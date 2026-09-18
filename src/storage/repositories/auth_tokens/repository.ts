@@ -2,7 +2,7 @@ import { DEFAULT_RPM_LIMIT, isValidRpmLimit } from "../../../constants/limits";
 import { decrypt, encrypt, hashToken, KeyInput } from "../../../crypto";
 import { timingSafeEqualStrings } from "../../../crypto/utils";
 import { AuthenticationError, TenantIsolationError } from "../../../errors/auth_errors";
-import { DecryptionError } from "../../../errors/key_errors";
+import { DecryptionError, EncryptionError } from "../../../errors/key_errors";
 import type {
   AuthTokenRow,
   AuthTokenRecord,
@@ -12,7 +12,6 @@ import type {
   UpdateAuthTokenParams,
   Microdollars,
 } from "./types";
-import { DEFAULT_AUTH_TOKEN_MASTER_KEY } from "./types";
 import { mapRowToAuthTokenRecord } from "./mapper";
 
 /**
@@ -52,10 +51,12 @@ export class AuthTokensRepository {
       return this.masterKey;
     }
     const g = globalThis as unknown as { process?: { env?: Record<string, string | undefined> } };
-    if (g.process?.env?.KC_MASTER_KEY) {
+    if (g.process?.env?.KC_MASTER_KEY && g.process.env.KC_MASTER_KEY.trim().length > 0) {
       return g.process.env.KC_MASTER_KEY;
     }
-    return DEFAULT_AUTH_TOKEN_MASTER_KEY;
+    throw new EncryptionError(
+      "KC_MASTER_KEY environment variable is required but not set. Run: wrangler secret put KC_MASTER_KEY"
+    );
   }
 
   /**

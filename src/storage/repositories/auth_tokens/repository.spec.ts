@@ -11,7 +11,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   AuthTokensRepository,
-  DEFAULT_AUTH_TOKEN_MASTER_KEY,
   AuthTokenRow,
   AuthTokenRecord,
   Microdollars,

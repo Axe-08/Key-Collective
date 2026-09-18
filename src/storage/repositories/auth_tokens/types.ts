@@ -6,11 +6,6 @@ import type { KeyInput } from "../../../crypto";
  */
 export type Microdollars = bigint;
 
-/**
- * Default fallback secret used if neither constructor masterKey,
- * method encryptionKey, nor KC_MASTER_KEY environment secret is provided.
- */
-export const DEFAULT_AUTH_TOKEN_MASTER_KEY = "kc-master-secret-auth-tokens-v2-passphrase-32b!";
 
 /**
  * Raw database row shape for the `auth_tokens` table in Cloudflare D1.

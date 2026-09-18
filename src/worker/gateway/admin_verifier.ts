@@ -4,6 +4,7 @@
  */
 
 import { hashToken } from "../../crypto";
+import { timingSafeEqualStrings } from "../../crypto/utils";
 import type { WorkerEnv } from "../auth/index";
 import type { WorkerOptions } from "./types";
 
@@ -62,16 +63,20 @@ export async function verifyAdminRequest(
   }
 
   // 2. Options adminTokens list if provided
-  if (options.adminTokens && options.adminTokens.includes(rawToken)) {
-    return true;
+  if (options.adminTokens && options.adminTokens.length > 0) {
+    for (const adminTok of options.adminTokens) {
+      if (timingSafeEqualStrings(rawToken, adminTok)) {
+        return true;
+      }
+    }
   }
 
-  // 3. Env master key or admin token match
-  const masterKey = (env.KC_MASTER_KEY ||
-    env.MASTER_KEY_PASSPHRASE ||
-    env.ADMIN_TOKEN) as string | undefined;
-  if (masterKey && rawToken === masterKey) {
-    return true;
+  // 3. Env admin token match (timing-safe, strictly separate from KC_MASTER_KEY)
+  const adminToken = env.ADMIN_TOKEN as string | undefined;
+  if (adminToken && adminToken.trim().length > 0) {
+    if (timingSafeEqualStrings(rawToken, adminToken.trim())) {
+      return true;
+    }
   }
 
   // 4. Check D1 Database

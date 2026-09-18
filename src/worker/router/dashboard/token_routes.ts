@@ -16,7 +16,6 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import type { WorkerEnv } from "../../auth/types";
 
-export const DEFAULT_AUTH_TOKEN_MASTER_KEY = "kc-master-secret-auth-tokens-v2-passphrase-32b!";
 
 export interface TokenSummary {
   id: string;
@@ -305,7 +304,14 @@ export async function handlePostTokens(
   const tokenHash = await computeSha256(plaintextToken);
 
   // 3. Encrypt via AES-256-GCM with unique 12-byte nonce (GEMINI.md Invariant)
-  const masterKey = (env.KC_MASTER_KEY as string | undefined) || DEFAULT_AUTH_TOKEN_MASTER_KEY;
+  const masterKey = env.KC_MASTER_KEY as string | undefined;
+  if (!masterKey || masterKey.trim().length === 0) {
+    return Response.json(
+      { error: "Server misconfiguration: KC_MASTER_KEY not set" },
+      { status: 503 }
+    );
+  }
+
   let encryptedTokenB64: string | null = null;
   let nonceB64: string | null = null;
 
