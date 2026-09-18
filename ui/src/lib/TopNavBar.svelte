@@ -39,10 +39,36 @@
   let editDisplayName = $state('');
   let editAvatarUrl = $state('');
 
+  let notifications = $state<Array<{ id: string; type: string; message: string; created_at: string }>>([]);
+  let hasUnread = $derived(notifications.length > 0);
+
+  async function fetchNotifications() {
+    try {
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('kc_auth_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const savedUser = localStorage.getItem('kc_user');
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u?.id) headers['x-tenant-id'] = u.id;
+      }
+      const res = await fetch('/api/notifications', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.notifications)) {
+          notifications = data.notifications;
+        }
+      }
+    } catch {}
+  }
+
   onMount(() => {
     devDisplayName = localStorage.getItem('devDisplayName') || '';
     devAvatarUrl = localStorage.getItem('devAvatarUrl') || '';
     telemetryPollFreq = localStorage.getItem('telemetryPollFreq') || '3s';
+    fetchNotifications();
+    const notifInterval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(notifInterval);
   });
 
   let displayUsername = $derived(devDisplayName || userAccount?.githubUsername || 'collective-dev');
@@ -144,15 +170,33 @@
         onclick={() => isNotificationsOpen = !isNotificationsOpen}
       >
         <span class="material-symbols-outlined text-[18px]" data-icon="notifications">notifications</span>
-        <span class="w-1.5 h-1.5 rounded-full bg-tertiary absolute top-1.5 right-1.5"></span>
+        {#if hasUnread}
+          <span class="w-2 h-2 rounded-full bg-error absolute top-1 right-1 animate-pulse"></span>
+        {/if}
       
         {#if isNotificationsOpen}
-          <div class="absolute right-0 top-10 w-64 bg-surface-container-high border border-outline-variant/30 rounded-lg shadow-lg p-3 z-50">
-            <h3 class="text-label-md font-bold mb-2">Notifications</h3>
-            <p class="text-body-sm text-on-surface-variant">No new notifications.</p>
+          <div class="absolute right-0 top-10 w-80 bg-surface-container-high border border-outline-variant/30 rounded-xl shadow-2xl p-3 z-50 text-left max-h-72 overflow-y-auto backdrop-blur-md">
+            <div class="flex items-center justify-between pb-2 border-b border-outline-variant/20 mb-2">
+              <h3 class="text-label-md font-bold text-on-surface">System Alerts</h3>
+              <span class="text-[10px] text-outline font-mono">{notifications.length} alert{notifications.length === 1 ? '' : 's'}</span>
+            </div>
+            {#if notifications.length === 0}
+              <div class="py-4 text-center">
+                <span class="material-symbols-outlined text-[24px] text-outline/60 mb-1 block">notifications_off</span>
+                <p class="text-body-sm text-on-surface-variant">All cluster systems & keys healthy.</p>
+              </div>
+            {:else}
+              <div class="space-y-2">
+                {#each notifications as notif}
+                  <div class="p-2.5 rounded-lg bg-surface-container-lowest/80 border border-outline-variant/20 text-xs">
+                    <p class="text-on-surface font-medium leading-tight">{notif.message}</p>
+                    <span class="text-[10px] text-outline font-mono mt-1 block">{new Date(notif.created_at).toLocaleTimeString()}</span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/if}
-
       </button>
       <button
         type="button"

@@ -219,6 +219,10 @@ export async function handleAdminRequest(
         await db
           .prepare("UPDATE contributor_standing SET community_debt_micro_cu = 0")
           .run();
+      } else if (body.action === 'PURGE_ALL_KEYS') {
+        await db
+          .prepare("DELETE FROM api_keys")
+          .run();
       }
     }
 
@@ -655,8 +659,12 @@ export async function handleAdminRequest(
     return options.cors !== false ? applyCors(res) : res;
   }
 
-  // 4. Other API endpoints (e.g. /api/keys, /api/stats, /api/logs)
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/admin/")) {
+  // 4. Other API and proxy endpoints (e.g. /api/keys, /api/stats, /v1/chat/completions, /v1/models)
+  if (
+    (pathname.startsWith("/api/") && !pathname.startsWith("/api/admin/")) ||
+    pathname.startsWith("/v1/") ||
+    pathname === "/openapi.json"
+  ) {
     return routerHandler.handle(request, env, ctx);
   }
 
