@@ -14,6 +14,7 @@ import type {
 } from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import { RouterError } from "../errors";
+import type { DurableObjectNamespaceLike, DurableObjectStubLike } from "../types";
 import type { ChatHandlerDependencies } from "./types";
 import { handleStreamingResponse } from "./stream";
 import { handleNonStreamingResponse } from "./non_streaming";
@@ -23,6 +24,25 @@ export class ChatHandler {
 
   private now(): number {
     return this.deps.timeProvider();
+  }
+
+  private getPoolCoordinator(
+    env: WorkerEnv
+  ): DurableObjectStub | DurableObjectStubLike | undefined {
+    if (this.deps.getPoolCoordinator) {
+      return this.deps.getPoolCoordinator(env);
+    }
+    const coordinatorNamespace = env.POOL_COORDINATOR as unknown as
+      | DurableObjectNamespaceLike
+      | undefined;
+    if (
+      coordinatorNamespace &&
+      typeof coordinatorNamespace.idFromName === "function"
+    ) {
+      const doId = coordinatorNamespace.idFromName("global");
+      return coordinatorNamespace.get(doId);
+    }
+    return undefined;
   }
 
   /**
@@ -100,31 +120,93 @@ export class ChatHandler {
       },
     };
 
+    // Pre-dispatch emergency brake check via POOL_COORDINATOR DO (Fail-open design)
+    const poolCoordinator = this.getPoolCoordinator(env);
+    if (poolCoordinator) {
+      try {
+        const brakeUrl = `http://coordinator/coordinator/brake-status/${encodeURIComponent(
+          authContext.tenantId
+        )}`;
+        const brakeRes = await poolCoordinator.fetch(brakeUrl, { method: "GET" });
+        if (brakeRes.status === 429) {
+          throw new RouterError(
+            `Emergency brake active for tenant '${authContext.tenantId}'`,
+            {
+              statusCode: 429,
+              code: "EMERGENCY_BRAKE_ACTIVE",
+            }
+          );
+        }
+        if (brakeRes.ok) {
+          const brakeData = (await brakeRes.json()) as { braked?: boolean };
+          if (brakeData.braked) {
+            throw new RouterError(
+              `Emergency brake active for tenant '${authContext.tenantId}'`,
+              {
+                statusCode: 429,
+                code: "EMERGENCY_BRAKE_ACTIVE",
+              }
+            );
+          }
+        }
+      } catch (err) {
+        if (err instanceof RouterError) {
+          throw err;
+        }
+        // Fail-open: suppress coordinator errors so proxy availability is preserved
+      }
+    }
+
     // 5. Execute routing via CascadeRouter (handles model alias resolution tc-06, capability filter tc-07, and context window tc-05)
     const cascadeRes = (await router.route(cascadeReq)) as CascadeRouteResponse;
 
     // 6. Handle Streaming vs Non-Streaming Responses
-    if (stream) {
-      return this.handleStreamingResponse(
-        cascadeRes,
-        authContext,
-        keyPool,
-        env,
-        ctx,
-        traceId,
-        startTime
-      );
+    const responsePromise = stream
+      ? this.handleStreamingResponse(
+          cascadeRes,
+          authContext,
+          keyPool,
+          env,
+          ctx,
+          traceId,
+          startTime
+        )
+      : await this.handleNonStreamingResponse(
+          cascadeRes,
+          authContext,
+          keyPool,
+          env,
+          ctx,
+          traceId,
+          startTime
+        );
+
+    // Asynchronously report volume to POOL_COORDINATOR
+    if (poolCoordinator) {
+      const reportVolumeTask = async () => {
+        try {
+          const volume = cascadeRes.usage?.totalTokens ?? estimatedPromptTokens ?? 1;
+          await poolCoordinator.fetch("http://coordinator/coordinator/report-volume", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              tenantId: authContext.tenantId,
+              volume: Math.max(1, volume),
+            }),
+          });
+        } catch {
+          // Non-blocking telemetry
+        }
+      };
+
+      if (ctx?.waitUntil) {
+        ctx.waitUntil(reportVolumeTask());
+      } else {
+        reportVolumeTask().catch(() => {});
+      }
     }
 
-    return await this.handleNonStreamingResponse(
-      cascadeRes,
-      authContext,
-      keyPool,
-      env,
-      ctx,
-      traceId,
-      startTime
-    );
+    return responsePromise;
   }
 
   public handleStreamingResponse(

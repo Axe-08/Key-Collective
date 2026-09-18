@@ -1,10 +1,4 @@
-export interface DurableObjectState {
-    storage: any;
-}
-export interface DurableObject {
-    fetch(req: Request): Promise<Response>;
-    alarm(): Promise<void>;
-}
+import type { WorkerEnv } from "../worker/auth/index";
 
 export class PoolCoordinatorDO implements DurableObject {
     private tenantVolumes = new Map<string, { volume: number; timestamp: number }[]>();
@@ -13,7 +7,10 @@ export class PoolCoordinatorDO implements DurableObject {
 
     private initializedPromise: Promise<void> | null = null;
 
-    constructor(private readonly ctx: DurableObjectState) {
+    constructor(
+        private readonly ctx: DurableObjectState,
+        private readonly env: WorkerEnv = {}
+    ) {
         this.initializedPromise = this.initStorage();
         if (this.ctx.storage?.getAlarm) {
             this.ctx.storage.getAlarm().then((alarm: number | null) => {
@@ -42,12 +39,7 @@ export class PoolCoordinatorDO implements DurableObject {
 
     private async scheduleNextAlarm() {
         if (!this.ctx.storage?.setAlarm) return;
-        const now = Date.now();
-        // schedule next midnight alarm with random jitter (0-300s)
-        const tomorrow = new Date(now);
-        tomorrow.setUTCHours(24, 0, 0, 0); // next midnight
-        const jitter = Math.floor(Math.random() * 300_000);
-        await this.ctx.storage.setAlarm(tomorrow.getTime() + jitter);
+        await this.ctx.storage.setAlarm(Date.now() + 60_000);
     }
 
     public async alarm(): Promise<void> {

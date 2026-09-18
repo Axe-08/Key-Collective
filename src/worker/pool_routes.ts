@@ -17,7 +17,11 @@ interface ProviderAggregate {
   total_dispatched_communal: number;
 }
 
-async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Response> {
+async function handlePoolTelemetry(
+  env: WorkerEnv,
+  tenantId: string,
+  ctx?: ExecutionContextLike
+): Promise<Response> {
   if (!env.DB || typeof (env.DB as { prepare?: unknown }).prepare !== 'function') {
     return Response.json({ error: 'Database unavailable' }, { status: 503 });
   }
@@ -83,8 +87,76 @@ async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Re
     providerMap.set(key, existing);
   }
 
+  // 1. Asynchronously push health updates to POOL_COORDINATOR and fetch live coordinator health
+  let coordinatorHealth: Record<string, { wProvider?: number }> = {};
+  const coordinatorNs = env.POOL_COORDINATOR as { idFromName?: (n: string) => unknown; get?: (id: unknown) => { fetch: (url: string, init?: RequestInit) => Promise<Response> } } | undefined;
+  if (coordinatorNs && typeof coordinatorNs.idFromName === 'function' && typeof coordinatorNs.get === 'function') {
+    try {
+      const coordStub = coordinatorNs.get(coordinatorNs.idFromName('global'));
+      const healthPromise = coordStub.fetch('http://coordinator/coordinator/health')
+        .then(async (res) => {
+          if (res.ok) {
+            coordinatorHealth = await res.json() as Record<string, { wProvider?: number }>;
+          }
+        })
+        .catch(() => {});
+
+      await healthPromise;
+
+      if (ctx?.waitUntil) {
+        const pushes = canonicalProviders.map(async (cp) => {
+          const p = providerMap.get(cp);
+          if (!p) return;
+          try {
+            const row = await db.prepare(
+              `SELECT AVG(latency_ms) as avg_lat FROM cost_ledger WHERE provider = ? AND created_at > datetime('now', '-1 hour')`
+            ).bind(cp).first<{ avg_lat: number | null }>();
+            await coordStub.fetch('http://coordinator/coordinator/update-provider', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                provider: cp,
+                activeKeys: p.active_count,
+                quarantineKeys: p.quarantined_count,
+                latencyMs: Math.round(row?.avg_lat ?? 120),
+              }),
+            });
+          } catch {
+            // Non-blocking telemetry
+          }
+        });
+        ctx.waitUntil(Promise.allSettled(pushes));
+      }
+    } catch {
+      // Coordinator fallback
+    }
+  }
+
+  // 2. Query P90 latency per provider from cost_ledger
+  const p90Map = new Map<string, number>();
+  try {
+    for (const cp of canonicalProviders) {
+      const countRow = await db.prepare(
+        `SELECT COUNT(*) as total FROM cost_ledger WHERE provider = ? AND created_at > datetime('now', '-24 hours')`
+      ).bind(cp).first<{ total: number }>();
+      const total = countRow?.total ?? 0;
+      if (total > 0) {
+        const offset = Math.max(0, Math.floor(total * 0.9) - 1);
+        const latRow = await db.prepare(
+          `SELECT latency_ms FROM cost_ledger WHERE provider = ? AND created_at > datetime('now', '-24 hours') ORDER BY latency_ms ASC LIMIT 1 OFFSET ?`
+        ).bind(cp, offset).first<{ latency_ms: number }>();
+        p90Map.set(cp, Math.round(latRow?.latency_ms ?? 0));
+      } else {
+        p90Map.set(cp, 0);
+      }
+    }
+  } catch {
+    // D1 fallback
+  }
+
   const providerPools = canonicalProviders.map(cp => {
     const p = providerMap.get(cp);
+    const coordW = coordinatorHealth[cp]?.wProvider;
     return {
       provider: cp,
       active_keys: p?.active_count ?? 0,
@@ -93,8 +165,8 @@ async function handlePoolTelemetry(env: WorkerEnv, tenantId: string): Promise<Re
       u_pool_percent: (p && p.total_dispatched_today > 0)
         ? Math.round(((p.total_dispatched_communal ?? 0) / p.total_dispatched_today) * 100)
         : 0,
-      w_provider: 1.0,
-      p90_latency_ms: 0,
+      w_provider: typeof coordW === 'number' && coordW > 0 ? Number(coordW.toFixed(2)) : 1.0,
+      p90_latency_ms: p90Map.get(cp) ?? 0,
       eye_for_eye_accessible: tenantProviders.has(cp),
     };
   });
@@ -246,9 +318,9 @@ export async function handlePoolRoute(
   request: Request,
   env: WorkerEnv,
   tenantId: string,
-  _ctx: ExecutionContextLike
+  ctx: ExecutionContextLike
 ): Promise<Response | null> {
-  if (method === 'GET' && pathname === '/api/pool/telemetry') return handlePoolTelemetry(env, tenantId);
+  if (method === 'GET' && pathname === '/api/pool/telemetry') return handlePoolTelemetry(env, tenantId, ctx);
   if (method === 'GET' && pathname === '/api/pool/standing') return handlePoolStanding(env, tenantId);
   if (method === 'GET' && pathname === '/api/pool/contribution') return handlePoolContribution(env, tenantId);
   if (method === 'GET' && pathname === '/api/notifications') {

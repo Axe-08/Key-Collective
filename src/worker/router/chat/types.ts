@@ -14,7 +14,7 @@ import type {
   WorkerEnv,
 } from "../../auth/index";
 import type { ExecutionContextLike, TelemetryEmitter } from "../../telemetry_emitter";
-import type { RouterHandlerOptions } from "../types";
+import type { DurableObjectStubLike, RouterHandlerOptions } from "../types";
 
 export interface ChatHandlerDependencies {
   options: RouterHandlerOptions;
@@ -32,4 +32,5 @@ export interface ChatHandlerDependencies {
     env: WorkerEnv,
     ctx?: ExecutionContextLike
   ) => TelemetryEmitter;
+  getPoolCoordinator?: (env: WorkerEnv) => DurableObjectStub | DurableObjectStubLike;
 }
