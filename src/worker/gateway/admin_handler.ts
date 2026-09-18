@@ -47,10 +47,25 @@ export async function handleAdminRequest(
 
     if (db && typeof db.prepare === "function") {
       try {
-        await db
-          .prepare("UPDATE users SET tier = ? WHERE id = ?")
-          .bind(newTier, targetTenantId)
+        const targetRole = newTier === "admin" ? "admin" : "user";
+        const updateRes = await db
+          .prepare("UPDATE users SET tier = ?, role = ? WHERE id = ?")
+          .bind(newTier, targetRole, targetTenantId)
           .run();
+        if (!updateRes?.meta?.changes || updateRes.meta.changes === 0) {
+          await db
+            .prepare(
+              "INSERT INTO users (id, email, tier, role, sybil_score, auth_phase, is_quarantined, created_at) VALUES (?, ?, ?, ?, ?, 3, 0, CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET tier = excluded.tier, role = excluded.role"
+            )
+            .bind(
+              targetTenantId,
+              targetTenantId.includes("@") ? targetTenantId : `${targetTenantId}@keycollective.local`,
+              newTier,
+              targetRole,
+              newTier === "admin" ? 100 : 90
+            )
+            .run();
+        }
       } catch {
         // ignore
       }

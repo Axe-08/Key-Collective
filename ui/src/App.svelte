@@ -296,11 +296,30 @@
       if (urlParams.get('tab') === 'admin' || window.location.hostname.startsWith('admin.')) {
         userAccount = {
           ...userAccount,
+          id: userAccount.id || 'admin',
+          githubUsername: userAccount.githubUsername || 'admin',
           tier: 'admin',
-          primaryEmail: 'admin@keycollective.io',
+          primaryEmail: userAccount.primaryEmail || 'admin@keycollective.io',
         };
         activeTab = 'admin';
       }
+
+      // Hydrate live session state from D1 users table
+      api.getSession().then((res) => {
+        if (res?.user) {
+          const u = res.user;
+          userAccount = {
+            ...userAccount,
+            id: u.id || userAccount.id,
+            tier: (u.tier as UserTier) || userAccount.tier,
+            primaryEmail: u.email || userAccount.primaryEmail,
+            sybilScore: u.sybil_score ?? userAccount.sybilScore,
+            githubUsername: u.githubUsername || userAccount.githubUsername || u.id,
+            avatarUrl: u.avatarUrl || userAccount.avatarUrl,
+          };
+          localStorage.setItem('kc_user', JSON.stringify(userAccount));
+        }
+      }).catch(() => {});
     }
     loadData();
 

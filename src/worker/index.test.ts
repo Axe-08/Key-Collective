@@ -133,7 +133,14 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // UPDATE USERS
     if (q.includes("UPDATE USERS")) {
-      if (q.includes("SET TIER = ? WHERE ID = ?")) {
+      if (q.includes("SET TIER = ?, ROLE = ? WHERE ID = ?")) {
+        const [tier, role, id] = this.boundParams;
+        const u = this.db.users.get(String(id));
+        if (u) {
+          u.tier = String(tier);
+          u.role = String(role);
+        }
+      } else if (q.includes("SET TIER = ? WHERE ID = ?")) {
         const [tier, id] = this.boundParams;
         const u = this.db.users.get(String(id));
         if (u) {

@@ -281,5 +281,29 @@ export const api = {
     }
     return null;
   },
+
+  async getSession(): Promise<{
+    user?: {
+      id: string;
+      email?: string;
+      tier?: string;
+      role?: string;
+      sybil_score?: number;
+      githubUsername?: string;
+      avatarUrl?: string;
+    } | null;
+  } | null> {
+    try {
+      const res = await fetch('/api/session', {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // offline / error fallback
+    }
+    return null;
+  },
 };
 

@@ -759,7 +759,7 @@
 
 <main class="flex-1 p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto w-full">
   <!-- Demo / Unauthenticated Gate Overlay -->
-  {#if account.tier === 'demo' || !account.id}
+  {#if (account.tier === 'demo' || !account.id) && account.tier !== 'admin'}
     <div class="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[#090B10]/90 backdrop-blur-xl">
       <div class="flex flex-col items-center gap-6 max-w-md text-center p-8 rounded-2xl border border-outline-variant/30 bg-surface-container-low shadow-2xl">
         <span class="material-symbols-outlined text-[56px] text-primary">lock</span>
