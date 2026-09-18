@@ -136,17 +136,56 @@ export class DashboardRouter {
     if (method === "GET" && (pathname === "/api/telemetry/stream" || pathname === "/v1/telemetry/stream")) {
       const encoder = new TextEncoder();
       let intervalId: ReturnType<typeof setInterval> | null = null;
+      const targetTenantId = tenantId;
 
       const stream = new ReadableStream({
         start(controller) {
-          const sendPulse = () => {
+          const sendPulse = async () => {
             try {
+              let currentRpm = 0;
+              let status: "healthy" | "degraded" | "rate_limited" = "healthy";
+
+              // 1. Resolve quotaDO for this tenant if available
+              if (env?.TENANT_QUOTA && targetTenantId && targetTenantId !== "anonymous") {
+                try {
+                  const quotaStub = env.TENANT_QUOTA.get(env.TENANT_QUOTA.idFromName(targetTenantId));
+                  const quotaRes = await quotaStub.fetch("http://do/status");
+                  if (quotaRes.ok) {
+                    const quotaData = await quotaRes.json<{ currentRpm?: number; rpmLimit?: number }>();
+                    currentRpm = quotaData.currentRpm ?? 0;
+                    if (quotaData.rpmLimit && currentRpm >= quotaData.rpmLimit) {
+                      status = "rate_limited";
+                    }
+                  }
+                } catch {
+                  // Keep defaults on DO fetch errors
+                }
+              }
+
+              // 2. Pull avg latency from D1 cost_ledger (last 5 min)
+              let avgLatencyMs = 0;
+              const db = (env?.DB || env?.D1_DB) as D1Database | undefined;
+              if (db && typeof db.prepare === "function") {
+                try {
+                  const query = targetTenantId && targetTenantId !== "anonymous" && targetTenantId !== "admin"
+                    ? "SELECT AVG(latency_ms) as avg_lat FROM cost_ledger WHERE tenant_id = ? AND created_at > datetime('now', '-5 minutes')"
+                    : "SELECT AVG(latency_ms) as avg_lat FROM cost_ledger WHERE created_at > datetime('now', '-5 minutes')";
+                  const stmt = db.prepare(query);
+                  const row = targetTenantId && targetTenantId !== "anonymous" && targetTenantId !== "admin"
+                    ? await stmt.bind(targetTenantId).first<{ avg_lat: number | null }>()
+                    : await stmt.first<{ avg_lat: number | null }>();
+                  avgLatencyMs = Math.round(row?.avg_lat ?? 0);
+                } catch {
+                  // Keep 0 on query error
+                }
+              }
+
               const payload = JSON.stringify({
                 timestamp: Date.now(),
-                value: Math.floor(Math.random() * 35) + 115,
-                latency_ms: Math.floor(Math.random() * 35) + 115,
-                rpm: Math.floor(Math.random() * 8) + 12,
-                status: "healthy",
+                value: avgLatencyMs,
+                latency_ms: avgLatencyMs,
+                rpm: currentRpm,
+                status,
               });
               controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
             } catch {
@@ -158,10 +197,12 @@ export class DashboardRouter {
           };
 
           // Send immediate pulse upon connection
-          sendPulse();
+          void sendPulse();
 
           // Stream periodic telemetry updates every 3s
-          intervalId = setInterval(sendPulse, 3000);
+          intervalId = setInterval(() => {
+            void sendPulse();
+          }, 3000);
         },
         cancel() {
           if (intervalId) {

@@ -194,10 +194,10 @@
       <div>
         <div class="flex items-baseline gap-2">
           <span class="text-headline-lg font-headline-lg font-semibold text-on-surface font-mono">
-            {effectiveStats.avg_upstream_latency_ms || 0}<span class="text-headline-sm font-headline-sm text-outline">ms</span>
+            {effectiveStats.avg_upstream_latency_ms != null && effectiveStats.avg_upstream_latency_ms > 0 ? `${effectiveStats.avg_upstream_latency_ms}` : '—'}{#if effectiveStats.avg_upstream_latency_ms != null && effectiveStats.avg_upstream_latency_ms > 0}<span class="text-headline-sm font-headline-sm text-outline">ms</span>{/if}
           </span>
           <span class="px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-secondary/15 text-secondary border border-secondary/30 font-mono">
-            {effectiveStats.avg_upstream_latency_ms > 0 && effectiveStats.avg_upstream_latency_ms < 100 ? 'Ultra Fast' : effectiveStats.avg_upstream_latency_ms > 0 ? 'Optimal' : 'Active'}
+            {effectiveStats.avg_upstream_latency_ms != null && effectiveStats.avg_upstream_latency_ms > 0 && effectiveStats.avg_upstream_latency_ms < 100 ? 'Ultra Fast' : effectiveStats.avg_upstream_latency_ms != null && effectiveStats.avg_upstream_latency_ms > 0 ? 'Optimal' : 'Active'}
           </span>
         </div>
         <div class="text-label-sm font-label-sm text-on-surface-variant font-mono mt-1">

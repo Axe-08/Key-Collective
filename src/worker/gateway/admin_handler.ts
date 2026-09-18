@@ -8,6 +8,7 @@ import type { WorkerEnv } from "../auth/index";
 import type { RouterHandler } from "../router/index";
 import type { WorkerOptions } from "./types";
 import { applyCors } from "./subdomain";
+import { TOKENS_PER_REQUEST_ESTIMATE } from "../../constants/keys";
 
 /**
  * Handles authenticated admin surveillance requests on admin.*.
@@ -352,6 +353,7 @@ export async function handleAdminRequest(
     let spendMap = new Map<string, number>();
     let lastActiveMap = new Map<string, number>();
     let tenantRpmMap = new Map<string, number>();
+    let upstreamLatencyMs = 0;
 
     if (db && typeof db.prepare === "function") {
       try {
@@ -438,6 +440,17 @@ export async function handleAdminRequest(
           }
         }
       } catch {}
+
+      try {
+        const latencyRow = await db
+          .prepare(
+            "SELECT AVG(latency_ms) as avg_lat FROM cost_ledger WHERE created_at > datetime('now', '-1 hour')"
+          )
+          .first<{ avg_lat: number | null }>();
+        if (latencyRow?.avg_lat != null) {
+          upstreamLatencyMs = Math.round(latencyRow.avg_lat);
+        }
+      } catch {}
     }
 
     // Group keys by tenant_id
@@ -447,6 +460,16 @@ export async function handleAdminRequest(
       const existing = keysByTenant.get(tid) || [];
       existing.push(key);
       keysByTenant.set(tid, existing);
+    }
+
+    // Allocate RPM per provider based on tenant usage and active keys
+    const providerRpmMap = new Map<string, number>();
+    for (const k of keysList) {
+      const prov = (k.provider === 'google' ? 'gemini' : k.provider).toLowerCase();
+      const tenantRpm = tenantRpmMap.get(k.tenant_id) ?? 0;
+      const existing = providerRpmMap.get(prov) ?? 0;
+      const activeKeysForTenant = keysList.filter((x) => x.tenant_id === k.tenant_id).length;
+      providerRpmMap.set(prov, existing + Math.round(tenantRpm / Math.max(1, activeKeysForTenant)));
     }
 
     // Aggregate all unique tenant IDs from users and keys
@@ -567,6 +590,7 @@ export async function handleAdminRequest(
       };
       const name = prov === 'gemini' ? 'Google Gemini Flash' : prov === 'groq' ? 'Groq LLaMA 3.3' : prov === 'cerebras' ? 'Cerebras Inference' : 'DeepSeek Reasoner';
       const model = prov === 'gemini' ? 'gemini-1.5-flash-latest' : prov === 'groq' ? 'llama-3.3-70b-versatile' : prov === 'cerebras' ? 'llama3.1-8b' : 'deepseek-reasoner';
+      const currentRpm = providerRpmMap.get(prov) ?? stat.currentRpm;
       return {
         provider: prov,
         name,
@@ -575,7 +599,7 @@ export async function handleAdminRequest(
         healthyKeys: stat.healthyKeys,
         rateLimitedKeys: stat.rateLimitedKeys,
         rpmLimit: stat.rpmLimit,
-        currentRpm: stat.currentRpm,
+        currentRpm,
         status: stat.rateLimitedKeys > 0 && stat.rateLimitedKeys === stat.activeKeys ? ('degraded' as const) : ('healthy' as const),
       };
     });
@@ -583,6 +607,22 @@ export async function handleAdminRequest(
     const totalClusterRpm = Array.from(tenantRpmMap.values()).reduce((sum, r) => sum + r, 0);
     const totalFleetRpmLimit = keysList.reduce((sum, k) => sum + (k.rpm_limit || 0), 0);
     const totalFleetSpendToday = Array.from(spendMap.values()).reduce((sum, s) => sum + s, 0);
+
+    // Compute rotation fairness score based on variance across dispatched keys
+    const dispatchCounts = keysList.map((k) => k.dispatched_today || 0);
+    const totalDispatched = dispatchCounts.reduce((s, v) => s + v, 0);
+    const fairness = totalDispatched === 0 || dispatchCounts.length === 0
+      ? 100
+      : Math.round(
+          100 *
+            (1 -
+              dispatchCounts.reduce((s, v) => {
+                const share = v / totalDispatched;
+                return s + share * share;
+              }, 0) *
+                (dispatchCounts.length > 1 ? 1 / (dispatchCounts.length - 1) : 1))
+        );
+    const rotationFairnessScore = Math.max(0, Math.min(100, fairness));
 
     const poolSummary = {
       totalKeys: keysList.length,
@@ -593,11 +633,11 @@ export async function handleAdminRequest(
       totalDebtMicroCu: Array.from(debtMap.values()).reduce((sum, d) => sum + d, 0),
       clusterRpmCurrent: totalClusterRpm,
       clusterRpmMax: totalFleetRpmLimit || 100,
-      tokenVelocityTpm: totalClusterRpm * 400,
-      tokenVelocityMaxTpm: (totalFleetRpmLimit || 100) * 400,
+      tokenVelocityTpm: totalClusterRpm * TOKENS_PER_REQUEST_ESTIMATE,
+      tokenVelocityMaxTpm: (totalFleetRpmLimit || 100) * TOKENS_PER_REQUEST_ESTIMATE,
       spendRateMicrodollarsPerHour: Math.round(totalFleetSpendToday / 24),
-      upstreamLatencyMs: 0,
-      rotationFairnessScore: 100,
+      upstreamLatencyMs,
+      rotationFairnessScore,
       providers,
     };
 

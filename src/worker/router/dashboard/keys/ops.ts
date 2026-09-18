@@ -189,9 +189,9 @@ export async function handleTestKey(
       ? `Key verified successfully with Groq in ${latencyMs}ms`
       : `Upstream error HTTP ${testRes.status}: ${testRes.statusText}`;
   } else {
-    latencyMs = 120;
+    latencyMs = Date.now() - testStart;
     isSuccess = true;
-    message = `Provider '${row.provider}' key syntax verified`;
+    message = `Provider '${row.provider}' key syntax verified in ${latencyMs}ms`;
   }
 
   return Response.json({

@@ -170,7 +170,6 @@ export async function handlePostKeys(
     requests_this_min: 0,
     requests_today: 0,
     total_requests: 0,
-    avg_latency_ms: 0,
     created_at: new Date().toISOString(),
   };
 
