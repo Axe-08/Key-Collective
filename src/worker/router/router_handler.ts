@@ -6,21 +6,21 @@
 
 import type { KeyPoolContract } from "../../contracts/key_pool";
 import type { RouterContract } from "../../contracts/router";
-import { UpstreamClient } from "../../proxy/upstream_client";
-import { CapabilityFilter } from "../../router/capability_filter";
-import type { CascadeRouter } from "../../router/cascade_router";
+import { UpstreamClient } from "../../proxy/upstream/index";
+import { CapabilityFilter } from "../../router/capability/index";
+import type { CascadeRouter } from "../../router/cascade/index";
 import {
   ALL_MODEL_DEFINITIONS,
   IModelRegistry,
   ModelRegistry,
-} from "../../router/model_registry";
-import { AuthTokensRepository } from "../../storage/repositories/authTokens";
-import { CostLedgerRepository } from "../../storage/repositories/costLedger";
+} from "../../router/registry/index";
+import { AuthTokensRepository } from "../../storage/repositories/auth_tokens/index";
+import { CostLedgerRepository } from "../../storage/repositories/cost_ledger/index";
 import {
   AuthenticatedContext,
   AuthMiddleware,
   WorkerEnv,
-} from "../auth_middleware";
+} from "../auth/index";
 import { ExecutionContextLike, TelemetryEmitter } from "../telemetry_emitter";
 import { ChatHandler } from "./chat_handler";
 import { DashboardHandler } from "./dashboard_handler";

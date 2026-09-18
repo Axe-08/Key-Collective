@@ -37,26 +37,26 @@ import {
   AuthenticatedContext,
   AuthMiddleware,
   WorkerEnv,
-} from "../../../src/worker/auth_middleware";
+} from "../../../src/worker/auth/index";
 import {
   DurableObjectNamespaceLike,
   DurableObjectStubLike,
   RouterHandler,
-} from "../../../src/worker/router_handler";
+} from "../../../src/worker/router/index";
 import {
   ExecutionContextLike,
   TelemetryEmitter,
 } from "../../../src/worker/telemetry_emitter";
 import { TelemetryContract, TelemetryEvent } from "../../../src/contracts/telemetry";
-import { UpstreamClient } from "../../../src/proxy/upstream_client";
-import { CostLedgerEventInput, CostLedgerRepository } from "../../../src/storage/repositories/costLedger";
+import { UpstreamClient } from "../../../src/proxy/upstream/index";
+import { CostLedgerEventInput, CostLedgerRepository } from "../../../src/storage/repositories/cost_ledger/index";
 import {
   AuthTokenRecord,
   AuthTokenRow,
   AuthTokensRepository,
-} from "../../../src/storage/repositories/authTokens";
+} from "../../../src/storage/repositories/auth_tokens/index";
 import { hashToken } from "../../../src/crypto";
-import { ModelRegistry } from "../../../src/router/model_registry";
+import { ModelRegistry } from "../../../src/router/registry/index";
 
 /**
  * Mock Cloudflare ExecutionContext tracking waitUntil background tasks.

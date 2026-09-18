@@ -23,7 +23,7 @@ import {
 } from "../../errors/key_errors";
 import {
   AuthTokensRepository,
-} from "../../storage/repositories/authTokens";
+} from "../../storage/repositories/auth_tokens/index";
 import {
   WorkerEnv,
   AuthenticatedContext,
@@ -149,17 +149,6 @@ export class AuthMiddleware implements AuthContract {
     const record = await repo.findByToken(rawToken);
 
     if (!record) {
-      if (
-        rawToken === "kc_proj_live_9f83a00c82de19a" ||
-        rawToken.startsWith("kc_demo_") ||
-        rawToken.startsWith("kc_bld_") ||
-        rawToken.startsWith("kc_proj_")
-      ) {
-        return {
-          tenantId: "default",
-          isAuthenticated: true,
-        };
-      }
       throw new AuthenticationError("Invalid bearer token", {
         reason: "invalid_token",
       });
@@ -236,80 +225,49 @@ export class AuthMiddleware implements AuthContract {
         };
       }
 
-      // 2.2 Check if ephemeral rotating playground token (kc_play_<session>_<expiryHex>)
-      if (rawToken.startsWith("kc_play_")) {
-        const parts = rawToken.split("_");
-        // Format: kc_play_<sessionHex>_<expiryHex>
-        if (parts.length >= 4) {
-          const expiryHex = parts[parts.length - 1];
-          const expiryMs = parseInt(expiryHex, 36);
-          if (!isNaN(expiryMs) && now > expiryMs) {
-            throw new AuthenticationError(
-              "Playground ephemeral token has expired. Playground tokens auto-rotate every 60s to prevent unauthorized external reuse. Please use the active token from the playground.",
-              { reason: "token_expired" }
-            );
+      // 2.2 Check if ephemeral rotating demo token (kc_demo_*)
+      if (rawToken.startsWith("kc_demo_")) {
+        const demoPool = (env as { DEMO_POOL?: DurableObjectNamespace })?.DEMO_POOL;
+        if (demoPool) {
+          const clientIp = request.headers.get("cf-connecting-ip") ?? "127.0.0.1";
+          const doId = demoPool.idFromName("global_demo_pool");
+          const stub = demoPool.get(doId);
+          const consumeRes = await stub.fetch("http://demo/consume", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ token: rawToken, ip: clientIp }),
+          });
+          const consumeData = (await consumeRes.json().catch(() => ({}))) as {
+            allowed?: boolean;
+            error?: string;
+            rateLimit?: { rpmLimit?: number; currentRpm?: number; remainingRpm?: number };
+          };
+          if (!consumeData.allowed) {
+            throw new AuthenticationError(consumeData.error || "Invalid or expired demo token", {
+              reason: "invalid_token",
+            });
           }
+          return {
+            tenantId: "demo",
+            isAuthenticated: true,
+            token: {
+              id: `demo_${rawToken.slice(0, 16)}`,
+              hashSha256: await hashToken(rawToken),
+              tenantId: "demo",
+              budgetMicrodollars: 1_000_000n, // $1 demo budget
+              spentMicrodollars: 0n,
+              allowedProviders: [],
+              rpmLimit: consumeData.rateLimit?.rpmLimit ?? 3,
+              expiresAt: null,
+              createdAt: new Date(now).toISOString(),
+            },
+            rpmLimit: consumeData.rateLimit?.rpmLimit ?? 3,
+            currentRpm: consumeData.rateLimit?.currentRpm ?? 1,
+            remainingRpm: consumeData.rateLimit?.remainingRpm ?? 2,
+            budgetMicrodollars: 1_000_000n,
+            spentMicrodollars: 0n,
+          };
         }
-
-        const headerTenant =
-          request.headers.get("x-tenant-id") ??
-          request.headers.get("kc-tenant-id") ??
-          "default";
-
-        return {
-          tenantId: headerTenant,
-          isAuthenticated: true,
-          token: {
-            id: `play_${rawToken.slice(0, 16)}`,
-            hashSha256: await hashToken(rawToken),
-            tenantId: headerTenant,
-            budgetMicrodollars: 10_000_000n,
-            spentMicrodollars: 0n,
-            allowedProviders: [],
-            rpmLimit: 30,
-            expiresAt: null,
-            createdAt: new Date(now).toISOString(),
-          },
-          rpmLimit: 30,
-          currentRpm: 1,
-          remainingRpm: 29,
-          budgetMicrodollars: 10_000_000n,
-          spentMicrodollars: 0n,
-        };
-      }
-
-      // 2.3 Check if legacy sandbox playground token or builder/demo token
-      if (
-        rawToken === "kc_proj_live_9f83a00c82de19a" ||
-        rawToken.startsWith("kc_demo_") ||
-        rawToken.startsWith("kc_bld_") ||
-        rawToken.startsWith("kc_proj_")
-      ) {
-        const headerTenant =
-          request.headers.get("x-tenant-id") ??
-          request.headers.get("kc-tenant-id") ??
-          "default";
-
-        return {
-          tenantId: headerTenant,
-          isAuthenticated: true,
-          token: {
-            id: `ephemeral_${rawToken.slice(0, 16)}`,
-            hashSha256: await hashToken(rawToken),
-            tenantId: headerTenant,
-            budgetMicrodollars: 100_000_000n,
-            spentMicrodollars: 0n,
-            allowedProviders: [],
-            rpmLimit: 60,
-            expiresAt: null,
-            createdAt: new Date(now).toISOString(),
-          },
-          rpmLimit: 60,
-          currentRpm: 1,
-          remainingRpm: 59,
-          budgetMicrodollars: 100_000_000n,
-          spentMicrodollars: 0n,
-        };
       }
 
       throw new AuthenticationError("Invalid bearer token", {

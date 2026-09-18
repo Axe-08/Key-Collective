@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { sanitizeErrorMessage, SECRET_REGEX, IP_REGEX } from "../errors/normalizer";
-import { formatRouterError, RouterHandler } from "./router_handler";
-import type { WorkerEnv } from "./env";
-import { RouterError } from "./router_handler";
+import { sanitizeErrorMessage, SECRET_REGEX, IP_REGEX } from "./error_normalizer";
+import { formatRouterError, RouterHandler } from "./router/index";
+import type { WorkerEnv } from "./auth/types";
+import { RouterError } from "./router/index";
 import { encryptKey } from "../durable_objects/crypto";
 
 describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {

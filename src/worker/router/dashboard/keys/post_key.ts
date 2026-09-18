@@ -6,10 +6,10 @@
  * - Per-Tenant Isolation: Keys isolated by tenantId.
  */
 
-import { verifyTurnstileToken } from "../../../../auth/sybil";
-import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption";
+import { verifyTurnstileToken } from "../../../../auth/sybil/index";
+import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
 import { forceErrorGcpProbe } from "../../../../ingress/probe";
-import type { WorkerEnv } from "../../../auth_middleware";
+import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
 

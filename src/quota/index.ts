@@ -3,4 +3,4 @@
  */
 
 export * from "./limits";
-export * from "./tenant_do";
+export * from "./tenant/index";

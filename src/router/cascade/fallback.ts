@@ -14,11 +14,11 @@
 
 import type { RouteRequest } from "../../contracts/router";
 import type { KeyPoolContract } from "../../contracts/key_pool";
-import type { IModelRegistry } from "../model_registry";
+import type { IModelRegistry } from "../registry/index";
 import {
   type UpstreamClient,
   type UpstreamChatRequest,
-} from "../../proxy/upstream_client";
+} from "../../proxy/upstream/index";
 import type { ModelDef } from "../../types/models";
 import {
   FallbackExhaustedError,

@@ -24,7 +24,7 @@ import {
   extractContentFromPayload,
   DEFAULT_PROVIDER_BASE_URLS,
   DEFAULT_PROVIDER_ENDPOINTS,
-} from "./upstream_client";
+} from "./upstream/index";
 import {
   RateLimitExceededError,
   InvalidKeyError,
@@ -32,7 +32,7 @@ import {
   ProviderTimeoutError,
 } from "../errors";
 import type { KeyPoolContract } from "../contracts/key_pool";
-import type { StreamUsage } from "./sse_transformer";
+import type { StreamUsage } from "./sse/index";
 
 describe("UpstreamClient", () => {
   const encoder = new TextEncoder();

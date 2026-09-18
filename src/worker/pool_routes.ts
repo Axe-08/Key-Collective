@@ -4,7 +4,7 @@
  *          GET /api/pool/contribution, GET /api/notifications
  */
 
-import type { WorkerEnv } from './auth_middleware';
+import type { WorkerEnv } from './auth/index';
 
 type ExecutionContextLike = { waitUntil: (p: Promise<unknown>) => void };
 

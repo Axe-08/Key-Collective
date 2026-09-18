@@ -33,7 +33,7 @@ import worker, {
   parseSubdomain,
   resolveHostRoute,
 } from "../../src/worker/index";
-import { WorkerEnv } from "../../src/worker/auth_middleware";
+import { WorkerEnv } from "../../src/worker/auth/index";
 import { hashToken } from "../../src/crypto";
 import {
   calculateSybilScore,
@@ -43,7 +43,7 @@ import {
   SYBIL_SCORE_BUILDER_THRESHOLD,
   type SybilUserInput,
   type SybilRequestInput,
-} from "../../src/auth/sybil";
+} from "../../src/auth/sybil/index";
 import {
   generatePKCEPair,
   buildAuthorizationUrl,
@@ -51,7 +51,7 @@ import {
   fetchOAuthUserProfile,
   issueUserJWT,
   verifyUserJWT,
-} from "../../src/auth/oauth";
+} from "../../src/auth/oauth/index";
 import type { OAuthProviderConfig } from "../../src/contracts/v3_types";
 
 // ============================================================================

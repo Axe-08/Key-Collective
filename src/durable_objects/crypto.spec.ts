@@ -38,7 +38,7 @@ import {
   deriveKey,
   generateNonce,
   uint8ArrayToBase64,
-} from "../crypto/encryption";
+} from "../crypto/encryption/index";
 
 describe("Durable Object Crypto & AES-256-GCM Decryption (TASK-DOP-02)", () => {
   const TEST_MASTER_KEY = "test-master-secret-key-32bytes-passphrase!!";

@@ -276,7 +276,8 @@
   }
 
   // Provider Circuit Breaker Override Handler
-  function handleCircuitOverride(payload: ProviderCircuitOverridePayload) {
+  async function handleCircuitOverride(payload: ProviderCircuitOverridePayload) {
+    const t0 = performance.now();
     if (payload.provider === 'all') {
       const keys = Object.keys(circuits) as ProviderKey[];
       for (const k of keys) {
@@ -306,6 +307,23 @@
       }
     }
 
+    let syncDurationMs = 0;
+    try {
+      await fetch('/api/admin/circuit-breaker', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          provider: payload.provider,
+          state: payload.state,
+          reason: payload.reason,
+          adminEmail: payload.adminEmail,
+        }),
+      });
+      syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
+    } catch {
+      // fallback
+    }
+
     auditLogs = [
       {
         id: `aud_${Date.now().toString(36)}`,
@@ -314,15 +332,29 @@
         action: payload.state === 'TRIPPED' ? 'CIRCUIT_TRIP_OVERRIDE' : 'CIRCUIT_RESET_NORMAL',
         target: payload.provider.toUpperCase(),
         reason: payload.reason,
-        syncDurationMs: 0, // populated from API response when available
+        syncDurationMs,
       },
       ...auditLogs,
     ];
   }
 
   // Global Kill Switch Handler
-  function handleGlobalKillSwitch(active: boolean, reason: string) {
+  async function handleGlobalKillSwitch(active: boolean, reason: string) {
+    const t0 = performance.now();
     globalKillSwitchActive = active;
+
+    let syncDurationMs = 0;
+    try {
+      await fetch('/api/admin/kill-switch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ active, reason, adminEmail }),
+      });
+      syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
+    } catch {
+      // fallback
+    }
+
     auditLogs = [
       {
         id: `aud_${Date.now().toString(36)}`,
@@ -331,7 +363,7 @@
         action: active ? 'GLOBAL_KILL_SWITCH_ENGAGED' : 'GLOBAL_KILL_SWITCH_DISARMED',
         target: 'ALL_EDGE_ISOLATES',
         reason,
-        syncDurationMs: 0, // populated from API response when available
+        syncDurationMs,
       },
       ...auditLogs,
     ];

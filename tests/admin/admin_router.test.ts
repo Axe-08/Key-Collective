@@ -1,251 +1,178 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import {
-  adminRouter,
-  verifyAdmin,
-  resetAdminStore,
-  getTenants,
-  updateTenantTier,
-  setTenantQuarantine,
-  getPoolHealth,
-  resetCircuitBreakers,
-} from "../../src/admin/admin_router";
-import {
-  createMockRequest,
-  createMockResponse,
-} from "../../src/admin/router/mocks";
+import { describe, it, expect } from "vitest";
+import { handleAdminRequest } from "../../src/worker/gateway/admin_handler";
+import { verifyAdminRequest } from "../../src/worker/gateway/admin_verifier";
+import type { WorkerEnv } from "../../src/worker/auth/types";
+import type { RouterHandler } from "../../src/worker/router/index";
 
-describe("Admin Surveillance Router & Zero-Knowledge Denial (T1 Verification)", () => {
-  beforeEach(() => {
-    resetAdminStore();
-  });
+function createMockEnv(overrides: Partial<WorkerEnv> = {}): WorkerEnv {
+  const users = new Map<string, any>();
+  const auditLogs: any[] = [];
+  const apiKeys = new Map<string, any>();
 
-  describe("Zero-Knowledge Denial Middleware (verifyAdmin)", () => {
-    it("returns 404 Not Found when no role is present (anonymity shield)", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-      });
-      const res = createMockResponse();
+  const mockDb = {
+    prepare(query: string) {
+      return {
+        bind(...args: any[]) {
+          return {
+            async run() {
+              if (query.includes("UPDATE users SET tier")) {
+                const [tier, id] = args;
+                const u = users.get(id) || { id };
+                u.tier = tier;
+                users.set(id, u);
+              } else if (query.includes("UPDATE users SET is_quarantined")) {
+                const [isQuar, reason, id] = args;
+                const u = users.get(id) || { id };
+                u.is_quarantined = isQuar;
+                u.quarantine_reason = reason;
+                users.set(id, u);
+              } else if (query.includes("INSERT INTO admin_audit_logs")) {
+                auditLogs.push(args);
+              } else if (query.includes("UPDATE api_keys SET community_routing_status")) {
+                const [targetId] = args.reverse();
+                const k = apiKeys.get(targetId) || { id: targetId };
+                k.community_routing_status = "ACTIVE";
+                apiKeys.set(targetId, k);
+              }
+              return { success: true, meta: { changes: 1 } };
+            },
+            async first() {
+              if (query.includes("SELECT id, email, tier, role, is_quarantined FROM users")) {
+                const [id] = args;
+                return users.get(id) || null;
+              }
+              return null;
+            },
+            async all() {
+              if (query.includes("FROM users")) {
+                return { results: Array.from(users.values()) };
+              }
+              if (query.includes("FROM api_keys")) {
+                return { results: Array.from(apiKeys.values()) };
+              }
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
 
-      await adminRouter(req, res);
+  return {
+    KC_MASTER_KEY: "admin-master-key-secret-12345",
+    DB: mockDb as any,
+    ...overrides,
+  } as unknown as WorkerEnv;
+}
 
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toEqual({ error: "Not Found" });
+const mockRouterHandler = {
+  handle: async () => new Response("OK"),
+} as unknown as RouterHandler;
+
+describe("Admin Gateway & Zero-Knowledge Verification (Production Invariants)", () => {
+  describe("verifyAdminRequest (Zero-Knowledge Denial)", () => {
+    it("returns false when no Authorization header or token is present", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance");
+      const env = createMockEnv();
+      const verified = await verifyAdminRequest(req, env);
+      expect(verified).toBe(false);
     });
 
-    it("returns 404 Not Found for probationary tier / non-admin user", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-        role: "probationary",
-        user: { role: "probationary", tier: "probationary" },
+    it("returns false for non-admin arbitrary token", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
+        headers: { Authorization: "Bearer bogus-token-12345" },
       });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toEqual({ error: "Not Found" });
+      const env = createMockEnv();
+      const verified = await verifyAdminRequest(req, env);
+      expect(verified).toBe(false);
     });
 
-    it("returns 404 Not Found for builder tier user", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-        role: "builder",
-        user: { id: "usr_1", role: "builder", tier: "builder" },
+    it("returns true when request matches KC_MASTER_KEY", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
+        headers: { Authorization: "Bearer admin-master-key-secret-12345" },
       });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toEqual({ error: "Not Found" });
+      const env = createMockEnv();
+      const verified = await verifyAdminRequest(req, env);
+      expect(verified).toBe(true);
     });
 
-    it("returns 404 Not Found when x-user-role header is not admin", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-        headers: { "x-user-role": "builder" },
-      });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toEqual({ error: "Not Found" });
-    });
-
-    it("never returns 401 or 403 to avoid endpoint discovery", async () => {
-      const invalidRoles = ["guest", "user", "developer", "ultra", "max", "", "undefined"];
-      for (const r of invalidRoles) {
-        const req = createMockRequest({
-          method: "GET",
-          url: "/admin/api/tenants",
-          role: r,
-        });
-        const res = createMockResponse();
-        await adminRouter(req, res);
-        expect(res.statusCode).toBe(404);
-      }
-    });
-
-    it("allows access when role is strictly admin via req.role", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-        role: "admin",
-      });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { success: boolean; tenants: unknown[] };
-      expect(data.success).toBe(true);
-      expect(Array.isArray(data.tenants)).toBe(true);
-      expect(data.tenants.length).toBeGreaterThan(0);
-    });
-
-    it("allows access when role is admin via req.user.role", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-        user: { id: "admin_1", email: "admin@key-col.axe08.tech", role: "admin" },
-      });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { success: boolean };
-      expect(data.success).toBe(true);
-    });
-
-    it("allows access when x-user-role header is admin", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-        headers: { "x-user-role": "admin" },
-      });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { success: boolean };
-      expect(data.success).toBe(true);
+    it("supports token query param for browser address bar navigation", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance?token=admin-master-key-secret-12345");
+      const env = createMockEnv();
+      const verified = await verifyAdminRequest(req, env);
+      expect(verified).toBe(true);
     });
   });
 
-  describe("Admin Surveillance Endpoints Functionality", () => {
-    it("GET /admin/api/tenants lists all active tenants with microdollar spends", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/tenants",
-        role: "admin",
-      });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { success: boolean; tenants: Array<{ todaySpendMicrodollars: number }> };
-      expect(data.success).toBe(true);
-      expect(data.tenants.length).toBe(3);
-      for (const t of data.tenants) {
-        expect(typeof t.todaySpendMicrodollars).toBe("number");
-      }
+  describe("handleAdminRequest (Live Endpoints)", () => {
+    it("GET /api/admin/surveillance returns tenant and pool aggregates", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance");
+      const env = createMockEnv();
+      const res = await handleAdminRequest(req, env, mockRouterHandler);
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(data.status).toBe("success");
+      expect(data.pool).toBeDefined();
+      expect(data.pool.providers).toBeInstanceOf(Array);
     });
 
-    it("POST /admin/api/tenants/:id/role updates tenant tier", async () => {
-      const req = createMockRequest({
+    it("POST /api/admin/tenants/:id/tier overrides tenant tier in D1", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/tenants/usr_123/tier", {
         method: "POST",
-        url: "/admin/api/tenants/tenant_probationary_01/role",
-        role: "admin",
-        body: { tier: "builder", reason: "Verified GitHub credentials" },
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ new_tier: "ultra", reason: "Enterprise VIP" }),
       });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { success: boolean; tenantId: string; tier: string };
+      const env = createMockEnv();
+      const res = await handleAdminRequest(req, env, mockRouterHandler);
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
       expect(data.success).toBe(true);
-      expect(data.tenantId).toBe("tenant_probationary_01");
-      expect(data.tier).toBe("builder");
+      expect(data.target_tenant_id).toBe("usr_123");
+      expect(data.target_tenant_tier).toBe("ultra");
     });
 
-    it("POST /admin/api/tenants/:id/role rejects invalid tier", async () => {
-      const req = createMockRequest({
+    it("POST /api/admin/tenants/:id/quarantine toggles quarantine status", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/tenants/usr_bad/quarantine", {
         method: "POST",
-        url: "/admin/api/tenants/tenant_probationary_01/role",
-        role: "admin",
-        body: { tier: "superadmin_invalid" },
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ is_quarantined: true, reason: "Sybil violation" }),
       });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(400);
-      const data = res.body as { error: string };
-      expect(data.error).toContain("Invalid or missing tier");
-    });
-
-    it("POST /admin/api/tenants/:id/quarantine toggles quarantine status", async () => {
-      const req = createMockRequest({
-        method: "POST",
-        url: "/admin/api/tenants/tenant_builder_02/quarantine",
-        role: "admin",
-        body: { isQuarantined: true, reason: "Sybil anomaly detected" },
-      });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { success: boolean; tenantId: string; isQuarantined: boolean };
+      const env = createMockEnv();
+      const res = await handleAdminRequest(req, env, mockRouterHandler);
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
       expect(data.success).toBe(true);
-      expect(data.tenantId).toBe("tenant_builder_02");
-      expect(data.isQuarantined).toBe(true);
+      expect(data.target_tenant_id).toBe("usr_bad");
+      expect(data.is_quarantined).toBe(true);
     });
 
-    it("GET /admin/api/pool/health returns multi-provider circuit breaker state", async () => {
-      const req = createMockRequest({
-        method: "GET",
-        url: "/admin/api/pool/health",
-        role: "admin",
-      });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { status: string; pools: Record<string, unknown> };
-      expect(data.status).toBe("healthy");
-      expect(data.pools.gemini).toBeDefined();
-      expect(data.pools.groq).toBeDefined();
-      expect(data.pools.cerebras).toBeDefined();
-      expect(data.pools.deepseek).toBeDefined();
-    });
-
-    it("POST /admin/api/pool/circuit-breaker/reset resets tripped providers", async () => {
-      const req = createMockRequest({
+    it("POST /api/admin/circuit-breaker overrides provider circuit state", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/circuit-breaker", {
         method: "POST",
-        url: "/admin/api/pool/circuit-breaker/reset",
-        role: "admin",
-        body: { provider: "gemini", reason: "Quota refreshed" },
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider: "groq", state: "TRIPPED", reason: "Upstream 503 incident" }),
       });
-      const res = createMockResponse();
-
-      await adminRouter(req, res);
-
-      expect(res.statusCode).toBe(200);
-      const data = res.body as { success: boolean; provider: string; state: string };
+      const env = createMockEnv();
+      const res = await handleAdminRequest(req, env, mockRouterHandler);
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
       expect(data.success).toBe(true);
-      expect(data.provider).toBe("gemini");
-      expect(data.state).toBe("NORMAL");
+      expect(data.provider).toBe("groq");
+      expect(data.state).toBe("TRIPPED");
+    });
+
+    it("POST /api/admin/kill-switch disarms or engages edge freeze", async () => {
+      const req = new Request("https://admin.keycollective.ai/api/admin/kill-switch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ active: true, reason: "Security drill" }),
+      });
+      const env = createMockEnv();
+      const res = await handleAdminRequest(req, env, mockRouterHandler);
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(data.success).toBe(true);
+      expect(data.active).toBe(true);
     });
   });
 });

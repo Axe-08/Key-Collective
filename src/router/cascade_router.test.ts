@@ -23,18 +23,18 @@ import {
   CascadeRouteResponse,
   isCascadeRouteRequest,
   isCascadeRouteResponse,
-} from "./cascade_router";
+} from "./cascade/index";
 import {
   ModelRegistry,
   DEFAULT_MODEL_DEFINITIONS,
   ContextWindowExceededError,
-} from "./model_registry";
-import { CapabilityFilter } from "./capability_filter";
+} from "./registry/index";
+import { CapabilityFilter } from "./capability/index";
 import {
   UpstreamClient,
   UpstreamChatResponse,
   UpstreamResponse,
-} from "../proxy/upstream_client";
+} from "../proxy/upstream/index";
 import type { KeyPoolContract } from "../contracts/key_pool";
 import type { ModelDef } from "../types/models";
 import {

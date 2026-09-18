@@ -16,7 +16,7 @@ import {
   decrypt,
   encrypt,
   deriveTenantKey,
-} from "../../../crypto/encryption";
+} from "../../../crypto/encryption/index";
 import {
   DecryptionError,
   EncryptionError,

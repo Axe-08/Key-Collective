@@ -3,7 +3,7 @@
  */
 
 export * from "./auth_routes";
-export * from "./key_routes";
+export * from "./keys/index";
 export * from "./abuse_routes";
 export * from "./metrics_routes";
 export * from "./handler";

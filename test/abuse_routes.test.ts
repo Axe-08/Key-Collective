@@ -12,7 +12,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { handleReportKeyAbuse } from "../src/worker/router/dashboard/abuse_routes";
-import type { WorkerEnv } from "../src/worker/auth_middleware";
+import type { WorkerEnv } from "../src/worker/auth/index";
 
 interface MockStatement {
   bind: (...args: unknown[]) => MockStatement;

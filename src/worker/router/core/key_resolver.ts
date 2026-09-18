@@ -10,9 +10,9 @@
  * - Strict tenant key derivation (deriveTenantKey) with fallback to master key.
  */
 
-import { deriveTenantKey, decrypt, type KeyInput } from "../../../crypto/encryption";
+import { deriveTenantKey, decrypt, type KeyInput } from "../../../crypto/encryption/index";
 import { decryptKey } from "../../../durable_objects/crypto";
-import type { WorkerEnv } from "../../auth_middleware";
+import type { WorkerEnv } from "../../auth/index";
 
 // In-memory cache for decrypted API keys to avoid repetitive D1 / crypto operations
 const decryptedKeyCache = new Map<string, { key: string; expiresAt: number }>();

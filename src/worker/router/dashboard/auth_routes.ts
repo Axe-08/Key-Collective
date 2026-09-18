@@ -2,7 +2,7 @@
  * Key Collective v2/v4 — Developer Dashboard OAuth & Auth Helpers
  */
 
-import type { WorkerEnv } from "../../auth_middleware";
+import type { WorkerEnv } from "../../auth/index";
 
 interface GithubTokenResponse {
   access_token?: string;

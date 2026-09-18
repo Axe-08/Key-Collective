@@ -22,7 +22,7 @@ import {
   hashToken,
   importRawKey,
   uint8ArrayToBase64,
-} from "../../src/crypto/encryption";
+} from "../../src/crypto/encryption/index";
 import { DecryptionError, EncryptionError } from "../../src/errors/key_errors";
 
 interface AesKeyAlgorithmInfo {

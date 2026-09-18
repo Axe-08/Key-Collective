@@ -19,7 +19,7 @@ import {
   KeyInput,
   deriveTenantKey,
   encrypt,
-} from "../../../crypto/encryption";
+} from "../../../crypto/encryption/index";
 import {
   InvalidKeyError,
   KeyNotFoundError,

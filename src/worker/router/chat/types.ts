@@ -6,13 +6,13 @@ import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { RouterContract } from "../../../contracts/router";
 import type {
   CascadeRouter,
-} from "../../../router/cascade_router";
-import type { IModelRegistry } from "../../../router/model_registry";
-import type { CostLedgerRepository } from "../../../storage/repositories/costLedger";
-import type { AuthTokensRepository } from "../../../storage/repositories/authTokens";
+} from "../../../router/cascade/index";
+import type { IModelRegistry } from "../../../router/registry/index";
+import type { CostLedgerRepository } from "../../../storage/repositories/cost_ledger/index";
+import type { AuthTokensRepository } from "../../../storage/repositories/auth_tokens/index";
 import type {
   WorkerEnv,
-} from "../../auth_middleware";
+} from "../../auth/index";
 import type { ExecutionContextLike, TelemetryEmitter } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 

@@ -5,7 +5,7 @@
  */
 
 import { MainWorker } from "./gateway/main_worker";
-import type { WorkerEnv } from "./auth_middleware";
+import type { WorkerEnv } from "./auth/index";
 import type { ExecutionContextLike } from "./telemetry_emitter";
 import type { WorkerOptions } from "./gateway/types";
 
@@ -57,7 +57,7 @@ export {
   extractBearerToken,
   formatAuthError,
   InMemoryRateLimiterStorage,
-} from "./auth_middleware";
+} from "./auth/index";
 
 export {
   RouterHandler,
@@ -68,7 +68,7 @@ export {
   createRouterHandler,
   defaultRouterHandler,
   handleRoute,
-} from "./router_handler";
+} from "./router/index";
 
 export {
   TelemetryEmitter,

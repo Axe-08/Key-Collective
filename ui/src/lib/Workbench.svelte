@@ -20,6 +20,7 @@
   } from './workbench/formatters';
 
   import IdentityCard from './workbench/IdentityCard.svelte';
+  import TierMatrixSection from './workbench/TierMatrixSection.svelte';
   import ProjectsSection from './workbench/ProjectsSection.svelte';
   import ProviderKeysSection from './workbench/ProviderKeysSection.svelte';
   import KeysSection from './workbench/KeysSection.svelte';
@@ -218,12 +219,12 @@
           if (list.length > 0) {
             localProjects = list.map((p, idx) => {
               const ext = p as ExtendedProject;
-              const lat = typeof ext.latencyMs === 'number' ? ext.latencyMs : null;
+              const lat = typeof ext.latencyMs === 'number' ? ext.latencyMs : undefined;
               return {
                 ...p,
                 assignedRpm: ('assignedRpm' in p ? ext.assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
                 latencyMs: lat,
-                latency: lat !== null ? `${lat}ms avg` : '—',
+                latency: lat !== undefined ? `${lat}ms avg` : '—',
                 icon: idx % 2 === 0 ? 'hub' : 'psychology',
                 iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
               };
@@ -239,12 +240,12 @@
         if (projects && projects.length > 0) {
           localProjects = projects.map((p, idx) => {
             const ext = p as ExtendedProject;
-            const lat = typeof ext.latencyMs === 'number' ? ext.latencyMs : null;
+            const lat = typeof ext.latencyMs === 'number' ? ext.latencyMs : undefined;
             return {
               ...p,
               assignedRpm: ('assignedRpm' in p ? ext.assignedRpm : undefined) ?? (getProjectKeyCount(p.id) > 0 ? Math.min(p.maxRpmSubCap || 20, getProjectKeyCount(p.id) * 5) : 0),
               latencyMs: lat,
-              latency: lat !== null ? `${lat}ms avg` : '—',
+              latency: lat !== undefined ? `${lat}ms avg` : '—',
               icon: idx % 2 === 0 ? 'hub' : 'psychology',
               iconColor: idx % 2 === 0 ? 'text-primary' : 'text-tertiary',
             };
@@ -847,6 +848,12 @@
     onCreateKeyClick={() => (showNewKeyModal = true)}
   />
 
+  <!-- 2. Quota Hierarchy & Governance Tiers Matrix -->
+  <TierMatrixSection
+    tierMatrix={TIER_MATRIX}
+    {selectedTier}
+    onSelectTier={selectTier}
+  />
 
   <!-- 3. Multi-Project Management Section -->
   <ProjectsSection
@@ -931,16 +938,33 @@
   {showProjectSettingsModal}
   onCloseProjectSettingsModal={() => (showProjectSettingsModal = null)}
   onArchiveProjectToggle={(id) => {
-    localProjects = localProjects.map((p) => p.id === id ? { ...p, isArchived: !p.isArchived } : p);
+    const target = localProjects.find(p => p.id === id);
+    const nextArchived = !target?.isArchived;
+    localProjects = localProjects.map((p) => p.id === id ? { ...p, isArchived: nextArchived } : p);
     showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+    void fetch(`/api/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ is_archived: nextArchived }),
+    }).catch(() => {});
   }}
   onSaveProjectName={(id, name) => {
     localProjects = localProjects.map(p => p.id === id ? { ...p, name } : p);
     showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+    void fetch(`/api/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }).catch(() => {});
   }}
   onSaveProjectRpm={(id, rpm) => {
     localProjects = localProjects.map(p => p.id === id ? { ...p, maxRpmSubCap: rpm, assignedRpm: Math.min(p.assignedRpm || 0, rpm) } : p);
     showProjectSettingsModal = localProjects.find(p => p.id === id) ?? null;
+    void fetch(`/api/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ rpm_sub_cap: rpm }),
+    }).catch(() => {});
   }}
   onDeleteProject={handleDeleteProject}
   {localKeys}

@@ -3,6 +3,7 @@
   import MetricCards from './MetricCards.svelte';
   import KeysTable from './KeysTable.svelte';
   import TelemetryLogs from './TelemetryLogs.svelte';
+  import TelemetryCharts from './TelemetryCharts.svelte';
 
   interface Props {
     keys: APIKey[];
@@ -91,7 +92,13 @@
   </div>
 
   <!-- Live Telemetry Stream (Edge Request Stream Console) (Col span 4) -->
-  <div id="telemetry-logs" class="xl:col-span-4 flex flex-col">
+  <div id="telemetry-logs" class="xl:col-span-4 flex flex-col gap-4">
+    <TelemetryCharts
+      endpoint="/api/telemetry/stream"
+      title="Cluster Latency & Throughput"
+      unit="ms"
+      height={140}
+    />
     <TelemetryLogs
       {logs}
       {autoRefresh}

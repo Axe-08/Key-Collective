@@ -9,7 +9,7 @@ import {
   QuotaExceededError,
   RateLimitExceededError,
 } from "../../errors/key_errors";
-import { sanitizeErrorMessage } from "../../errors/normalizer";
+import { sanitizeErrorMessage } from "../error_normalizer";
 
 /**
  * Concrete domain error for edge routing failures.

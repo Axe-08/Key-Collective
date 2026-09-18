@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { deriveTenantKey, encrypt } from "../../../crypto/encryption";
+import { deriveTenantKey, encrypt } from "../../../crypto/encryption/index";
 import { encryptKey } from "../../../durable_objects/crypto";
 import { clearDecryptedKeyCache, resolvePlaintextKey } from "./key_resolver";
 

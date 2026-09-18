@@ -24,9 +24,9 @@ import type { KeyPoolContract } from "../../contracts/key_pool";
 import {
   type IModelRegistry,
   ModelRegistry,
-} from "../model_registry";
-import { CapabilityFilter } from "../capability_filter";
-import { UpstreamClient } from "../../proxy/upstream_client";
+} from "../registry/index";
+import { CapabilityFilter } from "../capability/index";
+import { UpstreamClient } from "../../proxy/upstream/index";
 import type { ModelDef } from "../../types/models";
 import type {
   CascadeRouteRequest,

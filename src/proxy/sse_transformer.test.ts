@@ -19,7 +19,7 @@ import {
   StreamUsage,
   SSEEvent,
   StreamMetadata,
-} from "./sse_transformer";
+} from "./sse/index";
 
 describe("SSEStreamTransformer", () => {
   const encoder = new TextEncoder();

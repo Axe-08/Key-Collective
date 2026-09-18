@@ -9,7 +9,7 @@ import worker, {
   WorkerOptions,
   HealthResponse,
 } from "./worker/index";
-import type { WorkerEnv } from "./worker/auth_middleware";
+import type { WorkerEnv } from "./worker/auth/index";
 
 export interface Env {
   KEY_POOL: DurableObjectNamespace;
@@ -25,9 +25,9 @@ export interface Env {
 
 export type { HealthResponse, WorkerEnv, WorkerOptions };
 export { KeyPoolDO } from "./durable_objects/key_pool_do";
-export { DemoDO } from "./auth/demo_do";
+export { DemoDO } from "./auth/demo/index";
 export { PoolCoordinatorDO } from "./pool/coordinator_do";
-export { TenantQuotaDO } from "./quota/tenant_do";
+export { TenantQuotaDO } from "./quota/tenant/index";
 export { createWorker, MainWorker };
 
 // Cloudflare Worker Default Fetch Handler

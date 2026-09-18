@@ -14,7 +14,7 @@ import {
   rowToModelDef,
   isModelRegistryRow,
   ModelRegistryRow,
-} from "../../../src/storage/repositories/modelRegistry";
+} from "../../../src/storage/repositories/model_registry/index";
 import { ModelDef, createModelDef } from "../../../src/types/models";
 import { ModelNotFoundError } from "../../../src/errors/routing_errors";
 

@@ -3,7 +3,7 @@
  * Cryptographic Domain Exports
  */
 
-export * from "./encryption";
+export * from "./encryption/index";
 export * from "./hashing";
 export * from "./utils";
 

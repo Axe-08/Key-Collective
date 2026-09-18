@@ -3,7 +3,7 @@
  * Handlers for Developer Console SPA static delivery and fallback.
  */
 
-import type { WorkerEnv } from "../auth_middleware";
+import type { WorkerEnv } from "../auth/index";
 import type { HealthResponse, WorkerOptions } from "./types";
 import { applyCors } from "./subdomain";
 

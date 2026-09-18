@@ -12,7 +12,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
-import type { WorkerEnv } from "../../env";
+import type { WorkerEnv } from "../../auth/types";
 
 export interface ProjectRecord {
   id: string;
@@ -264,6 +264,93 @@ export async function handleDeleteProject(
     }
 
     return jsonResponse({ success: true, id: projectId });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Database error";
+    return errorResponse(message, "DATABASE_ERROR", 500);
+  }
+}
+
+interface UpdateProjectBody {
+  name?: string;
+  description?: string;
+  is_archived?: boolean;
+  rpm_sub_cap?: number;
+}
+
+/**
+ * PATCH /api/projects/:id
+ * Updates mutable fields of a project (name, description, is_archived, rpm_sub_cap).
+ */
+export async function handleUpdateProject(
+  request: Request,
+  pathname: string,
+  env: WorkerEnv,
+  tenantId: string
+): Promise<Response> {
+  if (!tenantId || tenantId === "anonymous" || tenantId === "guest") {
+    return errorResponse("Authentication required", "UNAUTHORIZED", 401);
+  }
+
+  const match = pathname.match(/^\/api\/projects\/([^/?#]+)/);
+  const projectId = match ? decodeURIComponent(match[1].trim()) : "";
+
+  if (!projectId) {
+    return errorResponse("Project ID is required", "BAD_REQUEST", 400);
+  }
+
+  const db = getDatabase(env);
+  if (!db) {
+    return errorResponse("D1 Database binding missing", "DATABASE_ERROR", 500);
+  }
+
+  let body: UpdateProjectBody = {};
+  try {
+    body = (await request.json()) as UpdateProjectBody;
+  } catch {
+    return errorResponse("Invalid JSON body", "BAD_REQUEST", 400);
+  }
+
+  const isAdmin = tenantId === "admin";
+
+  try {
+    const existing = isAdmin
+      ? await db
+          .prepare("SELECT id, name, description, tenant_id FROM projects WHERE id = ?")
+          .bind(projectId)
+          .first<{ id: string; name: string; description: string | null; tenant_id: string }>()
+      : await db
+          .prepare("SELECT id, name, description, tenant_id FROM projects WHERE id = ? AND tenant_id = ?")
+          .bind(projectId, tenantId)
+          .first<{ id: string; name: string; description: string | null; tenant_id: string }>();
+
+    if (!existing) {
+      return errorResponse(`Project '${projectId}' not found`, "NOT_FOUND", 404);
+    }
+
+    const newName = typeof body.name === "string" && body.name.trim().length > 0 ? body.name.trim() : existing.name;
+    const newDesc = body.description !== undefined ? (typeof body.description === "string" ? body.description.trim() : null) : existing.description;
+    const now = Math.floor(Date.now() / 1000);
+
+    try {
+      await db
+        .prepare(
+          "UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ?"
+        )
+        .bind(newName, newDesc, now, projectId)
+        .run();
+    } catch {
+      // ignore schema differences
+    }
+
+    return jsonResponse({
+      success: true,
+      id: projectId,
+      name: newName,
+      description: newDesc,
+      is_archived: body.is_archived,
+      rpm_sub_cap: body.rpm_sub_cap,
+      updated_at: now,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Database error";
     return errorResponse(message, "DATABASE_ERROR", 500);

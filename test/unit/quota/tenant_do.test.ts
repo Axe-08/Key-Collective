@@ -4,7 +4,7 @@ import {
   DurableObject,
   DurableObjectStateLike,
   toMicrodollars,
-} from '../../../src/quota/tenant_do';
+} from '../../../src/quota/tenant/index';
 import { DurableObjectStorageLike } from '../../../src/durable_objects/circuit_breaker';
 import { TenantIsolationError } from '../../../src/errors/auth_errors';
 

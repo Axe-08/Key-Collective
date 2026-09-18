@@ -6,7 +6,7 @@ import {
   importKeyFromRaw,
   importKeyFromBase64,
   importKeyFromHex,
-} from './encryption';
+} from './encryption/index';
 
 describe('EncryptionService', () => {
   let config: CryptoConfig;

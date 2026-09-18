@@ -25,7 +25,7 @@ import {
   isCostLedgerEvent,
   isDailySpendRollup,
   validateMicrodollars,
-} from "../../../src/storage/repositories/costLedger";
+} from "../../../src/storage/repositories/cost_ledger/index";
 
 /**
  * Creates a fully populated D1Meta object satisfying Cloudflare Workers types.

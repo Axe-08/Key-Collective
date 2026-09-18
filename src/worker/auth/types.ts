@@ -11,7 +11,7 @@ import { DomainError } from "../../errors/domain_error";
 import {
   AuthTokenRecord,
   AuthTokensRepository,
-} from "../../storage/repositories/authTokens";
+} from "../../storage/repositories/auth_tokens/index";
 
 /**
  * Cloudflare Worker environment bindings interface.

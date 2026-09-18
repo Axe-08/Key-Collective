@@ -4,7 +4,7 @@
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { CapacitySummary } from "../../../durable_objects/key_selector";
-import type { WorkerEnv } from "../../auth_middleware";
+import type { WorkerEnv } from "../../auth/index";
 
 export async function handleGetLogs(
   env: WorkerEnv,

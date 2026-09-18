@@ -9,8 +9,8 @@
 
 import { decryptKey } from "../../../../durable_objects/crypto";
 import { resolvePlaintextKey, clearDecryptedKeyCache } from "../../core/key_resolver";
-import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption";
-import type { WorkerEnv } from "../../../auth_middleware";
+import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
+import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
 

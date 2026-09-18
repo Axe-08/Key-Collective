@@ -11,7 +11,7 @@
     logs: RequestLog[];
     autoRefresh: boolean;
     onToggleAutoRefresh: () => void;
-    onManualRefresh: () => Promise<void>;
+    onManualRefresh: () => Promise<void> | void;
     isRefreshing?: boolean;
   } = $props();
 
@@ -19,18 +19,26 @@
   let isCleared = $state(false);
 
   function formatLogTime(iso?: string): string {
-    if (!iso) return '14:02:18.421';
+    if (!iso) return '—';
     try {
       const d = new Date(iso);
+      if (isNaN(d.getTime())) return '—';
       const time = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const ms = String(d.getMilliseconds()).padStart(3, '0');
       return `${time}.${ms}`;
     } catch {
-      return '14:02:18.421';
+      return '—';
     }
   }
 
   const sourceLogs = $derived(logs);
+
+  const recentRpm = $derived(
+    sourceLogs.filter(l => {
+      const t = l.created_at ? new Date(l.created_at).getTime() : 0;
+      return Date.now() - t < 60_000;
+    }).length
+  );
 
   const filteredLogs = $derived(
     sourceLogs.filter((log) => {
@@ -51,7 +59,7 @@
     </div>
     <div class="flex items-center gap-2">
       <span class="text-label-sm font-label-sm text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20 font-code-sm">
-        240 req/min
+        {recentRpm > 0 ? `${recentRpm} req/min` : 'Active'}
       </span>
       <button
         type="button"

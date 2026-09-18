@@ -4,7 +4,7 @@
  */
 
 import { hashToken } from "../../crypto";
-import type { WorkerEnv } from "../auth_middleware";
+import type { WorkerEnv } from "../auth/index";
 import type { WorkerOptions } from "./types";
 
 /**

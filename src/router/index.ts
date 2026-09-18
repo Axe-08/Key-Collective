@@ -13,6 +13,6 @@
  * - Fixed-Point Microdollars: All costs in int64 / bigint microdollars. Zero floating-point math.
  */
 
-export * from "./model_registry";
-export * from "./capability_filter";
-export * from "./cascade_router";
+export * from "./registry/index";
+export * from "./capability/index";
+export * from "./cascade/index";

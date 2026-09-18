@@ -22,7 +22,7 @@ import {
   mapRowToAuthTokenRecord,
   AuthTokenRow,
   AuthTokenRecord,
-} from "../../../src/storage/repositories/authTokens";
+} from "../../../src/storage/repositories/auth_tokens/index";
 import { hashToken, decrypt, encrypt } from "../../../src/crypto";
 import { AuthenticationError, TenantIsolationError } from "../../../src/errors/auth_errors";
 import { DecryptionError } from "../../../src/errors/key_errors";

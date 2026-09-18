@@ -6,11 +6,11 @@
 import {
   AuthMiddleware,
   WorkerEnv,
-} from "../auth_middleware";
+} from "../auth/index";
 import {
   formatRouterError,
   RouterHandler,
-} from "../router_handler";
+} from "../router/index";
 import type { ExecutionContextLike } from "../telemetry_emitter";
 import type { HealthResponse, WorkerOptions } from "./types";
 import { applyCors, resolveHostRoute } from "./subdomain";

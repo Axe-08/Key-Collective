@@ -14,6 +14,8 @@ export const ALLOWED_RESPONSE_HEADERS: ReadonlySet<string> = new Set([
 const GCP_PROJECT_PATTERN = /projects\/\d{6,12}/gi;
 const BILLING_ACCOUNT_PATTERN = /billingAccounts\/[A-Z0-9-]{6,}/gi;
 const CLOUD_TRACE_PATTERN = /\b[0-9a-f]{32}\/\d+\b/gi;
+export const SECRET_REGEX = /(sk-[a-zA-Z0-9]{20,}|Bearer\s+[a-zA-Z0-9\-\._~+\/]+)/g;
+export const IP_REGEX = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 
 export function sanitizeResponseHeaders(upstreamHeaders: Headers): Headers {
   const clean = new Headers();
@@ -25,11 +27,22 @@ export function sanitizeResponseHeaders(upstreamHeaders: Headers): Headers {
   return clean;
 }
 
+export function sanitizeErrorMessage(message: string): string {
+  if (!message) {
+    return "";
+  }
+  return message
+    .replace(SECRET_REGEX, "[REDACTED_SECRET]")
+    .replace(IP_REGEX, "[REDACTED_IP]");
+}
+
 export function sanitizeErrorBody(raw: string): string {
   return raw
     .replace(GCP_PROJECT_PATTERN, '[PROJECT_REDACTED]')
     .replace(BILLING_ACCOUNT_PATTERN, '[BILLING_REDACTED]')
-    .replace(CLOUD_TRACE_PATTERN, '[TRACE_REDACTED]');
+    .replace(CLOUD_TRACE_PATTERN, '[TRACE_REDACTED]')
+    .replace(SECRET_REGEX, '[REDACTED_SECRET]')
+    .replace(IP_REGEX, '[REDACTED_IP]');
 }
 
 export function createErrorSanitizerTransform(): TransformStream<Uint8Array | string, Uint8Array> {

@@ -20,7 +20,7 @@ import {
   SYBIL_MIN_ACTIVITY_CONTRIBUTIONS,
   type SybilUserInput,
   type SybilRequestInput,
-} from "./sybil";
+} from "./sybil/index";
 
 describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () => {
   const originalFetch = globalThis.fetch;
@@ -63,7 +63,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
     });
 
     it("rejects arbitrary non-test token when secretKey is absent", async () => {
-      const { verifyTurnstileToken } = await import("./sybil");
+      const { verifyTurnstileToken } = await import("./sybil/index");
       const res = await verifyTurnstileToken("some-unverified-production-token", {});
       expect(res.success).toBe(false);
       expect(res.errorCodes).toContain("missing-secret-key");

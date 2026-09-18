@@ -13,5 +13,5 @@
  * - Fixed-Point Microdollars: All costs in int64 microdollars. Zero floating-point math.
  */
 
-export * from "./sse_transformer";
-export * from "./upstream_client";
+export * from "./sse/index";
+export * from "./upstream/index";

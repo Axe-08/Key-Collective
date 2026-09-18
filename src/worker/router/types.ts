@@ -6,14 +6,14 @@ import type { KeyPoolContract, KeyMetrics } from "../../contracts/key_pool";
 import type { RouterContract } from "../../contracts/router";
 import type { KeyInput } from "../../crypto";
 import type { CapacitySummary } from "../../durable_objects/key_selector";
-import type { CascadeRouter } from "../../router/cascade_router";
-import type { IModelRegistry } from "../../router/model_registry";
-import type { CapabilityFilter } from "../../router/capability_filter";
-import type { UpstreamClient } from "../../proxy/upstream_client";
+import type { CascadeRouter } from "../../router/cascade/index";
+import type { IModelRegistry } from "../../router/registry/index";
+import type { CapabilityFilter } from "../../router/capability/index";
+import type { UpstreamClient } from "../../proxy/upstream/index";
 import type { TelemetryEmitter } from "../telemetry_emitter";
-import type { CostLedgerRepository } from "../../storage/repositories/costLedger";
-import type { AuthTokensRepository } from "../../storage/repositories/authTokens";
-import type { AuthMiddleware, WorkerEnv } from "../auth_middleware";
+import type { CostLedgerRepository } from "../../storage/repositories/cost_ledger/index";
+import type { AuthTokensRepository } from "../../storage/repositories/auth_tokens/index";
+import type { AuthMiddleware, WorkerEnv } from "../auth/index";
 
 /**
  * Structural interface matching Cloudflare DurableObjectStub.

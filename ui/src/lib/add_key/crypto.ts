@@ -65,7 +65,7 @@ export async function encryptPayload(plaintext: string): Promise<EncryptedPayloa
   const ciphertextBuf = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv: nonce
+      iv: nonce as unknown as BufferSource
     },
     key,
     encoded
@@ -90,10 +90,10 @@ export async function decryptPayload(ciphertext: Uint8Array, nonce: Uint8Array):
   const decryptedBuf = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: nonce
+      iv: nonce as unknown as BufferSource
     },
     key,
-    ciphertext
+    ciphertext as unknown as BufferSource
   );
   return new TextDecoder().decode(decryptedBuf);
 }

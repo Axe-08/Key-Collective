@@ -14,7 +14,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
-import type { WorkerEnv } from "../../env";
+import type { WorkerEnv } from "../../auth/types";
 
 export const DEFAULT_AUTH_TOKEN_MASTER_KEY = "kc-master-secret-auth-tokens-v2-passphrase-32b!";
 

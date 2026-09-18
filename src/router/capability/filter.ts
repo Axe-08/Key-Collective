@@ -5,7 +5,7 @@
 
 import { ModelDef, isModelDef } from "../../types/models";
 import { CapabilityMismatchError } from "../../errors/routing_errors";
-import type { IModelRegistry } from "../model_registry";
+import type { IModelRegistry } from "../registry/index";
 import {
   CapabilityRequirements,
   CapabilityCheckResult,

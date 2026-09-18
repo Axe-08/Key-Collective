@@ -9,10 +9,10 @@
 
 import type { RouteRequest, RouteResponse } from "../../contracts/router";
 import type { KeyPoolContract } from "../../contracts/key_pool";
-import type { IModelRegistry } from "../model_registry";
-import type { CapabilityFilter, ModelSortStrategy } from "../capability_filter";
-import type { UpstreamClient, UpstreamResponse } from "../../proxy/upstream_client";
-import type { StreamUsage } from "../../proxy/sse_transformer";
+import type { IModelRegistry } from "../registry/index";
+import type { CapabilityFilter, ModelSortStrategy } from "../capability/index";
+import type { UpstreamClient, UpstreamResponse } from "../../proxy/upstream/index";
+import type { StreamUsage } from "../../proxy/sse/index";
 import type { ModelDef } from "../../types/models";
 import type { FallbackAttempt } from "../../errors";
 

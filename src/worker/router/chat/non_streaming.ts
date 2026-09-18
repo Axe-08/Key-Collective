@@ -3,12 +3,12 @@
  */
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
-import type { CascadeRouteResponse } from "../../../router/cascade_router";
+import type { CascadeRouteResponse } from "../../../router/cascade/index";
 import { createApiResponse } from "../../../types/api";
 import type {
   AuthenticatedContext,
   WorkerEnv,
-} from "../../auth_middleware";
+} from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { ChatHandlerDependencies } from "./types";
 

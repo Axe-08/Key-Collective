@@ -2,7 +2,7 @@
  * Key Collective v2/v4 — Router Subsystem Barrel
  */
 
-export { sanitizeErrorMessage } from "../../errors/normalizer";
+export { sanitizeErrorMessage } from "../error_normalizer";
 export * from "./types";
 export * from "./errors";
 export * from "./do_client";

@@ -11,7 +11,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { NONCE_LENGTH_BYTES } from "../../../src/constants/crypto";
-import { base64ToUint8Array } from "../../../src/crypto/encryption";
+import { base64ToUint8Array } from "../../../src/crypto/encryption/index";
 import {
   DecryptionError,
   EncryptionError,
@@ -24,7 +24,7 @@ import {
   ApiKeysRepository,
   CreateApiKeyInput,
   mapRowToAPIKey,
-} from "../../../src/storage/repositories/apiKeys";
+} from "../../../src/storage/repositories/api_keys/index";
 import { KeyStatus, isAPIKey } from "../../../src/types/models";
 
 /**

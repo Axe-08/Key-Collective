@@ -4,9 +4,9 @@
 
 import { timingSafeEqualStrings } from "../../crypto/utils";
 import { ModelNotFoundError } from "../../errors/routing_errors";
-import type { IModelRegistry } from "../../router/model_registry";
+import type { IModelRegistry } from "../../router/registry/index";
 import { OPENAPI_SPEC } from "../openapi_spec";
-import type { WorkerEnv } from "../auth_middleware";
+import type { WorkerEnv } from "../auth/index";
 
 export class ModelRoutesHandler {
   /**

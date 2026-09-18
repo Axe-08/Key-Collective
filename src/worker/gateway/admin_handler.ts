@@ -4,8 +4,8 @@
  */
 
 import type { ExecutionContextLike } from "../telemetry_emitter";
-import type { WorkerEnv } from "../auth_middleware";
-import type { RouterHandler } from "../router_handler";
+import type { WorkerEnv } from "../auth/index";
+import type { RouterHandler } from "../router/index";
 import type { WorkerOptions } from "./types";
 import { applyCors } from "./subdomain";
 
@@ -211,6 +211,88 @@ export async function handleAdminRequest(
       success: true,
       action: body.action,
       timestamp: new Date().toISOString(),
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 2.8 Admin Circuit Breaker Override (POST /api/admin/circuit-breaker)
+  if (method === "POST" && pathname === "/api/admin/circuit-breaker") {
+    let body: { provider?: string; state?: 'TRIPPED' | 'CLOSED'; reason?: string; adminEmail?: string } = {};
+    try {
+      body = (await request.json()) as typeof body;
+    } catch {}
+
+    const provider = body.provider || 'all';
+    const state = body.state || 'CLOSED';
+    const reason = body.reason || 'Admin circuit override';
+    const adminEmail = body.adminEmail || 'admin@keycollective.ai';
+
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (db && typeof db.prepare === "function") {
+      try {
+        const auditId = crypto.randomUUID();
+        await db
+          .prepare(
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target_tenant_id, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            auditId,
+            adminEmail,
+            state === 'TRIPPED' ? 'CIRCUIT_TRIP_OVERRIDE' : 'CIRCUIT_RESET_NORMAL',
+            provider.toUpperCase(),
+            JSON.stringify({ provider, state, reason }),
+            request.headers.get("cf-connecting-ip") || "127.0.0.1"
+          )
+          .run();
+      } catch {}
+    }
+
+    const res = Response.json({
+      success: true,
+      provider,
+      state,
+      reason,
+      timestamp: Date.now(),
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 2.9 Admin Global Kill Switch (POST /api/admin/kill-switch)
+  if (method === "POST" && pathname === "/api/admin/kill-switch") {
+    let body: { active?: boolean; reason?: string; adminEmail?: string } = {};
+    try {
+      body = (await request.json()) as typeof body;
+    } catch {}
+
+    const active = body.active === true;
+    const reason = body.reason || 'Admin global kill switch';
+    const adminEmail = body.adminEmail || 'admin@keycollective.ai';
+
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (db && typeof db.prepare === "function") {
+      try {
+        const auditId = crypto.randomUUID();
+        await db
+          .prepare(
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target_tenant_id, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            auditId,
+            adminEmail,
+            active ? 'GLOBAL_KILL_SWITCH_ENGAGED' : 'GLOBAL_KILL_SWITCH_DISARMED',
+            'ALL_EDGE_ISOLATES',
+            JSON.stringify({ active, reason }),
+            request.headers.get("cf-connecting-ip") || "127.0.0.1"
+          )
+          .run();
+      } catch {}
+    }
+
+    const res = Response.json({
+      success: true,
+      active,
+      reason,
+      timestamp: Date.now(),
     });
     return options.cors !== false ? applyCors(res) : res;
   }

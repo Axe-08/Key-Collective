@@ -11,15 +11,37 @@ export class PoolCoordinatorDO implements DurableObject {
     private activeBrakes = new Map<string, number>();
     private providers = new Map<string, { activeKeys: number; quarantineKeys: number; latencyMs: number; wProvider: number }>();
 
+    private initializedPromise: Promise<void> | null = null;
+
     constructor(private readonly ctx: DurableObjectState) {
-        this.ctx.storage.getAlarm().then((alarm: number | null) => {
-            if (!alarm) {
-                this.scheduleNextAlarm();
+        this.initializedPromise = this.initStorage();
+        if (this.ctx.storage?.getAlarm) {
+            this.ctx.storage.getAlarm().then((alarm: number | null) => {
+                if (!alarm) {
+                    this.scheduleNextAlarm();
+                }
+            });
+        }
+    }
+
+    private async initStorage() {
+        if (!this.ctx.storage) return;
+        try {
+            const storedBrakes = await this.ctx.storage.get("activeBrakes");
+            if (storedBrakes && typeof storedBrakes === "object") {
+                this.activeBrakes = new Map(Object.entries(storedBrakes));
             }
-        });
+            const storedProviders = await this.ctx.storage.get("providers");
+            if (storedProviders && typeof storedProviders === "object") {
+                this.providers = new Map(Object.entries(storedProviders));
+            }
+        } catch {
+            // storage error fallback to in-memory
+        }
     }
 
     private async scheduleNextAlarm() {
+        if (!this.ctx.storage?.setAlarm) return;
         const now = Date.now();
         // schedule next midnight alarm with random jitter (0-300s)
         const tomorrow = new Date(now);
@@ -29,13 +51,20 @@ export class PoolCoordinatorDO implements DurableObject {
     }
 
     public async alarm(): Promise<void> {
+        await this.initializedPromise;
         const now = Date.now();
+        let brakesChanged = false;
         
         // clean expired brakes
         for (const [tenant, expiry] of this.activeBrakes.entries()) {
             if (now > expiry) {
                 this.activeBrakes.delete(tenant);
+                brakesChanged = true;
             }
+        }
+
+        if (brakesChanged && this.ctx.storage?.put) {
+            await this.ctx.storage.put("activeBrakes", Object.fromEntries(this.activeBrakes));
         }
 
         // clean expired 5-minute volumes
@@ -87,6 +116,9 @@ export class PoolCoordinatorDO implements DurableObject {
             if (poolTotal > 0 && tenantTotal > 0.35 * poolTotal) {
                 this.activeBrakes.set(body.tenantId, now + 60 * 1000);
                 brakeApplied = true;
+                if (this.ctx.storage?.put) {
+                    await this.ctx.storage.put("activeBrakes", Object.fromEntries(this.activeBrakes));
+                }
             }
 
             return Response.json({ brakeApplied });
@@ -107,6 +139,10 @@ export class PoolCoordinatorDO implements DurableObject {
                 latencyMs: body.latencyMs,
                 wProvider
             });
+
+            if (this.ctx.storage?.put) {
+                await this.ctx.storage.put("providers", Object.fromEntries(this.providers));
+            }
 
             return Response.json({ success: true, wProvider });
         }

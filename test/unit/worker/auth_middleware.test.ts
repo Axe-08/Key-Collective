@@ -24,12 +24,12 @@ import {
   InMemoryRateLimiterStorage,
   withAuth,
   WorkerEnv,
-} from "../../../src/worker/auth_middleware";
+} from "../../../src/worker/auth/index";
 import {
   AuthTokenRecord,
   AuthTokenRow,
   AuthTokensRepository,
-} from "../../../src/storage/repositories/authTokens";
+} from "../../../src/storage/repositories/auth_tokens/index";
 import {
   AuthenticationError,
   TenantIsolationError,
@@ -319,6 +319,33 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
         const resp = authErr.toResponse();
         expect(resp.status).toBe(401);
         expect(resp.headers.get("www-authenticate")).toContain("Bearer");
+      }
+    });
+
+    it("strictly rejects backdoor tokens (kc_proj_live_9f83a00c82de19a, kc_proj_*, kc_bld_*, kc_play_*) with HTTP 401", async () => {
+      const backdoorTokens = [
+        "kc_proj_live_9f83a00c82de19a",
+        "kc_proj_fake_unseeded_12345",
+        "kc_bld_fake_unseeded_67890",
+        "kc_play_sess1234_expiry5678",
+      ];
+
+      for (const token of backdoorTokens) {
+        const req = new Request("https://api.keycollective.com/v1/chat/completions", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "x-tenant-id": "attacker-tenant",
+          },
+        });
+
+        await expect(middleware.authenticate(req)).rejects.toThrowError(AuthenticationError);
+        try {
+          await middleware.authenticate(req);
+        } catch (err) {
+          const authErr = err as AuthenticationError;
+          expect(authErr.statusCode).toBe(401);
+          expect(authErr.reason).toBe("invalid_token");
+        }
       }
     });
 

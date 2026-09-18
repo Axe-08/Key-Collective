@@ -17,7 +17,7 @@ import {
   ContextWindowExceededError,
   isContextWindowExceededError,
   TokenUsage,
-} from "./model_registry";
+} from "./registry/index";
 import { ModelDef, createModelDef } from "../types/models";
 import {
   ModelNotFoundError,

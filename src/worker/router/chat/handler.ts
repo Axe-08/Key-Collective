@@ -3,15 +3,15 @@
  */
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
-import { CapabilityFilter } from "../../../router/capability_filter";
+import { CapabilityFilter } from "../../../router/capability/index";
 import type {
   CascadeRouteRequest,
   CascadeRouteResponse,
-} from "../../../router/cascade_router";
+} from "../../../router/cascade/index";
 import type {
   AuthenticatedContext,
   WorkerEnv,
-} from "../../auth_middleware";
+} from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import { RouterError } from "../errors";
 import type { ChatHandlerDependencies } from "./types";

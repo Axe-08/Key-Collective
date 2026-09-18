@@ -10,12 +10,12 @@
 import { TenantIsolationError } from "../../../errors/auth_errors";
 import { DomainError } from "../../../errors/domain_error";
 import { ModelNotFoundError } from "../../../errors/routing_errors";
-import type { IModelRegistry } from "../../../router/model_registry";
+import type { IModelRegistry } from "../../../router/registry/index";
 import type {
   AuthenticatedContext,
   AuthMiddleware,
   WorkerEnv,
-} from "../../auth_middleware";
+} from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import { DurableObjectKeyPoolClient } from "../do_client";
 import { formatRouterError, RouterError } from "../errors";

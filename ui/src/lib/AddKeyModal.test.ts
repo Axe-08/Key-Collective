@@ -202,7 +202,7 @@ describe('AddKeyModal & AES-256-GCM Web Crypto Encryption Requirements', () => {
     });
 
     it('notifies registered external submit handler with encrypted payload', async () => {
-      const handlerSpy = vi.fn(async (_data: KeyFormData, _encrypted: EncryptedPayload) => {});
+      const handlerSpy = vi.fn(async (_data: KeyFormData, _encrypted?: EncryptedPayload) => {});
       setModalSubmitHandler(handlerSpy);
 
       const keyData: KeyFormData = {
@@ -215,6 +215,8 @@ describe('AddKeyModal & AES-256-GCM Web Crypto Encryption Requirements', () => {
       expect(handlerSpy).toHaveBeenCalledTimes(1);
       const [receivedData, receivedEncrypted] = handlerSpy.mock.calls[0];
       expect(receivedData).toEqual(keyData);
+      expect(receivedEncrypted).toBeDefined();
+      if (!receivedEncrypted) throw new Error('receivedEncrypted missing');
       expect(receivedEncrypted.nonce.byteLength).toBe(12);
       expect(receivedEncrypted.ciphertext.byteLength).toBeGreaterThan(0);
 

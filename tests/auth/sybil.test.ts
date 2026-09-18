@@ -36,7 +36,7 @@ import {
   isDisposableEmail,
   toSybilScore,
   verifyTurnstileToken,
-} from "../../src/auth/sybil";
+} from "../../src/auth/sybil/index";
 import { TIER_LIMITS_MAP } from "../../src/contracts/v3_types";
 
 describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", () => {

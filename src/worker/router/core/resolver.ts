@@ -8,13 +8,13 @@
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { RouterContract } from "../../../contracts/router";
-import { UpstreamClient } from "../../../proxy/upstream_client";
-import { CapabilityFilter } from "../../../router/capability_filter";
-import { CascadeRouter } from "../../../router/cascade_router";
-import type { IModelRegistry } from "../../../router/model_registry";
-import { AuthTokensRepository } from "../../../storage/repositories/authTokens";
-import { CostLedgerRepository } from "../../../storage/repositories/costLedger";
-import type { WorkerEnv } from "../../auth_middleware";
+import { UpstreamClient } from "../../../proxy/upstream/index";
+import { CapabilityFilter } from "../../../router/capability/index";
+import { CascadeRouter } from "../../../router/cascade/index";
+import type { IModelRegistry } from "../../../router/registry/index";
+import { AuthTokensRepository } from "../../../storage/repositories/auth_tokens/index";
+import { CostLedgerRepository } from "../../../storage/repositories/cost_ledger/index";
+import type { WorkerEnv } from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import { TelemetryEmitter } from "../../telemetry_emitter";
 import { DurableObjectKeyPoolClient } from "../do_client";

@@ -35,22 +35,22 @@ import {
   RouterError,
   RouterHandler,
   RouterHandlerOptions,
-} from "../../../src/worker/router_handler";
+} from "../../../src/worker/router/index";
 import {
   AuthenticatedContext,
   AuthMiddleware,
   WorkerEnv,
-} from "../../../src/worker/auth_middleware";
+} from "../../../src/worker/auth/index";
 import { ExecutionContextLike, TelemetryEmitter } from "../../../src/worker/telemetry_emitter";
 import { TelemetryContract, TelemetryEvent } from "../../../src/contracts/telemetry";
 import { KeyPoolContract, KeyMetrics } from "../../../src/contracts/key_pool";
-import { CascadeRouter, CascadeRouteResponse } from "../../../src/router/cascade_router";
-import { ModelRegistry, ContextWindowExceededError } from "../../../src/router/model_registry";
-import { CapabilityFilter } from "../../../src/router/capability_filter";
-import { UpstreamClient, UpstreamResponse } from "../../../src/proxy/upstream_client";
-import { SSEStreamTransformer, StreamUsage } from "../../../src/proxy/sse_transformer";
-import { CostLedgerRepository, CostLedgerEventInput } from "../../../src/storage/repositories/costLedger";
-import { AuthTokensRepository, AuthTokenRecord } from "../../../src/storage/repositories/authTokens";
+import { CascadeRouter, CascadeRouteResponse } from "../../../src/router/cascade/index";
+import { ModelRegistry, ContextWindowExceededError } from "../../../src/router/registry/index";
+import { CapabilityFilter } from "../../../src/router/capability/index";
+import { UpstreamClient, UpstreamResponse } from "../../../src/proxy/upstream/index";
+import { SSEStreamTransformer, StreamUsage } from "../../../src/proxy/sse/index";
+import { CostLedgerRepository, CostLedgerEventInput } from "../../../src/storage/repositories/cost_ledger/index";
+import { AuthTokensRepository, AuthTokenRecord } from "../../../src/storage/repositories/auth_tokens/index";
 import { AuthenticationError, TenantIsolationError } from "../../../src/errors/auth_errors";
 import {
   InvalidKeyError,

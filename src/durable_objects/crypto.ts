@@ -34,7 +34,7 @@ import {
   importRawKey,
   uint8ArrayToBase64,
   type KeyInput,
-} from "../crypto/encryption";
+} from "../crypto/encryption/index";
 
 /**
  * EncryptedKey contract definition.

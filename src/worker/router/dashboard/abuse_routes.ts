@@ -2,8 +2,8 @@
  * Key Collective v2/v4 — Developer Dashboard Abuse Reporting
  */
 
-import { verifyTurnstileToken } from "../../../auth/sybil";
-import type { WorkerEnv } from "../../auth_middleware";
+import { verifyTurnstileToken } from "../../../auth/sybil/index";
+import type { WorkerEnv } from "../../auth/index";
 import { RouterError } from "../errors";
 
 export async function handleReportKeyAbuse(

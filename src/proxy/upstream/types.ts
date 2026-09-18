@@ -7,7 +7,7 @@
  */
 
 import type { KeyPoolContract } from "../../contracts/key_pool";
-import type { StreamMetadata, StreamUsage, SSEStreamTransformer } from "../sse_transformer";
+import type { StreamMetadata, StreamUsage, SSEStreamTransformer } from "../sse/index";
 
 /**
  * Hop-by-hop HTTP headers that must not be forwarded across proxies.

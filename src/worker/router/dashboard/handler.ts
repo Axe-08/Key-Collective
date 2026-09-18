@@ -3,8 +3,8 @@
  */
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
-import type { AuthMiddleware, WorkerEnv } from "../../auth_middleware";
-import type { WorkerEnv as AppWorkerEnv } from "../../env";
+import type { AuthMiddleware, WorkerEnv } from "../../auth/index";
+import type { WorkerEnv as AppWorkerEnv } from "../../auth/types";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
@@ -16,11 +16,12 @@ import {
   handlePostKeys,
   handleRotateKeySecret,
   handleTestKey,
-} from "./key_routes";
+} from "./keys/index";
 import {
   handleDeleteProject,
   handleGetProjects,
   handlePostProjects,
+  handleUpdateProject,
 } from "./project_routes";
 import {
   handleDeleteToken,
@@ -188,6 +189,10 @@ export class DashboardRouter {
 
     if (method === "DELETE" && (pathname === "/api/projects" || pathname.startsWith("/api/projects/"))) {
       return handleDeleteProject(pathname, env as unknown as AppWorkerEnv, tenantId);
+    }
+
+    if (method === "PATCH" && (pathname === "/api/projects" || pathname.startsWith("/api/projects/"))) {
+      return handleUpdateProject(request, pathname, env as unknown as AppWorkerEnv, tenantId);
     }
 
     // 4.2 Auth Tokens APIs

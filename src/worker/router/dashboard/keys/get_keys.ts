@@ -6,7 +6,7 @@
  * - Strict TypeScript (zero `any`).
  */
 
-import type { WorkerEnv } from "../../../auth_middleware";
+import type { WorkerEnv } from "../../../auth/index";
 
 export async function handleGetKeys(
   env: WorkerEnv,

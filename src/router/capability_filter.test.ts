@@ -18,11 +18,11 @@ import {
   CapabilityFilter,
   CapabilityRequirements,
   isCapabilityRequirements,
-} from "./capability_filter";
+} from "./capability/index";
 import {
   ModelRegistry,
   DEFAULT_MODEL_DEFINITIONS,
-} from "./model_registry";
+} from "./registry/index";
 import { ModelDef } from "../types/models";
 import { CapabilityMismatchError } from "../errors/routing_errors";
 

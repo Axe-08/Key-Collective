@@ -19,7 +19,7 @@ import {
   SSEStreamTransformer,
   StreamUsage,
   extractUsageFromPayload,
-} from "../sse_transformer";
+} from "../sse/index";
 import {
   DomainError,
   InvalidKeyError,

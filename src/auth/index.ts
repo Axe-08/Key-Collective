@@ -1,3 +1,3 @@
-export * from "./demo_do";
-export * from "./sybil";
-export * from "./oauth";
+export * from "./demo/index";
+export * from "./sybil/index";
+export * from "./oauth/index";

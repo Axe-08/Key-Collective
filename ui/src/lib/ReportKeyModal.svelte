@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+
   let {
     isOpen = false,
     onClose,
@@ -12,6 +14,25 @@
   let keyId = $state("");
   let reason = $state("abuse");
   let isSubmitting = $state(false);
+  let turnstileToken = $state("");
+
+  function handleTurnstileMessage(event: MessageEvent) {
+    if (event.data && event.data.type === "turnstile_token") {
+      turnstileToken = event.data.token;
+    }
+  }
+
+  onMount(() => {
+    if (typeof window !== "undefined") {
+      window.addEventListener("message", handleTurnstileMessage);
+    }
+  });
+
+  onDestroy(() => {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("message", handleTurnstileMessage);
+    }
+  });
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
@@ -20,15 +41,16 @@
     isSubmitting = true;
 
     try {
-      // Constant 200ms timing shield notice (per spec)
-      await new Promise(resolve => setTimeout(resolve, 200));
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (turnstileToken) {
+        headers["x-turnstile-token"] = turnstileToken;
+      }
 
       const res = await fetch("/api/abuse/report-key", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-turnstile-token": "1x00000000000000000000AA",
-        },
+        headers,
         body: JSON.stringify({ keyId, reason }),
       });
 

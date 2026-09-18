@@ -10,7 +10,7 @@ import {
   issueUserJWT,
   verifyUserJWT,
   handleOAuthLogin,
-} from "./oauth";
+} from "./oauth/index";
 import type { OAuthProviderConfig } from "../contracts/v3_types";
 import { AuthenticationError } from "../errors/auth_errors";
 

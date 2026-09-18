@@ -15,7 +15,7 @@ import worker, {
   parseSubdomain,
   resolveHostRoute,
 } from "./index";
-import { WorkerEnv } from "./auth_middleware";
+import { WorkerEnv } from "./auth/index";
 import { hashToken } from "../crypto";
 
 /**

@@ -18,12 +18,12 @@ import type { CascadeRouteRequest } from "./types";
 import {
   type IModelRegistry,
   ContextWindowExceededError,
-} from "../model_registry";
+} from "../registry/index";
 import {
   type CapabilityFilter,
   type CapabilityRequirements,
   type ModelSortStrategy,
-} from "../capability_filter";
+} from "../capability/index";
 import type { ModelDef } from "../../types/models";
 import {
   NoAvailableProviderError,

@@ -4,8 +4,8 @@
  */
 
 import type { ExecutionContextLike, TelemetryEmitter } from "../telemetry_emitter";
-import type { AuthMiddleware, WorkerEnv } from "../auth_middleware";
-import type { RouterHandler, RouterHandlerOptions } from "../router_handler";
+import type { AuthMiddleware, WorkerEnv } from "../auth/index";
+import type { RouterHandler, RouterHandlerOptions } from "../router/index";
 import type { EdgeSubdomain, HostRouteDecision } from "../../contracts/v3_5_types";
 
 /**
