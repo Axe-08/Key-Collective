@@ -64,6 +64,12 @@ describe('PoolCoordinatorDO & ChatHandler Wiring Integration', () => {
     const handler = new ChatHandler(dummyDeps);
     const authCtx: AuthenticatedContext = {
       tenantId: 'tenant_abusive',
+      isAuthenticated: true,
+      rpmLimit: 60,
+      currentRpm: 1,
+      remainingRpm: 59,
+      budgetMicrodollars: 1000n,
+      spentMicrodollars: 0n,
       token: { id: 'tok_1', hashSha256: 'h1', tenantId: 'tenant_abusive', budgetMicrodollars: 1000n, spentMicrodollars: 0n, allowedProviders: [], rpmLimit: 60, expiresAt: null, createdAt: new Date().toISOString() },
     };
 
@@ -112,6 +118,12 @@ describe('PoolCoordinatorDO & ChatHandler Wiring Integration', () => {
     const handler = new ChatHandler(dummyDeps);
     const authCtx: AuthenticatedContext = {
       tenantId: 'tenant_normal',
+      isAuthenticated: true,
+      rpmLimit: 60,
+      currentRpm: 1,
+      remainingRpm: 59,
+      budgetMicrodollars: 1000n,
+      spentMicrodollars: 0n,
       token: { id: 'tok_2', hashSha256: 'h2', tenantId: 'tenant_normal', budgetMicrodollars: 1000n, spentMicrodollars: 0n, allowedProviders: [], rpmLimit: 60, expiresAt: null, createdAt: new Date().toISOString() },
     };
 
