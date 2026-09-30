@@ -93,5 +93,7 @@ export const PoolStatsSchema = z.object({
   daily_quota_used: z.number(),
   daily_quota_limit: z.number(),
   proxy_status: z.enum(['healthy', 'degraded', 'offline']),
+  cu_used_today: z.number(),
+  cu_allowance_today: z.number(),
 });
 export type PoolStats = z.infer<typeof PoolStatsSchema>;

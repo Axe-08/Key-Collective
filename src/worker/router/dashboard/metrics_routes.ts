@@ -89,12 +89,15 @@ export async function handleGetStats(
       healthy_keys: 0,
       rate_limited_keys: 0,
       invalid_keys: 0,
+      total_rpm_headroom: 0,
       total_rpm_limit: 0,
       current_rpm_used: 0,
+      avg_upstream_latency_ms: 0,
       daily_quota_limit: 0,
       daily_quota_used: 0,
-      avg_latency_ms: 0,
-      total_spend_today_microdollars: 0,
+      proxy_status: "healthy",
+      cu_used_today: 0,
+      cu_allowance_today: 0,
     });
   }
   getKeyPool(targetTenantId, env);
@@ -106,7 +109,8 @@ export async function handleGetStats(
   let dailyQuotaLimit = 0;
   let dailyQuotaUsed = 0;
   let avgLatency = 0;
-  let totalSpendToday = 0;
+  let cuUsedToday = 0;
+  let cuAllowanceToday = 0;
 
   const isGlobal = tenantId === "admin";
 
@@ -158,10 +162,10 @@ export async function handleGetStats(
     }
 
     const costQuery = isGlobal
-      ? `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat, COALESCE(SUM(cost_microdollars), 0) as total_spend_microdollars
+      ? `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat, COALESCE(SUM(cu), 0) as cu_sum
          FROM cost_ledger
          WHERE date(created_at) = date('now')`
-      : `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat, COALESCE(SUM(cost_microdollars), 0) as total_spend_microdollars
+      : `SELECT COUNT(*) as requests_today, AVG(latency_ms) as avg_lat, COALESCE(SUM(cu), 0) as cu_sum
          FROM cost_ledger
          WHERE tenant_id = ? AND date(created_at) = date('now')`;
 
@@ -169,12 +173,12 @@ export async function handleGetStats(
       ? await env.DB.prepare(costQuery).first<{
           requests_today: number;
           avg_lat: number | null;
-          total_spend_microdollars: number | null;
+          cu_sum: number | null;
         }>()
       : await env.DB.prepare(costQuery).bind(targetTenantId).first<{
           requests_today: number;
           avg_lat: number | null;
-          total_spend_microdollars: number | null;
+          cu_sum: number | null;
         }>();
 
     if (costStats) {
@@ -182,7 +186,21 @@ export async function handleGetStats(
       if (costStats.avg_lat) {
         avgLatency = Math.round(costStats.avg_lat);
       }
-      totalSpendToday = costStats.total_spend_microdollars ? Number(costStats.total_spend_microdollars) : 0;
+      cuUsedToday = costStats.cu_sum ? Number(costStats.cu_sum) : 0;
+    }
+
+    try {
+      const budgetQuery = isGlobal
+        ? `SELECT COALESCE(SUM(budget_cu), 0) as total_budget_cu FROM auth_tokens`
+        : `SELECT COALESCE(SUM(budget_cu), 0) as total_budget_cu FROM auth_tokens WHERE tenant_id = ?`;
+      const budgetStats = isGlobal
+        ? await env.DB.prepare(budgetQuery).first<{ total_budget_cu: number | null }>()
+        : await env.DB.prepare(budgetQuery).bind(targetTenantId).first<{ total_budget_cu: number | null }>();
+      if (budgetStats && budgetStats.total_budget_cu && budgetStats.total_budget_cu > 0) {
+        cuAllowanceToday = Number(budgetStats.total_budget_cu);
+      }
+    } catch {
+      // auth_tokens table/column fallback
     }
   }
 
@@ -198,8 +216,44 @@ export async function handleGetStats(
         currentRpmUsed = cap.currentRpm || 0;
       }
     }
+    if ("getCuMetrics" in keyPool && typeof (keyPool as unknown as { getCuMetrics: () => Promise<{ cuUsedToday?: number; cuAllowanceToday?: number }> }).getCuMetrics === "function") {
+      const cuMetrics = await (keyPool as unknown as { getCuMetrics: () => Promise<{ cuUsedToday?: number; cuAllowanceToday?: number }> }).getCuMetrics();
+      if (cuMetrics) {
+        if (typeof cuMetrics.cuUsedToday === "number") cuUsedToday = cuMetrics.cuUsedToday;
+        if (typeof cuMetrics.cuAllowanceToday === "number") cuAllowanceToday = cuMetrics.cuAllowanceToday;
+      }
+    }
   } catch {
     // Fallback to D1 stats
+  }
+
+  if (env.TENANT_QUOTA && targetTenantId && targetTenantId !== "anonymous") {
+    try {
+      const quotaStub = env.TENANT_QUOTA.get(env.TENANT_QUOTA.idFromName(targetTenantId));
+      if (typeof (quotaStub as unknown as { getCuUsed?: () => Promise<bigint | number> }).getCuUsed === "function") {
+        const cu = await (quotaStub as unknown as { getCuUsed: () => Promise<bigint | number> }).getCuUsed();
+        if (cu !== undefined && cu !== null) {
+          cuUsedToday = Number(cu);
+        }
+      } else if (typeof quotaStub.fetch === "function") {
+        const quotaRes = await quotaStub.fetch("http://do/status");
+        if (quotaRes.ok) {
+          const quotaData = await quotaRes.json<{ cuUsed24h?: string; rpdLimit?: number }>();
+          if (quotaData.cuUsed24h !== undefined) {
+            cuUsedToday = Number(quotaData.cuUsed24h);
+          }
+          if (quotaData.rpdLimit !== undefined && cuAllowanceToday === 0 && quotaData.rpdLimit !== Infinity) {
+            cuAllowanceToday = quotaData.rpdLimit;
+          }
+        }
+      }
+    } catch {
+      // DO fallback
+    }
+  }
+
+  if (cuAllowanceToday === 0 && dailyQuotaLimit > 0) {
+    cuAllowanceToday = dailyQuotaLimit;
   }
 
   const totalRpmHeadroom = Math.max(0, totalRpmLimit - currentRpmUsed);
@@ -216,7 +270,8 @@ export async function handleGetStats(
     daily_quota_used: dailyQuotaUsed,
     daily_quota_limit: dailyQuotaLimit,
     proxy_status: rateLimitedKeys === totalKeys && totalKeys > 0 ? "degraded" : "healthy",
-    total_spend_today_microdollars: totalSpendToday,
+    cu_used_today: cuUsedToday,
+    cu_allowance_today: cuAllowanceToday,
   };
 
   return Response.json(statsPayload);
