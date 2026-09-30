@@ -26,3 +26,6 @@ node_modules
 !/ui/dist/**
 .wrangler/
 .turbo/
+
+# mdBook build output (regenerate with `mdbook build docs/study_guide`)
+docs/study_guide/book/
