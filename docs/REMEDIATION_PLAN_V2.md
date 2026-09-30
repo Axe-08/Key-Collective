@@ -1111,6 +1111,7 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 - Revocation visibility: revoke U's key via takedown → the very next lease never returns it (no stale snapshot).
 - Idempotency: calling `settle` twice with the same lease id changes counters and debt once.
 - Concurrency: 50 parallel leases against a key with `rpm_limit=10` → exactly 10 granted.
+- `auto` for a tenant holding only a Groq key leases Groq directly: no Gemini lease is attempted (moved here from WP-1.4, where the legacy router had no key-availability ordering).
 - With `ROUTING_ENGINE=legacy`, the pre-existing routing tests pass unchanged and the coordinator is never asked for a lease.
 - A COMMUNITY key whose owner lacks `communityPool` is never returned by `lease(ownOnly=false)`.
 
