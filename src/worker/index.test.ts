@@ -411,7 +411,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
     it("routes /api/keys on console.* to routerHandler instead of returning SPA html", async () => {
       const req = new Request("https://console.key-col.axe08.tech/api/keys", {
         method: "GET",
-        headers: { host: "console.key-col.axe08.tech" },
+        headers: { host: "console.key-col.axe08.tech", authorization: `Bearer ${builderToken}` },
       });
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(200);

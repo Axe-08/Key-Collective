@@ -118,8 +118,16 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
     expect(data.user).toBeNull();
   });
 
-  it("GET /api/telemetry/stream returns SSE headers and readable stream", async () => {
+  it("GET /api/telemetry/stream rejects unauthenticated visitors (WP-0.1)", async () => {
     const req = new Request("https://key-col.axe08.tech/api/telemetry/stream");
+    const res = await router.handle(req, "/api/telemetry/stream", "GET", env);
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /api/telemetry/stream returns SSE headers and readable stream", async () => {
+    const req = new Request("https://key-col.axe08.tech/api/telemetry/stream", {
+      headers: { authorization: "Bearer user-token-123" },
+    });
     const res = await router.handle(req, "/api/telemetry/stream", "GET", env);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/event-stream; charset=utf-8");

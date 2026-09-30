@@ -1,12 +1,13 @@
 import { defineConfig } from 'vitest/config';
 
-// Root vitest config: covers only the Cloudflare Worker / DO TypeScript tests.
+// Root vitest config: Node tests only. Tests needing the Workers runtime (D1, DOs, SELF, fetchMock)
+// live under test/integration and test/do and run via vitest.workers.config.ts.
 // UI (Svelte) tests run via `cd ui && npx vitest run` with ui/vitest.config.ts.
 export default defineConfig({
   test: {
-    include: ['test/unit/**/*.test.ts', 'src/**/*.test.ts', 'src/**/*.spec.ts'],
-    exclude: ['ui/**'],
-    passWithNoTests: true,
+    include: ['test/**/*.test.ts', 'tests/**/*.test.ts', 'src/**/*.test.ts', 'src/**/*.spec.ts'],
+    exclude: ['test/integration/**', 'test/do/**', 'ui/**', 'node_modules/**'],
+    passWithNoTests: false,
     environment: 'node',
     testTimeout: 15000,
   },
