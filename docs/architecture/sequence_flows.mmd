@@ -1,0 +1,54 @@
+sequenceDiagram
+    autonumber
+    actor Client as External LLM Consumer
+    participant Gateway as Worker Gateway (src/worker/gateway)
+    participant Auth as Auth Middleware (src/worker/auth)
+    participant QuotaDO as TenantQuotaDO (src/quota/tenant)
+    participant Router as CascadeRouter (src/router/cascade)
+    participant CoordDO as PoolCoordinatorDO (src/durable_objects)
+    participant KeyPoolDO as KeyPoolDO (src/durable_objects/key_pool)
+    participant Crypto as HKDF/WebCrypto (src/crypto/encryption)
+    participant Upstream as Upstream Provider (OpenAI/Anthropic)
+    participant SSE as SSE Sanitizer & Transformer (src/proxy/sse)
+    participant Analytics as Analytics Engine & D1 Ledger
+
+    Client->>Gateway: POST /v1/chat/completions (Bearer sk-kc-..., payload)
+    Gateway->>Auth: authenticateRequest(req)
+    Auth->>Auth: Validate JWT / Bearer Token & Extract TenantId
+    Auth-->>Gateway: AuthenticatedContext { tenantId, tier, role }
+
+    Gateway->>QuotaDO: checkQuotaAndConsumeRPM(tenantId, estimatedTokens)
+    alt Rate Limit or Quota Exceeded
+        QuotaDO-->>Gateway: Reject 429 { error: "RPM_EXCEEDED" | "QUOTA_EXHAUSTED" }
+        Gateway-->>Client: HTTP 429 Too Many Requests
+    else Quota Approved
+        QuotaDO-->>Gateway: Approved { remainingRpm, creditBalance }
+    end
+
+    Gateway->>Router: routeRequest(req, model, tenantId)
+    Router->>CoordDO: requestKeyDispatch(model, tenantId)
+    Note over CoordDO: Dynamic Priority Evaluation:<br/>1. Own Key (Tenant-owned)<br/>2. Debt Balancing Key<br/>3. Parasite Contributor Key<br/>4. Communal Hero Pool Key
+
+    CoordDO->>KeyPoolDO: leaseKey(keyId, tenantId)
+    KeyPoolDO-->>CoordDO: EncryptedKeyCiphertext { nonce, ciphertext, keyId }
+    CoordDO-->>Router: DispatchedKeyMetadata
+
+    Router->>Crypto: decryptKey(ciphertext, nonce, tenantMasterSecret)
+    Crypto-->>Router: Plaintext Provider Key (in-memory, ephemeral)
+
+    Router->>Upstream: Forward Request (Headers, Decrypted Key, Streaming Body)
+    Upstream-->>SSE: Raw Chunked Stream (200 OK or Upstream Error)
+
+    alt Upstream Error (status >= 400)
+        SSE->>SSE: createErrorSanitizerTransform() (Strip provider tokens, sanitize error)
+        SSE-->>Gateway: Sanitized JSON Error Envelope
+        Gateway-->>Client: HTTP 502 / Upstream Error (Sanitized)
+        Gateway->>KeyPoolDO: recordFailure(keyId, status)
+    else Upstream Success (Streaming SSE)
+        SSE->>SSE: Transform to standard SSE chunks + count usage tokens
+        SSE-->>Gateway: Stream transformed chunks
+        Gateway-->>Client: Live SSE Stream (chunk-by-chunk)
+        
+        Gateway-)Analytics: recordTelemetryEvent({ tenantId, keyId, tokens, latencyMs, microdollars })
+        Gateway-)QuotaDO: settleDebtLedger({ tenantId, consumedMicrodollars })
+    end
