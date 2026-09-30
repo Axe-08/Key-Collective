@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { TenantQuotaDO, Env } from "../src/index";
+import { TenantQuotaDO, PoolCoordinatorDO, Env } from "../src/index";
 import type { WorkerEnv } from "../src/worker/auth/types";
 
 describe("Environment & Durable Object Bindings (task-1-bind-tenant-quota)", () => {
@@ -56,4 +56,85 @@ describe("Environment & Durable Object Bindings (task-1-bind-tenant-quota)", () 
     );
     expect(prodQuotaBinding).toBeDefined();
   });
+
+  it("should export PoolCoordinatorDO from src/index.ts and typecheck Env", () => {
+    expect(PoolCoordinatorDO).toBeDefined();
+    expect(typeof PoolCoordinatorDO).toBe("function");
+
+    const mockNamespace = {} as DurableObjectNamespace;
+    const env: Partial<Env> = {
+      POOL_COORDINATOR: mockNamespace,
+    };
+    expect(env.POOL_COORDINATOR).toBe(mockNamespace);
+  });
+
+  it("should bind POOL_COORDINATOR across root, dev, and production in wrangler.jsonc (N-07)", () => {
+    const wranglerPath = path.resolve(__dirname, "../wrangler.jsonc");
+    const rawContent = fs.readFileSync(wranglerPath, "utf-8");
+    const cleaned = rawContent.replace(/\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$/gm, "$1");
+    const config = JSON.parse(cleaned);
+
+    // Root bindings
+    const rootBindings = config.durable_objects?.bindings ?? [];
+    const rootCoordBinding = rootBindings.find(
+      (b: any) => b.name === "POOL_COORDINATOR" && b.class_name === "PoolCoordinatorDO"
+    );
+    expect(rootCoordBinding).toBeDefined();
+
+    // Dev environment bindings
+    const devBindings = config.env?.dev?.durable_objects?.bindings ?? [];
+    const devCoordBinding = devBindings.find(
+      (b: any) => b.name === "POOL_COORDINATOR" && b.class_name === "PoolCoordinatorDO"
+    );
+    expect(devCoordBinding).toBeDefined();
+
+    // Production environment bindings
+    const prodBindings = config.env?.production?.durable_objects?.bindings ?? [];
+    const prodCoordBinding = prodBindings.find(
+      (b: any) => b.name === "POOL_COORDINATOR" && b.class_name === "PoolCoordinatorDO"
+    );
+    expect(prodCoordBinding).toBeDefined();
+  });
+
+  it("should define host vars and custom domain routes in wrangler.jsonc (WP-2.7)", () => {
+    const wranglerPath = path.resolve(__dirname, "../wrangler.jsonc");
+    const rawContent = fs.readFileSync(wranglerPath, "utf-8");
+    const cleaned = rawContent.replace(/\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$/gm, "$1");
+    const config = JSON.parse(cleaned);
+
+    // Root vars
+    expect(config.vars?.API_HOST).toBe("api.key-col.axe08.tech");
+    expect(config.vars?.CONSOLE_HOST).toBe("console.key-col.axe08.tech");
+    expect(config.vars?.ADMIN_HOST).toBe("admin.key-col.axe08.tech");
+    expect(config.vars?.APEX_HOST).toBe("key-col.axe08.tech");
+    expect(config.vars?.LEGACY_SUNSET).toBe("Thu, 01 Jan 2026 00:00:00 GMT");
+
+    // Dev vars
+    const devVars = config.env?.dev?.vars;
+    expect(devVars?.API_HOST).toBe("api-dev.key-col.axe08.tech");
+    expect(devVars?.CONSOLE_HOST).toBe("console-dev.key-col.axe08.tech");
+    expect(devVars?.ADMIN_HOST).toBe("admin-dev.key-col.axe08.tech");
+    expect(devVars?.APEX_HOST).toBe("dev.key-col.axe08.tech");
+    expect(devVars?.LEGACY_SUNSET).toBe("Thu, 01 Jan 2026 00:00:00 GMT");
+
+    // Dev routes
+    const devRoutes = config.env?.dev?.routes ?? [];
+    const devPatterns = devRoutes.map((r: any) => r.pattern);
+    expect(devPatterns).toContain("dev.key-col.axe08.tech");
+    expect(devPatterns).toContain("api-dev.key-col.axe08.tech");
+    expect(devPatterns).toContain("console-dev.key-col.axe08.tech");
+    expect(devPatterns).toContain("admin-dev.key-col.axe08.tech");
+    for (const route of devRoutes) {
+      expect(route.custom_domain).toBe(true);
+    }
+
+    // Production vars
+    const prodVars = config.env?.production?.vars;
+    expect(prodVars?.API_HOST).toBe("api.key-col.axe08.tech");
+    expect(prodVars?.CONSOLE_HOST).toBe("console.key-col.axe08.tech");
+    expect(prodVars?.ADMIN_HOST).toBe("admin.key-col.axe08.tech");
+    expect(prodVars?.APEX_HOST).toBe("key-col.axe08.tech");
+    expect(prodVars?.LEGACY_SUNSET).toBe("Thu, 01 Jan 2026 00:00:00 GMT");
+  });
 });
+
