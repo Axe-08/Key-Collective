@@ -7,7 +7,11 @@
     "check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "gate": "npm run typecheck && npm test",
+    "test:unit": "vitest run test/unit tests",
+    "test:workers": "vitest run -c vitest.workers.config.ts",
+    "test:ui": "npm --prefix ui run check",
+    "gate:fast": "npm run typecheck && npm run test:unit && node scripts/check-no-sql-mocks.mjs",
+    "gate": "npm run gate:fast && npm run test:workers",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test:db": "vitest run tests/storage/migrations.test.ts"
