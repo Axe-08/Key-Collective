@@ -106,9 +106,15 @@ export async function handlePoolMode(
       "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ?"
     ).bind(poolType, commRoutingStatus, obsUntil, keyId).run();
   } else {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
+    ).bind(keyId, tenantId).first<{ id: string }>();
+    if (!existing) {
+      throw new RouterError("Key not found or you do not have permission to modify it", { statusCode: 404 });
+    }
     await env.DB.prepare(
-      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ?, tenant_id = ? WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
-    ).bind(poolType, commRoutingStatus, obsUntil, tenantId, keyId, tenantId).run();
+      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ? AND tenant_id = ?"
+    ).bind(poolType, commRoutingStatus, obsUntil, keyId, tenantId).run();
   }
 
   clearDecryptedKeyCache();
@@ -236,7 +242,7 @@ export async function handleRotateKeySecret(
   // Verify key exists and caller is owner
   if (tenantId !== "admin") {
     const existing = await env.DB.prepare(
-      "SELECT id FROM api_keys WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
+      "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
     ).bind(keyId, tenantId).first<{ id: string }>();
     if (!existing) {
       throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
@@ -256,7 +262,7 @@ export async function handleRotateKeySecret(
     ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId).run();
   } else {
     await env.DB.prepare(
-      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
+      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ? AND tenant_id = ?"
     ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId, tenantId).run();
   }
 
