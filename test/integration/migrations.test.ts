@@ -96,13 +96,90 @@ describe("migrations integration", () => {
     const statusValues = (statuses.results as Array<{ status: string }>).map(
       (r) => r.status,
     );
-    expect(statusValues).toEqual(
-      expect.arrayContaining(["Healthy", "healthy", "invalid", "quarantined"]),
-    );
+    expect(statusValues.sort()).toEqual(["HEALTHY", "QUARANTINED"]);
+
+    const nullPoolTypes = await env.DB.prepare(
+      "SELECT COUNT(*) as count FROM api_keys WHERE pool_type IS NULL",
+    ).first<{ count: number }>();
+    expect(nullPoolTypes?.count).toBe(0);
+
+    const keyRows = await env.DB.prepare(
+      "SELECT created_at, last_used_at, circuit_open_until FROM api_keys",
+    ).all<{ created_at: unknown; last_used_at: unknown; circuit_open_until: unknown }>();
+    expect(keyRows.results?.length).toBeGreaterThan(0);
+    for (const row of keyRows.results ?? []) {
+      expect(typeof row.created_at).toBe("number");
+      expect(Number.isInteger(row.created_at)).toBe(true);
+      expect(row.created_at as number).toBeGreaterThan(1_000_000_000_000);
+
+      if (row.last_used_at !== null) {
+        expect(typeof row.last_used_at).toBe("number");
+        expect(Number.isInteger(row.last_used_at)).toBe(true);
+        expect(row.last_used_at as number).toBeGreaterThan(1_000_000_000_000);
+      }
+      if (row.circuit_open_until !== null) {
+        expect(typeof row.circuit_open_until).toBe("number");
+        expect(Number.isInteger(row.circuit_open_until)).toBe(true);
+        expect(row.circuit_open_until as number).toBeGreaterThan(1_000_000_000_000);
+      }
+    }
 
     const defaultTenantRows = await env.DB.prepare(
       "SELECT COUNT(*) as count FROM auth_tokens WHERE tenant_id = 'default'",
     ).first<{ count: number }>();
     expect(defaultTenantRows?.count).toBe(1);
+  });
+
+  it("enforces append-only consent_attestations (insert succeeds, update/delete aborts)", async () => {
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations);
+
+    await env.DB.prepare(
+      "INSERT INTO consent_attestations (id, tenant_id, event_type, checkbox_id, consent_version) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind("consent_test_1", "tenant_test", "REGISTRATION", "C1", "v1")
+      .run();
+
+    const row = await env.DB.prepare(
+      "SELECT * FROM consent_attestations WHERE id = ?",
+    )
+      .bind("consent_test_1")
+      .first<{ id: string; attested_at: number }>();
+    expect(row?.id).toBe("consent_test_1");
+    expect(typeof row?.attested_at).toBe("number");
+    expect(row?.attested_at).toBeGreaterThan(1_000_000_000_000);
+
+    await expect(
+      env.DB.prepare("UPDATE consent_attestations SET ip_address = '1.2.3.4' WHERE id = ?")
+        .bind("consent_test_1")
+        .run(),
+    ).rejects.toThrow();
+
+    await expect(
+      env.DB.prepare("DELETE FROM consent_attestations WHERE id = ?")
+        .bind("consent_test_1")
+        .run(),
+    ).rejects.toThrow();
+  });
+
+  it("enforces provider NOT NULL on project_hash_registry", async () => {
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations);
+
+    await expect(
+      env.DB.prepare(
+        "INSERT INTO project_hash_registry (project_hash, tenant_id, state) VALUES (?, ?, ?)",
+      )
+        .bind("ph_no_provider", "tenant_test", "ACTIVE")
+        .run(),
+    ).rejects.toThrow();
+
+    await expect(
+      env.DB.prepare(
+        "INSERT INTO project_hash_registry (project_hash, tenant_id, provider, state) VALUES (?, ?, ?, ?)",
+      )
+        .bind("ph_with_provider", "tenant_test", "google", "ACTIVE")
+        .run(),
+    ).resolves.not.toThrow();
   });
 });
