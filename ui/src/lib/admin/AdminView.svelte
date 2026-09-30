@@ -73,7 +73,7 @@
     clusterRpmMax?: number;
     tokenVelocityTpm?: number;
     tokenVelocityMaxTpm?: number;
-    spendRateMicrodollarsPerHour?: number;
+    spendRateCuPerHour?: number;
     upstreamLatencyMs?: number;
     rotationFairnessScore?: number;
     providers?: ProviderMatrixItem[];
@@ -88,7 +88,7 @@
     clusterRpmMax: 100,
     tokenVelocityTpm: 0,
     tokenVelocityMaxTpm: 40000,
-    spendRateMicrodollarsPerHour: 0,
+    spendRateCuPerHour: 0,
     upstreamLatencyMs: 0,
     rotationFairnessScore: 100,
     providers: [],
@@ -113,7 +113,11 @@
       const res = await api.getAdminTenants();
       tenants = res.tenants || [];
       if (res.pool) {
-        poolSummary = res.pool;
+        const poolAny = res.pool as Record<string, any>;
+        poolSummary = {
+          ...res.pool,
+          spendRateCuPerHour: poolAny.spendRateCuPerHour ?? poolAny['spendRateMicrodollarsPerHour'] ?? 0,
+        };
       }
     } catch (err) {
       console.error('Failed to load admin surveillance data', err);
@@ -135,7 +139,9 @@
     tenants.filter((t) => t.rpmLimit > 0 && t.rpmLimit !== Infinity && t.currentRpm / t.rpmLimit >= 0.85).length
   );
   let totalClusterRpm = $derived(tenants.reduce((acc, t) => acc + (t.currentRpm || 0), 0));
-  let totalCumulativeSpendMicrodollars = $derived(tenants.reduce((acc, t) => acc + (t.todaySpendMicrodollars || 0), 0));
+  let totalCumulativeSpendCu = $derived(
+    tenants.reduce((acc, t) => acc + (t.todaySpendCu ?? (t as Record<string, any>)['todaySpendMicrodollars'] ?? 0), 0)
+  );
   let trippedCircuitsCount = $derived(
     (Object.keys(circuits) as ProviderKey[]).filter((p) => circuits[p].state === 'TRIPPED').length
   );
@@ -378,7 +384,7 @@
     {activeTenantsCount}
     {anomalyCount}
     {totalClusterRpm}
-    {totalCumulativeSpendMicrodollars}
+    totalCumulativeSpendCu={totalCumulativeSpendCu}
     {quarantinedCount}
     {trippedCircuitsCount}
     {globalKillSwitchActive}
@@ -407,7 +413,6 @@
         clusterRpmMax={poolSummary.clusterRpmMax ?? 100}
         tokenVelocityTpm={poolSummary.tokenVelocityTpm ?? 0}
         tokenVelocityMaxTpm={poolSummary.tokenVelocityMaxTpm ?? 40000}
-        spendRateMicrodollarsPerHour={poolSummary.spendRateMicrodollarsPerHour ?? 0}
         upstreamLatencyMs={poolSummary.upstreamLatencyMs ?? 0}
         rotationFairnessScore={poolSummary.rotationFairnessScore ?? 100}
         {providers}

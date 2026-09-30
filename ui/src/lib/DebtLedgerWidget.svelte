@@ -1,8 +1,7 @@
 <script module lang="ts">
-  import type { Microdollars } from "../../../src/contracts/v3_5_types";
-  import type { ContributorStanding } from "./types";
+  import type { CU, ContributorStanding } from "./types";
 
-  export type { Microdollars, ContributorStanding };
+  export type { CU, ContributorStanding };
 
   export type DebtEntry = {
     id: string;
@@ -161,7 +160,7 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import { formatMicrodollars } from "./types";
+  import { formatCu } from "./types";
 
   interface Props {
     tenantId?: string;
@@ -266,11 +265,11 @@
       <span class="block text-[11px] font-medium text-slate-400">Community Debt</span>
       <div class="mt-1">
         <span class="font-mono text-base font-bold text-amber-300" data-testid="community-debt">
-          {formatMicrodollars(localStanding.community_debt_cu)}
+          {formatCu(localStanding.community_debt_cu)} CU
         </span>
       </div>
-      <span class="block font-mono text-[10px] text-slate-500" data-testid="community-debt-micro">
-        {localStanding.community_debt_cu.toLocaleString()} µ$
+      <span class="block text-[10px] text-slate-500" data-testid="community-debt-status">
+        Pool debt overage
       </span>
     </div>
 
@@ -360,10 +359,10 @@
           <div class="flex items-center gap-4">
             <div class="text-right">
               <span class="font-mono text-sm font-bold text-amber-300">
-                {formatMicrodollars(debt.amount)}
+                {formatCu(debt.amount)} CU
               </span>
               <span class="block font-mono text-[10px] text-slate-500">
-                {debt.amount.toLocaleString()} µ$
+                Unsettled balance
               </span>
             </div>
 
