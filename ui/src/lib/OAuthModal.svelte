@@ -259,27 +259,22 @@
                       const result = await signInWithPopup(auth, googleProvider);
                       isVerifying = false;
                       const user = result.user;
-                      const explicitId = `usr_goog_${user.uid}`;
+                      const idToken = await user.getIdToken();
 
-                      // Persist user session to D1 and obtain isolated token
+                      // Verify Firebase ID token with the server and obtain session token
                       let sessionToken: string | undefined = undefined;
                       try {
-                        const syncRes = await fetch("/api/auth/sync-session", {
+                        const syncRes = await fetch("/api/auth/google", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            id: explicitId,
-                            email: user.email ?? undefined,
-                            authProvider: "google",
-                            tier: "builder",
-                          }),
+                          body: JSON.stringify({ idToken }),
                         });
                         if (syncRes.ok) {
                           const syncData = (await syncRes.json()) as { token?: string };
                           sessionToken = syncData.token;
                         }
                       } catch (syncErr) {
-                        console.error("Failed to sync Google user to D1:", syncErr);
+                        console.error("Failed to verify Google ID token:", syncErr);
                       }
 
                       onSimulateLogin(
@@ -288,8 +283,7 @@
                         user.email || undefined,
                         user.photoURL || undefined,
                         "google",
-                        sessionToken,
-                        explicitId
+                        sessionToken
                       );
                       onSelectTier("builder");
                       onClose();
