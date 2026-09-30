@@ -50,7 +50,7 @@ describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
       expect(response.headers.get("x-kc-request-id")).toBeDefined();
 
       const body = (await response.json()) as { error: { message: string; type: string; code: string } };
-      expect(body.error.message).toBe("Failed to reach upstream host [REDACTED_IP]: Connection timed out");
+      expect(body.error.message).toBe("Internal error");
       expect(body.error.message).not.toContain("10.128.0.5");
       expect(body.error.type).toBe("internal_server_error");
       expect(body.error.code).toBe("INTERNAL_ROUTING_ERROR");
@@ -64,7 +64,7 @@ describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
       expect(response.headers.get("x-kc-request-id")).toBeDefined();
 
       const body = (await response.json()) as { error: { message: string; type: string; code: string } };
-      expect(body.error.message).toBe("Upstream rejected token [REDACTED_SECRET]");
+      expect(body.error.message).toBe("Internal error");
       expect(body.error.message).not.toContain("sk-abcdef");
       expect(body.error.type).toBe("internal_server_error");
       expect(body.error.code).toBe("INTERNAL_ROUTING_ERROR");

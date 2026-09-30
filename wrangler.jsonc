@@ -104,6 +104,9 @@
   },
   "env": {
     "dev": {
+      "vars": {
+        "FIREBASE_PROJECT_ID": "key-collective-568f8"
+      },
       "routes": [
         {
           "pattern": "dev.key-col.axe08.tech",
@@ -114,7 +117,7 @@
         {
           "binding": "DB",
           "database_name": "key-collective-d1-dev",
-          "database_id": "key-collective-d1-dev"
+          "database_id": "d0da8bb7-7583-418a-ab4f-be17b6990921"
         }
       ],
       "durable_objects": {
@@ -126,6 +129,10 @@
           {
             "name": "DEMO_POOL",
             "class_name": "DemoDO"
+          },
+          {
+            "name": "POOL_COORDINATOR",
+            "class_name": "PoolCoordinatorDO"
           },
           {
             "name": "TENANT_QUOTA",

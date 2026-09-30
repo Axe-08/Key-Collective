@@ -22,21 +22,11 @@ export interface DurableObjectStateLike {
 }
 
 /**
- * Base DurableObject class compliant with Cloudflare Workers runtime
- * and test environments without cloudflare:workers package imports.
+ * The runtime DurableObject base class. Native RPC (`stub.consumeQuota(...)`) only works on
+ * subclasses of this class; a local look-alike compiles and passes Node tests but fails in the
+ * Workers runtime ("does not support RPC"). Node tests alias the module to test/shims.
  */
-export class DurableObject {
-  protected readonly ctx: DurableObjectStateLike;
-  protected readonly env: unknown;
-
-  constructor(
-    ctx: DurableObjectState | DurableObjectStateLike,
-    env?: unknown
-  ) {
-    this.ctx = ctx as DurableObjectStateLike;
-    this.env = env;
-  }
-}
+export { DurableObject } from "cloudflare:workers";
 
 /**
  * Individual timestamped counter entry in the sliding window.

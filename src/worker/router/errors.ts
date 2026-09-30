@@ -115,7 +115,9 @@ export function formatRouterError(
     stack: error instanceof Error ? error.stack : undefined,
   });
 
-  const message = sanitize(rawMessage);
+  // Only domain errors carry messages written for clients; anything else (runtime, library or
+  // programming errors) may contain internals, so the client gets a fixed message.
+  const message = error instanceof DomainError ? sanitize(rawMessage) : "Internal error";
 
   const headers = new Headers({
     "content-type": "application/json; charset=utf-8",

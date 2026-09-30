@@ -37,8 +37,14 @@ import {
  * TenantQuotaDO — Per-Tenant Stateful Durable Object.
  * Enforces hierarchical RPM & RPD limits, sub-caps, and cost tracking with DO storage survival.
  */
-export class TenantQuotaDO extends DurableObject {
+export class TenantQuotaDO extends DurableObject<unknown> {
   public tenantId: string;
+  /**
+   * False when the tenant id is only the DO's hex id. In the Workers runtime `ctx.id.name` is not
+   * available inside the object, so the DO binds to the tenant named by its first caller (the
+   * worker always addresses it with idFromName(tenantId)) and persists that binding.
+   */
+  private tenantBound = false;
   private tier: UserTier = "builder";
   private entries: QuotaEntry[] = [];
   private totalCostMicrodollars: bigint = 0n;
@@ -60,7 +66,7 @@ export class TenantQuotaDO extends DurableObject {
     env?: unknown,
     options?: TenantQuotaDOOptions
   ) {
-    super(ctx, env);
+    super(ctx as DurableObjectState, env);
     this.timeProvider = options?.timeProvider ?? (() => Date.now());
     this.rpmWindowMs = options?.rpmWindowMs ?? 60_000;
     this.rpdWindowMs = options?.rpdWindowMs ?? 86_400_000;
@@ -69,9 +75,10 @@ export class TenantQuotaDO extends DurableObject {
       this.tier = options.initialTier;
     }
 
+    const namedTenant = options?.tenantId ?? this.ctx.id.name;
+    this.tenantBound = typeof namedTenant === "string" && namedTenant.trim().length > 0;
     const resolvedTenant =
-      options?.tenantId ??
-      this.ctx.id.name ??
+      namedTenant ??
       (typeof this.ctx.id.toString === "function" ? this.ctx.id.toString() : "");
 
     if (!resolvedTenant || resolvedTenant.trim().length === 0) {
@@ -96,6 +103,11 @@ export class TenantQuotaDO extends DurableObject {
 
   public assertTenant(targetTenantId?: string): void {
     if (!targetTenantId) {
+      return;
+    }
+    if (!this.tenantBound) {
+      this.tenantId = targetTenantId;
+      this.tenantBound = true;
       return;
     }
     if (targetTenantId !== this.tenantId) {
@@ -149,6 +161,7 @@ export class TenantQuotaDO extends DurableObject {
     if (stored && typeof stored === "object") {
       if (stored.tenantId) {
         this.tenantId = stored.tenantId;
+        this.tenantBound = true;
       }
       if (stored.tier) {
         this.tier = stored.tier;
@@ -270,8 +283,8 @@ export class TenantQuotaDO extends DurableObject {
   public async consumeQuota(
     request: ConsumeQuotaRequest = {}
   ): Promise<ConsumeQuotaResult> {
-    this.assertTenant(request.tenantId);
     await this.ensureLoaded();
+    this.assertTenant(request.tenantId);
 
     const now = this.now();
     this.pruneEntries(now);
@@ -309,6 +322,7 @@ export class TenantQuotaDO extends DurableObject {
 
   public async fetch(request: Request): Promise<Response> {
     try {
+      await this.ensureLoaded();
       const url = new URL(request.url);
       const method = request.method.toUpperCase();
 
