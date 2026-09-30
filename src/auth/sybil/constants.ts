@@ -21,17 +21,6 @@ export const SYBIL_MIN_ACTIVITY_REPOS = 5;
 export const SYBIL_MIN_ACTIVITY_CONTRIBUTIONS = 20;
 
 /**
- * Standard Cloudflare Turnstile test tokens.
- */
-export const TURNSTILE_TEST_TOKENS = {
-  ALWAYS_PASS: "1x0000000000000000000000000000000AA",
-  ALWAYS_FAIL: "2x0000000000000000000000000000000AB",
-  TOKEN_ALREADY_SPENT: "3x0000000000000000000000000000000AC",
-  VALID_FIXTURE: "valid_turnstile_response",
-  INVALID_FIXTURE: "invalid_turnstile_response",
-} as const;
-
-/**
  * High-velocity disposable / burner email provider domain denylist.
  * Rejects temp-mail, guerrilla-mail, fake inboxes, and disposable forwarders.
  */

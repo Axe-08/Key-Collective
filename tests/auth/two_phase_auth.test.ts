@@ -39,11 +39,16 @@ import {
   calculateSybilScore,
   verifyTurnstileToken,
   globalSubnetTracker,
-  TURNSTILE_TEST_TOKENS,
   SYBIL_SCORE_BUILDER_THRESHOLD,
   type SybilUserInput,
   type SybilRequestInput,
 } from "../../src/auth/sybil/index";
+
+// Local test token constants (production fixture short-circuits were removed).
+const TURNSTILE_TEST_TOKENS = {
+  ALWAYS_PASS: "test-turnstile-always-pass",
+  ALWAYS_FAIL: "test-turnstile-always-fail",
+} as const;
 import {
   generatePKCEPair,
   buildAuthorizationUrl,

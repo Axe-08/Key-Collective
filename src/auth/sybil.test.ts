@@ -14,13 +14,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   calculateSybilScore,
   globalSubnetTracker,
-  TURNSTILE_TEST_TOKENS,
   SYBIL_MIN_ACCOUNT_AGE_DAYS,
   SYBIL_MIN_ACTIVITY_REPOS,
   SYBIL_MIN_ACTIVITY_CONTRIBUTIONS,
   type SybilUserInput,
   type SybilRequestInput,
 } from "./sybil/index";
+
+// Local test token constants (production fixture short-circuits were removed).
+const TURNSTILE_TEST_TOKENS = {
+  ALWAYS_PASS: "test-turnstile-always-pass",
+  ALWAYS_FAIL: "test-turnstile-always-fail",
+} as const;
 
 describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () => {
   const originalFetch = globalThis.fetch;
