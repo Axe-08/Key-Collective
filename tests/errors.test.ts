@@ -300,10 +300,10 @@ describe("Domain Error Architecture", () => {
 
     describe("QuotaExceededError", () => {
       it("initializes with 429 status and supports BigInt quotas", () => {
-        const err = new QuotaExceededError("Monthly microdollar spend cap reached", {
+        const err = new QuotaExceededError("Monthly Credit Unit limit reached", {
           tenantId: "tenant-vip",
           quotaType: "spend_limit",
-          limit: 10_000_000n, // $10 USD in microdollars
+          limit: 10_000_000n, // Credit Units
           consumed: 10_050_000n,
         });
 
@@ -487,14 +487,14 @@ describe("Domain Error Architecture", () => {
     describe("InvalidTelemetryEventError", () => {
       it("initializes with 400 status and validation details", () => {
         const err = new InvalidTelemetryEventError("Missing traceId", {
-          validationErrors: ["traceId is required", "costMicrodollars must be BigInt"],
+          validationErrors: ["traceId is required", "Credit Units must be BigInt"],
         });
 
         expect(err.statusCode).toBe(400);
         expect(err.code).toBe("INVALID_TELEMETRY_EVENT");
         expect(err.validationErrors).toEqual([
           "traceId is required",
-          "costMicrodollars must be BigInt",
+          "Credit Units must be BigInt",
         ]);
         expect(isInvalidTelemetryEventError(err)).toBe(true);
       });
