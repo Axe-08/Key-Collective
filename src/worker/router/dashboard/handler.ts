@@ -8,7 +8,7 @@ import type { WorkerEnv as AppWorkerEnv } from "../../auth/types";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
-import { handleOAuthGithubCallback, handleSyncSession } from "./auth_routes";
+import { handleOAuthGithubCallback, handleGoogleAuth } from "./auth_routes";
 import {
   handleDeleteKey,
   handleGetKeys,
@@ -58,9 +58,9 @@ export class DashboardRouter {
       return handleOAuthGithubCallback(request, env);
     }
 
-    // 0.1 User Session Sync to D1
-    if (method === "POST" && pathname === "/api/auth/sync-session") {
-      return handleSyncSession(request, env);
+    // 0.1 Verified Google Sign-In
+    if (method === "POST" && pathname === "/api/auth/google") {
+      return handleGoogleAuth(request, env);
     }
 
     // Auth token extraction
