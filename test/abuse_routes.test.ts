@@ -3,14 +3,14 @@
  *
  * Invariants Tested:
  * 1. Strict TypeScript: Zero any.
- * 2. Revocation via keyId: Updates status = invalid, community_routing_status = REVOKED.
- * 3. Revocation via leaked_key: Derives SHA-256 hash and key prefix, revokes matching key.
- * 4. Constant timing shield: Enforces >= 200ms response time.
- * 5. Drop references to abuse_rate_limits table.
- * 6. Turnstile gate validation: Enforces 403 on invalid Turnstile token when configured.
+ * 2. Revocation via leaked_key: Derives SHA-256 hash, revokes matching key by key_hash.
+ * 3. Constant timing shield: Enforces >= 200ms response time.
+ * 4. Drop references to abuse_rate_limits table.
+ * 5. Turnstile gate validation: Enforces 403 unconditionally, with no bypass when the
+ *    token/secret is absent.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleReportKeyAbuse } from "../src/worker/router/dashboard/abuse_routes";
 import type { WorkerEnv } from "../src/worker/auth/index";
 
@@ -55,81 +55,71 @@ function createMockDb() {
   return { db, queries };
 }
 
-describe("Abuse Routes: handleReportKeyAbuse", () => {
-  it("revokes key by keyId with status = invalid and community_routing_status = REVOKED", async () => {
-    const { db, queries } = createMockDb();
-    const env: WorkerEnv = { DB: db };
+const VALID_TOKEN = "1x0000000000000000000000000000000AA";
 
-    const req = new Request("http://localhost/api/abuse/report-key", {
-      method: "POST",
+function mockSiteverifySuccess() {
+  return vi.fn(async () =>
+    new Response(JSON.stringify({ success: true }), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keyId: "key_test_123" }),
-    });
+    })
+  );
+}
 
-    const res = await handleReportKeyAbuse(req, env);
-    expect(res.status).toBe(200);
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
-    const body = (await res.json()) as { success: boolean; message: string };
-    expect(body.success).toBe(true);
-    expect(body.message).toBe("Report received");
-
-    const updateById = queries.find(
-      (q) =>
-        q.sql.includes("UPDATE api_keys") &&
-        q.sql.includes("status = 'invalid'") &&
-        q.sql.includes("community_routing_status = 'REVOKED'") &&
-        q.sql.includes("WHERE id = ?")
-    );
-    expect(updateById).toBeDefined();
-    expect(updateById?.params).toContain("key_test_123");
-  });
-
-  it("revokes key by leaked_key deriving prefix and SHA-256 hash", async () => {
+describe("Abuse Routes: handleReportKeyAbuse", () => {
+  it("revokes key by leaked_key, updating key_hash and community_routing_status = REVOKED", async () => {
     const { db, queries } = createMockDb();
-    const env: WorkerEnv = { DB: db };
+    vi.stubGlobal("fetch", mockSiteverifySuccess());
+    const env: WorkerEnv = { DB: db, TURNSTILE_SECRET: "test-secret-key" };
 
     const leakedKey = "AIzaSySecretLeakedKey999";
     const req = new Request("http://localhost/api/abuse/report-key", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-turnstile-token": VALID_TOKEN,
+      },
       body: JSON.stringify({ leaked_key: leakedKey }),
     });
 
     const res = await handleReportKeyAbuse(req, env);
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as { success: boolean; message: string };
-    expect(body.success).toBe(true);
+    const body = (await res.json()) as { message: string };
+    expect(body.message).toContain("Report received");
 
-    const updateByPrefix = queries.find(
-      (q) =>
-        q.sql.includes("UPDATE api_keys") &&
-        q.sql.includes("key_prefix = ?")
-    );
-    expect(updateByPrefix).toBeDefined();
-    expect(updateByPrefix?.params[0]).toBe("AIzaSySe"); // 8 chars prefix
-    expect(updateByPrefix?.params[1]).toBe("AIzaSy");   // 6 chars prefix
-
-    // Verify SHA-256 derivation was computed and passed
     const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(leakedKey));
     const expectedHashHex = Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
     const updateByHash = queries.find(
-      (q) => q.params.includes(expectedHashHex)
+      (q) =>
+        q.sql.includes("UPDATE api_keys") &&
+        q.sql.includes("status = 'REVOKED'") &&
+        q.sql.includes("community_routing_status = 'REVOKED'") &&
+        q.sql.includes("WHERE key_hash = ?") &&
+        q.params.includes(expectedHashHex)
     );
     expect(updateByHash).toBeDefined();
   });
 
   it("does not reference the deleted abuse_rate_limits table", async () => {
     const { db, queries } = createMockDb();
-    const env: WorkerEnv = { DB: db };
+    vi.stubGlobal("fetch", mockSiteverifySuccess());
+    const env: WorkerEnv = { DB: db, TURNSTILE_SECRET: "test-secret-key" };
 
     const req = new Request("http://localhost/api/abuse/report-key", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keyId: "test_key" }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-turnstile-token": VALID_TOKEN,
+      },
+      body: JSON.stringify({ leaked_key: "test_key_value" }),
     });
 
     await handleReportKeyAbuse(req, env);
@@ -142,13 +132,17 @@ describe("Abuse Routes: handleReportKeyAbuse", () => {
 
   it("enforces constant-time response shield of at least 200ms", async () => {
     const { db } = createMockDb();
-    const env: WorkerEnv = { DB: db };
+    vi.stubGlobal("fetch", mockSiteverifySuccess());
+    const env: WorkerEnv = { DB: db, TURNSTILE_SECRET: "test-secret-key" };
 
     const start = Date.now();
     const req = new Request("http://localhost/api/abuse/report-key", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keyId: "test_timing" }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-turnstile-token": VALID_TOKEN,
+      },
+      body: JSON.stringify({ leaked_key: "test_timing_key" }),
     });
 
     const res = await handleReportKeyAbuse(req, env);
@@ -166,29 +160,57 @@ describe("Abuse Routes: handleReportKeyAbuse", () => {
       TURNSTILE_SECRET: "test-secret-key",
     };
 
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: false, "error-codes": ["invalid-input-response"] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+
     const invalidReq = new Request("http://localhost/api/abuse/report-key", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-turnstile-token": "invalid_turnstile_response",
       },
-      body: JSON.stringify({ keyId: "test_key" }),
+      body: JSON.stringify({ leaked_key: "test_key" }),
     });
 
     await expect(handleReportKeyAbuse(invalidReq, env)).rejects.toThrow(
       "Turnstile validation failed"
     );
 
+    vi.stubGlobal("fetch", mockSiteverifySuccess());
+
     const validReq = new Request("http://localhost/api/abuse/report-key", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-turnstile-token": "1x0000000000000000000000000000000AA", // ALWAYS_PASS token
+        "x-turnstile-token": VALID_TOKEN,
       },
-      body: JSON.stringify({ keyId: "test_key" }),
+      body: JSON.stringify({ leaked_key: "test_key" }),
     });
 
     const validRes = await handleReportKeyAbuse(validReq, env);
     expect(validRes.status).toBe(200);
+  });
+
+  it("rejects with 403 when no Turnstile token is supplied at all", async () => {
+    const { db } = createMockDb();
+    vi.stubGlobal("fetch", mockSiteverifySuccess());
+    const env: WorkerEnv = { DB: db, TURNSTILE_SECRET: "test-secret-key" };
+
+    const req = new Request("http://localhost/api/abuse/report-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leaked_key: "test_key" }),
+    });
+
+    await expect(handleReportKeyAbuse(req, env)).rejects.toMatchObject({
+      statusCode: 403,
+    });
   });
 });
