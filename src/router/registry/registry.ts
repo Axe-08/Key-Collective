@@ -24,6 +24,7 @@ import {
   microdollarsToDollars,
   formatMicrodollars,
 } from "../../constants/financial";
+import { ceilDiv } from "../../constants/credits";
 import {
   ModelNotFoundError,
   UnknownModelAliasError,
@@ -487,7 +488,19 @@ export class ModelRegistry implements IModelRegistry {
   }
 
   // ==========================================
-  // Fixed-Point Microdollar Pricing Math
+  // Credit Units (CU) Calculation & Pricing
+  // ==========================================
+
+  /**
+   * Calculates Credit Units (CU) consumed for a request to a model or alias.
+   */
+  public calculateCu(modelIdOrAlias: string, usage: TokenUsage): bigint {
+    const model = this.resolveModelOrThrow(modelIdOrAlias);
+    return calculateCu(model, usage);
+  }
+
+  // ==========================================
+  // Fixed-Point Microdollar Pricing Math (Deprecated)
   // ==========================================
 
   /**
@@ -496,6 +509,8 @@ export class ModelRegistry implements IModelRegistry {
    * promptCost = (promptTokens * inputCost) // 1_000_000n
    * outputCost = ((completionTokens + reasoningTokens) * outputCost) // 1_000_000n
    * cacheCost = (cachedTokens * cacheReadCost) // 1_000_000n
+   *
+   * @deprecated Use calculateCu instead. Kept until WP-7.3.
    */
   public calculateCost(modelIdOrAlias: string, usage: TokenUsage): bigint {
     const model = this.resolveModelOrThrow(modelIdOrAlias);
@@ -504,6 +519,8 @@ export class ModelRegistry implements IModelRegistry {
 
   /**
    * Calculates exact cost directly from a ModelDef instance without re-resolving.
+   *
+   * @deprecated Use calculateCu instead. Kept until WP-7.3.
    */
   public calculateCostForModel(
     model: ModelDef<bigint>,
@@ -527,6 +544,8 @@ export class ModelRegistry implements IModelRegistry {
 
   /**
    * Returns a detailed breakdown of costs across prompt, completion, reasoning, and cache.
+   *
+   * @deprecated Use calculateCu instead. Kept until WP-7.3.
    */
   public calculateCostBreakdown(
     modelIdOrAlias: string,
@@ -566,6 +585,8 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Calculates estimated cost in microdollars based on expected token counts.
    * Useful for pre-flight budget checks before executing upstream calls.
+   *
+   * @deprecated Use calculateCu instead. Kept until WP-7.3.
    */
   public calculateEstimatedCost(
     modelIdOrAlias: string,
@@ -580,6 +601,8 @@ export class ModelRegistry implements IModelRegistry {
 
   /**
    * Retrieves pricing structure for a model or alias.
+   *
+   * @deprecated Use Credit Units instead. Kept until WP-7.3.
    */
   public getPricing(modelIdOrAlias: string): ModelPricing<bigint> {
     const model = this.resolveModelOrThrow(modelIdOrAlias);
@@ -587,6 +610,10 @@ export class ModelRegistry implements IModelRegistry {
       inputCostPerMTokMicro: model.inputCostPerMTokMicro,
       outputCostPerMTokMicro: model.outputCostPerMTokMicro,
       cacheReadCostPerMTokMicro: model.cacheReadCostPerMTokMicro,
+      cuBase: model.cuBase,
+      cuInPer1k: model.cuInPer1k,
+      cuCachedPer1k: model.cuCachedPer1k,
+      cuOutPer1k: model.cuOutPer1k,
     };
   }
 
@@ -668,6 +695,8 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Computes token cost in microdollars using fixed-point integer math.
    * (tokens * costPerMTokMicro) // 1_000_000n
+   *
+   * @deprecated Use Credit Units instead. Kept until WP-7.3.
    */
   public static calculateTokenCost(
     tokens: bigint | number,
@@ -704,3 +733,35 @@ export class ModelRegistry implements IModelRegistry {
     return formatMicrodollars(microdollars, options);
   }
 }
+
+/**
+ * Calculates Credit Units (CU) for a model invocation based on token usage.
+ * Section 2.2 formula:
+ * request_cu = model.cuBase
+ *   + ceilDiv(BigInt(usage.promptTokens) * model.cuInPer1k, 1000n)
+ *   + ceilDiv(BigInt(usage.cachedTokens ?? 0) * model.cuCachedPer1k, 1000n)
+ *   + ceilDiv(BigInt((usage.completionTokens ?? 0) + (usage.reasoningTokens ?? 0)) * model.cuOutPer1k, 1000n)
+ */
+export function calculateCu(
+  model: ModelDef<bigint>,
+  usage: TokenUsage
+): bigint {
+  const promptTokens = BigInt(Math.max(0, Math.trunc(usage.promptTokens ?? 0)));
+  const cachedTokens = BigInt(Math.max(0, Math.trunc(usage.cachedTokens ?? 0)));
+  const completionTokens = BigInt(Math.max(0, Math.trunc(usage.completionTokens ?? 0)));
+  const reasoningTokens = BigInt(Math.max(0, Math.trunc(usage.reasoningTokens ?? 0)));
+  const outputTokens = completionTokens + reasoningTokens;
+
+  const cuBase = model.cuBase ?? 0n;
+  const cuInPer1k = model.cuInPer1k ?? 0n;
+  const cuCachedPer1k = model.cuCachedPer1k ?? 0n;
+  const cuOutPer1k = model.cuOutPer1k ?? 0n;
+
+  return (
+    cuBase +
+    ceilDiv(promptTokens * cuInPer1k, 1000n) +
+    ceilDiv(cachedTokens * cuCachedPer1k, 1000n) +
+    ceilDiv(outputTokens * cuOutPer1k, 1000n)
+  );
+}
+

@@ -4,5 +4,6 @@
  */
 
 export * from "./crypto";
+export * from "./credits";
 export * from "./financial";
 export * from "./limits";
