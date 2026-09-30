@@ -1,3 +1,9 @@
+<script module lang="ts">
+  export const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? 'http://api.localhost:8787/v1' : 'https://api.key-col.axe08.tech/v1');
+</script>
+
 <script lang="ts">
   import type { PoolStats, CU } from './types';
   import type { UserAccount, UserTier } from '../../../src/contracts/v3_types';
@@ -13,6 +19,8 @@
     isRefreshing = false,
     searchQuery = $bindable(''),
     cuUsedToday = 0,
+    proxyEndpoint = `${API_BASE_URL}/chat/completions`,
+    isSettingsOpen = $bindable(false),
   }: {
     stats?: PoolStats;
     activeTab?: 'pool' | 'workbench' | 'docs' | 'admin' | string;
@@ -24,12 +32,13 @@
     isRefreshing?: boolean;
     searchQuery?: string;
     cuUsedToday?: CU;
+    proxyEndpoint?: string;
+    isSettingsOpen?: boolean;
   } = $props();
 
   import { onMount } from 'svelte';
   
   let isNotificationsOpen = $state(false);
-  let isSettingsOpen = $state(false);
   let isProfileMenuOpen = $state(false);
   let devDisplayName = $state('');
   let devAvatarUrl = $state('');
@@ -370,12 +379,12 @@
           <label class="block font-mono text-[11px] text-outline mb-1" for="pref-endpoint">Edge Proxy Gateway</label>
           <div class="flex items-center gap-2">
             <span class="px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 font-mono text-xs text-on-surface flex-1 truncate select-all">
-              https://key-col.axe08.tech/v1/chat/completions
+              {proxyEndpoint}
             </span>
             <button
               type="button"
               class="p-2 rounded-lg bg-surface-container border border-outline-variant/30 hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
-              onclick={() => navigator.clipboard.writeText('https://key-col.axe08.tech/v1/chat/completions')}
+              onclick={() => navigator.clipboard.writeText(proxyEndpoint)}
               title="Copy endpoint"
             >
               <span class="material-symbols-outlined text-[16px]">content_copy</span>

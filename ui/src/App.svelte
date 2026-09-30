@@ -2,6 +2,10 @@
   import { api } from './lib/api';
   import { ApiError } from './lib/api/client';
 
+  export const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? 'http://api.localhost:8787/v1' : 'https://api.key-col.axe08.tech/v1');
+
   /**
    * Pure, framework-independent network step of the optimistic delete flow,
    * exported so the rollback-on-error behaviour can be exercised in tests
@@ -95,7 +99,7 @@
   let autoRefresh = $state(true);
   let isRefreshing = $state(false);
   let toasts = $state<ToastMessage[]>([]);
-  let proxyEndpoint = $state('https://key-col.axe08.tech/v1/chat/completions');
+  let proxyEndpoint = $state(`${API_BASE_URL}/chat/completions`);
   let isEndpointCopied = $state(false);
 
   function addToast(type: ToastMessage['type'], message: string) {
@@ -292,7 +296,7 @@
 
   onMount(() => {
     if (typeof window !== 'undefined') {
-      proxyEndpoint = `${window.location.origin}/v1/chat/completions`;
+      proxyEndpoint = `${API_BASE_URL}/chat/completions`;
       
       // Hydrate user session from localStorage if present
       const savedUserStr = localStorage.getItem('kc_user');
@@ -398,6 +402,7 @@
     onRefresh={loadData}
     isRefreshing={isRefreshing || statsLoading}
     {cuUsedToday}
+    {proxyEndpoint}
   />
 
   <!-- Shared Component: SideNavBar (Fixed top 14, left 0, bottom 0, w-64, z-40) -->
