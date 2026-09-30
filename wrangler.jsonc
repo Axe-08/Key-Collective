@@ -23,6 +23,10 @@
       {
         "name": "TENANT_QUOTA",
         "class_name": "TenantQuotaDO"
+      },
+      {
+        "name": "RATE_LIMITER",
+        "class_name": "RateLimiterDO"
       }
     ]
   },
@@ -49,6 +53,12 @@
       "tag": "v5",
       "new_sqlite_classes": [
         "TenantQuotaDO"
+      ]
+    },
+    {
+      "tag": "v6",
+      "new_sqlite_classes": [
+        "RateLimiterDO"
       ]
     }
   ],
@@ -120,6 +130,10 @@
           {
             "name": "TENANT_QUOTA",
             "class_name": "TenantQuotaDO"
+          },
+          {
+            "name": "RATE_LIMITER",
+            "class_name": "RateLimiterDO"
           }
         ]
       },
@@ -169,6 +183,10 @@
           {
             "name": "TENANT_QUOTA",
             "class_name": "TenantQuotaDO"
+          },
+          {
+            "name": "RATE_LIMITER",
+            "class_name": "RateLimiterDO"
           }
         ]
       },
@@ -204,6 +222,10 @@
           {
             "name": "TENANT_QUOTA",
             "class_name": "TenantQuotaDO"
+          },
+          {
+            "name": "RATE_LIMITER",
+            "class_name": "RateLimiterDO"
           }
         ]
       }
