@@ -13,6 +13,7 @@
 
 import type { D1Database } from "@cloudflare/workers-types";
 import type { WorkerEnv } from "../../auth/types";
+import { toEpochMs } from "../../../utils/time";
 
 export interface ProjectRecord {
   id: string;
@@ -46,6 +47,18 @@ function jsonResponse(data: unknown, status = 200): Response {
       "Cache-Control": "no-store, no-cache, must-revalidate",
     },
   });
+}
+
+function normalizeProjectRows(rows: ProjectRecord[]): ProjectRecord[] {
+  return rows.map((row) => ({
+    ...row,
+    created_at: (row.created_at === null || row.created_at === undefined
+      ? row.created_at
+      : toEpochMs(row.created_at)) as number,
+    updated_at: (row.updated_at === null || row.updated_at === undefined
+      ? row.updated_at
+      : toEpochMs(row.updated_at)) as number,
+  }));
 }
 
 function errorResponse(message: string, code: string, statusCode: number): Response {
@@ -104,7 +117,7 @@ export async function handleGetProjects(
            ORDER BY created_at DESC`
         )
         .all<ProjectRecord>();
-      return jsonResponse(result.results ?? []);
+      return jsonResponse(normalizeProjectRows(result.results ?? []));
     }
 
     const scopedTenant = isAdmin && targetTenant ? targetTenant : tenantId;
@@ -118,7 +131,7 @@ export async function handleGetProjects(
       .bind(scopedTenant)
       .all<ProjectRecord>();
 
-    return jsonResponse(result.results ?? []);
+    return jsonResponse(normalizeProjectRows(result.results ?? []));
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Database error";
     return errorResponse(message, "DATABASE_ERROR", 500);
