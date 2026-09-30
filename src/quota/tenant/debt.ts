@@ -3,7 +3,7 @@
  */
 
 export interface DebtState {
-  communityDebtMicroCu: bigint;
+  communityDebtCu: bigint;
   dailyContributedCu: bigint;
   trustedContributor: boolean;
   consecutiveDebtFreeDays: number;
@@ -11,17 +11,17 @@ export interface DebtState {
 }
 
 export function calculateMultiplierCeiling(
-  communityDebtMicroCu: bigint,
+  communityDebtCu: bigint,
   dailyContributedCu: bigint,
   trustedContributor: boolean
 ): number {
-  const ratio = dailyContributedCu > 0n 
-    ? Number(communityDebtMicroCu * 100n / dailyContributedCu) 
-    : (communityDebtMicroCu > 0n ? 1000 : 0);
+  const ratio_pct = dailyContributedCu > 0n 
+    ? (communityDebtCu * 100n / dailyContributedCu) 
+    : (communityDebtCu > 0n ? 1000n : 0n);
 
-  if (ratio > 100) {
+  if (ratio_pct > 100n) {
     return 100;
-  } else if (ratio > 50) {
+  } else if (ratio_pct > 50n) {
     return 150;
   } else {
     return trustedContributor ? 500 : 450;
@@ -29,10 +29,10 @@ export function calculateMultiplierCeiling(
 }
 
 export function determineJailStatus(
-  communityDebtMicroCu: bigint,
+  communityDebtCu: bigint,
   multiplierCeiling: number
 ): 'PRISTINE' | 'SOFT_WARNING' | 'HARD_JAIL' {
-  if (communityDebtMicroCu > 0n) {
+  if (communityDebtCu > 0n) {
     if (multiplierCeiling === 100) return 'HARD_JAIL';
     else if (multiplierCeiling === 150) return 'SOFT_WARNING';
   }
@@ -42,25 +42,23 @@ export function determineJailStatus(
 export function processDailyDebtReset(state: DebtState): DebtState {
   let consecutiveDebtFreeDays = state.consecutiveDebtFreeDays;
   let trustedContributor = state.trustedContributor;
-  let communityDebtMicroCu = state.communityDebtMicroCu;
+  let communityDebtCu = state.communityDebtCu;
 
-  if (communityDebtMicroCu === 0n) {
+  if (communityDebtCu === 0n) {
     consecutiveDebtFreeDays++;
     if (consecutiveDebtFreeDays > 30) trustedContributor = true;
   } else {
     consecutiveDebtFreeDays = 0;
+    const DECAY_PCT = trustedContributor ? 30n : 20n;
+    communityDebtCu = communityDebtCu - (communityDebtCu * DECAY_PCT) / 100n;
     trustedContributor = false;
-    
-    const decay = trustedContributor ? 0.3 : 0.2;
-    const decayAmount = BigInt(Math.floor(Number(communityDebtMicroCu) * decay));
-    communityDebtMicroCu = communityDebtMicroCu > decayAmount ? communityDebtMicroCu - decayAmount : 0n;
   }
 
   const dailyContributedCu = 0n;
-  const multiplierCeiling = calculateMultiplierCeiling(communityDebtMicroCu, dailyContributedCu, trustedContributor);
+  const multiplierCeiling = calculateMultiplierCeiling(communityDebtCu, dailyContributedCu, trustedContributor);
 
   return {
-    communityDebtMicroCu,
+    communityDebtCu,
     dailyContributedCu,
     trustedContributor,
     consecutiveDebtFreeDays,

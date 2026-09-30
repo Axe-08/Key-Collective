@@ -31,6 +31,7 @@ import {
   QuotaEntry,
   TenantQuotaData,
   TenantQuotaDOOptions,
+  toCu,
   toMicrodollars,
 } from "./types";
 
@@ -39,6 +40,11 @@ declare module "./types" {
     /** Injectable Clock for deterministic testing */
     clock?: Clock;
   }
+}
+
+interface StorageWithAlarm {
+  setAlarm?(time: number): Promise<void>;
+  getAlarm?(): Promise<number | null>;
 }
 
 /**
@@ -56,9 +62,10 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private tier: UserTier = "builder";
   private entries: QuotaEntry[] = [];
   private totalCostMicrodollars: bigint = 0n;
+  private cuUsed24h: bigint = 0n;
   private isLoaded = false;
 
-  private communityDebtMicroCu: bigint = 0n;
+  private communityDebtCu: bigint = 0n;
   private dailyContributedCu: bigint = 0n;
   private trustedContributor: boolean = false;
   private consecutiveDebtFreeDays: number = 0;
@@ -96,12 +103,13 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     }
     this.tenantId = resolvedTenant;
 
-    if (typeof (this.ctx.storage as any)?.getAlarm === "function") {
-      (this.ctx.storage as any).getAlarm().then((alarm: number | null) => {
-        if (!alarm && typeof (this.ctx.storage as any)?.setAlarm === "function") {
+    const storage = this.ctx.storage as unknown as StorageWithAlarm;
+    if (typeof storage?.getAlarm === "function") {
+      storage.getAlarm().then((alarm: number | null) => {
+        if (!alarm && typeof storage?.setAlarm === "function") {
           const tomorrow = new Date(this.clock.now());
           tomorrow.setUTCHours(24, 0, 0, 0);
-          (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+          storage.setAlarm(tomorrow.getTime());
         }
       }).catch(() => {});
     }
@@ -142,6 +150,15 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private pruneEntries(now = this.now()): void {
     const cutoff = now - this.rpdWindowMs;
     this.entries = this.entries.filter((e) => e.timestamp > cutoff);
+    let cuTotal = 0n;
+    for (const e of this.entries) {
+      if (e.cu !== undefined) {
+        cuTotal += BigInt(e.cu);
+      } else if (e.costMicrodollars !== undefined) {
+        cuTotal += BigInt(e.costMicrodollars);
+      }
+    }
+    this.cuUsed24h = cuTotal;
   }
 
   private async persist(): Promise<void> {
@@ -152,7 +169,9 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       entries: [...this.entries],
       totalCostMicrodollars: this.totalCostMicrodollars.toString(),
 
-      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      cuUsed24h: this.cuUsed24h.toString(),
+      communityDebtCu: this.communityDebtCu.toString(),
+      communityDebtMicroCu: this.communityDebtCu.toString(),
       dailyContributedCu: this.dailyContributedCu.toString(),
       trustedContributor: this.trustedContributor,
       consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
@@ -182,20 +201,25 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       if (typeof stored.totalCostMicrodollars === "string") {
         this.totalCostMicrodollars = toMicrodollars(stored.totalCostMicrodollars);
       }
-      if (typeof (stored as any).communityDebtMicroCu === "string") {
-        this.communityDebtMicroCu = BigInt((stored as any).communityDebtMicroCu);
+      if (typeof stored.cuUsed24h === "string") {
+        this.cuUsed24h = BigInt(stored.cuUsed24h);
       }
-      if (typeof (stored as any).dailyContributedCu === "string") {
-        this.dailyContributedCu = BigInt((stored as any).dailyContributedCu);
+      if (typeof stored.communityDebtCu === "string") {
+        this.communityDebtCu = BigInt(stored.communityDebtCu);
+      } else if (typeof stored.communityDebtMicroCu === "string") {
+        this.communityDebtCu = BigInt(stored.communityDebtMicroCu);
       }
-      if (typeof (stored as any).trustedContributor === "boolean") {
-        this.trustedContributor = (stored as any).trustedContributor;
+      if (typeof stored.dailyContributedCu === "string") {
+        this.dailyContributedCu = BigInt(stored.dailyContributedCu);
       }
-      if (typeof (stored as any).consecutiveDebtFreeDays === "number") {
-        this.consecutiveDebtFreeDays = (stored as any).consecutiveDebtFreeDays;
+      if (typeof stored.trustedContributor === "boolean") {
+        this.trustedContributor = stored.trustedContributor;
       }
-      if (typeof (stored as any).multiplierCeiling === "number") {
-        this.multiplierCeiling = (stored as any).multiplierCeiling;
+      if (typeof stored.consecutiveDebtFreeDays === "number") {
+        this.consecutiveDebtFreeDays = stored.consecutiveDebtFreeDays;
+      }
+      if (typeof stored.multiplierCeiling === "number") {
+        this.multiplierCeiling = stored.multiplierCeiling;
       }
     }
 
@@ -206,19 +230,20 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   public clearMemoryCache(): void {
     this.entries = [];
     this.totalCostMicrodollars = 0n;
+    this.cuUsed24h = 0n;
     this.isLoaded = false;
   }
 
   public async accrueDebt(cuWeight: bigint): Promise<void> {
     await this.ensureLoaded();
-    this.communityDebtMicroCu += cuWeight;
+    this.communityDebtCu += cuWeight;
     this.updateMultiplierCeiling();
     await this.syncDebtState();
   }
 
   public async decrementDebt(cuWeight: bigint): Promise<void> {
     await this.ensureLoaded();
-    this.communityDebtMicroCu = this.communityDebtMicroCu > cuWeight ? this.communityDebtMicroCu - cuWeight : 0n;
+    this.communityDebtCu = this.communityDebtCu > cuWeight ? this.communityDebtCu - cuWeight : 0n;
     this.dailyContributedCu += cuWeight;
     this.updateMultiplierCeiling();
     await this.syncDebtState();
@@ -226,16 +251,17 @@ export class TenantQuotaDO extends DurableObject<unknown> {
 
   public getDebtState() {
     return {
-      communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+      communityDebtCu: this.communityDebtCu.toString(),
+      communityDebtMicroCu: this.communityDebtCu.toString(),
       dailyContributedCu: this.dailyContributedCu.toString(),
       multiplierCeiling: this.multiplierCeiling,
-      jailStatus: determineJailStatus(this.communityDebtMicroCu, this.multiplierCeiling),
+      jailStatus: determineJailStatus(this.communityDebtCu, this.multiplierCeiling),
     };
   }
 
   public updateMultiplierCeiling(): void {
     this.multiplierCeiling = calculateMultiplierCeiling(
-      this.communityDebtMicroCu,
+      this.communityDebtCu,
       this.dailyContributedCu,
       this.trustedContributor
     );
@@ -248,14 +274,14 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   public async alarm(): Promise<void> {
     await this.ensureLoaded();
     const updated = processDailyDebtReset({
-      communityDebtMicroCu: this.communityDebtMicroCu,
+      communityDebtCu: this.communityDebtCu,
       dailyContributedCu: this.dailyContributedCu,
       trustedContributor: this.trustedContributor,
       consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
       multiplierCeiling: this.multiplierCeiling,
     });
 
-    this.communityDebtMicroCu = updated.communityDebtMicroCu;
+    this.communityDebtCu = updated.communityDebtCu;
     this.dailyContributedCu = updated.dailyContributedCu;
     this.trustedContributor = updated.trustedContributor;
     this.consecutiveDebtFreeDays = updated.consecutiveDebtFreeDays;
@@ -265,7 +291,10 @@ export class TenantQuotaDO extends DurableObject<unknown> {
 
     const tomorrow = new Date(this.clock.now());
     tomorrow.setUTCHours(24, 0, 0, 0);
-    await (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+    const storage = this.ctx.storage as unknown as StorageWithAlarm;
+    if (typeof storage?.setAlarm === "function") {
+      await storage.setAlarm(tomorrow.getTime());
+    }
   }
 
   /**
@@ -309,6 +338,14 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     return this.totalCostMicrodollars;
   }
 
+  public getCuUsed24h(): bigint {
+    return this.cuUsed24h;
+  }
+
+  public getCommunityDebtCu(): bigint {
+    return this.communityDebtCu;
+  }
+
   public async consumeQuota(
     request: ConsumeQuotaRequest = {}
   ): Promise<ConsumeQuotaResult> {
@@ -323,7 +360,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       tier: this.tier,
       entries: this.entries,
       totalCostMicrodollars: this.totalCostMicrodollars,
-      communityDebtMicroCu: this.communityDebtMicroCu,
+      communityDebtMicroCu: this.communityDebtCu,
       dailyContributedCu: this.dailyContributedCu,
       trustedContributor: this.trustedContributor,
       consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
@@ -334,18 +371,30 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     });
 
     if (newEntry) {
-      this.entries.push(newEntry);
+      const incomingCu = request.cu !== undefined ? toCu(request.cu) : incomingCost;
+      const entryWithCu: QuotaEntry = {
+        ...newEntry,
+        cu: incomingCu.toString(),
+      };
+      this.entries.push(entryWithCu);
       this.totalCostMicrodollars += incomingCost;
+      this.cuUsed24h += incomingCu;
       await this.persist();
     }
 
-    return result;
+    return {
+      ...result,
+      cuUsed24h: this.cuUsed24h.toString(),
+      communityDebtCu: this.communityDebtCu.toString(),
+      communityDebtMicroCu: this.communityDebtCu.toString(),
+    };
   }
 
   public async reset(): Promise<void> {
     await this.ensureLoaded();
     this.entries = [];
     this.totalCostMicrodollars = 0n;
+    this.cuUsed24h = 0n;
     await this.persist();
   }
 
@@ -435,8 +484,9 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           rpdLimit: tierLimits.rpdLimit,
           currentProjectRpm,
           totalCostMicrodollars: this.totalCostMicrodollars.toString(),
-
-          communityDebtMicroCu: this.communityDebtMicroCu.toString(),
+          cuUsed24h: this.cuUsed24h.toString(),
+          communityDebtCu: this.communityDebtCu.toString(),
+          communityDebtMicroCu: this.communityDebtCu.toString(),
           dailyContributedCu: this.dailyContributedCu.toString(),
           trustedContributor: this.trustedContributor,
           consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
