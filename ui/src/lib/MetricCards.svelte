@@ -1,15 +1,15 @@
 <script lang="ts">
   import type { PoolStats, APIKey } from './types';
-  import { type Microdollars, formatMicrodollars } from './types';
+  import { type CU, formatCu } from './types';
 
   let {
     stats,
     keys = [],
-    todaySpendMicrodollars = 0,
+    cuUsedToday,
   }: {
     stats?: PoolStats;
     keys?: APIKey[];
-    todaySpendMicrodollars?: Microdollars;
+    cuUsedToday?: number;
   } = $props();
 
   let liveStats = $state<PoolStats | null>(null);
@@ -56,6 +56,8 @@
       daily_quota_used: 0,
       daily_quota_limit: 0,
       proxy_status: 'healthy' as const,
+      cu_used_today: 0,
+      cu_allowance_today: 0,
     }
   );
 
@@ -80,14 +82,16 @@
     rpmCap > 0 ? Math.min(100, Math.round((rpmLoad / rpmCap) * 100)) : 0
   );
 
-  // Microdollar Spend Calculations (1 USD = 1,000,000 µ$)
-  const effectiveSpendMicrodollars = $derived(
-    todaySpendMicrodollars > 0
-      ? todaySpendMicrodollars
-      : ((effectiveStats as any).total_spend_today_microdollars ?? 0)
+  // Credit Unit (CU) Accounting & Spend Ring Calculations
+  const cuUsed = $derived(
+    cuUsedToday !== undefined && cuUsedToday > 0
+      ? cuUsedToday
+      : (effectiveStats.cu_used_today ?? 0)
   );
-  const dailyBudgetMicrodollars: Microdollars = 1_000_000;
-  const spendRatio = $derived(Math.min(1, Math.max(0, effectiveSpendMicrodollars / dailyBudgetMicrodollars)));
+  const cuAllowance = $derived(effectiveStats.cu_allowance_today ?? 0);
+  const spendRatio = $derived(
+    cuAllowance > 0 ? Math.min(1, Math.max(0, cuUsed / cuAllowance)) : 0
+  );
   const spendPercent = $derived(Math.round(spendRatio * 100));
   // SVG Ring calculation: circumference = 2 * PI * 18 = 113.097
   const ringCircumference = 113.097;
@@ -179,10 +183,10 @@
     </div>
   </div>
 
-  <!-- Card 4: P95 Latency & Microdollar Spend Ring -->
+  <!-- Card 4: P95 Latency & CU Spend Ring -->
   <div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
     <div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
-      <span class="tracking-wider uppercase font-medium">P95 LATENCY &amp; SPEND RING</span>
+      <span class="tracking-wider uppercase font-medium">P95 LATENCY &amp; CU SPEND RING</span>
       <span class="material-symbols-outlined text-[16px] text-secondary" data-icon="network_check">network_check</span>
     </div>
     <div class="flex items-center justify-between mb-2">
@@ -196,13 +200,12 @@
           </span>
         </div>
         <div class="text-label-sm font-label-sm text-on-surface-variant font-mono mt-1">
-          Spend: <span class="text-primary font-medium">{formatMicrodollars(effectiveSpendMicrodollars)}</span>
-          <span class="text-outline text-[10px]">({effectiveSpendMicrodollars.toLocaleString()} µ$)</span>
+          <span class="text-primary font-medium">{formatCu(cuUsed)}</span> CU used today / <span class="text-outline">{formatCu(cuAllowance)}</span> CU allowance today
         </div>
       </div>
 
-      <!-- Circular Microdollar SVG Spend Ring -->
-      <div class="relative w-12 h-12 flex items-center justify-center shrink-0" title="Daily Spend Ring: {effectiveSpendMicrodollars.toLocaleString()} µ$ / {dailyBudgetMicrodollars.toLocaleString()} µ$">
+      <!-- Circular CU SVG Spend Ring -->
+      <div class="relative w-12 h-12 flex items-center justify-center shrink-0" title="CU Spend Ring: {formatCu(cuUsed)} CU used today / {formatCu(cuAllowance)} CU allowance today">
         <svg class="w-12 h-12 -rotate-90" viewBox="0 0 44 44">
           <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" class="text-surface-container-highest" stroke-width="3.5" />
           <circle

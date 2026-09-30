@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PoolStats, APIKey } from './types';
   import type { UserAccount, UserTier } from '../../../src/contracts/v3_types';
-  import { type Microdollars, formatMicrodollars } from './types';
+  import { type CU, formatCu } from './types';
 
   let {
     activeTab = 'pool',
@@ -11,7 +11,7 @@
     userAccount,
     onOpenAddModal,
     onOpenReportModal,
-    todaySpendMicrodollars = 0,
+    cuUsedToday = 0,
   }: {
     activeTab?: 'pool' | 'workbench' | 'docs' | 'admin' | string;
     onSelectTab?: (tab: string) => void;
@@ -20,7 +20,7 @@
     userAccount?: UserAccount;
     onOpenAddModal?: () => void;
     onOpenReportModal?: () => void;
-    todaySpendMicrodollars?: Microdollars;
+    cuUsedToday?: CU;
   } = $props();
 
   let quotaPercent = $derived.by(() => {
@@ -142,9 +142,9 @@
     </div>
   </div>
 
-  <!-- Lower Section: Daily Quota Limit, Microdollars Spend & Footer Links -->
+  <!-- Lower Section: Daily Quota Limit, CU Accounting & Footer Links -->
   <div class="pt-4 border-t border-outline-variant/30 space-y-2">
-    <!-- Daily Quota Limit & Microdollars Spend Card -->
+    <!-- Daily Quota Limit & CU Accounting Card -->
     <div class="px-3 py-2.5 rounded-lg bg-surface-container-lowest/80 border border-outline-variant/20 flex flex-col gap-1.5 shadow-sm">
       <div class="flex justify-between items-center text-label-sm font-label-sm text-outline">
         <span class="flex items-center gap-1 font-medium">
@@ -157,8 +157,8 @@
         <div class="bg-gradient-to-r from-primary to-secondary h-full rounded-full transition-all duration-500" style="width: {quotaPercent}%;"></div>
       </div>
       <div class="flex justify-between items-center text-[10px] font-mono text-on-surface-variant pt-0.5">
-        <span class="text-secondary font-medium" title="Fixed-Point Microdollar Accounting ({todaySpendMicrodollars} µ$)">
-          {formatMicrodollars(todaySpendMicrodollars)} today
+        <span class="text-secondary font-medium" title="Credit Unit Accounting ({cuUsedToday} CU)">
+          {formatCu(cuUsedToday)} CU today
         </span>
       </div>
     </div>

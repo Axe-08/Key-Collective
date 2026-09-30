@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, Microdollars } from './types';
+  import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, CU } from './types';
   import MetricCards from './MetricCards.svelte';
   import KeysTable from './KeysTable.svelte';
   import TelemetryLogs from './TelemetryLogs.svelte';
@@ -9,7 +9,7 @@
     keys: APIKey[];
     logs: RequestLog[];
     stats: PoolStats;
-    todaySpendMicrodollars: Microdollars;
+    cuUsedToday?: CU;
     isRefreshing: boolean;
     autoRefresh: boolean;
     proxyEndpoint: string;
@@ -27,7 +27,7 @@
     keys,
     logs,
     stats,
-    todaySpendMicrodollars,
+    cuUsedToday,
     isRefreshing,
     autoRefresh,
     proxyEndpoint,
@@ -76,8 +76,8 @@
   </div>
 </div>
 
-<!-- 1. KPI Metric Cards (Grid of 4 Glassmorphism Cards with Microdollar Spend Rings) -->
-<MetricCards {stats} {keys} {todaySpendMicrodollars} />
+<!-- 1. KPI Metric Cards (Grid of 4 Glassmorphism Cards with CU Spend Rings) -->
+<MetricCards {stats} {keys} {cuUsedToday} />
 
 <!-- 2. Main Content Grid: Key Inventory (Left 8 cols) + Real-time Telemetry (Right 4 cols) -->
 <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6">
