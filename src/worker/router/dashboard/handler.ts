@@ -31,6 +31,7 @@ import {
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
 import { handleAdminRequest } from "../../gateway/admin_handler";
+import { verifyAdminRequest } from "../../gateway/admin_verifier";
 
 export class DashboardRouter {
   constructor(
@@ -74,18 +75,6 @@ export class DashboardRouter {
     }
 
     if (!rawToken) {
-      try {
-        const u = new URL(request.url);
-        const queryToken = u.searchParams.get("token") || u.searchParams.get("admin_token");
-        if (queryToken && queryToken.trim().length > 0) {
-          rawToken = queryToken.trim();
-        }
-      } catch (_err) {
-        // Query param parsing fallback
-      }
-    }
-
-    if (!rawToken) {
       const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
       if (cookieHeader) {
         const match = cookieHeader.match(/(?:^|;\s*)kc_auth_token=([^;]+)/);
@@ -101,9 +90,7 @@ export class DashboardRouter {
       pathname.startsWith("/api/auth/");
 
     let authFailed = false;
-    if (rawToken && masterKey && rawToken === masterKey) {
-      tenantId = "admin";
-    } else if (rawToken) {
+    if (rawToken) {
       try {
         const authReq = new Request(request.url, {
           headers: new Headers({
@@ -254,7 +241,7 @@ export class DashboardRouter {
         sybil_score?: number;
       } | null = null;
 
-      if (tenantId === "admin" || (rawToken && masterKey && rawToken === masterKey)) {
+      if (tenantId === "admin") {
         user = {
           id: "admin",
           email: "admin@keycollective.ai",
@@ -310,15 +297,7 @@ export class DashboardRouter {
 
     // 0.5 Admin Surveillance APIs (/api/admin/*) on console/dashboard
     if (pathname.startsWith("/api/admin/")) {
-      let isAdmin = tenantId === "admin" || (!!rawToken && !!masterKey && rawToken === masterKey);
-      if (!isAdmin && env.DB && typeof env.DB.prepare === "function" && tenantId && tenantId !== "anonymous") {
-        try {
-          const userRow = await env.DB.prepare("SELECT tier, role FROM users WHERE id = ?").bind(tenantId).first<{ tier?: string; role?: string }>();
-          if (userRow && (userRow.tier === "admin" || userRow.role === "admin")) {
-            isAdmin = true;
-          }
-        } catch {}
-      }
+      const isAdmin = await verifyAdminRequest(request, env, this.options);
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: { message: "Admin access required", code: "FORBIDDEN", statusCode: 403 } }), {
           status: 403,
