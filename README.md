@@ -90,11 +90,10 @@ The proxy maps logical aliases to canonical models and automatically falls back 
 
 | Model Alias | Primary Upstream Model | Fallback Candidates | Supported Capabilities |
 |---|---|---|---|
-| `auto` | `gemini-2.5-flash` | `groq/llama-3.3-70b-versatile`, `cerebras/llama3.1-8b` | Chat, Tools, JSON Mode |
+| `auto` | Cheapest capable model across providers the tenant can get a lease for | — | Chat, Tools, JSON Mode |
 | `smart-fast` | `gemini-2.5-flash` | `groq/llama-3.3-70b-versatile` | Chat, Tools, Vision |
-| `coder-high` | `gemini-2.5-pro` | `groq/deepseek-r1-distill-llama-70b` | Extended Reasoning, Coding, Long Context |
-| `open-groq` | `groq/llama-3.3-70b-versatile` | `cerebras/llama3.1-8b` | Ultra-Low Latency, Chat |
-| `cerebras-speed`| `cerebras/llama3.1-8b` | `groq/llama-3.1-8b-instant` | Instant Inference (>1000 tok/s) |
+| `coder-high` | `gemini-3.1-pro-preview` | `groq/openai/gpt-oss-120b` | Extended Reasoning, Coding, Long Context |
+| `open-groq` | `groq/llama-3.3-70b-versatile` | `groq/openai/gpt-oss-20b` | Ultra-Low Latency, Chat |
 
 ---
 
