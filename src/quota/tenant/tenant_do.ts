@@ -13,6 +13,7 @@ import {
   RateLimitExceededError,
 } from "../../errors/key_errors";
 import { getTierLimits } from "../limits";
+import { Clock, systemClock } from "../../utils/clock";
 import {
   calculateMultiplierCeiling,
   determineJailStatus,
@@ -32,6 +33,13 @@ import {
   TenantQuotaDOOptions,
   toMicrodollars,
 } from "./types";
+
+declare module "./types" {
+  interface TenantQuotaDOOptions {
+    /** Injectable Clock for deterministic testing */
+    clock?: Clock;
+  }
+}
 
 /**
  * TenantQuotaDO — Per-Tenant Stateful Durable Object.
@@ -58,6 +66,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
 
   private readonly rpmWindowMs: number;
   private readonly rpdWindowMs: number;
+  private clock: Clock;
   private readonly timeProvider: () => number;
   private readonly storagePrefix = "quota:";
 
@@ -67,7 +76,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     options?: TenantQuotaDOOptions
   ) {
     super(ctx as DurableObjectState, env);
-    this.timeProvider = options?.timeProvider ?? (() => Date.now());
+    this.clock = options?.clock ?? systemClock;
+    this.timeProvider = options?.timeProvider ?? (() => this.clock.now());
     this.rpmWindowMs = options?.rpmWindowMs ?? 60_000;
     this.rpdWindowMs = options?.rpdWindowMs ?? 86_400_000;
 
@@ -89,7 +99,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     if (typeof (this.ctx.storage as any)?.getAlarm === "function") {
       (this.ctx.storage as any).getAlarm().then((alarm: number | null) => {
         if (!alarm && typeof (this.ctx.storage as any)?.setAlarm === "function") {
-          const tomorrow = new Date(Date.now());
+          const tomorrow = new Date(this.clock.now());
           tomorrow.setUTCHours(24, 0, 0, 0);
           (this.ctx.storage as any).setAlarm(tomorrow.getTime());
         }
@@ -252,10 +262,29 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.multiplierCeiling = updated.multiplierCeiling;
 
     await this.syncDebtState();
-    
-    const tomorrow = new Date(Date.now());
+
+    const tomorrow = new Date(this.clock.now());
     tomorrow.setUTCHours(24, 0, 0, 0);
     await (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+  }
+
+  /**
+   * Public RPC accessor for the DO's current clock timestamp.
+   */
+  public getNow(): number {
+    return this.now();
+  }
+
+  /**
+   * Test-only RPC: switches this DO to a fixed clock. Throws outside the
+   * test environment (env.KC_ENV !== "test").
+   */
+  public setClockForTest(ms: number): void {
+    const envRecord = this.env as { KC_ENV?: string } | undefined;
+    if (envRecord?.KC_ENV !== "test") {
+      throw new Error("setClockForTest is only available when KC_ENV=test");
+    }
+    this.clock = { now: () => ms };
   }
 
   public getTier(): UserTier {
@@ -325,6 +354,15 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       await this.ensureLoaded();
       const url = new URL(request.url);
       const method = request.method.toUpperCase();
+
+      if (url.pathname === "/__test__/clock") {
+        if (method === "POST") {
+          const body = (await request.json().catch(() => ({}))) as { ms?: number };
+          this.setClockForTest(Number(body.ms));
+          return Response.json({ now: this.now() });
+        }
+        return Response.json({ now: this.now() });
+      }
 
       const headerTenant = request.headers.get("x-tenant-id");
       if (headerTenant) {

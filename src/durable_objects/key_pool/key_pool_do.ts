@@ -24,6 +24,7 @@ import {
   SelectKeyOptions,
 } from "../key_selector";
 import { RateLimiter, RateLimiterMetrics } from "../rate_limiter";
+import { Clock, systemClock } from "../../utils/clock";
 import { handleKeyPoolRpc } from "./rpc";
 import {
   DurableObjectStateLike,
@@ -35,6 +36,8 @@ import {
 declare module "./types" {
   interface KeyPoolDOOptions {
     statusCacheTtlMs?: number;
+    /** Injectable Clock for deterministic testing */
+    clock?: Clock;
   }
 }
 
@@ -49,7 +52,9 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   public statusCacheTtlMs: number;
   private readonly statusCache = new Map<string, { status: string; cachedAt: number }>();
   private readonly storageKeyPrefix = "pool:";
+  private clock: Clock;
   private readonly timeProvider: () => number;
+  private alarmBootstrapPromise: Promise<void>;
 
   private circuitBreaker: CircuitBreaker;
   private rateLimiter: RateLimiter;
@@ -69,7 +74,8 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   ) {
     this.ctx = ctx as DurableObjectStateLike;
     this.env = env ?? {};
-    this.timeProvider = options?.timeProvider ?? (() => Date.now());
+    this.clock = options?.clock ?? systemClock;
+    this.timeProvider = options?.timeProvider ?? (() => this.clock.now());
     this.statusCacheTtlMs = options?.statusCacheTtlMs ?? 60_000;
 
     // Resolve tenant ID strictly:
@@ -83,14 +89,24 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     }
     this.tenantId = resolvedTenant;
 
-    if (typeof (this.ctx.storage as any)?.getAlarm === "function") {
-      (this.ctx.storage as any).getAlarm().then((alarm: number | null) => {
-        if (!alarm && typeof (this.ctx.storage as any)?.setAlarm === "function") {
-          const tomorrow = new Date(Date.now());
+    const alarmBootstrap = async () => {
+      const alarmStorage = this.ctx.storage as unknown as {
+        getAlarm?(): Promise<number | null>;
+        setAlarm?(t: number): Promise<void>;
+      };
+      if (typeof alarmStorage?.getAlarm === "function") {
+        const alarm = await alarmStorage.getAlarm();
+        if (!alarm && typeof alarmStorage?.setAlarm === "function") {
+          const tomorrow = new Date(this.clock.now());
           tomorrow.setUTCHours(24, 0, 0, 0);
-          (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+          await alarmStorage.setAlarm(tomorrow.getTime());
         }
-      }).catch(() => {});
+      }
+    };
+    if (typeof this.ctx.blockConcurrencyWhile === "function") {
+      this.alarmBootstrapPromise = this.ctx.blockConcurrencyWhile(alarmBootstrap);
+    } else {
+      this.alarmBootstrapPromise = alarmBootstrap();
     }
 
     // Initialize dependencies
@@ -438,9 +454,27 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     this.dispatchedToday.clear();
     this.dispatchedCommunal.clear();
 
-    const tomorrow = new Date(Date.now());
+    const tomorrow = new Date(this.clock.now());
     tomorrow.setUTCHours(24, 0, 0, 0);
     await (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+  }
+
+  /**
+   * Public RPC accessor for the DO's current clock timestamp.
+   */
+  public getNow(): number {
+    return this.now();
+  }
+
+  /**
+   * Test-only RPC: switches this DO to a fixed clock. Throws outside the
+   * test environment (env.KC_ENV !== "test").
+   */
+  public setClockForTest(ms: number): void {
+    if (this.env.KC_ENV !== "test") {
+      throw new Error("setClockForTest is only available when KC_ENV=test");
+    }
+    this.clock = { now: () => ms };
   }
 
   public async clearKeys(): Promise<void> {
@@ -707,6 +741,21 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   // =========================================================================
 
   public async fetch(request: Request): Promise<Response> {
+    await this.alarmBootstrapPromise.catch(() => {});
+    const url = new URL(request.url);
+    if (url.pathname === "/__test__/clock") {
+      if (request.method === "POST") {
+        const body = (await request.json().catch(() => ({}))) as { ms?: number };
+        this.setClockForTest(Number(body.ms));
+      }
+      const alarmStorage = this.ctx.storage as unknown as {
+        getAlarm?(): Promise<number | null>;
+      };
+      const alarm =
+        typeof alarmStorage?.getAlarm === "function" ? await alarmStorage.getAlarm() : null;
+      return Response.json({ now: this.now(), alarm });
+    }
+
     return handleKeyPoolRpc(request, {
       tenantId: this.tenantId,
       assertTenant: (t) => this.assertTenant(t),

@@ -24,6 +24,7 @@ import {
 } from "./constants";
 import { DemoSandbox, generateDemoToken, validateDemoToken } from "./sandbox";
 import { DemoStorage } from "./storage";
+import { Clock, systemClock } from "../../utils/clock";
 import type {
   ActiveDemoToken,
   CheckAndConsumeResult,
@@ -33,6 +34,13 @@ import type {
   IpWindowData,
   TokenValidationResult,
 } from "./types";
+
+declare module "./types" {
+  interface DemoDOOptions {
+    /** Injectable Clock for deterministic testing */
+    clock?: Clock;
+  }
+}
 
 /**
  * DemoDO — Autonomous Singleton Demo Durable Object.
@@ -46,6 +54,7 @@ export class DemoDO implements DurableObject {
   private readonly ipRpdLimit: number;
   private readonly globalRpmLimit: number;
   private readonly stalePruneMs: number;
+  private clock: Clock;
   private readonly timeProvider: () => number;
 
   private readonly storageManager: DemoStorage;
@@ -65,7 +74,8 @@ export class DemoDO implements DurableObject {
     this.ipRpdLimit = options?.ipRpdLimit ?? DEFAULT_IP_RPD_LIMIT;
     this.globalRpmLimit = options?.globalRpmLimit ?? DEFAULT_GLOBAL_RPM_LIMIT;
     this.stalePruneMs = options?.stalePruneMs ?? DEFAULT_STALE_PRUNE_MS;
-    this.timeProvider = options?.timeProvider ?? (() => Date.now());
+    this.clock = options?.clock ?? systemClock;
+    this.timeProvider = options?.timeProvider ?? (() => this.clock.now());
 
     this.storageManager = new DemoStorage(this.ctx.storage);
     this.sandbox = new DemoSandbox({
@@ -267,12 +277,40 @@ export class DemoDO implements DurableObject {
   }
 
   /**
+   * Public RPC accessor for the DO's current clock timestamp.
+   */
+  public getNow(): number {
+    return this.now();
+  }
+
+  /**
+   * Test-only RPC: switches this DO to a fixed clock. Throws outside the
+   * test environment (env.KC_ENV !== "test").
+   */
+  public setClockForTest(ms: number): void {
+    const envRecord = this.env as { KC_ENV?: string } | undefined;
+    if (envRecord?.KC_ENV !== "test") {
+      throw new Error("setClockForTest is only available when KC_ENV=test");
+    }
+    this.clock = { now: () => ms };
+  }
+
+  /**
    * HTTP RPC interface for Worker-to-DO dispatch.
    */
   public async fetch(request: Request): Promise<Response> {
     await this.ensureReady();
     const url = new URL(request.url);
     const method = request.method.toUpperCase();
+
+    if (url.pathname === "/__test__/clock") {
+      if (method === "POST") {
+        const body = (await request.json().catch(() => ({}))) as { ms?: number };
+        this.setClockForTest(Number(body.ms));
+        return Response.json({ now: this.now() });
+      }
+      return Response.json({ now: this.now() });
+    }
 
     // 1. CORS Preflight
     if (method === "OPTIONS") {
