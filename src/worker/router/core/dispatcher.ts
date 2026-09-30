@@ -188,36 +188,16 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
 
     if (preAuthenticatedContext) {
       authContext = preAuthenticatedContext;
-    } else if (options.requireAuth !== false) {
-      authContext = await authMiddleware.authenticate(request, env);
     } else {
-      const headerTenant =
-        request.headers.get("x-tenant-id") ??
-        request.headers.get("kc-tenant-id") ??
-        "default";
-      authContext = {
-        tenantId: headerTenant,
-        isAuthenticated: false,
-        token: {
-          id: "unauthenticated",
-          hashSha256: "",
-          tenantId: headerTenant,
-          budgetMicrodollars: 0n,
-          spentMicrodollars: 0n,
-          allowedProviders: [],
-          rpmLimit: 1000,
-          expiresAt: null,
-          createdAt: new Date(startTime).toISOString(),
-        },
-        rpmLimit: 1000,
-        currentRpm: 1,
-        remainingRpm: 999,
-        budgetMicrodollars: 0n,
-        spentMicrodollars: 0n,
-      };
+      authContext = await authMiddleware.authenticate(request, env);
     }
 
-    // 4. Assert Tenant Isolation against explicit header if provided (GEMINI.md Invariant)
+    /**
+     * 4. Assert Tenant Isolation against explicit header if provided (GEMINI.md Invariant).
+     * The 'x-tenant-id' header is optional and informational; tenant isolation is strictly
+     * enforced based on authenticated context credentials. If provided, any mismatch
+     * with the authenticated token's tenant will result in an immediate 403.
+     */
     const explicitHeaderTenant = request.headers.get("x-tenant-id");
     if (
       explicitHeaderTenant &&

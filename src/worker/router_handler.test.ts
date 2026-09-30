@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { sanitizeErrorMessage, SECRET_REGEX, IP_REGEX } from "./error_normalizer";
 import { formatRouterError, RouterHandler } from "./router/index";
-import type { WorkerEnv } from "./auth/types";
+import type { AuthenticatedContext, WorkerEnv } from "./auth/types";
 import { RouterError } from "./router/index";
 import { encryptKey } from "../durable_objects/crypto";
 
@@ -79,7 +79,7 @@ describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
 });
 
 describe("GATEWAY-001: /v1/report Takedown Endpoint with Timing Shield", () => {
-  const handler = new RouterHandler({ requireAuth: false });
+  const handler = new RouterHandler();
   const mockEnv = {
     REPORT_WEBHOOK_SECRET: "sec_webhook_takedown_token_xyz123",
   } as unknown as WorkerEnv;
@@ -165,7 +165,7 @@ describe("GATEWAY-001: /v1/report Takedown Endpoint with Timing Shield", () => {
 });
 
 describe("GATEWAY-001: Midnight Freeze Guard Global Circuit Breaker", () => {
-  const handler = new RouterHandler({ requireAuth: false });
+  const handler = new RouterHandler();
 
   it("MIDNIGHT_FREEZE='true' returns 503", async () => {
     const env = {
@@ -284,9 +284,29 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
       } as unknown as WorkerEnv;
 
       const handler = new RouterHandler({
-        requireAuth: false,
         keyPoolFactory: () => mockKeyPool,
       });
+
+      const authContext: AuthenticatedContext = {
+        tenantId: "default",
+        isAuthenticated: true,
+        token: {
+          id: "tok_test_default",
+          hashSha256: "hash_default",
+          tenantId: "default",
+          budgetMicrodollars: 10_000_000n,
+          spentMicrodollars: 0n,
+          allowedProviders: [],
+          rpmLimit: 1000,
+          expiresAt: null,
+          createdAt: new Date().toISOString(),
+        },
+        rpmLimit: 1000,
+        currentRpm: 1,
+        remainingRpm: 999,
+        budgetMicrodollars: 10_000_000n,
+        spentMicrodollars: 0n,
+      };
 
       const request = new Request("http://localhost/v1/chat/completions", {
         method: "POST",
@@ -297,7 +317,7 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
         }),
       });
 
-      const response = await handler.handle(request, env);
+      const response = await handler.handle(request, env, undefined, authContext);
       expect(response.status).toBe(200);
 
       expect(capturedHeaders).toBeDefined();
