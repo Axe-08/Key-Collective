@@ -8,6 +8,7 @@
 
 import type { KeyPoolContract } from "../../contracts/key_pool";
 import type { StreamMetadata, StreamUsage, SSEStreamTransformer } from "../sse/index";
+import { PROVIDERS } from "../../providers/config";
 
 /**
  * Hop-by-hop HTTP headers that must not be forwarded across proxies.
@@ -44,30 +45,18 @@ export const CLIENT_AUTH_HEADERS: readonly string[] = [
  * Default base URLs for supported model providers.
  */
 export const DEFAULT_PROVIDER_BASE_URLS: Record<string, string> = {
-  openai: "https://api.openai.com/v1",
-  anthropic: "https://api.anthropic.com/v1",
-  google: "https://generativelanguage.googleapis.com/v1beta",
-  gemini: "https://generativelanguage.googleapis.com/v1beta",
-  groq: "https://api.groq.com/openai/v1",
-  deepseek: "https://api.deepseek.com/v1",
-  cohere: "https://api.cohere.com/v1",
-  mistral: "https://api.mistral.ai/v1",
-  together: "https://api.together.xyz/v1",
+  google: PROVIDERS.google.baseUrl,
+  gemini: PROVIDERS.google.baseUrl,
+  groq: PROVIDERS.groq.baseUrl,
 };
 
 /**
  * Default API endpoints per model provider for chat completions.
  */
 export const DEFAULT_PROVIDER_ENDPOINTS: Record<string, string> = {
-  openai: "/chat/completions",
-  anthropic: "/messages",
-  google: "/openai/chat/completions",
-  gemini: "/openai/chat/completions",
+  google: "/chat/completions",
+  gemini: "/chat/completions",
   groq: "/chat/completions",
-  deepseek: "/chat/completions",
-  cohere: "/chat",
-  mistral: "/chat/completions",
-  together: "/chat/completions",
 };
 
 /**

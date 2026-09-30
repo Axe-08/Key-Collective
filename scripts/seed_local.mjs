@@ -1,7 +1,9 @@
 import fs from "fs";
+import path from "path";
 
 const MASTER_SECRET = "kc-master-secret-local-dev-key-2026";
-const TENANT_ID = "default";
+const TENANT_ALICE = "usr_goog_dev_alice";
+const TENANT_BOB = "usr_goog_dev_bob";
 const CLIENT_TOKEN = "kc_test_token_local_dev_12345";
 
 function uint8ArrayToBase64(bytes) {
@@ -47,29 +49,30 @@ async function encryptKey(plaintext, cryptoKey) {
   };
 }
 
-async function main() {
-  const envContent = fs.readFileSync(".env", "utf-8");
-  let geminiKeys = [];
-  let groqKeys = [];
-
-  for (const line of envContent.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    if (trimmed.startsWith("GEMINI_API_KEYS=")) {
-      const val = trimmed.split("=", 2)[1].replace(/^["']|["']$/g, "");
-      geminiKeys = val.split(",").map((k) => k.trim()).filter(Boolean);
-    } else if (trimmed.startsWith("GROQ_API_KEYS=")) {
-      const val = trimmed.split("=", 2)[1].replace(/^["']|["']$/g, "");
-      groqKeys = val.split(",").map((k) => k.trim()).filter(Boolean);
-    }
-  }
-
-  console.log(`Loaded ${geminiKeys.length} Gemini keys and ${groqKeys.length} Groq keys.`);
-
+export async function buildSeedSql(keys) {
+  const { geminiKeys = [], groqKeys = [] } = keys;
   const masterCryptoKey = await deriveMasterKey(MASTER_SECRET);
   const sqlStatements = [];
 
-  // 1. Auth Token
+  // 0. Dev tenant users
+  sqlStatements.push(`
+INSERT OR REPLACE INTO users (
+  id, email, tier
+) VALUES (
+  '${TENANT_ALICE}',
+  'alice.dev@local.test',
+  'trusted'
+);`);
+  sqlStatements.push(`
+INSERT OR REPLACE INTO users (
+  id, email, tier
+) VALUES (
+  '${TENANT_BOB}',
+  'bob.dev@local.test',
+  'trusted'
+);`);
+
+  // 1. Auth Token (assigned to alice)
   const tokenHash = await sha256Hex(CLIENT_TOKEN);
   sqlStatements.push(`
 INSERT OR REPLACE INTO auth_tokens (
@@ -77,14 +80,14 @@ INSERT OR REPLACE INTO auth_tokens (
 ) VALUES (
   'token_local_dev',
   '${tokenHash}',
-  '${TENANT_ID}',
+  '${TENANT_ALICE}',
   100000000,
   0,
   '["google", "groq", "openai", "anthropic"]',
   120
 );`);
 
-  // 2. Encrypt & insert Gemini Keys
+  // 2. Encrypt & insert Gemini Keys (assigned to alice)
   for (let i = 0; i < geminiKeys.length; i++) {
     const raw = geminiKeys[i];
     const { ciphertextB64, nonceB64 } = await encryptKey(raw, masterCryptoKey);
@@ -96,7 +99,7 @@ INSERT OR REPLACE INTO api_keys (
   id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status
 ) VALUES (
   '${keyId}',
-  '${TENANT_ID}',
+  '${TENANT_ALICE}',
   'Gemini Key ${i + 1}',
   'google',
   '${ciphertextB64}',
@@ -110,7 +113,7 @@ INSERT OR REPLACE INTO api_keys (
 );`);
   }
 
-  // 3. Encrypt & insert Groq Keys
+  // 3. Encrypt & insert Groq Keys (assigned to alice)
   for (let i = 0; i < groqKeys.length; i++) {
     const raw = groqKeys[i];
     const { ciphertextB64, nonceB64 } = await encryptKey(raw, masterCryptoKey);
@@ -122,7 +125,7 @@ INSERT OR REPLACE INTO api_keys (
   id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status
 ) VALUES (
   '${keyId}',
-  '${TENANT_ID}',
+  '${TENANT_ALICE}',
   'Groq Key ${i + 1}',
   'groq',
   '${ciphertextB64}',
@@ -195,9 +198,53 @@ INSERT OR REPLACE INTO model_registry (
 );
 `);
 
-  const fullSql = sqlStatements.join("\n");
-  fs.writeFileSync("scripts/seed.sql", fullSql);
-  console.log(`Generated scripts/seed.sql successfully.`);
+  return sqlStatements.join("\n");
 }
 
-main().catch(console.error);
+function parseEnvKeys(envContent) {
+  let geminiKeys = [];
+  let groqKeys = [];
+
+  for (const line of envContent.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    if (trimmed.startsWith("GEMINI_API_KEYS=")) {
+      const val = trimmed.split("=", 2)[1].replace(/^["']|["']$/g, "");
+      geminiKeys = val.split(",").map((k) => k.trim()).filter(Boolean);
+    } else if (trimmed.startsWith("GROQ_API_KEYS=")) {
+      const val = trimmed.split("=", 2)[1].replace(/^["']|["']$/g, "");
+      groqKeys = val.split(",").map((k) => k.trim()).filter(Boolean);
+    }
+  }
+
+  return { geminiKeys, groqKeys };
+}
+
+async function main() {
+  if (process.argv.slice(2).includes("--remote")) {
+    console.error(
+      "seed_local.mjs refuses to run with --remote: this script seeds local dev tenants only, never a remote environment."
+    );
+    process.exit(1);
+  }
+
+  const envContent = fs.readFileSync(".env", "utf-8");
+  const { geminiKeys, groqKeys } = parseEnvKeys(envContent);
+
+  console.log(`Loaded ${geminiKeys.length} Gemini keys and ${groqKeys.length} Groq keys.`);
+
+  const fullSql = await buildSeedSql({ geminiKeys, groqKeys });
+
+  const outDir = path.join("scripts", "dev");
+  fs.mkdirSync(outDir, { recursive: true });
+  const outFile = path.join(outDir, "seed.sql");
+  fs.writeFileSync(outFile, fullSql);
+  console.log(`Generated ${outFile} successfully.`);
+}
+
+if (process.argv[1] && process.argv[1].endsWith("seed_local.mjs")) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

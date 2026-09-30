@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   ModelRegistry,
   DEFAULT_MODEL_DEFINITIONS,
+  ALL_MODEL_DEFINITIONS,
   ContextWindowExceededError,
   isContextWindowExceededError,
   TokenUsage,
@@ -81,9 +82,7 @@ describe("ModelRegistry", () => {
     it("loads default model catalog when instantiated without arguments", () => {
       expect(registry.getAllModels().length).toBe(DEFAULT_MODEL_DEFINITIONS.length);
       expect(registry.hasModel("gemini-2.0-flash")).toBe(true);
-      expect(registry.hasModel("gpt-4o")).toBe(true);
-      expect(registry.hasModel("claude-3-5-sonnet")).toBe(true);
-      expect(registry.hasModel("deepseek-chat")).toBe(true);
+      expect(registry.hasModel("gemini-1.5-pro")).toBe(true);
       expect(registry.hasModel("llama-3.3-70b-versatile")).toBe(true);
     });
 
@@ -189,8 +188,8 @@ describe("ModelRegistry", () => {
         expect(m.provider).toBe("google");
       }
 
-      const anthropicModels = registry.getModelsByProvider("anthropic");
-      expect(anthropicModels.some((m) => m.id === "claude-3-5-sonnet")).toBe(true);
+      const groqModels = registry.getModelsByProvider("groq");
+      expect(groqModels.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(true);
     });
   });
 
@@ -243,7 +242,7 @@ describe("ModelRegistry", () => {
       expect(registry.hasAlias("fast-model")).toBe(true);
       expect(registry.hasAlias("unknown-alias-xyz")).toBe(false);
 
-      registry.registerAlias("custom-alias", "gpt-4o");
+      registry.registerAlias("custom-alias", "gemini-1.5-pro");
       expect(registry.hasAlias("custom-alias")).toBe(true);
     });
 
@@ -272,13 +271,25 @@ describe("ModelRegistry", () => {
       expect(aliasMap.get("smart-fast")).toBe("gemini-2.0-flash");
       expect(aliasMap.has("smart-model")).toBe(true);
     });
+
+    it("resolves every WP-1.4 alias (auto, smart-fast, coder-high, open-groq) against the full catalog", () => {
+      const fullRegistry = new ModelRegistry([...ALL_MODEL_DEFINITIONS]);
+
+      for (const alias of ["auto", "smart-fast", "coder-high", "open-groq"]) {
+        const resolved = fullRegistry.resolveModel(alias);
+        expect(resolved, `alias '${alias}' should resolve to a catalog model`).toBeDefined();
+        expect(
+          ALL_MODEL_DEFINITIONS.some((m) => m.id === resolved?.id)
+        ).toBe(true);
+      }
+    });
   });
 
   describe("Context Window Tracking & Token Limits (tc-05)", () => {
     it("retrieves context window and max output tokens for models and aliases", () => {
       expect(registry.getContextWindow("gemini-2.0-flash")).toBe(1_048_576);
       expect(registry.getContextWindow("smart-fast")).toBe(1_048_576);
-      expect(registry.getMaxOutputTokens("gpt-4o")).toBe(16384);
+      expect(registry.getMaxOutputTokens("gemini-1.5-pro")).toBe(8192);
     });
 
     it("fitsContextWindow evaluates token fits accurately", () => {
@@ -287,44 +298,44 @@ describe("ModelRegistry", () => {
       expect(registry.fitsContextWindow("gemini-2.0-flash", 1_048_576)).toBe(true);
       expect(registry.fitsContextWindow("gemini-2.0-flash", 1_048_577)).toBe(false);
 
-      // DeepSeek context window: 64_000
-      expect(registry.fitsContextWindow("deepseek-chat", 50_000)).toBe(true);
-      expect(registry.fitsContextWindow("deepseek-chat", 65_000)).toBe(false);
-      expect(registry.fitsContextWindow("deepseek-chat", 50_000, 20_000)).toBe(false); // 50k + 20k > 64k
+      // Llama 3.3 70B context window: 128_000
+      expect(registry.fitsContextWindow("llama-3.3-70b-versatile", 100_000)).toBe(true);
+      expect(registry.fitsContextWindow("llama-3.3-70b-versatile", 130_000)).toBe(false);
+      expect(registry.fitsContextWindow("llama-3.3-70b-versatile", 100_000, 30_000)).toBe(false); // 100k + 30k > 128k
     });
 
     it("getRemainingContextWindow returns remaining capacity", () => {
-      const remaining = registry.getRemainingContextWindow("deepseek-chat", 14_000);
-      expect(remaining).toBe(50_000);
+      const remaining = registry.getRemainingContextWindow("llama-3.3-70b-versatile", 28_000);
+      expect(remaining).toBe(100_000);
 
-      const overflowRemaining = registry.getRemainingContextWindow("deepseek-chat", 70_000);
+      const overflowRemaining = registry.getRemainingContextWindow("llama-3.3-70b-versatile", 140_000);
       expect(overflowRemaining).toBe(0);
     });
 
     it("validateTokenLimits reports comprehensive limits assessment", () => {
       // Valid request
-      const validRes = registry.validateTokenLimits("gpt-4o", {
+      const validRes = registry.validateTokenLimits("llama-3.3-70b-versatile", {
         promptTokens: 10_000,
         maxOutputTokens: 4096,
       });
       expect(validRes.valid).toBe(true);
       expect(validRes.contextWindow).toBe(128_000);
-      expect(validRes.maxOutputTokens).toBe(16384);
+      expect(validRes.maxOutputTokens).toBe(32768);
       expect(validRes.totalEstimatedTokens).toBe(14_096);
       expect(validRes.remainingTokens).toBe(118_000);
       expect(validRes.errorReason).toBeUndefined();
 
       // Exceeds context window
-      const overflowPromptRes = registry.validateTokenLimits("gpt-4o", {
+      const overflowPromptRes = registry.validateTokenLimits("llama-3.3-70b-versatile", {
         promptTokens: 130_000,
       });
       expect(overflowPromptRes.valid).toBe(false);
-      expect(overflowPromptRes.errorReason).toContain("exceed model 'gpt-4o' context window");
+      expect(overflowPromptRes.errorReason).toContain("exceed model 'llama-3.3-70b-versatile' context window");
 
       // Exceeds max output limit
-      const overflowOutputRes = registry.validateTokenLimits("gpt-4o", {
+      const overflowOutputRes = registry.validateTokenLimits("llama-3.3-70b-versatile", {
         promptTokens: 10_000,
-        maxOutputTokens: 20_000, // max is 16384
+        maxOutputTokens: 40_000, // max is 32768
       });
       expect(overflowOutputRes.valid).toBe(false);
       expect(overflowOutputRes.errorReason).toContain("maximum output limit");
@@ -339,7 +350,7 @@ describe("ModelRegistry", () => {
       // Should throw ContextWindowExceededError when prompt exceeds limit
       let caughtError: unknown;
       try {
-        registry.assertWithinContextWindow("deepseek-chat", 100_000); // 100k > 64k
+        registry.assertWithinContextWindow("llama-3.3-70b-versatile", 150_000); // 150k > 128k
       } catch (err) {
         caughtError = err;
       }
@@ -351,9 +362,9 @@ describe("ModelRegistry", () => {
       const windowError = caughtError as ContextWindowExceededError;
       expect(windowError.statusCode).toBe(400);
       expect(windowError.code).toBe("CONTEXT_WINDOW_EXCEEDED");
-      expect(windowError.modelId).toBe("deepseek-chat");
-      expect(windowError.contextWindow).toBe(64_000);
-      expect(windowError.requestedTokens).toBe(100_000);
+      expect(windowError.modelId).toBe("llama-3.3-70b-versatile");
+      expect(windowError.contextWindow).toBe(128_000);
+      expect(windowError.requestedTokens).toBe(150_000);
 
       // Verify toResponse serializes with HTTP 400
       const res = windowError.toResponse();
@@ -464,11 +475,11 @@ describe("ModelRegistry", () => {
     });
 
     it("calculates pre-flight estimated cost", () => {
-      const estimated = registry.calculateEstimatedCost("gpt-4o-mini", 10_000, 2_000);
-      // prompt: 10_000 * 150_000 / 1_000_000 = 1500 µ$ (bash.0015)
-      // completion: 2_000 * 600_000 / 1_000_000 = 1200 µ$ (bash.0012)
-      // total = 2700 µ$
-      expect(estimated).toBe(2700n);
+      const estimated = registry.calculateEstimatedCost("gemini-2.0-flash", 10_000, 2_000);
+      // prompt: 10_000 * 100_000 / 1_000_000 = 1000 µ$ (bash.001)
+      // completion: 2_000 * 400_000 / 1_000_000 = 800 µ$ (bash.0008)
+      // total = 1800 µ$
+      expect(estimated).toBe(1800n);
     });
 
     it("getPricing returns correct pricing structure", () => {
@@ -506,8 +517,8 @@ describe("ModelRegistry", () => {
         expect(m.supportsVision).toBe(true);
       }
 
-      // Claude 3.5 Haiku lacks vision, should not be included
-      expect(visionCandidates.some((m) => m.id === "claude-3-5-haiku")).toBe(false);
+      // Llama 3.3 70B lacks vision, should not be included
+      expect(visionCandidates.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(false);
     });
 
     it("findCandidates filters by minimum context window", () => {
@@ -518,7 +529,7 @@ describe("ModelRegistry", () => {
       for (const m of hugeContextCandidates) {
         expect(m.contextWindow).toBeGreaterThanOrEqual(500_000);
       }
-      expect(hugeContextCandidates.some((m) => m.id === "gpt-4o")).toBe(false); // 128k < 500k
+      expect(hugeContextCandidates.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(false); // 128k < 500k
     });
 
     it("findCandidates filters by max cost", () => {
@@ -529,7 +540,7 @@ describe("ModelRegistry", () => {
       for (const m of cheapCandidates) {
         expect(m.inputCostPerMTokMicro <= 200_000n).toBe(true);
       }
-      expect(cheapCandidates.some((m) => m.id === "gpt-4o")).toBe(false); // .50 > bash.20
+      expect(cheapCandidates.some((m) => m.id === "gemini-1.5-pro")).toBe(false); // $1.25 > $0.20
     });
 
     it("getCheapestModel returns model with lowest input cost", () => {
@@ -540,7 +551,7 @@ describe("ModelRegistry", () => {
 
     it("compareByCost provides a stable comparator", () => {
       const cheap = registry.getModelOrThrow("gemini-2.0-flash");
-      const expensive = registry.getModelOrThrow("gpt-4o");
+      const expensive = registry.getModelOrThrow("gemini-1.5-pro");
 
       expect(registry.compareByCost(cheap, expensive)).toBe(-1);
       expect(registry.compareByCost(expensive, cheap)).toBe(1);

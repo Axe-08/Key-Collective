@@ -1,4 +1,5 @@
 import type { WorkerEnv } from "../worker/auth/index";
+import { Clock, systemClock } from "../utils/clock";
 
 export class PoolCoordinatorDO implements DurableObject {
     private tenantVolumes = new Map<string, { volume: number; timestamp: number }[]>();
@@ -6,6 +7,7 @@ export class PoolCoordinatorDO implements DurableObject {
     private providers = new Map<string, { activeKeys: number; quarantineKeys: number; latencyMs: number; wProvider: number }>();
 
     private initializedPromise: Promise<void> | null = null;
+    private clock: Clock = systemClock;
 
     constructor(
         private readonly ctx: DurableObjectState,
@@ -39,12 +41,12 @@ export class PoolCoordinatorDO implements DurableObject {
 
     private async scheduleNextAlarm() {
         if (!this.ctx.storage?.setAlarm) return;
-        await this.ctx.storage.setAlarm(Date.now() + 60_000);
+        await this.ctx.storage.setAlarm(this.clock.now() + 60_000);
     }
 
     public async alarm(): Promise<void> {
         await this.initializedPromise;
-        const now = Date.now();
+        const now = this.clock.now();
         let brakesChanged = false;
         
         // clean expired brakes
@@ -76,6 +78,15 @@ export class PoolCoordinatorDO implements DurableObject {
     public async fetch(req: Request): Promise<Response> {
         const url = new URL(req.url);
 
+        if (url.pathname === "/__test__/clock") {
+            if (req.method === "POST") {
+                const body = (await req.json().catch(() => ({}))) as { ms?: number };
+                this.setClockForTest(Number(body.ms));
+                return Response.json({ now: this.clock.now() });
+            }
+            return Response.json({ now: this.clock.now() });
+        }
+
         if (req.method === "GET" && url.pathname === "/coordinator/health") {
             const data: Record<string, any> = {};
             for (const [provider, stats] of this.providers.entries()) {
@@ -86,7 +97,7 @@ export class PoolCoordinatorDO implements DurableObject {
 
         if (req.method === "POST" && url.pathname === "/coordinator/report-volume") {
             const body = await req.json() as { tenantId: string; volume: number };
-            const now = Date.now();
+            const now = this.clock.now();
             const cutoff = now - 5 * 60 * 1000;
 
             let vols = this.tenantVolumes.get(body.tenantId) || [];
@@ -143,10 +154,29 @@ export class PoolCoordinatorDO implements DurableObject {
             const parts = url.pathname.split("/");
             const tenantId = parts[parts.length - 1];
             const expiry = this.activeBrakes.get(tenantId);
-            const braked = expiry ? Date.now() < expiry : false;
+            const braked = expiry ? this.clock.now() < expiry : false;
             return Response.json({ braked });
         }
 
         return new Response("Not Found", { status: 404 });
+    }
+
+    /**
+     * Public RPC accessor for the DO's current clock timestamp.
+     */
+    public getNow(): number {
+        return this.clock.now();
+    }
+
+    /**
+     * Test-only RPC: switches this DO to a fixed clock. Throws outside the
+     * test environment (env.KC_ENV !== "test").
+     */
+    public setClockForTest(ms: number): void {
+        const envRecord = this.env as unknown as { KC_ENV?: string } | undefined;
+        if (envRecord?.KC_ENV !== "test") {
+            throw new Error("setClockForTest is only available when KC_ENV=test");
+        }
+        this.clock = { now: () => ms };
     }
 }

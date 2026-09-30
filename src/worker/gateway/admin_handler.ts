@@ -10,6 +10,8 @@ import type { WorkerOptions } from "./types";
 import { applyCors } from "./subdomain";
 import { TOKENS_PER_REQUEST_ESTIMATE } from "../../constants/keys";
 import { deriveTenantKey, decrypt, hashApiKey, timingSafeEqualStrings } from "../../crypto";
+import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
+import { toEpochMs } from "../../utils/time";
 
 /**
  * Handles authenticated admin surveillance requests on admin.*.
@@ -542,7 +544,10 @@ export async function handleAdminRequest(
           .all<{ tenant_id: string; last_seen: string | null; reqs_last_min: number | null }>();
         for (const row of aRes.results || []) {
           if (row.last_seen) {
-            lastActiveMap.set(row.tenant_id, new Date(row.last_seen).getTime());
+            const epoch = toEpochMs(row.last_seen);
+            if (epoch != null) {
+              lastActiveMap.set(row.tenant_id, epoch);
+            }
           }
           if (row.reqs_last_min) {
             tenantRpmMap.set(row.tenant_id, row.reqs_last_min);
@@ -617,7 +622,9 @@ export async function handleAdminRequest(
       else if (tier === 'probationary') rpmLimit = 2;
       else if (tier === 'demo') rpmLimit = 1;
 
-      const activeKeys = tenantKeys.filter((k) => k.status.toLowerCase() === 'healthy');
+      const activeKeys = tenantKeys.filter(
+        (k) => normaliseKeyStatus(k.status, k.community_routing_status) === 'HEALTHY'
+      );
       const isQuar = user ? (user.is_quarantined === 1 || user.is_quarantined === true) : false;
 
       return {
@@ -637,8 +644,10 @@ export async function handleAdminRequest(
         activeKeyCount: activeKeys.length,
         currentRpm: tenantRpmMap.get(tid) ?? 0,
         rpmLimit,
-        lastActiveTimestamp: lastActiveMap.get(tid) ?? (user?.created_at ? new Date(user.created_at).getTime() : Date.now()),
-        created_at: user?.created_at || new Date().toISOString(),
+        lastActiveTimestamp:
+          lastActiveMap.get(tid) ??
+          (user?.created_at ? toEpochMs(user.created_at) ?? Date.now() : Date.now()),
+        created_at: toEpochMs(user?.created_at) ?? new Date().toISOString(),
         keys: tenantKeys.map((k) => ({
           id: k.id,
           tenant_id: k.tenant_id,
@@ -649,13 +658,13 @@ export async function handleAdminRequest(
           rpm_limit: k.rpm_limit,
           rpd_limit: k.rpd_limit,
           priority: k.priority,
-          status: k.status.toLowerCase(),
-          pool_type: k.pool_type || 'COMMUNITY',
+          status: normaliseKeyStatus(k.status, k.community_routing_status).toLowerCase(),
+          pool_type: k.pool_type ? normalisePoolType(k.pool_type) : 'COMMUNITY',
           community_routing_status: k.community_routing_status || 'OBSERVATION',
-          observation_until: k.observation_until,
+          observation_until: toEpochMs(k.observation_until),
           dispatched_today: k.dispatched_today || 0,
           dispatched_communal: k.dispatched_communal || 0,
-          created_at: k.created_at,
+          created_at: toEpochMs(k.created_at) ?? k.created_at,
         })),
       };
     });
@@ -679,7 +688,7 @@ export async function handleAdminRequest(
         currentRpm: 0,
       };
       existing.activeKeys += 1;
-      if (k.status.toLowerCase() === 'healthy') {
+      if (normaliseKeyStatus(k.status, k.community_routing_status) === 'HEALTHY') {
         existing.healthyKeys += 1;
       } else if (k.status.toLowerCase().includes('rate')) {
         existing.rateLimitedKeys += 1;
@@ -735,10 +744,12 @@ export async function handleAdminRequest(
 
     const poolSummary = {
       totalKeys: keysList.length,
-      activeCommunityKeys: keysList.filter((k) => k.pool_type === 'COMMUNITY' && k.community_routing_status === 'ACTIVE').length,
+      activeCommunityKeys: keysList.filter(
+        (k) => normalisePoolType(k.pool_type) === 'COMMUNITY' && k.community_routing_status === 'ACTIVE'
+      ).length,
       observationKeys: keysList.filter((k) => k.community_routing_status === 'OBSERVATION').length,
       quarantinedKeys: keysList.filter((k) => k.community_routing_status === 'QUARANTINED').length,
-      privateKeys: keysList.filter((k) => k.pool_type === 'PRIVATE').length,
+      privateKeys: keysList.filter((k) => normalisePoolType(k.pool_type) === 'PRIVATE').length,
       totalDebtMicroCu: Array.from(debtMap.values()).reduce((sum, d) => sum + d, 0),
       clusterRpmCurrent: totalClusterRpm,
       clusterRpmMax: totalFleetRpmLimit || 100,

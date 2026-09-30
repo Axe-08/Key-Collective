@@ -611,26 +611,24 @@ describe("CapabilityFilter", () => {
 
     it("filters default registry models by vision requirement", () => {
       // In default catalog:
-      // claude-3-5-haiku, deepseek-chat, and llama-3.3-70b-versatile have supportsVision = false
+      // llama-3.3-70b-versatile has supportsVision = false
       const visionCandidates = registryFilter.filterRegistry({ requiresVision: true });
 
       expect(visionCandidates.length).toBeGreaterThan(0);
       expect(visionCandidates.every((m) => m.supportsVision)).toBe(true);
-      expect(visionCandidates.some((m) => m.id === "claude-3-5-haiku")).toBe(false);
-      expect(visionCandidates.some((m) => m.id === "deepseek-chat")).toBe(false);
       expect(visionCandidates.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(false);
 
-      // Verify that gemini-2.0-flash, gpt-4o, etc. are included
+      // Verify that gemini-2.0-flash, gemini-1.5-pro are included
       expect(visionCandidates.some((m) => m.id === "gemini-2.0-flash")).toBe(true);
-      expect(visionCandidates.some((m) => m.id === "gpt-4o")).toBe(true);
+      expect(visionCandidates.some((m) => m.id === "gemini-1.5-pro")).toBe(true);
     });
 
     it("orders viable default catalog models cost-optimally (cheapest first)", () => {
       const visionCandidates = registryFilter.filterRegistry({ requiresVision: true });
 
-      // gemini-2.0-flash is 100,000 µ$, gpt-4o-mini is 150,000 µ$, etc.
+      // gemini-2.0-flash is 100,000 µ$, gemini-1.5-pro is 1,250,000 µ$
       expect(visionCandidates[0].id).toBe("gemini-2.0-flash");
-      expect(visionCandidates[1].id).toBe("gpt-4o-mini");
+      expect(visionCandidates[1].id).toBe("gemini-1.5-pro");
       expect(visionCandidates[0].inputCostPerMTokMicro).toBeLessThanOrEqual(
         visionCandidates[1].inputCostPerMTokMicro
       );

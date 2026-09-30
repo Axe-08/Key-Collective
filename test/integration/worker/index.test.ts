@@ -17,7 +17,7 @@
  *    - tc-01: Happy path prompt routed to single Gemini key with 200 response and cost calculation.
  *    - tc-02: Streaming request parses terminal usage block and logs cost in ledger.
  *    - tc-05: Context window gate rejects prompt exceeding context window (HTTP 400).
- *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-2.0-flash').
+ *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-2.5-flash').
  *    - tc-07: Capability filter excludes unsupported models when tools requested (HTTP 400).
  *    - tc-08: Budget exhaustion returns HTTP 429 with Retry-After header.
  *    - tc-12: Auth token validation rejects invalid token with HTTP 401.
@@ -561,7 +561,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(res.status).toBe(200);
 
       const body = (await res.json()) as { id: string; owned_by: string };
-      expect(body.id).toBe("gemini-2.0-flash");
+      expect(body.id).toBe("gemini-2.5-flash");
       expect(body.owned_by).toBe("google");
     });
 
@@ -962,7 +962,7 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await testWorker.fetch(req, env);
       expect(res.status).toBe(200);
-      expect(res.headers.get("x-kc-model")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-model")).toBe("gemini-2.5-flash");
       expect(res.headers.get("x-kc-provider")).toBe("google");
     });
 

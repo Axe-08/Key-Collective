@@ -5,6 +5,7 @@
  */
 
 import type { WorkerEnv } from './auth/index';
+import { normaliseKeyStatus } from '../contracts/keys';
 
 type ExecutionContextLike = { waitUntil: (p: Promise<unknown>) => void };
 
@@ -305,7 +306,7 @@ async function handleNotifications(env: WorkerEnv, tenantId: string, since: numb
   const notifications = (unhealthyResult.results ?? []).map(k => ({
     id: `notif_key_${k.id}`,
     type: 'key_health' as const,
-    message: `⚠️ Key "${k.label}" (${k.provider}) went ${k.status}. Check your provider dashboard.`,
+    message: `⚠️ Key "${k.label}" (${k.provider}) went ${normaliseKeyStatus(k.status)}. Check your provider dashboard.`,
     created_at: new Date().toISOString(),
   }));
 

@@ -17,7 +17,7 @@
  *    - tc-01: Happy path prompt routed to single Gemini key with 200 response and cost calculation.
  *    - tc-02: Streaming request parses terminal usage block and logs cost in ledger.
  *    - tc-05: Context window gate rejects prompt exceeding context window (HTTP 400).
- *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-2.0-flash').
+ *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-2.5-flash').
  *    - tc-07: Capability filter excludes unsupported models when tools requested (HTTP 400).
  *    - tc-08: Budget exhaustion returns HTTP 429 with Retry-After header.
  *    - tc-12: Auth token validation rejects invalid token with HTTP 401.
@@ -619,12 +619,12 @@ describe("RouterHandler Unit Tests (T3)", () => {
         upstreamClient: mockUpstream,
       });
 
-      // Provide large estimatedPromptTokens (e.g. 150,000 for gpt-4o which has 128k context)
+      // Provide large estimatedPromptTokens (e.g. 200,000 for llama-3.3-70b-versatile which has 128k context)
       const req = new Request("http://localhost/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: "Super huge prompt" }],
           estimatedPromptTokens: 200_000,
         }),
@@ -645,7 +645,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
   });
 
   describe("Golden Test tc-06: Model Alias Resolution", () => {
-    it("resolves logical alias 'smart-fast' to 'gemini-2.0-flash' and selects google provider", async () => {
+    it("resolves logical alias 'smart-fast' to 'gemini-2.5-flash' and selects google provider", async () => {
       let forwardedUrl = "";
       const mockUpstream = new UpstreamClient({
         fetch: async (url) => {
@@ -672,7 +672,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(200);
-      expect(res.headers.get("x-kc-model")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-model")).toBe("gemini-2.5-flash");
       expect(res.headers.get("x-kc-provider")).toBe("google");
       expect(forwardedUrl).toContain("googleapis.com");
     });
@@ -799,14 +799,14 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
     it("GET /v1/models/:id returns specific model details", async () => {
       const handler = createRouterHandler();
-      const req = new Request("http://localhost/v1/models/gpt-4o", { method: "GET" });
+      const req = new Request("http://localhost/v1/models/gemini-1.5-pro", { method: "GET" });
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(200);
 
       const json = await res.json() as { id: string; owned_by: string };
-      expect(json.id).toBe("gpt-4o");
-      expect(json.owned_by).toBe("openai");
+      expect(json.id).toBe("gemini-1.5-pro");
+      expect(json.owned_by).toBe("google");
     });
 
     it("GET /v1/models/:id returns 404 for unknown model ID", async () => {

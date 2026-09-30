@@ -33,6 +33,7 @@ export default defineWorkersConfig(async () => {
           miniflare: {
             bindings: {
               TEST_MIGRATIONS: migrations,
+              KC_ENV: "test",
               KC_MASTER_KEY: "test-master-key-please-rotate",
               SESSION_SIGNING_KEY: "test-signing",
               TURNSTILE_SECRET: "test-secret",

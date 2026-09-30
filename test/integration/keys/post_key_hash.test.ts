@@ -161,7 +161,7 @@ describe("Write key_hash on insert + backfill maintenance route", () => {
       fetchMock.disableNetConnect();
       mockTurnstile(true);
 
-      const rawKey = "sk-super-secret-raw-key-0001";
+      const rawKey = "gsk_super_secret_raw_key_0001";
       const request = new Request("https://api.keycollective.ai/api/keys", {
         method: "POST",
         headers: {
@@ -169,7 +169,7 @@ describe("Write key_hash on insert + backfill maintenance route", () => {
           "x-turnstile-token": "turnstile-token-verified-by-mocked-siteverify",
         },
         body: JSON.stringify({
-          provider: "openai",
+          provider: "groq",
           label: "test-key",
           key: rawKey,
           k1: true,
