@@ -55,6 +55,7 @@ export interface CreateTelemetryEventParams {
   eventType: string;
   latencyMs?: number;
   costMicrodollars?: bigint;
+  cu?: bigint;
   metadata?: Record<string, string>;
 }
 
@@ -82,8 +83,8 @@ function safeParseDouble(value: string | undefined): number {
  *     6: statusCode / status
  *     7: serialized metadata JSON
  * - doubles:
- *     0: latencyMs
- *     1: costMicrodollars (as floating-point number for aggregation)
+ *     0: request CU (or costMicrodollars fallback as floating-point number for aggregation)
+ *     1: latencyMs
  *     2: timestamp
  *     3: promptTokens
  *     4: completionTokens
@@ -116,8 +117,8 @@ export function defaultDataPointMapper(
       JSON.stringify(event.metadata),
     ],
     doubles: [
+      Number(event.cu ?? event.costMicrodollars ?? 0),
       event.latencyMs,
-      Number(event.costMicrodollars),
       event.timestamp,
       promptTokens,
       completionTokens,
@@ -185,6 +186,14 @@ export function validateTelemetryEvent(event: unknown): {
     errors.push("costMicrodollars must be a bigint");
   } else if (candidate.costMicrodollars < 0n) {
     errors.push("costMicrodollars cannot be negative");
+  }
+
+  if (candidate.cu !== undefined) {
+    if (typeof candidate.cu !== "bigint") {
+      errors.push("cu must be a bigint");
+    } else if (candidate.cu < 0n) {
+      errors.push("cu cannot be negative");
+    }
   }
 
   if (
@@ -261,6 +270,7 @@ export class TelemetryEmitter implements TelemetryContract {
       eventType: params.eventType,
       latencyMs: params.latencyMs ?? 0,
       costMicrodollars: params.costMicrodollars ?? 0n,
+      cu: params.cu,
       metadata: params.metadata ? { ...params.metadata } : {},
     };
   }

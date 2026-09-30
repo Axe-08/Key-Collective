@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { formatMicrodollars } from '../types';
+  import { formatCu } from '../types';
 
   let {
     liveStatus = 'Ready',
     liveLatency = '0ms',
     liveCostMicros = 0,
+    liveCostCu = 0,
     selectedModel = '',
     fallbackModelUsed = null,
     responseChunks = [],
@@ -12,10 +13,13 @@
     liveStatus?: string;
     liveLatency?: string;
     liveCostMicros?: number;
+    liveCostCu?: number;
     selectedModel?: string;
     fallbackModelUsed?: string | null;
     responseChunks?: Array<{ text: string; class: string }>;
   } = $props();
+
+  const displayCu = $derived(liveCostCu || liveCostMicros || 0);
 </script>
 
 <div class="rounded-xl bg-surface-container-low/80 backdrop-blur-xl border border-white/[0.08] p-5 shadow-xl specular-top">
@@ -30,8 +34,8 @@
         Status: <span class={liveStatus.startsWith('200') ? 'text-secondary' : liveStatus === 'Ready' ? 'text-outline' : 'text-error'}>{liveStatus}</span>
       </span>
       <span class="text-outline">Latency: <span class="text-primary font-semibold">{liveLatency}</span></span>
-      {#if liveCostMicros > 0}
-        <span class="text-outline">Cost: <span class="text-secondary font-semibold">{formatMicrodollars(liveCostMicros)}</span></span>
+      {#if displayCu > 0}
+        <span class="text-outline">Cost: <span class="text-secondary font-semibold">{formatCu(displayCu)} CU</span></span>
       {/if}
     </div>
   </div>

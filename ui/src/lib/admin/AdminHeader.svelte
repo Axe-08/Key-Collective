@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatMicrodollars } from '../types';
+  import { formatCu } from '../types';
 
   let {
     edgeHost = 'admin.key-col.axe08.tech',
@@ -7,7 +7,7 @@
     activeTenantsCount,
     anomalyCount,
     totalClusterRpm,
-    totalCumulativeSpendMicrodollars,
+    totalCumulativeSpendCu = 0,
     quarantinedCount,
     trippedCircuitsCount,
     globalKillSwitchActive,
@@ -18,7 +18,7 @@
     activeTenantsCount: number;
     anomalyCount: number;
     totalClusterRpm: number;
-    totalCumulativeSpendMicrodollars: number;
+    totalCumulativeSpendCu?: number;
     quarantinedCount: number;
     trippedCircuitsCount: number;
     globalKillSwitchActive: boolean;
@@ -56,7 +56,7 @@
           </span>
         </h1>
         <p class="text-body-md font-body-md text-on-surface-variant mt-0.5">
-          Administrative surveillance console for tenant velocity dials, fixed-point microdollar spend ledger, and sub-5ms circuit breaker trip overrides.
+          Administrative surveillance console for tenant velocity dials, Credit Unit (CU) spend ledger, and sub-5ms circuit breaker trip overrides.
         </p>
       </div>
     </div>
@@ -116,10 +116,10 @@
     <!-- KPI 4: Cumulative Spend -->
     <div class="p-2.5 rounded-lg bg-surface-container-lowest/60 border border-outline-variant/20 flex flex-col">
       <span class="text-outline text-[11px] uppercase">Today's Spend</span>
-      <span class="text-headline-sm font-bold text-secondary text-[18px]" title="{totalCumulativeSpendMicrodollars} µ$">
-        {formatMicrodollars(totalCumulativeSpendMicrodollars)}
+      <span class="text-headline-sm font-bold text-secondary text-[18px]" title="{totalCumulativeSpendCu} CU">
+        {formatCu(totalCumulativeSpendCu)} CU
       </span>
-      <span class="text-outline text-[10px]">Fixed-Point (µ$)</span>
+      <span class="text-outline text-[10px]">Credit Units (CU)</span>
     </div>
 
     <!-- KPI 5: Quarantined Count -->

@@ -93,7 +93,7 @@
     }
   ],
   "usage": { "prompt_tokens": 28, "completion_tokens": 42, "total_tokens": 70 },
-  "cost_microdollars": 14
+  "cost_cu": 14
 }`}</code></pre>
         </div>
       </div>
@@ -129,8 +129,12 @@
       "id": "gemini-3.8-flash",
       "object": "model",
       "owned_by": "google",
-      "input_cost_microdollars": 0,
-      "output_cost_microdollars": 0,
+      "kc": {
+        "cu_base": 10,
+        "cu_in_per_1k": 1,
+        "cu_cached_per_1k": 0,
+        "cu_out_per_1k": 4
+      },
       "free_tier": true,
       "context_window": 1048576,
       "routing_status": "healthy"
@@ -139,8 +143,12 @@
       "id": "llama-3.3-70b-versatile",
       "object": "model",
       "owned_by": "groq",
-      "input_cost_microdollars": 0,
-      "output_cost_microdollars": 0,
+      "kc": {
+        "cu_base": 10,
+        "cu_in_per_1k": 1,
+        "cu_cached_per_1k": 0,
+        "cu_out_per_1k": 4
+      },
       "free_tier": true,
       "context_window": 128000,
       "routing_status": "healthy"
@@ -162,7 +170,7 @@
       <div class="flex items-center gap-3 flex-wrap">
         <span class="px-2.5 py-1 rounded bg-secondary/20 text-secondary font-mono text-xs font-bold">GET</span>
         <span class="font-mono text-sm text-on-surface font-semibold">/v1/projects</span>
-        <span class="text-xs text-outline hidden md:inline">— Multi-Tenant Quotas, Assigned RPM &amp; Microdollar Balances</span>
+        <span class="text-xs text-outline hidden md:inline">— Multi-Tenant Quotas, Assigned RPM &amp; CU Balances</span>
       </div>
       <span class="material-symbols-outlined text-outline transition-transform {expandedEndpoint === 'projects' ? 'rotate-180' : ''}">expand_more</span>
     </button>
@@ -188,7 +196,7 @@
     "max_rpm_sub_cap": 30,
     "assigned_rpm": 15,
     "active_keys_count": 3,
-    "total_spend_microdollars": 142050,
+    "total_spend_cu": 142050,
     "created_at": "2026-09-10T12:00:00Z"
   }
 ]`}</code></pre>
@@ -222,7 +230,7 @@
           <pre class="p-3 rounded-lg bg-black/40 border border-white/[0.06] text-on-surface text-[11px] overflow-x-auto"><code>{`{
   "name": "prod-agent-client",
   "rpm_limit": 20,
-  "budget_microdollars": 5000000, // $5.00 limit
+  "budget_cu": 5000000, // 5,000,000 CU limit
   "allowed_providers": ["google", "groq"]
 }`}</code></pre>
         </div>

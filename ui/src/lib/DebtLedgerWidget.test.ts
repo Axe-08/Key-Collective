@@ -41,7 +41,7 @@ describe("DebtLedgerWidget", () => {
     // Should list container
     expect(result.body).toContain("data-testid=\"debt-list\"");
 
-    // Should list all debts with their IDs and microdollar amounts
+    // Should list all debts with their IDs and CU amounts
     for (const debt of mockDebts) {
       expect(result.body).toContain(debt.id);
       expect(result.body).toContain(debt.amount.toLocaleString());
@@ -131,10 +131,10 @@ describe("DebtLedgerWidget", () => {
     expect(result.body).toContain("All debts settled");
   });
 
-  it("should format fixed-point microdollars accurately", () => {
+  it("should format Credit Units accurately", () => {
     const mockDebts: DebtEntry[] = [
-      { id: "debt_micro_01", amount: 1000000 }, // $1.00
-      { id: "debt_micro_02", amount: 2500000 }, // $2.50
+      { id: "debt_cu_01", amount: 1000000 },
+      { id: "debt_cu_02", amount: 2500000 },
     ];
 
     const result = render(DebtLedgerWidget, {
@@ -143,17 +143,17 @@ describe("DebtLedgerWidget", () => {
       },
     });
 
-    expect(result.body).toContain("$1.00");
-    expect(result.body).toContain("$2.50");
-    expect(result.body).toContain("1,000,000 µ$");
-    expect(result.body).toContain("2,500,000 µ$");
+    expect(result.body).toContain("1,000,000 CU");
+    expect(result.body).toContain("2,500,000 CU");
+    expect(result.body).not.toContain("$");
+    expect(result.body).not.toContain("µ$");
   });
 
   it("should display real community debt, contributed compute units, multiplier ceiling, and jail status", () => {
     const mockStanding: ContributorStanding = {
       multiplier: 2.0,
       multiplier_ceiling: 5.0,
-      community_debt_cu: 3500000, // $3.50
+      community_debt_cu: 3500000,
       daily_contributed_cu: 42000,
       trusted_contributor: true,
       jail_status: "SOFT_WARNING",
@@ -167,10 +167,11 @@ describe("DebtLedgerWidget", () => {
       },
     });
 
-    // Community debt formatted from Microdollars to USD
+    // Community debt formatted in Credit Units
     expect(result.body).toContain("data-testid=\"community-debt\"");
-    expect(result.body).toContain("$3.50");
-    expect(result.body).toContain("3,500,000 µ$");
+    expect(result.body).toContain("3,500,000 CU");
+    expect(result.body).not.toContain("$");
+    expect(result.body).not.toContain("µ$");
 
     // Contributed compute units
     expect(result.body).toContain("data-testid=\"contributed-compute-units\"");

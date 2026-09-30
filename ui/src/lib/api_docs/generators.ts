@@ -174,7 +174,7 @@ export function generateApiDocsMarkdown(
 
 **Base URL:** \`${baseUrl}\`  
 **Authentication:** Bearer Token (\`Authorization: Bearer kc_live_...\`)  
-**Pricing Ledger:** Fixed-Point Microdollars (\`1 USD = 1,000,000 µ$\`)  
+**Pricing Ledger:** Credit Units (CU)  
 **Gateway Latency:** P99 18.4ms
 
 ---
@@ -208,7 +208,7 @@ Creates a completion request routed dynamically across virtualized pools. Automa
 Lists all unified active models configured across connected provider pools (Gemini, Groq, Cerebras, DeepSeek, OpenAI) with current load metrics and cost parameters.
 
 ### GET \`/v1/projects\`
-Inspects workspace hierarchy, team quotas, remaining microdollar balances (µ$), and rate-limit tier thresholds.
+Inspects workspace hierarchy, team quotas, remaining Credit Unit (CU) balances, and rate-limit tier thresholds.
 
 ### POST \`/v1/projects/:id/keys\`
 Generates a new project-scoped virtual key with custom TTL, model white-lists, and token expenditure limits.
@@ -218,16 +218,15 @@ Retrieves live health status across all upstream nodes, active circuit breaker t
 
 ---
 
-## 3. Fixed-Point Microdollar Pricing Reference (µ$)
+## 3. Credit Unit (CU) Weights Reference
 
-*Zero floating-point rounding errors. 1.00 USD = exactly 1,000,000 µ$.*  
-*Base: 1 µ$ = $0.000001 USD.*
+*Deterministic cost accounting using integer Credit Units (CU).*
 
-| Model | Input / 1K Tokens | Output / 1K Tokens | Effective USD / 1M | Routing Engine |
-|---|---|---|---|---|
-| Gemini 2.5 Flash | 75 µ$ | 300 µ$ | $0.075 / $0.30 | Google Edge Direct |
-| Groq LLaMA 3.3 (70B) | 590 µ$ | 790 µ$ | $0.59 / $0.79 | LPU Ultrafast |
-| DeepSeek V3 | 140 µ$ | 280 µ$ | $0.14 / $0.28 | Multi-Head Latent |
+| Model | Base CU | Input CU / 1K | Cached CU / 1K | Output CU / 1K | Routing Engine |
+|---|---|---|---|---|---|
+| Gemini 2.5 Flash | 10 CU | 1 CU | 0 CU | 4 CU | Google Edge Direct |
+| Groq LLaMA 3.3 (70B) | 10 CU | 1 CU | 0 CU | 4 CU | LPU Ultrafast |
+| DeepSeek V3 | 10 CU | 1 CU | 0 CU | 4 CU | Multi-Head Latent |
 
 ---
 
@@ -239,7 +238,7 @@ The API returns standard HTTP status codes along with a structured JSON error re
 |---|---|---|
 | \`400\` | \`bad_request\` | Invalid parameters or malformed JSON payload. |
 | \`401\` | \`unauthorized\` | Missing, invalid, or expired Bearer token. |
-| \`402\` | \`payment_required\` | Project quota exceeded or insufficient microdollar balance. |
+| \`402\` | \`payment_required\` | Project quota exceeded or insufficient CU balance. |
 | \`429\` | \`rate_limit_exceeded\` | Too many requests. Respect the \`Retry-After\` header. |
 | \`500\` | \`internal_error\` | Unexpected edge gateway or routing failure. |
 | \`503\` | \`upstream_unavailable\`| All configured fallback providers are currently unreachable. |

@@ -1,7 +1,6 @@
 <script lang="ts">
-  import type { PoolStats } from './types';
+  import type { PoolStats, CU } from './types';
   import type { UserAccount, UserTier } from '../../../src/contracts/v3_types';
-  import { type Microdollars, formatMicrodollars } from './types';
 
   let {
     stats,
@@ -13,7 +12,7 @@
     onRefresh,
     isRefreshing = false,
     searchQuery = $bindable(''),
-    todaySpendMicrodollars = 42000,
+    cuUsedToday = 0,
   }: {
     stats?: PoolStats;
     activeTab?: 'pool' | 'workbench' | 'docs' | 'admin' | string;
@@ -24,7 +23,7 @@
     onRefresh?: () => void;
     isRefreshing?: boolean;
     searchQuery?: string;
-    todaySpendMicrodollars?: Microdollars;
+    cuUsedToday?: CU;
   } = $props();
 
   import { onMount } from 'svelte';

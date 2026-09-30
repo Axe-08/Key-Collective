@@ -189,6 +189,9 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
       multiplier_ceiling: 1.0,
       community_debt_cu: 0,
       daily_contributed_cu: 0,
+      cu_contributed_today: 0,
+      cu_consumed_today: 0,
+      net_cu_balance: 0,
       trusted_contributor: false,
       jail_status: 'PRISTINE',
       consecutive_debt_free_days: 0,
@@ -199,11 +202,12 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
   }
   const db = env.DB as D1Database;
   const row = await db.prepare(`
-    SELECT community_debt_micro_cu, daily_contributed_cu, consecutive_debt_free_days,
+    SELECT community_debt_cu, community_debt_micro_cu, daily_contributed_cu, consecutive_debt_free_days,
            trusted_contributor, multiplier_ceiling, current_multiplier
     FROM contributor_standing WHERE tenant_id = ?
   `).bind(tenantId).first<{
-    community_debt_micro_cu: number;
+    community_debt_cu?: number;
+    community_debt_micro_cu?: number;
     daily_contributed_cu: number;
     consecutive_debt_free_days: number;
     trusted_contributor: number;
@@ -217,6 +221,9 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
       multiplier_ceiling: 4.5,
       community_debt_cu: 0,
       daily_contributed_cu: 0,
+      cu_contributed_today: 0,
+      cu_consumed_today: 0,
+      net_cu_balance: 0,
       trusted_contributor: false,
       jail_status: 'PRISTINE',
       consecutive_debt_free_days: 0,
@@ -225,7 +232,7 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
 
   const multiplier = (row.current_multiplier ?? 150) / 100;
   const ceiling = (row.multiplier_ceiling ?? 450) / 100;
-  const debt = row.community_debt_micro_cu ?? 0;
+  const debt = row.community_debt_cu ?? row.community_debt_micro_cu ?? 0;
   const contributed = row.daily_contributed_cu ?? 0;
 
   let jailStatus: 'PRISTINE' | 'SOFT_WARNING' | 'HARD_JAIL' = 'PRISTINE';
@@ -240,6 +247,9 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
     multiplier_ceiling: ceiling,
     community_debt_cu: debt,
     daily_contributed_cu: contributed,
+    cu_contributed_today: contributed,
+    cu_consumed_today: debt,
+    net_cu_balance: contributed - debt,
     trusted_contributor: Boolean(row.trusted_contributor),
     jail_status: jailStatus,
     consecutive_debt_free_days: row.consecutive_debt_free_days ?? 0,
@@ -253,6 +263,7 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
       community_active_keys: 0,
       requests_served_for_community_today: 0,
       personal_requests_today: 0,
+      community_debt_cu: 0,
       cu_contributed_today: 0,
       cu_consumed_today: 0,
       net_cu_balance: 0,
@@ -275,17 +286,25 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
   }>();
 
   const standing = await db.prepare(
-    `SELECT community_debt_micro_cu, daily_contributed_cu FROM contributor_standing WHERE tenant_id = ?`
-  ).bind(tenantId).first<{ community_debt_micro_cu: number; daily_contributed_cu: number }>();
+    `SELECT community_debt_cu, community_debt_micro_cu, daily_contributed_cu FROM contributor_standing WHERE tenant_id = ?`
+  ).bind(tenantId).first<{
+    community_debt_cu?: number;
+    community_debt_micro_cu?: number;
+    daily_contributed_cu: number;
+  }>();
+
+  const debt = standing?.community_debt_cu ?? standing?.community_debt_micro_cu ?? 0;
+  const contributed = standing?.daily_contributed_cu ?? 0;
 
   return Response.json({
     total_keys: result?.total_keys ?? 0,
     community_active_keys: result?.community_active_keys ?? 0,
     requests_served_for_community_today: result?.total_communal_served ?? 0,
     personal_requests_today: (result?.total_dispatched_today ?? 0) - (result?.total_communal_served ?? 0),
-    cu_contributed_today: standing?.daily_contributed_cu ?? 0,
-    cu_consumed_today: standing?.community_debt_micro_cu ?? 0,
-    net_cu_balance: (standing?.daily_contributed_cu ?? 0) - (standing?.community_debt_micro_cu ?? 0),
+    community_debt_cu: debt,
+    cu_contributed_today: contributed,
+    cu_consumed_today: debt,
+    net_cu_balance: contributed - debt,
   });
 }
 

@@ -4,6 +4,7 @@
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { CascadeRouteResponse } from "../../../router/cascade/index";
+import { calculateCu } from "../../../router/registry/index";
 import { createApiResponse } from "../../../types/api";
 import type {
   AuthenticatedContext,
@@ -24,6 +25,18 @@ export async function handleNonStreamingResponse(
 ): Promise<Response> {
   const durationMs = deps.timeProvider() - startTime;
   const costMicrodollars = cascadeRes.costMicrodollars;
+
+  // Calculate Credit Units (CU) from cascadeRes.usage
+  let cu = 0n;
+  if (cascadeRes.usage) {
+    const modelDef =
+      cascadeRes.modelDef ??
+      deps.modelRegistry?.getModel?.(cascadeRes.model) ??
+      deps.modelRegistry?.resolveModel?.(cascadeRes.model);
+    if (modelDef) {
+      cu = calculateCu(modelDef, cascadeRes.usage);
+    }
+  }
 
   // Asynchronous background task for D1 persistence and telemetry
   const postWork = async (): Promise<void> => {
@@ -121,11 +134,13 @@ export async function handleNonStreamingResponse(
           prompt_tokens: cascadeRes.usage.promptTokens,
           completion_tokens: cascadeRes.usage.completionTokens,
           total_tokens: cascadeRes.usage.totalTokens,
+          kc_cu: Number(cu),
         }
       : {
           prompt_tokens: 0,
           completion_tokens: 0,
           total_tokens: 0,
+          kc_cu: Number(cu),
         },
     cost_microdollars: costMicrodollars.toString(),
   };
@@ -149,6 +164,7 @@ export async function handleNonStreamingResponse(
         "x-kc-tenant-id": authContext.tenantId,
         "x-kc-model": cascadeRes.model,
         "x-kc-provider": cascadeRes.provider,
+        "x-kc-cu": cu.toString(),
         "x-kc-cost-microdollars": costMicrodollars.toString(),
       },
     });
@@ -161,7 +177,11 @@ export async function handleNonStreamingResponse(
       "x-kc-tenant-id": authContext.tenantId,
       "x-kc-model": cascadeRes.model,
       "x-kc-provider": cascadeRes.provider,
+      "x-kc-cu": cu.toString(),
       "x-kc-cost-microdollars": costMicrodollars.toString(),
     },
   });
 }
+
+export const handleNonStreamingChat = handleNonStreamingResponse;
+

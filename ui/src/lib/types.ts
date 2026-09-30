@@ -55,6 +55,8 @@ export interface PoolStats {
   daily_quota_used: number;
   daily_quota_limit: number;
   proxy_status: 'healthy' | 'degraded' | 'offline';
+  cu_used_today: number;
+  cu_allowance_today: number;
 }
 
 export interface CreateKeyPayload {
@@ -106,21 +108,24 @@ export interface ToastMessage {
   message: string;
 }
 
-export type Microdollars = number; // int64 microdollars: 1 USD = 1,000,000 µ$
+export type CU = number;
 
+export function formatCu(cu: number | bigint): string {
+  if (cu === undefined || cu === null) return '0';
+  return cu.toLocaleString('en-US');
+}
+
+/** @deprecated Use CU */
+export type Microdollars = CU;
+
+/** @deprecated Use formatCu */
 export function formatMicrodollars(amount: Microdollars): string {
-  const usd = amount / 1_000_000;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
-  }).format(usd);
+  return formatCu(amount);
 }
 
 export interface DebtEntry {
   id: string;
-  amount: number; // int64 microdollars: 1 USD = 1,000,000 µ$
+  amount: number; // CU
   description?: string;
   status?: 'pending' | 'resolved';
   createdAt?: string;

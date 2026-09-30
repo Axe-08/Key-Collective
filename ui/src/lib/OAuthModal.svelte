@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { UserAccount, UserTier } from "../../../src/contracts/v3_types";
-  import type { Microdollars } from "../../../src/contracts/v3_5_types";
+  import type { CU } from "./types";
   import TrustScoreMeter from "./TrustScoreMeter.svelte";
   import {
     createPKCEBundle,
@@ -59,8 +59,8 @@
     userAccount?.sybilScore ?? (isBuilderOrHigher ? 98 : isProbationary ? 45 : 20)
   );
 
-  // Financial Quota in Fixed-Point Microdollars (1 USD = 1,000,000 µ$)
-  const budgetCapMicrodollars: Microdollars = $derived(
+  // Allowance Quota in Credit Units (CU)
+  const cuAllowance: CU = $derived(
     isBuilderOrHigher ? 5_000_000 : isProbationary ? 50_000 : 0
   );
 
@@ -396,7 +396,7 @@
                 {#if isBuilderOrHigher}
                   Allocated: 60 RPM • 10,000 RPD Virtual Pool Headroom with instant auto-rotation
                 {:else if isProbationary}
-                  Allocated: 2 RPM • 50 RPD Sandboxed • Budget Cap: 50,000 µ$
+                  Allocated: 2 RPM • 50 RPD Sandboxed • CU Allowance: 50,000 CU
                 {:else if isDemo}
                   Allocated: 15 RPM • In-Memory DemoDO Session • Zero Persistence
                 {:else}
