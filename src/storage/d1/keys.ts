@@ -101,7 +101,7 @@ export async function saveEncryptedKey(db: D1Database, key: EncryptedKey): Promi
   const rpmLimit = 60;
   const rpdLimit = 1500;
   const priority = 0;
-  const status = "Healthy";
+  const status = "HEALTHY";
   const circuitOpenUntil = null;
   const lastUsedAt = null;
 

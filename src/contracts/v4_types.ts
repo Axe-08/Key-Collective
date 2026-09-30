@@ -3,9 +3,13 @@ import { z } from "zod";
 export const ConsentAttestationSchema = z.object({
   id: z.string().uuid(),
   tenant_id: z.string().min(1),
-  consent_type: z.enum(["C1", "C2", "C3", "K1", "K2"]),
+  event_type: z.enum(["REGISTRATION", "KEY_SUBMISSION"]),
+  checkbox_id: z.enum(["C1", "C2", "C3", "K1", "K2"]),
   consent_version: z.string().min(1),
-  attested_at: z.number().int().positive(),
+  key_id: z.string().nullable().optional(),
+  attested_at: z.number().int().positive().optional(),
+  ip_address: z.string().nullable().optional(),
+  user_agent: z.string().nullable().optional(),
 });
 
 export type ConsentAttestation = z.infer<typeof ConsentAttestationSchema>;
@@ -95,6 +99,7 @@ export type PoolMetrics = z.infer<typeof PoolMetricsSchema>;
 
 export const ProjectHashRegistrySchema = z.object({
   gcp_project_hash: z.string().length(64),
+  provider: z.string().min(1),
   state: z.enum(["ACTIVE", "ROTATING", "TOMBSTONED"]),
   tombstoned_at: z.number().int().positive().nullable(),
   tenant_id: z.string().min(1),

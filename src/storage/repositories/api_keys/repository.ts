@@ -31,6 +31,12 @@ import {
   isKeyStatus,
 } from "../../../types/models";
 import {
+  normaliseKeyStatus,
+  normalisePoolType,
+  PoolType,
+} from "../../../contracts/keys";
+import { toEpochMs } from "../../../utils/time";
+import {
   decryptApiKeyRecord,
   encryptPlaintextKey,
   resolveMasterKeyForDecryption,
@@ -48,6 +54,13 @@ import {
 } from "./types";
 import { validateCreateApiKeyInput } from "./validation";
 
+function isValidStatusInput(status: unknown): boolean {
+  if (typeof status !== "string") return false;
+  if (isKeyStatus(status)) return true;
+  const canonical = ["HEALTHY", "COOLDOWN", "QUARANTINED", "REVOKED"];
+  return canonical.includes(status.toUpperCase());
+}
+
 /**
  * Repository layer for managing provider API keys in Cloudflare D1.
  * Enforces AES-256-GCM encryption with unique 12-byte nonces and strict tenant boundaries.
@@ -63,7 +76,16 @@ export class ApiKeyRepository {
    * Plaintext keys are NEVER written to the database.
    */
   async create(input: CreateApiKeyInput, masterKey?: KeyInput): Promise<APIKey> {
-    validateCreateApiKeyInput(input);
+    if (input.status !== undefined && !isValidStatusInput(input.status)) {
+      throw new InvalidKeyError(`Invalid key status: '${input.status}'`, {
+        reason: "invalid_status",
+      });
+    }
+
+    validateCreateApiKeyInput({
+      ...input,
+      status: input.status !== undefined && !isKeyStatus(input.status) ? "Healthy" : input.status,
+    });
 
     const keySecret = resolveMasterKeyForEncryption(this.masterKey, masterKey);
     const { ciphertextB64, nonceB64, prefix, suffix } = await encryptPlaintextKey(
@@ -76,16 +98,21 @@ export class ApiKeyRepository {
     const rpmLimit = input.rpmLimit ?? DEFAULT_RPM_LIMIT;
     const rpdLimit = input.rpdLimit ?? DEFAULT_RPD_LIMIT;
     const priority = input.priority ?? 0;
-    const status: KeyStatus = input.status ?? "Healthy";
-    const circuitOpenUntil = input.circuitOpenUntil ?? null;
-    const createdAt = input.createdAt ?? new Date().toISOString();
+    const status: KeyStatus = normaliseKeyStatus(input.status ?? "HEALTHY") as unknown as KeyStatus;
+    const circuitOpenUntil = input.circuitOpenUntil != null ? toEpochMs(input.circuitOpenUntil) : null;
+    const createdAt = input.createdAt != null ? (toEpochMs(input.createdAt) ?? Date.now()) : Date.now();
+    const poolType: PoolType = normalisePoolType(
+      (input as { poolType?: string; pool_type?: string }).poolType ??
+        (input as { poolType?: string; pool_type?: string }).pool_type ??
+        null
+    );
 
     const sql = `
       INSERT INTO api_keys (
         id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
         key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-        circuit_open_until, last_used_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+        circuit_open_until, last_used_at, created_at, pool_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
     `;
 
     await this.db
@@ -104,7 +131,8 @@ export class ApiKeyRepository {
         priority,
         status,
         circuitOpenUntil,
-        createdAt
+        createdAt,
+        poolType
       )
       .run();
 
@@ -121,9 +149,10 @@ export class ApiKeyRepository {
       rpdLimit,
       priority,
       status,
-      circuitOpenUntil,
+      circuitOpenUntil: circuitOpenUntil as unknown as APIKey["circuitOpenUntil"],
       lastUsedAt: null,
-      createdAt,
+      createdAt: createdAt as unknown as APIKey["createdAt"],
+      poolType,
     };
   }
 
@@ -179,10 +208,15 @@ export class ApiKeyRepository {
     const rpmLimit = input.rpmLimit ?? DEFAULT_RPM_LIMIT;
     const rpdLimit = input.rpdLimit ?? DEFAULT_RPD_LIMIT;
     const priority = input.priority ?? 0;
-    const status: KeyStatus = input.status ?? "Healthy";
-    const circuitOpenUntil = input.circuitOpenUntil ?? null;
-    const lastUsedAt = input.lastUsedAt ?? null;
-    const createdAt = input.createdAt ?? new Date().toISOString();
+    const status: KeyStatus = normaliseKeyStatus(input.status ?? "HEALTHY") as unknown as KeyStatus;
+    const circuitOpenUntil = input.circuitOpenUntil != null ? toEpochMs(input.circuitOpenUntil) : null;
+    const lastUsedAt = input.lastUsedAt != null ? toEpochMs(input.lastUsedAt) : null;
+    const createdAt = input.createdAt != null ? (toEpochMs(input.createdAt) ?? Date.now()) : Date.now();
+    const poolType: PoolType = normalisePoolType(
+      (input as { poolType?: string; pool_type?: string }).poolType ??
+        (input as { poolType?: string; pool_type?: string }).pool_type ??
+        null
+    );
     const keyPrefix = input.keyPrefix ?? "sk-...";
     const keySuffix = input.keySuffix ?? "...";
 
@@ -190,8 +224,8 @@ export class ApiKeyRepository {
       INSERT INTO api_keys (
         id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
         key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-        circuit_open_until, last_used_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        circuit_open_until, last_used_at, created_at, pool_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await this.db
@@ -211,7 +245,8 @@ export class ApiKeyRepository {
         status,
         circuitOpenUntil,
         lastUsedAt,
-        createdAt
+        createdAt,
+        poolType
       )
       .run();
 
@@ -228,9 +263,10 @@ export class ApiKeyRepository {
       rpdLimit,
       priority,
       status,
-      circuitOpenUntil,
-      lastUsedAt,
-      createdAt,
+      circuitOpenUntil: circuitOpenUntil as unknown as APIKey["circuitOpenUntil"],
+      lastUsedAt: lastUsedAt as unknown as APIKey["lastUsedAt"],
+      createdAt: createdAt as unknown as APIKey["createdAt"],
+      poolType,
     };
   }
 
@@ -474,23 +510,34 @@ export class ApiKeyRepository {
     const priority =
       updates.priority !== undefined ? updates.priority : existing.priority;
 
-    const status =
-      updates.status !== undefined ? updates.status : existing.status;
-    if (updates.status !== undefined && !isKeyStatus(updates.status)) {
+    if (updates.status !== undefined && !isValidStatusInput(updates.status)) {
       throw new InvalidKeyError(`Invalid key status: '${updates.status}'`, {
         reason: "invalid_status",
       });
     }
 
+    const status: KeyStatus =
+      updates.status !== undefined
+        ? (normaliseKeyStatus(updates.status) as unknown as KeyStatus)
+        : (normaliseKeyStatus(existing.status) as unknown as KeyStatus);
+
     const circuitOpenUntil =
       updates.circuitOpenUntil !== undefined
-        ? updates.circuitOpenUntil
-        : existing.circuitOpenUntil;
+        ? (updates.circuitOpenUntil != null ? toEpochMs(updates.circuitOpenUntil) : null)
+        : (existing.circuitOpenUntil != null ? toEpochMs(existing.circuitOpenUntil) : null);
+
+    const rawPoolType =
+      (updates as { poolType?: string; pool_type?: string }).poolType ??
+      (updates as { poolType?: string; pool_type?: string }).pool_type;
+    const poolType: PoolType =
+      rawPoolType !== undefined
+        ? normalisePoolType(rawPoolType)
+        : normalisePoolType(existing.poolType ?? null);
 
     const sql = `
       UPDATE api_keys
       SET label = ?, encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ?,
-          rpm_limit = ?, rpd_limit = ?, priority = ?, status = ?, circuit_open_until = ?
+          rpm_limit = ?, rpd_limit = ?, priority = ?, status = ?, circuit_open_until = ?, pool_type = ?
       WHERE id = ? AND tenant_id = ?
     `;
 
@@ -507,6 +554,7 @@ export class ApiKeyRepository {
         priority,
         status,
         circuitOpenUntil,
+        poolType,
         id,
         tenantId
       )
@@ -523,7 +571,8 @@ export class ApiKeyRepository {
       rpdLimit,
       priority,
       status,
-      circuitOpenUntil,
+      circuitOpenUntil: circuitOpenUntil as unknown as APIKey["circuitOpenUntil"],
+      poolType,
     };
   }
 
@@ -546,9 +595,9 @@ export class ApiKeyRepository {
     id: string,
     tenantId: string,
     status: KeyStatus,
-    circuitOpenUntil: string | null = null
+    circuitOpenUntil: string | number | null = null
   ): Promise<void> {
-    if (!isKeyStatus(status)) {
+    if (!isValidStatusInput(status)) {
       throw new InvalidKeyError(`Invalid key status: '${status}'`, {
         reason: "invalid_status",
       });
@@ -557,13 +606,16 @@ export class ApiKeyRepository {
     // Verify key exists before updating
     await this.getByIdOrThrow(id, tenantId);
 
+    const canonicalStatus = normaliseKeyStatus(status);
+    const epochCircuitOpenUntil = circuitOpenUntil != null ? toEpochMs(circuitOpenUntil) : null;
+
     const sql = `
       UPDATE api_keys
       SET status = ?, circuit_open_until = ?
       WHERE id = ? AND tenant_id = ?
     `;
 
-    await this.db.prepare(sql).bind(status, circuitOpenUntil, id, tenantId).run();
+    await this.db.prepare(sql).bind(canonicalStatus, epochCircuitOpenUntil, id, tenantId).run();
   }
 
   /**
@@ -573,7 +625,7 @@ export class ApiKeyRepository {
     id: string,
     tenantId: string,
     status: KeyStatus,
-    circuitOpenUntil: string | null = null
+    circuitOpenUntil: string | number | null = null
   ): Promise<void> {
     return this.updateStatus(id, tenantId, status, circuitOpenUntil);
   }
@@ -584,9 +636,9 @@ export class ApiKeyRepository {
   async recordUsage(
     id: string,
     tenantId?: string,
-    timestamp?: string
+    timestamp?: string | number
   ): Promise<void> {
-    const ts = timestamp ?? new Date().toISOString();
+    const ts = timestamp != null ? (toEpochMs(timestamp) ?? Date.now()) : Date.now();
     let sql = `UPDATE api_keys SET last_used_at = ? WHERE id = ?`;
     const params: unknown[] = [ts, id];
 
