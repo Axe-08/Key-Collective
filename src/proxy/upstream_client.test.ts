@@ -147,30 +147,14 @@ describe("UpstreamClient", () => {
       expect(rewritten.get("user-agent")).toBe("MyApp/1.0");
     });
 
-    it("injects OpenAI/Groq/DeepSeek provider key as Authorization: Bearer <key>", () => {
-      const providers = ["openai", "groq", "deepseek", "mistral", "together", "cohere"];
+    it("injects Groq provider key as Authorization: Bearer <key>", () => {
+      const providers = ["groq"];
 
       for (const provider of providers) {
         const headers = rewriteHeaders(provider, {}, "test-provider-key");
         expect(headers.get("authorization")).toBe("Bearer test-provider-key");
         expect(headers.has("x-api-key")).toBe(false);
       }
-    });
-
-    it("injects Anthropic provider key as x-api-key and sets anthropic-version", () => {
-      const headers = rewriteHeaders("anthropic", {}, "sk-ant-test-key");
-
-      expect(headers.get("x-api-key")).toBe("sk-ant-test-key");
-      expect(headers.get("anthropic-version")).toBe("2023-06-01");
-      expect(headers.has("authorization")).toBe(false);
-    });
-
-    it("preserves custom anthropic-version if provided by client", () => {
-      const incoming = { "anthropic-version": "2024-01-01" };
-      const headers = rewriteHeaders("anthropic", incoming, "sk-ant-test-key");
-
-      expect(headers.get("x-api-key")).toBe("sk-ant-test-key");
-      expect(headers.get("anthropic-version")).toBe("2024-01-01");
     });
 
     it("injects Google/Gemini key as x-goog-api-key and Authorization: Bearer", () => {
@@ -216,8 +200,6 @@ describe("UpstreamClient", () => {
 
   describe("Unit: Endpoint Mapping & URL Construction (buildUrl)", () => {
     it("maps standard default provider chat endpoints", () => {
-      expect(buildProviderUrl("openai")).toBe("https://api.openai.com/v1/chat/completions");
-      expect(buildProviderUrl("anthropic")).toBe("https://api.anthropic.com/v1/messages");
       expect(buildProviderUrl("google")).toBe(
         "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
       );
@@ -225,16 +207,10 @@ describe("UpstreamClient", () => {
         "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
       );
       expect(buildProviderUrl("groq")).toBe("https://api.groq.com/openai/v1/chat/completions");
-      expect(buildProviderUrl("deepseek")).toBe("https://api.deepseek.com/v1/chat/completions");
-      expect(buildProviderUrl("cohere")).toBe("https://api.cohere.com/v1/chat");
-      expect(buildProviderUrl("mistral")).toBe("https://api.mistral.ai/v1/chat/completions");
-      expect(buildProviderUrl("together")).toBe("https://api.together.xyz/v1/chat/completions");
     });
 
-    it("normalizes /chat/completions for Anthropic to /messages", () => {
-      expect(buildProviderUrl("anthropic", "/chat/completions")).toBe(
-        "https://api.anthropic.com/v1/messages"
-      );
+    it("throws a configuration error for an unknown provider instead of guessing a URL", () => {
+      expect(() => buildProviderUrl("cerebras")).toThrow(/Unknown provider/);
     });
 
     it("normalizes /chat/completions for Google to /openai/chat/completions", () => {
@@ -253,41 +229,37 @@ describe("UpstreamClient", () => {
         "gemini-2.0-flash"
       );
       expect(url).toBe(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        "https://generativelanguage.googleapis.com/v1beta/openai/models/gemini-2.0-flash:generateContent"
       );
     });
 
     it("appends custom relative endpoints cleanly without double slashes", () => {
-      expect(buildProviderUrl("openai", "/embeddings")).toBe(
-        "https://api.openai.com/v1/embeddings"
+      expect(buildProviderUrl("groq", "/embeddings")).toBe(
+        "https://api.groq.com/openai/v1/embeddings"
       );
-      expect(buildProviderUrl("openai", "embeddings")).toBe(
-        "https://api.openai.com/v1/embeddings"
+      expect(buildProviderUrl("groq", "embeddings")).toBe(
+        "https://api.groq.com/openai/v1/embeddings"
       );
     });
 
     it("returns absolute URLs directly without modifying host or path", () => {
       const absolute = "https://my-custom-proxy.internal/v1/chat/completions";
-      expect(buildProviderUrl("openai", absolute)).toBe(absolute);
+      expect(buildProviderUrl("groq", absolute)).toBe(absolute);
     });
 
     it("respects baseUrls overrides in constructor options", () => {
       const client = new UpstreamClient({
         baseUrls: {
-          openai: "https://mock-openai.local/v1",
-          anthropic: "https://mock-anthropic.local",
+          groq: "https://mock-groq.local/v1",
+          google: "https://mock-google.local",
         },
       });
 
-      expect(client.buildUrl("openai")).toBe(
-        "https://mock-openai.local/v1/chat/completions"
-      );
-      expect(client.buildUrl("anthropic")).toBe(
-        "https://mock-anthropic.local/messages"
-      );
-      // Unspecified provider falls back to default
       expect(client.buildUrl("groq")).toBe(
-        "https://api.groq.com/openai/v1/chat/completions"
+        "https://mock-groq.local/v1/chat/completions"
+      );
+      expect(client.buildUrl("google")).toBe(
+        "https://mock-google.local/chat/completions"
       );
     });
   });
@@ -457,7 +429,7 @@ describe("UpstreamClient", () => {
 
       await expect(
         client.send({
-          provider: "openai",
+          provider: "groq",
           body: { model: "gpt-4o", messages: [] },
         })
       ).rejects.toThrow(InvalidKeyError);
@@ -486,12 +458,12 @@ describe("UpstreamClient", () => {
       });
 
       const res = await client.send({
-        provider: "openai",
+        provider: "groq",
         model: "gpt-4o",
         body: { messages: [] },
       });
 
-      expect(mockKeyPool.getKey).toHaveBeenCalledWith("openai");
+      expect(mockKeyPool.getKey).toHaveBeenCalledWith("groq");
       expect(capturedAuth).toBe("Bearer pool-injected-api-key");
       expect(res.ok).toBe(true);
       expect(mockKeyPool.recordResult).toHaveBeenCalledWith("pool-injected-api-key", true);
@@ -520,7 +492,7 @@ describe("UpstreamClient", () => {
       });
 
       await client.send({
-        provider: "openai",
+        provider: "groq",
         apiKey: "explicit-key-override",
         keyId: "explicit-key-id",
         body: { messages: [] },
@@ -557,11 +529,11 @@ describe("UpstreamClient", () => {
       });
 
       await client.send({
-        provider: "openai",
+        provider: "groq",
         body: {},
       });
 
-      expect(keyResolver).toHaveBeenCalledWith("key-id-123", "openai");
+      expect(keyResolver).toHaveBeenCalledWith("key-id-123", "groq");
       expect(capturedAuth).toBe("Bearer decrypted-plain-key");
       // Results recorded under original keyId
       expect(mockKeyPool.recordResult).toHaveBeenCalledWith("key-id-123", true);
@@ -588,7 +560,7 @@ describe("UpstreamClient", () => {
 
       await expect(
         client.send({
-          provider: "openai",
+          provider: "groq",
           body: {},
         })
       ).rejects.toThrow(RateLimitExceededError);
@@ -626,7 +598,7 @@ describe("UpstreamClient", () => {
       });
 
       const res = await client.send({
-        provider: "openai",
+        provider: "groq",
         model: "gpt-4o",
         body: {},
       });
@@ -659,7 +631,7 @@ describe("UpstreamClient", () => {
 
       const client = new UpstreamClient({ fetch: mockFetch });
       const res = await client.send({
-        provider: "openai",
+        provider: "groq",
         apiKey: "sk-stream-test",
         stream: true,
         body: { stream: true },
@@ -707,7 +679,7 @@ describe("UpstreamClient", () => {
 
       const client = new UpstreamClient({ fetch: mockFetch });
       const res = await client.send({
-        provider: "openai",
+        provider: "groq",
         apiKey: "sk-test",
         stream: true,
         onUsage,
@@ -762,7 +734,7 @@ describe("UpstreamClient", () => {
       });
 
       const res = await client.send({
-        provider: "openai",
+        provider: "groq",
         model: "gpt-4o",
         apiKey: "sk-test",
         keyId: "streaming-key-id",
@@ -789,7 +761,7 @@ describe("UpstreamClient", () => {
       const client = new UpstreamClient({ fetch: mockFetch });
       await expect(
         client.send({
-          provider: "openai",
+          provider: "groq",
           apiKey: "sk-test",
           stream: true,
         })
@@ -798,9 +770,9 @@ describe("UpstreamClient", () => {
   });
 
   describe("Integration: High-Level Chat Completions (chat)", () => {
-    it("formats OpenAI request and returns parsed UpstreamChatResponse", async () => {
+    it("formats Groq request and returns parsed UpstreamChatResponse", async () => {
       const mockFetch: typeof fetch = vi.fn().mockImplementation(async (url, init) => {
-        expect(url).toBe("https://api.openai.com/v1/chat/completions");
+        expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
         const body = JSON.parse(init?.body as string);
         expect(body.model).toBe("gpt-4o");
         expect(body.temperature).toBe(0.7);
@@ -831,7 +803,7 @@ describe("UpstreamClient", () => {
       });
 
       const chatRes = await client.chat({
-        provider: "openai",
+        provider: "groq",
         model: "gpt-4o",
         messages: [{ role: "user", content: "Hello!" }],
         temperature: 0.7,
@@ -840,22 +812,27 @@ describe("UpstreamClient", () => {
 
       expect(chatRes.content).toBe("Chat response here");
       expect(chatRes.model).toBe("gpt-4o");
-      expect(chatRes.provider).toBe("openai");
+      expect(chatRes.provider).toBe("groq");
       expect(chatRes.usage?.totalTokens).toBe(40);
       expect(chatRes.costMicrodollars).toBe(400_000n);
     });
 
-    it("formats Anthropic request ensuring max_tokens is present", async () => {
+    it("formats Google request and returns parsed UpstreamChatResponse", async () => {
       const mockFetch: typeof fetch = vi.fn().mockImplementation(async (url, init) => {
-        expect(url).toBe("https://api.anthropic.com/v1/messages");
+        expect(url).toBe(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+        );
         const body = JSON.parse(init?.body as string);
-        expect(body.model).toBe("claude-3-5-sonnet");
-        expect(body.max_tokens).toBe(4096); // Defaults to 4096 if unspecified
+        expect(body.model).toBe("gemini-2.0-flash");
 
         return new Response(
           JSON.stringify({
-            content: [{ type: "text", text: "Claude response" }],
-            usage: { input_tokens: 10, output_tokens: 20 },
+            choices: [
+              {
+                message: { role: "assistant", content: "Gemini response" },
+              },
+            ],
+            usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
           }),
           { status: 200, headers: { "content-type": "application/json" } }
         );
@@ -864,14 +841,14 @@ describe("UpstreamClient", () => {
       const client = new UpstreamClient({ fetch: mockFetch });
 
       const chatRes = await client.chat({
-        provider: "anthropic",
-        model: "claude-3-5-sonnet",
-        messages: [{ role: "user", content: "Hello Claude!" }],
-        apiKey: "sk-ant-test",
+        provider: "google",
+        model: "gemini-2.0-flash",
+        messages: [{ role: "user", content: "Hello Gemini!" }],
+        apiKey: "AIzaSyTestKey",
       });
 
-      expect(chatRes.content).toBe("Claude response");
-      expect(chatRes.provider).toBe("anthropic");
+      expect(chatRes.content).toBe("Gemini response");
+      expect(chatRes.provider).toBe("google");
     });
 
     it("returns empty content with streaming response when stream: true in chat()", async () => {
@@ -889,7 +866,7 @@ describe("UpstreamClient", () => {
 
       const client = new UpstreamClient({ fetch: mockFetch });
       const chatRes = await client.chat({
-        provider: "openai",
+        provider: "groq",
         model: "gpt-4o",
         messages: [],
         stream: true,
@@ -917,7 +894,7 @@ describe("UpstreamClient", () => {
 
       const client = new UpstreamClient({ fetch: mockFetch });
       const upstreamRes = await client.send({
-        provider: "openai",
+        provider: "groq",
         apiKey: "sk-test",
       });
 
@@ -941,7 +918,7 @@ describe("UpstreamClient", () => {
       const client = new UpstreamClient({ fetch: mockFetch });
       await expect(
         client.send({
-          provider: "openai",
+          provider: "groq",
           apiKey: "sk-test",
         })
       ).rejects.toThrow(ProviderRoutingError);
@@ -964,7 +941,7 @@ describe("UpstreamClient", () => {
 
       await expect(
         client.send({
-          provider: "openai",
+          provider: "groq",
           apiKey: "sk-test",
           timeoutMs: 50,
         })

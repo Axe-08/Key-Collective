@@ -28,10 +28,10 @@ export function buildProviderUrl(
   }
 
   const normProvider = provider.toLowerCase();
-  const rawBase =
-    baseUrls?.[normProvider] ??
-    DEFAULT_PROVIDER_BASE_URLS[normProvider] ??
-    `https://api.${normProvider}.com/v1`;
+  const rawBase = baseUrls?.[normProvider] ?? DEFAULT_PROVIDER_BASE_URLS[normProvider];
+  if (!rawBase) {
+    throw new Error(`Unknown provider: ${provider}`);
+  }
   const base = rawBase.replace(/\/+$/, "");
 
   // Resolve target endpoint
@@ -41,14 +41,7 @@ export function buildProviderUrl(
   }
 
   // Normalization for cross-provider compatibility
-  if (normProvider === "anthropic" && resolvedEndpoint === "/chat/completions") {
-    resolvedEndpoint = "/messages";
-  } else if (
-    (normProvider === "google" || normProvider === "gemini") &&
-    resolvedEndpoint === "/chat/completions"
-  ) {
-    resolvedEndpoint = "/openai/chat/completions";
-  } else if (
+  if (
     (normProvider === "google" || normProvider === "gemini") &&
     resolvedEndpoint.includes(":generateContent") &&
     model &&
