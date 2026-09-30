@@ -14,6 +14,34 @@ import type {
 } from "./types";
 import { mapRowToAuthTokenRecord } from "./mapper";
 
+export const RESERVED_TENANT_WORDS = new Set([
+  "admin",
+  "default",
+  "demo",
+  "anonymous",
+  "guest",
+  "system",
+]);
+
+export const VALID_TENANT_ID_REGEX = /^usr_goog_[A-Za-z0-9_-]{10,128}$/;
+
+/**
+ * Validates tenant IDs against reserved words and the required tenant ID regex format.
+ * Returns true if the ID is reserved or invalid format, false if valid.
+ *
+ * @param id - The tenant ID string to check
+ */
+export function isReservedTenantId(id: string): boolean {
+  if (typeof id !== "string") {
+    return true;
+  }
+  const trimmed = id.trim();
+  if (RESERVED_TENANT_WORDS.has(trimmed.toLowerCase())) {
+    return true;
+  }
+  return !VALID_TENANT_ID_REGEX.test(trimmed);
+}
+
 /**
  * AuthTokensRepository
  *
@@ -38,6 +66,22 @@ export class AuthTokensRepository {
         this.masterKey = config.masterKey;
       }
     }
+  }
+
+  /**
+   * Creates a new authentication token for a tenant after asserting tenant ID validity.
+   *
+   * Rejects reserved tenant identifiers and non-conforming tenant ID formats.
+   * If valid, delegates to this.createToken(params).
+   */
+  public async create(params: CreateAuthTokenParams): Promise<AuthTokenRecord> {
+    if (isReservedTenantId(params.tenantId)) {
+      throw new TenantIsolationError(
+        `Tenant ID '${params.tenantId}' is reserved or invalid`,
+        { tenantId: params.tenantId }
+      );
+    }
+    return this.createToken(params);
   }
 
   /**
