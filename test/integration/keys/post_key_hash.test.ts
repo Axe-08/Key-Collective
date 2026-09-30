@@ -12,6 +12,8 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { fetchMock } from "cloudflare:test";
+import { mockTurnstile } from "../../helpers/upstream";
 import { handlePostKeys } from "../../../src/worker/router/dashboard/keys/post_key";
 import { handleAdminRequest } from "../../../src/worker/gateway/admin_handler";
 import { deriveTenantKey, encrypt } from "../../../src/crypto/encryption/index";
@@ -155,14 +157,16 @@ describe("Write key_hash on insert + backfill maintenance route", () => {
   describe("POST /api/keys writes key_hash at insert", () => {
     it("stores a SHA-256 hex key_hash matching the raw key on insert", async () => {
       const db = new MockD1Database();
-      const env: WorkerEnv = { DB: db, KC_MASTER_KEY: MASTER_KEY };
+      const env: WorkerEnv = { DB: db, KC_MASTER_KEY: MASTER_KEY, TURNSTILE_SECRET: "test-secret" };
+      fetchMock.disableNetConnect();
+      mockTurnstile(true);
 
       const rawKey = "sk-super-secret-raw-key-0001";
       const request = new Request("https://api.keycollective.ai/api/keys", {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-turnstile-token": "1x0000000000000000000000000000000AA",
+          "x-turnstile-token": "turnstile-token-verified-by-mocked-siteverify",
         },
         body: JSON.stringify({
           provider: "openai",

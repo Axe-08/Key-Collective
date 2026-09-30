@@ -179,10 +179,10 @@ export function mockGeminiErrorInfo(projectNumber: string | number) {
   };
 }
 
-export function mockTurnstile(success: boolean) {
+export function mockTurnstile(success: boolean, opts: { persist?: boolean } = {}) {
   fetchMock.activate();
   const client = fetchMock.get("https://challenges.cloudflare.com");
-  return client
+  const scope = client
     .intercept({
       path: (p: string) => p.includes("/turnstile/v0/siteverify"),
       method: () => true,
@@ -197,6 +197,8 @@ export function mockTurnstile(success: boolean) {
         headers: { "content-type": "application/json" },
       }
     );
+  if (opts.persist) scope.persist();
+  return scope;
 }
 
 const FIXED_PRIVATE_JWK: JsonWebKey = {

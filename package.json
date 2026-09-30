@@ -7,7 +7,7 @@
     "check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:unit": "vitest run test/unit tests",
+    "test:unit": "vitest run",
     "test:workers": "vitest run -c vitest.workers.config.ts",
     "test:ui": "vitest run --root ui",
     "gate:fast": "npm run typecheck && npm run test:unit && node scripts/check-no-sql-mocks.mjs",

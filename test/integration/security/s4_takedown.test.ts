@@ -11,8 +11,9 @@
  * 5. Rate limiting: a 6th report from the same IP within an hour is rejected with 429.
  */
 
-import { describe, expect, it } from "vitest";
-import { env } from "cloudflare:test";
+import { beforeEach, describe, expect, it } from "vitest";
+import { env, fetchMock } from "cloudflare:test";
+import { mockTurnstile } from "../../helpers/upstream";
 import { handleReportKeyAbuse } from "../../../src/worker/router/dashboard/abuse_routes";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
 import type {
@@ -27,7 +28,14 @@ declare module "cloudflare:test" {
   }
 }
 
-const ALWAYS_PASS_TOKEN = "1x0000000000000000000000000000000AA";
+// Turnstile fixture tokens are rejected since WP-0.5; siteverify is mocked at the HTTP layer instead.
+const ALWAYS_PASS_TOKEN = "turnstile-token-verified-by-mocked-siteverify";
+
+beforeEach(() => {
+  fetchMock.activate();
+  fetchMock.disableNetConnect();
+  mockTurnstile(true, { persist: true });
+});
 
 /**
  * Real DO instances (RateLimiterDO / KeyPoolDO) are backed by SQLite storage in the
@@ -91,7 +99,7 @@ class MockDurableObjectNamespace<T extends DurableObjectStubLike> implements Dur
 function makeTestEnv(): WorkerEnv {
   return {
     DB: env.DB,
-    TURNSTILE_SECRET: env.TURNSTILE_SECRET,
+    TURNSTILE_SECRET: env.TURNSTILE_SECRET ?? "test-secret",
     RATE_LIMITER: new MockDurableObjectNamespace(() => new MockRateLimiterStub()) as unknown as DurableObjectNamespace,
     KEY_POOL: new MockDurableObjectNamespace(() => new MockKeyPoolStub()) as unknown as DurableObjectNamespace,
   };

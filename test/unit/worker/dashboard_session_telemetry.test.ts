@@ -76,17 +76,14 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
     () => ({} as any)
   );
 
-  it("GET /api/session returns admin identity for master key", async () => {
+  it("GET /api/session does not treat the master key as an admin identity (WP-0.3, S3)", async () => {
     const req = new Request("https://key-col.axe08.tech/api/session", {
       headers: { authorization: "Bearer admin-master-key-xyz" },
     });
     const res = await router.handle(req, "/api/session", "GET", env);
-    expect(res.status).toBe(200);
     const data = await res.json() as any;
-    expect(data.success).toBe(true);
-    expect(data.user.id).toBe("admin");
-    expect(data.user.tier).toBe("admin");
-    expect(data.user.role).toBe("admin");
+    expect(data.user?.role).not.toBe("admin");
+    expect(data.user?.id).not.toBe("admin");
   });
 
   it("GET /api/session returns user identity from D1 users table", async () => {
@@ -143,7 +140,7 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
     await reader!.cancel();
   });
 
-  it("POST /api/admin/tenants/:id/tier updates role and upserts non-existent user", async () => {
+  it("POST /api/admin/tenants/:id/tier rejects the master key as admin credential and creates no user (WP-0.3, WP-0.9)", async () => {
     const req = new Request("https://key-col.axe08.tech/api/admin/tenants/usr_gh_newuser/tier", {
       method: "POST",
       headers: {
@@ -154,14 +151,7 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
     });
 
     const res = await router.handle(req, "/api/admin/tenants/usr_gh_newuser/tier", "POST", env);
-    expect(res.status).toBe(200);
-    const data = await res.json() as any;
-    expect(data.success).toBe(true);
-    expect(data.target_tenant_tier).toBe("admin");
-
-    const saved = users.get("usr_gh_newuser");
-    expect(saved).toBeDefined();
-    expect(saved.tier).toBe("admin");
-    expect(saved.role).toBe("admin");
+    expect(res.status).toBe(401);
+    expect(users.get("usr_gh_newuser")).toBeUndefined();
   });
 });

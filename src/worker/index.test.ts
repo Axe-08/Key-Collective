@@ -133,6 +133,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // UPDATE USERS
     if (q.includes("UPDATE USERS")) {
+      let changes = 0;
       if (q.includes("SET TIER = ?, ROLE = ? WHERE ID = ?")) {
         const [tier, role, id] = this.boundParams;
         const u = this.db.users.get(String(id));
@@ -150,6 +151,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         const [isQuar, reason, id] = this.boundParams;
         const u = this.db.users.get(String(id));
         if (u) {
+          changes = 1;
           u.is_quarantined = isQuar === 1 || isQuar === true ? 1 : 0;
           u.quarantine_reason = String(reason);
         }
@@ -161,7 +163,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           u.quarantine_reason = String(reason);
         }
       }
-      return { results: [], success: true, meta: { duration: 1 } as any };
+      return { results: [], success: true, meta: { duration: 1, changes } as any };
     }
 
     // INSERT INTO AUDIT_LOGS
@@ -351,8 +353,8 @@ describe("Subdomain Routing (AUTH-03)", () => {
       });
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(401);
-      const body = (await res.json()) as { code: string };
-      expect(body.code).toBe("AUTHENTICATION_FAILED");
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("AUTHENTICATION_FAILED");
     });
   });
 
@@ -422,13 +424,13 @@ describe("Subdomain Routing (AUTH-03)", () => {
   });
 
   describe("Subdomain 3: admin.* -> Admin Surveillance Router with Zero-Knowledge Denial", () => {
-    it("allows browser access to admin.* with ?token= query parameter", async () => {
+    it("rejects ?token= query parameter on admin.* with zero-knowledge 404 (WP-0.3)", async () => {
       const req = new Request(`https://admin.key-col.axe08.tech/?token=${adminToken}`, {
         method: "GET",
         headers: { host: "admin.key-col.axe08.tech" },
       });
       const res = await worker.fetch(req, env);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(404);
     });
 
     it("TC-ADMIN-01: Non-admin access returns 404 zero-knowledge denial", async () => {

@@ -419,8 +419,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(403);
-      const json = await res.json() as { error: string; code: string };
-      expect(json.code).toBe("TENANT_ISOLATION_VIOLATION");
+      const json = await res.json() as { error: { message: string; type: string; code: string } };
+      expect(json.error.code).toBe("TENANT_ISOLATION_VIOLATION");
     });
   });
 
@@ -634,8 +634,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       // Golden assertions for tc-05
       expect(res.status).toBe(400);
-      const json = await res.json() as { error: string; code: string };
-      expect(json.code).toBe("CONTEXT_WINDOW_EXCEEDED");
+      const json = await res.json() as { error: { message: string; type: string; code: string } };
+      expect(json.error.code).toBe("CONTEXT_WINDOW_EXCEEDED");
 
       // Verify no upstream call was made
       expect(upstreamFetch).not.toHaveBeenCalled();
@@ -714,8 +714,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       // Golden assertions for tc-07
       expect(res.status).toBe(400);
-      const json = await res.json() as { error: string; code: string };
-      expect(json.code).toBe("CAPABILITY_MISMATCH");
+      const json = await res.json() as { error: { message: string; type: string; code: string } };
+      expect(json.error.code).toBe("CAPABILITY_MISMATCH");
     });
   });
 
@@ -815,8 +815,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(404);
-      const json = await res.json() as { error: string; code: string };
-      expect(json.code).toBe("MODEL_NOT_FOUND");
+      const json = await res.json() as { error: { message: string; type: string; code: string } };
+      expect(json.error.code).toBe("MODEL_NOT_FOUND");
     });
   });
 
@@ -906,8 +906,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(400);
-      const json = await res.json() as { error: string; code: string };
-      expect(json.code).toBe("INVALID_REQUEST_BODY");
+      const json = await res.json() as { error: { message: string; type: string; code: string } };
+      expect(json.error.code).toBe("INVALID_REQUEST_BODY");
     });
 
     it("returns 400 when messages parameter is not an array", async () => {
@@ -923,8 +923,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(400);
-      const json = await res.json() as { error: string; code: string };
-      expect(json.code).toBe("INVALID_MESSAGES_PARAMETER");
+      const json = await res.json() as { error: { message: string; type: string; code: string } };
+      expect(json.error.code).toBe("INVALID_MESSAGES_PARAMETER");
     });
 
     it("returns 404 for unknown route paths", async () => {

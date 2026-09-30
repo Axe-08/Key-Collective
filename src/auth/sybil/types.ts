@@ -109,6 +109,8 @@ export interface SybilRequestInput {
   readonly clientIp?: string;
   readonly turnstileToken?: string;
   readonly turnstile_token?: string;
+  /** Turnstile siteverify secret; required whenever a token is scored (WP-0.5). */
+  readonly turnstileSecret?: string;
   readonly json?: () => Promise<unknown>;
   readonly clone?: () => SybilRequestInput;
 }

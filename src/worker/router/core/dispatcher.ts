@@ -120,21 +120,11 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
         err instanceof ModelNotFoundError ||
         (err && typeof err === "object" && (err as { code?: string }).code === "MODEL_NOT_FOUND")
       ) {
-        return Response.json(
-          {
-            error: `Model '${modelId}' not found in registry`,
-            code: "MODEL_NOT_FOUND",
-            statusCode: 404,
-            details: { modelIdOrAlias: modelId },
-          },
-          {
-            status: 404,
-            headers: {
-              "access-control-allow-origin": "*",
-              "content-type": "application/json; charset=utf-8",
-            },
-          }
+        const res = formatRouterError(
+          err instanceof ModelNotFoundError ? err : new RouterError(`Model '${modelId}' not found`, { code: "MODEL_NOT_FOUND", statusCode: 404 })
         );
+        res.headers.set("access-control-allow-origin", "*");
+        return res;
       }
       throw err;
     }

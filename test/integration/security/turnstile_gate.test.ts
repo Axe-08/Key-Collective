@@ -12,6 +12,7 @@
 import { describe, expect, it, beforeAll, afterEach } from "vitest";
 import { env, fetchMock } from "cloudflare:test";
 import { handlePostKeys } from "../../../src/worker/router/dashboard/keys/post_key";
+import { handleReportKeyAbuse } from "../../../src/worker/router/dashboard/abuse_routes";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
 
 declare module "cloudflare:test" {
@@ -72,6 +73,20 @@ describe("Turnstile gate: POST /api/keys always verifies via siteverify", () => 
     ).rejects.toMatchObject({
       statusCode: 403,
       message: expect.stringContaining("Turnstile validation failed"),
+    });
+  });
+});
+
+describe("Turnstile gate: abuse takedown requires a token", () => {
+  it("rejects with 403 when no Turnstile token is supplied at all", async () => {
+    const req = new Request("http://localhost/api/abuse/report-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leaked_key: "test_key" }),
+    });
+
+    await expect(handleReportKeyAbuse(req, makeTestEnv())).rejects.toMatchObject({
+      statusCode: 403,
     });
   });
 });

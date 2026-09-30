@@ -5,59 +5,25 @@
  * 1. Strict TypeScript: Zero any.
  * 2. HTTP 410 Gone: GET /api/auth/github/callback (with or without query parameters) returns 410.
  * 3. Token Exfiltration Shield: Response body never contains 'postMessage' or '/?token='.
- * 4. Zero Persistence: No user records or auth tokens inserted into D1.
+ * 4. Zero Persistence: No user records or auth tokens inserted into the real (migrated) D1.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { env as testEnv } from "cloudflare:test";
 import { handleOAuthGithubCallback } from "../../../src/worker/router/dashboard/auth_routes";
 import { defaultMainWorker } from "../../../src/worker/index";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
 
-interface MockStatement {
-  bind: (...args: unknown[]) => MockStatement;
-  run: () => Promise<{ success: boolean }>;
-  first: <T = unknown>() => Promise<T | null>;
-  all: <T = unknown>() => Promise<{ results: T[] }>;
-}
-
-function createMockDb() {
-  const queries: { sql: string; params: unknown[] }[] = [];
-
-  const db: D1Database = {
-    prepare: (query: string): D1PreparedStatement => {
-      let boundParams: unknown[] = [];
-      const stmt: MockStatement = {
-        bind: (...args: unknown[]) => {
-          boundParams = args;
-          return stmt;
-        },
-        run: async () => {
-          queries.push({ sql: query, params: boundParams });
-          return { success: true };
-        },
-        first: async <T = unknown>() => {
-          queries.push({ sql: query, params: boundParams });
-          return null as T | null;
-        },
-        all: async <T = unknown>() => {
-          queries.push({ sql: query, params: boundParams });
-          return { results: [] as T[] };
-        },
-      };
-      return stmt as unknown as D1PreparedStatement;
-    },
-    dump: vi.fn(),
-    batch: vi.fn(),
-    exec: vi.fn(),
-  };
-
-  return { db, queries };
+async function countIdentityRows(): Promise<{ users: number; tokens: number }> {
+  const users = await testEnv.DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
+  const tokens = await testEnv.DB.prepare("SELECT COUNT(*) AS n FROM auth_tokens").first<{ n: number }>();
+  return { users: users?.n ?? 0, tokens: tokens?.n ?? 0 };
 }
 
 describe("S8 Security: Disabled GitHub OAuth Callback (HTTP 410 Gone)", () => {
   it("returns HTTP 410 Gone when called directly without query parameters", async () => {
-    const { db, queries } = createMockDb();
-    const env: WorkerEnv = { DB: db };
+    const before = await countIdentityRows();
+    const env: WorkerEnv = { DB: testEnv.DB };
 
     const req = new Request("http://localhost/api/auth/github/callback", {
       method: "GET",
@@ -79,18 +45,13 @@ describe("S8 Security: Disabled GitHub OAuth Callback (HTTP 410 Gone)", () => {
       "GitHub authentication is disabled until link flow is implemented."
     );
 
-    const userOrTokenInserts = queries.filter(
-      (q) =>
-        q.sql.toLowerCase().includes("insert into users") ||
-        q.sql.toLowerCase().includes("insert into auth_tokens")
-    );
-    expect(userOrTokenInserts).toHaveLength(0);
+    expect(await countIdentityRows()).toEqual(before);
   });
 
   it("returns HTTP 410 Gone when called directly with OAuth code and state", async () => {
-    const { db, queries } = createMockDb();
+    const before = await countIdentityRows();
     const env: WorkerEnv = {
-      DB: db,
+      DB: testEnv.DB,
       GITHUB_CLIENT_SECRET: "test-github-secret",
     };
 
@@ -117,19 +78,13 @@ describe("S8 Security: Disabled GitHub OAuth Callback (HTTP 410 Gone)", () => {
       "GitHub authentication is disabled until link flow is implemented."
     );
 
-    const userOrTokenInserts = queries.filter(
-      (q) =>
-        q.sql.toLowerCase().includes("insert into users") ||
-        q.sql.toLowerCase().includes("insert into auth_tokens")
-    );
-    expect(userOrTokenInserts).toHaveLength(0);
-    expect(queries).toHaveLength(0);
+    expect(await countIdentityRows()).toEqual(before);
   });
 
   it("routes GET /api/auth/github/callback through MainWorker to HTTP 410 without inserting into D1", async () => {
-    const { db, queries } = createMockDb();
+    const before = await countIdentityRows();
     const env: WorkerEnv = {
-      DB: db,
+      DB: testEnv.DB,
       GITHUB_CLIENT_SECRET: "mock-secret",
     };
 
@@ -153,11 +108,6 @@ describe("S8 Security: Disabled GitHub OAuth Callback (HTTP 410 Gone)", () => {
     expect(data.error.code).toBe("GONE");
     expect(data.error.statusCode).toBe(410);
 
-    const userOrTokenInserts = queries.filter(
-      (q) =>
-        q.sql.toLowerCase().includes("users") ||
-        q.sql.toLowerCase().includes("auth_tokens")
-    );
-    expect(userOrTokenInserts).toHaveLength(0);
+    expect(await countIdentityRows()).toEqual(before);
   });
 });
