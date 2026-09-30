@@ -9,6 +9,7 @@
 import { verifyTurnstileToken } from "../../../../auth/sybil/index";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
 import { forceErrorGcpProbe } from "../../../../ingress/probe";
+import { PROVIDERS } from "../../../../providers/config";
 import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
@@ -65,6 +66,10 @@ export async function handlePostKeys(
 
   const rawKey = body.key.trim();
   const provider = body.provider === "gemini" ? "google" : body.provider;
+
+  if (!Object.prototype.hasOwnProperty.call(PROVIDERS, provider)) {
+    throw new RouterError("Unsupported provider", { statusCode: 400 });
+  }
 
   const extractedProject = await forceErrorGcpProbe(rawKey, provider);
   if (extractedProject) {
