@@ -8,16 +8,76 @@
 
 import type { WorkerEnv } from "../../../auth/index";
 
+export interface FormattedKeyItem {
+  id: string;
+  key_prefix: string;
+  key_suffix: string;
+  provider: string;
+  label: string;
+  rpm_limit: number;
+  rpd_limit: number;
+  priority: number;
+  status: string;
+  requests_this_min: number;
+  requests_today: number;
+  total_requests: number;
+  avg_latency_ms: number;
+  cooldown_until: string | null;
+  created_at: string;
+  pool_type: "PRIVATE" | "COMMUNITY";
+  community_routing_status: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED";
+  observation_until: string | null;
+  dispatched_today: number;
+  dispatched_communal: number;
+  vesting_tier: number;
+  tenant_id?: string;
+  is_owner: boolean;
+}
+
+interface ApiKeyRow {
+  id: string;
+  tenant_id: string;
+  label: string;
+  provider: string;
+  key_prefix: string;
+  key_suffix: string;
+  rpm_limit: number;
+  rpd_limit: number;
+  priority: number;
+  status: string;
+  circuit_open_until: string | null;
+  created_at: string;
+  pool_type: "PRIVATE" | "COMMUNITY" | null;
+  community_routing_status: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED" | null;
+  observation_until: string | null;
+  dispatched_today: number | null;
+  dispatched_communal: number | null;
+  vesting_tier: 0 | 1 | 2 | null;
+}
+
 export async function handleGetKeys(
   env: WorkerEnv,
   tenantId: string
 ): Promise<Response> {
+  const isUnauthenticated = !tenantId || tenantId === "anonymous" || tenantId === "guest";
+  if (isUnauthenticated) {
+    return Response.json(
+      { error: "Unauthorized" },
+      {
+        status: 401,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
+  }
+
   if (!env.DB || typeof env.DB.prepare !== "function") {
     return Response.json([]);
   }
 
   let isGlobal = tenantId === "admin";
-  if (!isGlobal && tenantId && tenantId !== "anonymous" && tenantId !== "guest") {
+  if (!isGlobal) {
     try {
       const u = await env.DB.prepare("SELECT tier, role FROM users WHERE id = ?").bind(tenantId).first<{ tier?: string; role?: string }>();
       if (u && (u.tier === "admin" || u.role === "admin")) {
@@ -25,66 +85,22 @@ export async function handleGetKeys(
       }
     } catch {}
   }
-  const isUnauthenticated = !tenantId || tenantId === "anonymous" || tenantId === "guest";
 
   let keysQuery = "";
   if (isGlobal) {
     keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
        FROM api_keys
        ORDER BY priority ASC, created_at DESC`;
-  } else if (isUnauthenticated) {
-    keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
-       FROM api_keys
-       WHERE pool_type = 'COMMUNITY'
-       ORDER BY priority ASC, created_at DESC`;
   } else {
     keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
        FROM api_keys
-       WHERE pool_type = 'COMMUNITY' OR (pool_type = 'PRIVATE' AND tenant_id = ?)
+       WHERE tenant_id = ?
        ORDER BY priority ASC, created_at DESC`;
   }
 
-  const keysResult = (isGlobal || isUnauthenticated)
-    ? await env.DB.prepare(keysQuery).all<{
-        id: string;
-        tenant_id: string;
-        label: string;
-        provider: string;
-        key_prefix: string;
-        key_suffix: string;
-        rpm_limit: number;
-        rpd_limit: number;
-        priority: number;
-        status: string;
-        circuit_open_until: string | null;
-        created_at: string;
-        pool_type: 'PRIVATE' | 'COMMUNITY' | null;
-        community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
-        observation_until: string | null;
-        dispatched_today: number | null;
-        dispatched_communal: number | null;
-        vesting_tier: 0 | 1 | 2 | null;
-      }>()
-    : await env.DB.prepare(keysQuery).bind(tenantId).all<{
-        id: string;
-        tenant_id: string;
-        label: string;
-        provider: string;
-        key_prefix: string;
-        key_suffix: string;
-        rpm_limit: number;
-        rpd_limit: number;
-        priority: number;
-        status: string;
-        circuit_open_until: string | null;
-        created_at: string;
-        pool_type: 'PRIVATE' | 'COMMUNITY' | null;
-        community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
-        observation_until: string | null;
-        dispatched_today: number | null;
-        dispatched_communal: number | null;
-        vesting_tier: 0 | 1 | 2 | null;
-      }>();
+  const keysResult = isGlobal
+    ? await env.DB.prepare(keysQuery).all<ApiKeyRow>()
+    : await env.DB.prepare(keysQuery).bind(tenantId).all<ApiKeyRow>();
 
   const metricsQuery = isGlobal
     ? `SELECT key_id, COUNT(*) as total_reqs, AVG(latency_ms) as avg_lat
@@ -118,7 +134,7 @@ export async function handleGetKeys(
   }
 
   const rows = keysResult.results || [];
-  const formattedKeys = rows.map((row) => {
+  const formattedKeys: FormattedKeyItem[] = rows.map((row) => {
     const metric = metricsMap.get(row.id);
     const normStatus = row.status.toLowerCase().includes("rate")
       ? "rate_limited"
@@ -130,16 +146,15 @@ export async function handleGetKeys(
       ? "disabled"
       : "healthy";
 
-    const isOwner = isGlobal ? true : (tenantId && tenantId !== 'anonymous' && tenantId !== 'guest' && row.tenant_id === tenantId);
+    const isOwner = isGlobal ? true : row.tenant_id === tenantId;
 
-    // Privacy: never reveal which tenant owns a community key to non-owners.
-    // Admin (isGlobal) and the key's actual owner always see the real tenant_id.
-    const exposedTenantId = (isGlobal || isOwner) ? row.tenant_id : null;
+    const keyPrefix = (row.key_prefix || "").slice(0, 6);
+    const keySuffix = (row.key_suffix || "").slice(-4);
 
-    return {
+    const formattedKey: FormattedKeyItem = {
       id: row.id,
-      key_prefix: row.key_prefix,
-      key_suffix: row.key_suffix,
+      key_prefix: keyPrefix,
+      key_suffix: keySuffix,
       provider: row.provider === "google" ? "gemini" : row.provider,
       label: row.label,
       rpm_limit: row.rpm_limit,
@@ -152,15 +167,17 @@ export async function handleGetKeys(
       avg_latency_ms: metric?.avg_lat ?? 0,
       cooldown_until: row.circuit_open_until,
       created_at: row.created_at,
-      pool_type: row.pool_type ?? 'COMMUNITY',
-      community_routing_status: row.community_routing_status ?? 'OBSERVATION',
+      pool_type: row.pool_type ?? "COMMUNITY",
+      community_routing_status: row.community_routing_status ?? "OBSERVATION",
       observation_until: row.observation_until ?? null,
       dispatched_today: row.dispatched_today ?? 0,
       dispatched_communal: row.dispatched_communal ?? 0,
       vesting_tier: row.vesting_tier ?? 0,
-      tenant_id: exposedTenantId,
+      ...(isGlobal ? { tenant_id: row.tenant_id } : {}),
       is_owner: isOwner,
     };
+
+    return formattedKey;
   });
 
   return Response.json(formattedKeys, {
