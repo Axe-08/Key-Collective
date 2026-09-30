@@ -175,6 +175,35 @@
           "dataset": "key_collective_telemetry"
         }
       ]
+    },
+    "test": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "key-collective-d1-test",
+          "database_id": "key-collective-d1-test"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "KEY_POOL",
+            "class_name": "KeyPoolDO"
+          },
+          {
+            "name": "DEMO_POOL",
+            "class_name": "DemoDO"
+          },
+          {
+            "name": "POOL_COORDINATOR",
+            "class_name": "PoolCoordinatorDO"
+          },
+          {
+            "name": "TENANT_QUOTA",
+            "class_name": "TenantQuotaDO"
+          }
+        ]
+      }
     }
   }
 }
