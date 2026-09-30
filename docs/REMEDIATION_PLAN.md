@@ -1,14 +1,16 @@
 # Key Collective — Remediation & Implementation Plan
 
-As of 2026-09-30 · baseline: [`docs/INTENT_AUDIT.md`](INTENT_AUDIT.md) (commit `ba9151d`) and [`docs/PRD.md`](PRD.md) v4.0
+As of 2026-09-30 · revised for HIVE v3 execution · baseline: [`docs/INTENT_AUDIT.md`](INTENT_AUDIT.md) (commit `ba9151d`) and [`docs/PRD.md`](PRD.md) v4.0
 
-This plan covers **every** finding in the intent audit, the two concerns raised after it (API host sprawl, microdollars vs credit units), and seven issues found while writing it (N-01 to N-07). Each finding maps to a work package (WP) with an implementation design, data migration, the tests that prove it, and a "done when" condition. Appendix A is the full traceability matrix; Appendix B gives a disposition for every existing test file.
+This plan covers **every** finding in the intent audit, the two concerns raised after it (API host sprawl, microdollars vs credit units), and seven issues found while writing it (N-01 to N-07). Each finding maps to a work package (WP) with an implementation design, data migration, the tests that prove it, and a "done when" condition. Appendix A (section 10.1) is the full traceability matrix; Appendix B (section 10.2) gives a disposition for every existing test file. The plan is written to be executed by HIVE v3: see **HIVE execution (v3)** for the run configuration and **Plan review v2** for the problems fixed in this revision.
 
 ---
 
 ## Contents
 
 0. [How to use this plan](#0-how-to-use-this-plan)
+   - [HIVE execution (v3)](#hive-execution-v3)
+   - [Plan review v2 — problems found and remediations](#plan-review-v2--problems-found-and-remediations)
 1. [Decisions log](#1-decisions-log)
 2. [Foundations (cross-cutting designs)](#2-foundations-cross-cutting-designs)
    - 2.1 Host topology: all API traffic on `api.key-col.axe08.tech/v1`
@@ -23,9 +25,9 @@ This plan covers **every** finding in the intent audit, the two concerns raised 
 7. [Phase 4 — Frontend truth](#phase-4--frontend-truth)
 8. [Phase 5 — Stubs, dead code, hygiene and docs](#phase-5--stubs-dead-code-hygiene-and-docs)
 9. [Phase 6 — Tests and quality gate](#phase-6--tests-and-quality-gate)
-10. [Appendix A — Traceability matrix (every finding → WP)](#appendix-a--traceability-matrix)
-11. [Appendix B — Disposition of every existing test file](#appendix-b--disposition-of-every-existing-test-file)
-12. [Appendix C — Migration sequence](#appendix-c--migration-sequence)
+10. [10.1 Appendix A — Traceability matrix (every finding → WP)](#101-appendix-a--traceability-matrix)
+11. [10.2 Appendix B — Disposition of every existing test file](#102-appendix-b--disposition-of-every-existing-test-file)
+12. [10.3 Appendix C — Migration sequence](#103-appendix-c--migration-sequence)
 
 ---
 
@@ -49,6 +51,108 @@ This plan covers **every** finding in the intent audit, the two concerns raised 
 
 ---
 
+## HIVE execution (v3)
+
+This plan is executed by the HIVE v3 skill (`~/.gemini/config/skills/hierarchical-hive`). The runner compiles every `### WP-…` section below into a work package; planners split each WP into task cards; builders implement cards in separate git worktrees; the runner gates, commits and merges. Text outside WP sections (this section, the decisions log, the review below, phase intros) is for the operator and is not shown to agents unless a WP cites a numbered section (for example "section 2.1").
+
+### Run configuration
+
+```bash
+python3 ~/.gemini/config/skills/hierarchical-hive/scripts/hive_runner.py init \
+  --plan docs/REMEDIATION_PLAN.md --stages "0|1|2,3,4,5|6" --max-width 6
+```
+
+Then set in `.hive/config.json` and run `compile`:
+
+```json
+{
+  "stage_overrides": { "WP-1.0": 0, "WP-6.1": 0, "WP-3.4": 1,
+                       "WP-5.3": 3, "WP-5.4": 3, "WP-5.5": 3, "WP-5.6": 3 },
+  "review": { "phases": [0], "globs": ["migrations/*", "**/auth/**", "**/crypto/**", "**/security/**",
+                                       "**/quota/**", "**/pool/**", "**/key_resolver*"] },
+  "forbid": [
+    { "pattern": "catch\\s*(\\([^)]*\\))?\\s*\\{\\s*\\}", "glob": "src/*", "message": "empty catch block" },
+    { "pattern": "\\bas any\\b|:\\s*any\\b", "glob": "src/*", "message": "`any` in new code" },
+    { "pattern": "\\b(it|test|describe)\\.only\\(", "glob": "*", "message": ".only left in a test" },
+    { "pattern": "prepare\\s*:\\s*\\(", "glob": "test*/*", "message": "hand-rolled D1 mock (use the Workers harness)" },
+    { "pattern": "x-tenant-id", "glob": "ui/src/*", "message": "client-chosen tenant header" },
+    { "pattern": "microdollar|Microdollar", "glob": "*", "message": "microdollars were replaced by CU (D-02)" }
+  ]
+}
+```
+
+`gate.always` stays `npm run -s typecheck` (Worker typecheck, about 3 s). The microdollar rule is added only after WP-1.3 merges (it would block WP-1.3's own expand step). After WP-6.5 lands, set `gate.stage` to `npm run gate`.
+
+### Stages
+
+| Stage | Branch | Work packages | Runs after |
+| --- | --- | --- | --- |
+| 0 | `hive/stage-0` | WP-1.0 (harness), WP-6.1, then WP-0.1 … WP-0.10 in parallel | — (ships as the security hotfix) |
+| 1 | `hive/stage-1` | WP-3.4, WP-1.1 … WP-1.6 | stage 0 sign-off |
+| 2 | `hive/stage-2` | WP-2.0 … WP-2.13, WP-3.1 … WP-3.7 (except 3.4), WP-4.1 … WP-4.7, WP-5.1, WP-5.2 | stage 1 sign-off |
+| 3 | `hive/stage-3` | WP-5.3 … WP-5.6, WP-6.2 … WP-6.5 | stage 2 sign-off |
+
+Cross-cutting cleanup (WP-5.3 … 5.6) runs last because it touches files in every module; in stage 2 it would serialise behind, and conflict with, feature work.
+
+### Operator (Human) steps
+
+| When | Step | Needed by |
+| --- | --- | --- |
+| Before stage 0 | Install new dependencies in the main checkout and commit `package.json`/lockfiles on the base branch: root `npm i jose` and `npm i -D @cloudflare/vitest-pool-workers fast-check eslint typescript-eslint @vitest/coverage-v8`; `ui/`: `npm i -D msw`. Builders never install packages: worktrees share `node_modules` through symlinks, so an install inside a worktree would change every running task's dependencies. | WP-1.0, WP-0.2, WP-1.3, WP-4.1, WP-5.3, WP-6.5 |
+| After stage 0 is deployed | Run the key-hash backfill route once, then remove it (WP-0.4 step 2). Carry out OP-0.11 (incident response and rotation). | WP-0.4, OP-0.11 |
+| Before stage 1 | Confirm `consent_attestations` and `project_hash_registry` are empty in production. Run the GCP forced-error probe against a real free-tier Gemini key and record the raw response in `docs/specs/gcp_probe.md`. | WP-1.4, WP-1.5 |
+| During stage 1, after WP-3.4 merges | Run `scripts/verify_catalog.mjs` with real Gemini and Groq keys; fix the catalog ids it reports before WP-1.3 starts (`hive pause` / `resume` if needed). | WP-3.4, WP-1.3 |
+| Before stage 2 | Record each provider's daily quota reset time and timezone, with source links, in `docs/specs/provider_quotas.md`. | WP-2.9 |
+| At every stage gate | Staging walkthrough listed in the plan's phase gate; sign off, then `advance`. | all |
+
+### Conventions used in the WP text
+
+- **Depends on:** lists the WPs that must be fully merged first. The runner applies it to every card of the WP. Other WP ids in the text are follow-up pointers, not dependencies.
+- **Human** marks an operator step. Planners create no cards for it.
+- **HIVE:** notes are instructions to planners (card grouping, red-check policy).
+- **Red check.** Cards that change behaviour must add a test that fails before the change. Cards that only move, rewrite or delete existing tests or code without changing behaviour (large parts of WP-1.3, WP-5.3 … 5.5, WP-6.1, WP-6.2) use `"red": false`.
+- **UI cards** add `cd ui && npm run check` and a targeted `cd ui && npx vitest run <file>` to `verify`, because `gate.always` typechecks only the Worker.
+- **Migrations** are numbered per WP in section 10.3. A WP creates only its own migration file.
+- **Expected serialisation.** Several stage-0 WPs edit the same files (`dashboard/handler.ts`: WP-0.1, WP-0.3; `core/dispatcher.ts`: WP-0.1, WP-0.8; `ui/src/lib/api.ts`: WP-0.1, WP-0.3; `auth_routes.ts`: WP-0.2, WP-0.10). The runner runs such tasks one after another; this is correct, not a stall.
+
+## Plan review v2 — problems found and remediations
+
+Checked by compiling the plan with the HIVE runner and reading every WP against the others. All remediations are applied in this revision.
+
+| # | Problem | Impact if unfixed | Remediation (applied) |
+| --- | --- | --- | --- |
+| P-01 | Phase 0 security tests require the Workers test harness, which lived in WP-1.0 (Phase 1). | Stage 0 cards fail validation (dependency on a later stage) or ship without real tests. | WP-1.0 moved to stage 0; every Phase 0 WP declares `Depends on: WP-1.0`. |
+| P-02 | WP-1.0's helpers assumed the Phase 1 identity model (`user_identities`, sessions) and created provider keys through `POST /api/keys`, which is broken until WP-1.5. | The harness cannot be built in stage 0. | Stage-0 helpers use the current schema and direct SQL; WP-1.2 and WP-1.5 extend them. |
+| P-03 | WP-1.0 bound `RATE_LIMITER`, which WP-0.4 creates later. | WP-1.0 cannot pass its own gate. | WP-1.0 binds the existing four DOs; WP-0.4 adds `RATE_LIMITER` to every environment, including `test`. |
+| P-04 | WP-0.4's takedown promised an owner notification, but the notifications table arrives with WP-3.2 (stage 2). | Unfulfillable test item. | Notification moved to WP-3.2; WP-0.4 test item replaced. |
+| P-05 | WP-0.4 removed revoked keys "from the coordinator", which has no key registry until WP-2.1. Revoked community keys would keep being lent from other tenants' DO snapshots through stages 0–1. | A reported leaked key stays usable for weeks. | WP-0.4 adds a per-key D1 status re-check (cached 60 s) in `KeyPoolDO.getKey` for keys the tenant does not own. |
+| P-06 | WP-0.4's migration comment attributed `admin_audit_logs` to WP-0.3; WP-0.9 is the writer. | Wrong dependency. | Comment fixed; WP-0.9 declares `Depends on: WP-0.4`. |
+| P-07 | WP-0.11 is operational only (log searches, secret rotation, incident report). | Builders cannot do it and would file deviations. | Renamed OP-0.11, an operator task outside the WP set. |
+| P-08 | Operator-only steps were embedded in WPs (production row counts, live GCP probe, catalog verification with real keys, provider documentation research, running the backfill). | Builders stall or invent results. | Marked **Human** and listed with timing in **HIVE execution (v3)**. |
+| P-09 | Four WPs added npm dependencies from inside tasks. | An install in one worktree rewrites the shared `node_modules` under every running task. | All dependencies are pre-installed before stage 0 (operator step). |
+| P-10 | WP-1.3 asked for "one mechanical PR" across 78 files. | Impossible under per-card limits (≤ 8 files, typecheck must pass per card). | Rewritten as expand → migrate per module group → contract. |
+| P-11 | WP-1.3 assigned CU weights "for the models kept by WP-3.4", but WP-3.4 ran two stages later. | CU weights for models that are about to be deleted, then rework. | WP-3.4 moved to stage 1 and runs first; `/v1/models` CU fields moved from WP-3.4 to WP-1.3. |
+| P-12 | WP-1.3 edited `coordinator_do.ts`, which WP-2.1 and WP-2.11 rewrite. | Wasted work and a guaranteed conflict. | Left to WP-2.11. |
+| P-13 | WP-1.3's tests (from section 2.2) expected the streaming `kc.usage` event, which WP-3.3 implements in stage 2. | Unfulfillable test item in stage 1. | WP-1.3 tests the non-streaming path; the streaming event stays in WP-3.3. |
+| P-14 | WP-1.4 dropped `api_keys.dispatched_*`/`vesting_tier`, still read by `/api/pool/*` and `get_keys.ts` until stage 2. | Pool and key APIs fail between stages. | Columns kept; WP-2.11 drops them (migration 0023) after switching readers. |
+| P-15 | WP-1.4 renamed status values (`Healthy` → `HEALTHY` …) without updating the string literals in code, including KeyPoolDO's `status = 'Healthy'` load query. | All key routing stops after stage 1. | WP-1.4 names every file whose literals it must update, with a grep test. |
+| P-16 | WP-1.5 called `Coordinator.upsertKey`, a Phase 2 API. | Stage 1 cannot compile or pass. | Stage 1 writes COMMUNITY keys to D1 (OBSERVATION) and to the owner's KeyPoolDO; WP-2.1's reconcile registers them. |
+| P-17 | WP-1.5's repository adoption swept KeyPoolDO, `pool_routes.ts` and `admin_handler.ts`, all rewritten later. | Wasted work and conflicts. | Limited to `keys/*.ts` and `abuse_routes.ts`; the others adopt the repository when rewritten. |
+| P-18 | WP-1.4 and WP-1.6 both wrote migration 0014; Phase 2 columns lived only in Appendix C's single `0015_commons.sql` that no WP owned. | Edit collisions; WP-2.3, 2.6, 2.2, 2.13 had no migration step. | One migration per WP, numbered 0011–0023 in section 10.3, and each WP names its file. |
+| P-19 | Phase 2's test-clock requirement sat in the phase intro, which agents never see. | Time-based tests (observation, decay, brake, jitter) are unimplementable or flaky. | New WP-2.0 "Deterministic test clock"; time-based WPs depend on it. |
+| P-20 | WP-4.7 (frontend) expected `standing_history` rows "written at each nightly reset" without owning that code. | Analytics tab has no data. | WP-2.5 writes `standing_history` (migration 0022). |
+| P-21 | WP-2.6 contained the open decision D-16. | Planners cannot split an undecided design; builders would guess a penalty. | D-16 decided: no credit penalty; externally drained keys stop counting toward the vesting cap (WP-2.6, WP-2.4). |
+| P-22 | Tests referenced by section number ("2.2 list", "(2.1)", "(2.5)") or in appendices. | Not visible to agents; coverage cannot be enforced. | Test bullets inlined into WP-1.1, WP-1.3, WP-1.4. |
+| P-23 | WPs cited Appendix B/C, which the compiler does not include in briefs. | Planners for WP-0.5, WP-1.4, WP-6.1, WP-6.2 miss their inputs. | Appendices renumbered as sections 10.1–10.3 and cited by number. |
+| P-24 | WP-4.4 relied on PRD section 4.2 colours, outside this plan. | Builders guess. | States and colours inlined. |
+| P-25 | 40 WPs had inline test paragraphs; the compiler split some mid-sentence (e.g. WP-2.3). | Wrong or merged test items; weak coverage checks. | All test lists are bullets, one behaviour each. |
+| P-26 | No WP declared dependencies. | Planners guess ordering from prose; forward mentions become false dependencies. | Every WP has a **Depends on:** line; the runner enforces it and rejects later-stage dependencies. |
+| P-27 | Cleanup WPs (5.3–5.6) spanned every module while feature WPs were editing the same files. | Heavy serialisation and merge conflicts in stage 2. | Moved to stage 3. |
+| P-28 | WP-6.1 (bring 386 excluded tests and the UI tests into the gate) was scheduled last. | Every stage gate ran without them. | Moved to stage 0. |
+| P-29 | The red check would reject legitimate refactor and test-migration cards (their tests pass before the change too). | Blocked tasks in WP-1.3, 5.x, 6.x. | Red-check policy stated; those cards use `red: false`. |
+| P-30 | Phase 0 security tests authenticate with bearer tokens, which WP-1.2 removes from console `/api/*`. | Stage 1 breaks the stage 0 regression suite. | WP-1.2 migrates those tests to session cookies. |
+| P-31 | `gate.always` typechecks only the Worker. | UI cards pass the gate without their own type check. | UI cards add `svelte-check` and a targeted UI test to `verify`. |
+
 ## 1. Decisions log
 
 Decisions marked **Owner** were made by the project owner on 2026-09-30. Decisions marked **Default** are this plan's recommendation; each is reversible and flagged where it matters.
@@ -70,7 +174,10 @@ Decisions marked **Owner** were made by the project owner on 2026-09-30. Decisio
 | D-13 | Coordinator is **sharded per provider** (`POOL_COORDINATOR.idFromName("pool:google")`, `"pool:groq"`) from day one. | Default |
 | D-14 | NFR-05's "< 10 s" applies to `gate:fast` (typecheck + unit). The full gate (integration against real D1 and DOs) runs in CI with a 3-minute budget. | Default (PRD amended) |
 | D-15 | Google-native Gemini endpoints (`/v1beta/models/{model}:generateContent`, PRD 10.1, audit R10) are dropped for now. Only OpenAI-format endpoints are served. Candidate for future or open-source scope; if revived, it lives under `/v1/gemini/…` to respect D-01. | Owner |
-| D-16 | **Open — under discussion.** FR-16's "parasite" rule conflicts with D-04: self-key-first routing makes owners drain their own community keys first, so a low communal share is expected, not abuse. See WP-2.6 for the proposed redefinition (detect *external* drain instead). No credit penalty is implemented until this is decided. | Open |
+| D-16 | FR-16 is redefined around **external draining**, with no credit penalty. The PRD's "parasite" rule (low share served to others) is dropped: under D-04 owners use their own keys first, so a low share is expected. A key counts as drained on a day when it hits its daily limit after Key Collective sent it under 50 % of that limit. A key drained on 5 of the last 7 days is marked `DRAINED`: it stops counting toward its owner's vesting cap until it has 3 consecutive clean days. Credit, debt and the owner's own use of the key are never affected; lending is always capped at the key's learned capacity. `HERO` is a badge only. | Owner |
+| D-18 | Steps marked **Human** are done by the operator, not by HIVE builders. They are listed with their timing in **HIVE execution (v3)**. | Default |
+| D-19 | One migration file per WP, numbered in advance (section 10.3), so WPs running in parallel never edit the same migration and application order is fixed. | Default |
+| D-20 | HIVE stages: `0|1|2,3,4,5|6` with overrides WP-1.0 and WP-6.1 → stage 0, WP-3.4 → stage 1, WP-5.3, WP-5.4, WP-5.5, WP-5.6 → stage 3. | Default |
 | D-17 | Key deletion is a soft delete (`status='REVOKED'`), so the 30-minute rotation grace and 14-day tombstone (FR-08) have a row to act on. | Default |
 
 ---
@@ -196,7 +303,7 @@ DROP VIEW IF EXISTS cost_ledger_events;  DROP VIEW IF EXISTS daily_spend_rollups
 **Tests**
 - `test/unit/credits/request_cu.test.ts`: table-driven over every catalog model; boundary cases (0 tokens → `cu_base`; 1 token → base + 1; 999/1000/1001 tokens), `ceilDiv` correctness, `bigint` only (a test asserts `typeof result === "bigint"`).
 - Property test (fast-check): `request_cu` is monotonic in each token count.
-- Integration: a non-streaming completion returns `x-kc-cu` equal to the recomputed value from `usage`; a streaming completion ends with a `kc.usage` event; `cost_ledger.cu` matches.
+- Integration: a non-streaming completion returns `x-kc-cu` equal to the recomputed value from `usage`; a streaming completion ends with a `kc.usage` event (added by WP-3.3); `cost_ledger.cu` matches.
 - `test/integration/schema_conformance.test.ts` (see 2.5) covers the renamed columns.
 
 **Done when** no identifier, column, header, or UI string mentions dollars or microdollars, and the ledger/standing/budget code paths all use CU.
@@ -259,7 +366,8 @@ Enforced in: `POST /api/keys` (COMMUNITY requires `communityPool`; any key requi
 - `gh_*` and `usr_gh_*` users: cannot be mapped to a Google account. Mark `registration_status = 'SUSPENDED'`. Their `api_keys` rows are left intact but excluded from routing; a one-time claim flow (`POST /api/auth/claim-legacy` after Google sign-in + GitHub link with the same GitHub id) re-parents keys to the new `usr_goog_*` id and re-encrypts them under the new tenant subkey.
 - All existing `auth_tokens` are revoked (S2 means any of them could have been forged). Users create new API keys after signing in.
 
-**Tests** — see WP-0.2, WP-1.2.
+**Tests**
+- See WP-0.2, WP-1.2.
 
 ---
 
@@ -334,7 +442,8 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 | Upstream 401/403 | `setStatus('QUARANTINED')` + D1 update + notification |
 | Upstream 429 | `setStatus('COOLDOWN', until)` (RPM) or `setStatus('COOLDOWN', next reset + jitter)` (RPD) |
 
-**Tests** — see WP-2.1.
+**Tests**
+- See WP-2.1.
 
 ---
 
@@ -393,6 +502,8 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 ### WP-0.1 Remove header-based tenant resolution
 
+**Depends on:** WP-1.0
+
 **Findings:** S1, F1, part of S7.
 
 **Problem.** `DashboardHandler.handle` assigns `tenantId` from the `x-tenant-id` header whenever the request has no token (`dashboard/handler.ts:131-133`), when a GET carries an invalid token (auth failure is swallowed for GETs, lines 112-128), and when a valid token resolves to `default` or `anonymous` (lines 109-111). The frontend sends that header on every request (`ui/src/lib/api.ts:38-44`), so the backend was built to trust it.
@@ -417,13 +528,15 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 ### WP-0.2 Replace `sync-session` with verified Google sign-in
 
+**Depends on:** WP-1.0
+
 **Findings:** S2, F3.
 
 **Problem.** `POST /api/auth/sync-session` (`dashboard/auth_routes.ts:170-230`) mints a bearer token for any `id` in the JSON body. `{ "id": "admin" }` produces a token that `verifyAdminRequest` accepts as admin (`admin_verifier.ts:108`). The client computes that id itself from Firebase (`OAuthModal.svelte:259`).
 
 **Implementation**
 1. Delete `handleSyncSession` and its route. Return 404 for the path.
-2. Add dependency `jose`. New `src/auth/google/verify_id_token.ts`:
+2. Use `jose` (pre-installed before the run). New `src/auth/google/verify_id_token.ts`:
    ```ts
    const JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
    export async function verifyFirebaseIdToken(idToken: string, projectId: string) {
@@ -446,6 +559,8 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 ### WP-0.3 Harden admin authentication
 
+**Depends on:** WP-1.0
+
 **Findings:** S3, S10, S12.
 
 **Implementation**
@@ -455,9 +570,16 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 4. `ADMIN_TOKEN` (break-glass) is accepted only via `x-kc-admin-token` header, only when there is no `Origin` header, compared with `timingSafeEqualStrings`.
 5. `/api/admin/*` on the console host is removed (admin APIs live only on `admin.*`, WP-1.1); in the hotfix, the console path simply calls the same `verifyAdminRequest`.
 
-**Tests** (`security/s3_admin_auth.test.ts`): bearer = an admin's `users.id` → 404 on `admin.*`; bearer = `KC_MASTER_KEY` → 401 on `/v1` and 404 on `admin.*`; `?admin_token=<ADMIN_TOKEN>` → 404; `x-kc-admin-token` with `Origin: https://evil.test` → 404; genuine admin session → 200.
+**Tests** (`security/s3_admin_auth.test.ts`)
+- Bearer = an admin's `users.id` → 404 on `admin.*`.
+- Bearer = `KC_MASTER_KEY` → 401 on `/v1` and 404 on `admin.*`.
+- `?admin_token=<ADMIN_TOKEN>` → 404.
+- `x-kc-admin-token` with `Origin: https://evil.test` → 404.
+- Genuine admin session → 200.
 
 ### WP-0.4 Lock down abuse takedown and key listing
+
+**Depends on:** WP-1.0
 
 **Findings:** S4, D5, FR-11 compliance rows (rate limit, tombstone), PRD section 12 information boundary.
 
@@ -467,40 +589,49 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
    ALTER TABLE api_keys ADD COLUMN key_hash TEXT;               -- SHA-256 hex of plaintext key
    CREATE UNIQUE INDEX idx_api_keys_key_hash ON api_keys(key_hash) WHERE key_hash IS NOT NULL;
    ALTER TABLE api_keys ADD COLUMN revoked_at INTEGER;          -- epoch ms
-   CREATE TABLE admin_audit_logs (                               -- D4, needed by WP-0.3 audit writes
+   CREATE TABLE admin_audit_logs (                               -- D4, written by WP-0.9 and later admin actions
      id TEXT PRIMARY KEY, admin_user_id TEXT, admin_email TEXT, action TEXT NOT NULL,
      target TEXT, details_json TEXT NOT NULL DEFAULT '{}', ip_address TEXT,
      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000));
    CREATE INDEX idx_admin_audit_created ON admin_audit_logs(created_at);
    ```
-2. Backfill `key_hash` for existing rows: one-off maintenance route `POST /api/admin/maintenance/backfill-key-hash` (admin host, break-glass header) that decrypts each key in memory, hashes it, writes the hash, and never logs plaintext. Remove the route after running (tracked in the runbook).
+2. Backfill `key_hash` for existing rows: one-off maintenance route `POST /api/admin/maintenance/backfill-key-hash` (admin host, break-glass header) that decrypts each key in memory, hashes it, writes the hash, and never logs plaintext. **Human:** run it once after deploying stage 0, then remove the route in a follow-up commit.
 3. `POST /api/keys` writes `key_hash` at insert (WP-1.5 finalises this).
 4. Rewrite `abuse_routes.ts`:
    - Always verify Turnstile (WP-0.5). Rate limit 5 per IP per hour through a new tiny DO `RATE_LIMITER` (`idFromName("abuse:" + ip)`), sliding window in DO storage. Exceeded → 429 (still padded to 200 ms).
      `RateLimiterDO` is a new class: add it to `durable_objects.bindings` in every `wrangler.jsonc` environment and a migration tag `{ "tag": "v6", "new_sqlite_classes": ["RateLimiterDO"] }`; export it from `src/index.ts`.
    - Accept only `leaked_key`. Delete the `keyId` and prefix branches.
    - `UPDATE api_keys SET status='REVOKED', community_routing_status='REVOKED', revoked_at=? WHERE key_hash = ? RETURNING id, tenant_id, provider_project_hash`.
-   - On match: `UPDATE project_hash_registry SET state='TOMBSTONED', tombstone_until = now + 14 d WHERE project_hash = <row.provider_project_hash>`; remove from the tenant DO and the coordinator; enqueue an owner notification (WP-3.2).
+   - On match: `UPDATE project_hash_registry SET state='TOMBSTONED', tombstone_until = now + 14 d WHERE project_hash = <row.provider_project_hash>`; remove the key from its owner's `KeyPoolDO` (`DELETE /keys/<id>` RPC). The owner notification is added later by WP-3.2.
+   - Until WP-2.1 replaces per-tenant snapshots, other tenants' `KeyPoolDO` instances still hold copies of community keys. `KeyPoolDO.getKey` therefore re-checks the D1 status of any key the tenant does not own before returning it (`SELECT status FROM api_keys WHERE id = ?`, cached 60 s per key, TTL configurable for tests) and drops keys that are `REVOKED`.
    - Always return `200 { "message": "Report received. Thank you for keeping the commons safe." }` after padding to exactly 200 ms measured from request start (PRD FR-11 text).
 5. `GET /api/keys` (`keys/get_keys.ts`): unauthenticated → 401. Authenticated non-admin → **only the caller's own keys** (today it also returns every community key with label and prefix). Mask to first 6 + last 4 characters. `tenant_id` omitted from the response.
 
 **Tests** (`security/s4_takedown.test.ts`)
 - Seed two Gemini keys `AIzaSyAB…1`, `AIzaSyAB…2`; report `AIzaSyAB` + garbage → neither revoked.
 - Report by `keyId` field → no effect.
-- Report the exact plaintext of key 1 → only key 1 revoked; its project hash tombstoned for 14 days; owner notification row created.
+- Report the exact plaintext of key 1 → only key 1 revoked; its project hash tombstoned for 14 days.
+- After key 1 is revoked, another tenant's `KeyPoolDO` that holds a copy of it no longer returns it (status cache TTL set to 0 in the test environment).
 - Hit vs miss timing: 20 of each, mean difference < 10 ms (AC-09), bodies byte-identical.
 - 6th report from one IP within an hour → 429.
 - Anonymous `GET /api/keys` → 401; tenant A never sees tenant B's labels or prefixes.
 
 ### WP-0.5 Remove Turnstile test fixtures from production code
 
+**Depends on:** WP-1.0
+
 **Findings:** S5, T-05.
 
 **Implementation.** Delete the fixture short-circuits from `src/auth/sybil/turnstile.ts:28-55` and `TURNSTILE_TEST_TOKENS` from `constants.ts`. `verifyTurnstileToken` requires `secretKey`; if it is missing, throw `ConfigurationError` (fail closed, 500). For local and staging use Cloudflare's published test **secret** keys through `.dev.vars`, so real siteverify calls return deterministic results. `abuse_routes.ts:40` must call verification unconditionally.
 
-**Tests.** Unit tests call `verifyTurnstileToken` with a `fetchFn` stub for siteverify (success/failure/`timeout-or-duplicate`). Integration tests mock `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `fetchMock`. A regression test posts `valid_turnstile_response` to `POST /api/keys` and asserts 403. `tests/auth/sybil.test.ts:62-80, 642, 670` are rewritten accordingly (Appendix B).
+**Tests**
+- Unit: `verifyTurnstileToken` with a `fetchFn` stub for siteverify handles success, failure and `timeout-or-duplicate`, and throws `ConfigurationError` when the secret is missing.
+- Integration: with siteverify mocked through `fetchMock`, `POST /api/keys` carrying the token `valid_turnstile_response` returns 403.
+- `tests/auth/sybil.test.ts` lines 62-80, 642 and 670 use the siteverify stub instead of fixture tokens (section 10.2).
 
 ### WP-0.6 Stop upstream error leakage
+
+**Depends on:** WP-1.0
 
 **Findings:** R2, S6, R4, NFR-04.
 
@@ -510,9 +641,15 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 3. `FallbackExhaustedError` public message: `"All upstream routes failed"`; `attemptedRoutes` kept internally for logs and for the `x-kc-attempts` count header only.
 4. `error_normalizer.ts`: one `sanitize(text)` used for every string that can reach a client, with patterns for `AIza[0-9A-Za-z_\-]{35}`, `gsk_[A-Za-z0-9]{20,}`, `sk-[A-Za-z0-9_\-]{20,}`, `Bearer\s+\S+`, `projects/\d{6,}`, `"consumer"\s*:\s*"[^"]+"`, `billingAccounts/[A-Z0-9-]+`, `key=[^&\s"]+`, IPv4. Delete the weaker `sanitizeErrorMessage`.
 
-**Tests** (`security/r2_error_leakage.test.ts`): upstream Gemini 400 with a real-shaped `google.rpc.ErrorInfo` containing `projects/123456789012` and `AIzaSy…` → client body contains neither, contains no `details`; same for 401, 429 and timeout; fallback-exhausted response has no provider error text. Unit table test for every sanitizer pattern.
+**Tests** (`security/r2_error_leakage.test.ts`)
+- Upstream Gemini 400 with a real-shaped `google.rpc.ErrorInfo` containing `projects/123456789012` and `AIzaSy…` → client body contains neither, contains no `details`.
+- Same for 401, 429 and timeout.
+- A fallback-exhausted response has no provider error text.
+- Unit table test covering every sanitizer pattern.
 
 ### WP-0.7 Remove `'default'`-tenant takeover
+
+**Depends on:** WP-1.0
 
 **Findings:** S7.
 
@@ -520,31 +657,45 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 **Forensics.** A key that a user claimed from `default` is still encrypted under the `default` subkey. Run a maintenance check: for each `api_keys` row, try `deriveTenantKey(master, row.tenant_id)`; if that fails and `deriveTenantKey(master, "default")` succeeds, the row was claimed. List those rows for the incident report (WP-0.11) and return them to `sys_operator`.
 
-**Tests.** `security/s7_default_takeover.test.ts`: seed a `default` key; tenant A PATCHes its pool mode and rotates it → both 404; row's `tenant_id` unchanged.
+**Tests** (`security/s7_default_takeover.test.ts`)
+- Seed a `default` key.
+- Tenant A PATCHes its pool mode and rotates it → both 404.
+- Row's `tenant_id` unchanged.
 
 ### WP-0.8 Remove raw DO RPC exposure on `/v1/keys`, `/v1/metrics`, `/v1/capacity` (new finding N-01)
+
+**Depends on:** WP-1.0
 
 **Problem (new).** `dispatcher.ts:247-258` forwards any authenticated `/v1/keys*`, `/v1/metrics*`, `/v1/capacity*` request, method and body intact, into the tenant's `KeyPoolDO` HTTP RPC (`durable_objects/key_pool/rpc.ts`). A tenant can therefore `GET /v1/keys` (returns ciphertext and nonce of every community key copied into its DO), `POST`/`PUT /v1/keys` (inject arbitrary keys, bypassing Turnstile, consent, probe and hashing), `DELETE`, and `POST /v1/keys/usage|result|status-code` (manipulate circuit breakers and limiters).
 
 **Implementation.** Delete `forwardToDO` and the three route branches. Convert KeyPoolDO's public surface to typed native RPC methods and delete its HTTP `fetch` router (Phase 5, WP-5.4), so nothing can reach it by URL.
 
-**Tests.** `security/n01_do_rpc.test.ts`: every method on `/v1/keys`, `/v1/keys/usage`, `/v1/metrics`, `/v1/capacity` → 404 on every host.
+**Tests** (`security/n01_do_rpc.test.ts`)
+- Every method on `/v1/keys`, `/v1/keys/usage`, `/v1/metrics`, `/v1/capacity` → 404 on every host.
 
 ### WP-0.9 Stop user-row clobbering on quarantine
+
+**Depends on:** WP-1.0, WP-0.4
 
 **Findings:** S13.
 
 **Implementation.** `gateway/admin_handler.ts:671-690`: delete the `INSERT OR IGNORE` / `INSERT OR REPLACE` fallbacks. If the UPDATE changes 0 rows, return 404 `tenant_not_found`. Write an `admin_audit_logs` row for every admin mutation.
 
-**Tests.** Quarantine an existing user → email, tier and role unchanged; quarantine an unknown id → 404 and no row created.
+**Tests**
+- Quarantine an existing user → email, tier and role unchanged.
+- Quarantine an unknown id → 404 and no row created.
 
 ### WP-0.10 Disable the GitHub callback until the link flow exists
+
+**Depends on:** none
 
 **Findings:** S8 (immediate part), F4 (token in URL).
 
 **Implementation.** `GET /api/auth/github/callback` returns `410 Gone` until WP-1.2 ships the link-only flow. Remove the HTML that posts the token with `postMessage(…, "*")` and the `/?token=` redirect. The UI hides the GitHub button until WP-1.2. Under D-05 GitHub is never a base account, so no user loses access by this.
 
-### WP-0.11 Incident response and rotation
+### OP-0.11 Incident response and rotation (operator task, not a HIVE work package)
+
+**Human:** every step below is done by the operator after stage 0 is deployed.
 
 1. After deploy: `UPDATE auth_tokens SET expires_at = datetime('now')` — every existing token could have been forged via S2. Users sign in again and create new API keys.
 2. Rotate `ADMIN_TOKEN` and `GITHUB_CLIENT_SECRET`. `KC_MASTER_KEY` was compared as a bearer but never returned or logged; rotation is not required now, but NFR-06's runbook (WP-5.6) must exist before the next rotation.
@@ -566,13 +717,15 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 ### WP-1.0 Workers-runtime test harness
 
+**Depends on:** none
+
 **Findings:** T-01, T-02, T-03, T-08.
 
 **Implementation**
-1. `npm i -D @cloudflare/vitest-pool-workers` (pin to a release compatible with Vitest 2.x; upgrade Vitest and the pool together if needed). Add `env.test` to `wrangler.jsonc` with local-only bindings (D1 `key-collective-d1-test`, all four DOs plus `RATE_LIMITER`).
+1. **Human:** `@cloudflare/vitest-pool-workers` is pre-installed before stage 0 (pinned to a release compatible with Vitest 2.x). Add `env.test` to `wrangler.jsonc` with local-only bindings (D1 `key-collective-d1-test` and the four existing DOs; WP-0.4 adds `RATE_LIMITER` to every environment, including `test`).
 2. Create `vitest.workers.config.ts` and `test/setup/apply-migrations.ts` exactly as in 2.5.
 3. Helpers in `test/helpers/`:
-   - `world.ts`: `createUser({ google: true, github: true, eligible: true })`, `createSession(user)`, `createApiKey(user, opts)`, `addProviderKey(user, { provider, pool, plaintext })` (goes through the real `POST /api/keys` handler with mocked probes).
+   - `world.ts` (stage-0 version, current schema): `createUser({ tier })` inserts a `users` row with a `usr_goog_` id; `createApiKey(user, opts)` inserts an `auth_tokens` row and returns the plaintext token; `addProviderKey(user, { provider, pool, plaintext })` encrypts with the tenant subkey and inserts the `api_keys` row directly with SQL (the `POST /api/keys` handler is broken until WP-1.5). WP-1.2 adds `createSession` and identity options; WP-1.5 switches `addProviderKey` to the real handler.
    - `upstream.ts`: `mockGemini({ status, body | sse, usage })`, `mockGroq(...)`, `mockGeminiErrorInfo(projectNumber)`, `mockTurnstile(success)`, `mockGoogleJwks()` + `signFirebaseIdToken(claims)`, `mockGithub(profile, contributions)`. All built on `fetchMock` from `cloudflare:test` with `fetchMock.disableNetConnect()` in `beforeAll`.
    - `hosts.ts`: `api(path)`, `console(path)`, `admin(path)` URL builders.
 4. `scripts/check-no-sql-mocks.mjs`: fails if any file under `src/`, `test/`, `tests/` (excluding `test/unit/pure/**`) contains an object literal with a `prepare` key cast to `D1Database`.
@@ -582,16 +735,24 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 ### WP-1.1 Single API host and route tables
 
+**Depends on:** none
+
 **Findings:** N-02, R10 (dropped by D-15), part of R3.
 
 **Implementation:** exactly section 2.1, steps 1–7. Also:
 - `ui/.env.production`: `VITE_API_BASE_URL=https://api.key-col.axe08.tech/v1`; `ui/.env.development`: `http://api.localhost:8787/v1`.
 - README quickstart uses `https://api.key-col.axe08.tech/v1/chat/completions` and a `kc_live_` key; local section uses `http://api.localhost:8787/v1`.
-- PRD 10.1: remove the two `/v1beta` rows and note D-15.
+- `docs/PRD.md` (proxy and inference gateway table): remove the two `/v1beta` rows and note D-15.
 
-**Tests:** `test/integration/hosts.test.ts` (2.1). UI unit test asserting `Playground`, `ApiDocs`, `CodePlayground` snippets and the copy-endpoint button all render `API_BASE_URL`.
+**Tests** (`test/integration/hosts.test.ts`)
+- Route matrix: every host × path in the section 2.1 tables returns its exact status; in particular `POST https://console…/v1/chat/completions` → 404, `POST https://key-col.axe08.tech/v1/chat/completions` → 301 to the console, `POST https://api…/chat/completions` → 404, `GET https://api…/api/keys` → 404, `GET https://api…/v1/keys` → 404.
+- CORS: a preflight on `api.*` returns `Access-Control-Allow-Origin: *`; a preflight on `console.*` returns no CORS headers.
+- `openapi.json` lists exactly one server, `https://api.key-col.axe08.tech/v1`.
+- UI unit test: `Playground`, `ApiDocs`, `CodePlayground` snippets and the copy-endpoint button all render `API_BASE_URL`.
 
 ### WP-1.2 Identity, pool rights, consent, sessions
+
+**Depends on:** WP-1.1
 
 **Findings:** S8 (full), S9, F3, F4, C1–C3 (FR-15, AC-15), D-05, D-08, D-10.
 
@@ -603,6 +764,7 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 - Console UI: `OAuthModal` → `SignIn` (Google only) + `ConsentScreen` (C1–C3 with PRD texts verbatim, submit disabled until all three are ticked) + `Settings → Link GitHub` card that shows the Sybil result (real data, replaces `SybilMatrixSection` fabrications, see WP-4.2).
 - `App.svelte` stops writing `kc_user` / `kc_auth_token` to `localStorage`; identity comes from `GET /api/session` on load.
 - Legacy account handling and token revocation as in 2.3.
+- Update the Phase 0 security tests (`test/integration/security/*.test.ts`) and the harness helpers (`test/helpers/world.ts`: add `createSession` and `google`/`github`/`eligible` identity options) so console `/api/*` calls authenticate with a session cookie and CSRF header instead of a bearer token.
 
 **Tests** (`test/integration/identity/*.test.ts`)
 - Google sign-in happy path creates user + identity + `PENDING_CONSENT`; `/api/keys` → 403 `consent_required` until consent.
@@ -614,23 +776,43 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 ### WP-1.3 Credit Units everywhere
 
+**Depends on:** WP-3.4
+
 **Findings:** N-03, R7, fixed-point violations (`debt.ts:52`, `pool_routes.ts:227`, `coordinator_do.ts:124`, `auth_tokens/repository.ts:379,409`).
 
-**Implementation:** section 2.2 in full, plus:
+**Implementation:** section 2.2 in full, executed as an expand → migrate → contract sequence so every card passes the type check on its own:
+1. **Expand:** add `src/constants/credits.ts` (`CU`, `ceilDiv`, `formatCu`), the CU fields on the catalog model type, `calculateCu`, and migration `0012_credit_units.sql`, keeping the old µ$ names as deprecated aliases.
+2. **Migrate** one module group per card, in parallel: `src/router/registry` and `src/proxy`; `src/storage` (repositories, ledger, rollups, auth tokens); `src/quota`; `src/worker` (handlers, response headers, telemetry); `ui/src` (formatters, MetricCards, Workbench, PricingTable). Each group's tests move with it.
+3. **Contract:** delete the aliases and `src/constants/financial.ts`.
+
+**HIVE:** expand and contract cards change no behaviour; they use `red: false`.
+
+Also:
 - `debt.ts`: all ratios as scaled integers: `ratio_pct = debt * 100n / max(contributed, 1n)`; decay `debt - (debt * DECAY_PCT) / 100n`.
 - `pool_routes.ts`: no float division; `jail_status` comes from TenantQuotaDO (WP-2.3), not recomputed.
-- `coordinator_do.ts`: `wProvider` becomes `w_provider_pct` integer (WP-2.11).
+- Leave `coordinator_do.ts` alone: WP-2.11 rewrites it with an integer `w_provider_pct`.
 - `auth_tokens/repository.ts`: bind `bigint` values as strings (`budget_cu.toString()`), never `Number(bigint)`; D1 stores INTEGER and returns numbers ≤ 2^53, which CU values never approach, but the conversion path must be lossless by construction.
-- Catalog: replace µ$ price fields with the CU weights in 2.2 for the Gemini and Groq models kept by WP-3.4.
+- Catalog: WP-3.4 has already reduced it to Gemini and Groq models. Replace their µ$ price fields with the CU weights in section 2.2, and serve them from `/v1/models` as `kc: { cu_base, cu_in_per_1k, cu_cached_per_1k, cu_out_per_1k }`.
+- The streaming `kc.usage` event is added by WP-3.3, not here.
 
-**Tests:** 2.2 list, plus `test/unit/pure/no_float_finance.test.ts` which scans `src/quota`, `src/pool`, `src/router/registry`, `src/storage` sources for `parseFloat`, `toFixed`, `Math.round(` on CU identifiers, and `Number(` applied to identifiers ending in `Cu`/`_cu` (a lint-style guard).
+**Tests**
+- `test/unit/credits/request_cu.test.ts`: table-driven over every catalog model; boundaries (0 tokens → `cu_base`; 999, 1000 and 1001 tokens); `ceilDiv` correctness; every result is a `bigint`.
+- Property test (fast-check): `request_cu` is monotonic in each token count.
+- Integration: a non-streaming completion returns `x-kc-cu` equal to the value recomputed from `usage`, and `cost_ledger.cu` matches it.
+- `/v1/models` entries carry `kc.cu_base`, `kc.cu_in_per_1k`, `kc.cu_cached_per_1k` and `kc.cu_out_per_1k`.
+- `test/unit/pure/no_float_finance.test.ts` scans `src/quota`, `src/pool`, `src/router/registry`, `src/storage` for `parseFloat`, `toFixed`, `Math.round(` on CU identifiers and `Number(` applied to identifiers ending in `Cu`/`_cu`.
+- `grep -rniE "microdollar|dollar" src ui/src` returns nothing outside migration history.
 
 ### WP-1.4 Schema repair and migration hygiene
 
+**Depends on:** WP-1.3
+
 **Findings:** D1, D2, D3, D4 (created in 0011), D10, D11, D13, D14, D15.
 
-**Implementation** — migration `0014_schema_repair.sql` (Appendix C gives the full order):
-1. **`consent_attestations` (D1, D3).** Confirm `SELECT COUNT(*) FROM consent_attestations` is 0 in production (every insert has failed since 0007). Recreate with the PRD schema and CHECKs:
+**Human (before stage 1):** confirm that `consent_attestations` and `project_hash_registry` are empty in production (every insert has failed since migrations 0006/0007). If either has rows, stop and amend this WP before it runs.
+
+**Implementation** — migration `0014_schema_repair.sql` (section 10.3 gives the full order):
+1. **`consent_attestations` (D1, D3).** Recreate with the PRD schema and CHECKs:
    ```sql
    DROP TABLE consent_attestations;
    CREATE TABLE consent_attestations (
@@ -645,22 +827,29 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
    CREATE TRIGGER consent_no_delete BEFORE DELETE ON consent_attestations BEGIN SELECT RAISE(ABORT,'append-only'); END;
    ```
    Align `contracts/v4_types.ts` `ConsentAttestationSchema` with these columns and **use it** at the insert site (parse before bind).
-2. **`project_hash_registry` (D2).** Code fix: include `provider` in every insert. Schema: add `rotating_until`/`tombstone_until` as INTEGER epoch ms (rebuild table; it is empty in production for the same reason as D1 — verify first).
+2. **`project_hash_registry` (D2).** Code fix: include `provider` in every insert. Schema: add `rotating_until`/`tombstone_until` as INTEGER epoch ms (rebuild table; emptiness is confirmed by the Human step above).
 3. **`api_keys` rebuild (D13, D11).** SQLite cannot add CHECK constraints via ALTER, so rebuild:
    - `status TEXT NOT NULL CHECK (status IN ('HEALTHY','COOLDOWN','QUARANTINED','REVOKED'))`, mapping `Healthy/healthy → HEALTHY`, `invalid → REVOKED` if `community_routing_status='REVOKED'` else `QUARANTINED`, `quarantined → QUARANTINED`, `exhausted/rate_limited → COOLDOWN`.
    - `pool_type` NOT NULL CHECK, default `'PRIVATE'` (today the column default is `'COMMUNITY'`, the opposite of the safe choice).
    - Time columns as INTEGER epoch ms: `observation_until`, `circuit_open_until`, `last_used_at`, `revoked_at`, `status_changed_at` (new, for notifications), `created_at`.
-   - Keep `key_hash`, `provider_project_hash`, `hkdf_migrated`; drop `dispatched_today`, `dispatched_communal`, `vesting_tier` from D1 (live counters move to DOs, WP-2.6; D1 gets daily snapshots in `key_daily_stats`, WP-2.11).
+   - Keep `key_hash`, `provider_project_hash`, `hkdf_migrated`, and for now `dispatched_today`, `dispatched_communal`, `vesting_tier`: `/api/pool/*` and `get_keys.ts` still read them. WP-2.11 drops them (migration 0023) after switching those readers to the coordinator.
+   - New columns: `sync_pending INTEGER NOT NULL DEFAULT 0` (used by WP-1.5) and `key_version INTEGER NOT NULL DEFAULT 1` (secret rotation, WP-5.6).
    - Recreate indexes.
-   - A TypeScript enum `KeyStatus` and `PoolType` in `src/contracts/keys.ts` (today a 1-line file) are the only way code refers to these values.
-4. **Timestamp convention (D11).** All machine timestamps are INTEGER epoch milliseconds. `projects.created_at/updated_at` (epoch seconds) are multiplied by 1000 in the same migration. Human-facing formatting happens only in the UI.
+   - A TypeScript enum `KeyStatus` and `PoolType` in `src/contracts/keys.ts` (today a 1-line file) are the only way code refers to these values. Update every status literal in this WP so routing keeps working after the rebuild: `src/durable_objects/key_pool/key_pool_do.ts` (the D1 load query `status = 'Healthy'`), `src/worker/router/dashboard/keys/get_keys.ts` (status normalisation), `src/worker/router/dashboard/keys/post_key.ts`, `src/worker/router/dashboard/abuse_routes.ts`, `src/worker/gateway/admin_handler.ts`, `src/worker/pool_routes.ts`, and `src/storage/repositories/api_keys/*`.
+4. **Timestamp convention (D11).** All machine timestamps are INTEGER epoch milliseconds (`projects` timestamps are converted by WP-1.6's migration). Formatting for people happens only in the UI.
 5. **Purge migration (D10).** The purge was intentional (clearing the owner's preloaded real keys for manual testing), and it is harmless on a fresh database because `api_keys` is empty when it runs. The remaining risk is a database that has keys and has not yet applied 0010 (e.g. a new staging copy). Tidy-up: move it to `scripts/qa/purge_all_keys.sql` as an explicit, opt-in reset tool with a guard that refuses the production database name, and delete it from `migrations/` (already-applied databases are unaffected). Low priority.
 6. **Duplicate migrations (D15).** Delete `src/storage/migrations/` entirely; `migrations/` is the only source (wrangler default).
 7. **Seed data (D14).** `scripts/seed.sql` → `scripts/dev/seed.sql`; it seeds `usr_goog_dev_alice`, `usr_goog_dev_bob` with Google+GitHub identities, no `default` tenant rows; `seed_local.mjs` refuses to run with `--remote`.
 
-**Tests:** `test/integration/schema_conformance.test.ts` (2.5) plus `test/integration/migrations.test.ts`: apply all migrations to an empty DB, then to a DB snapshot fixture that mimics current production data (mixed status casing, epoch-seconds projects, `default` rows) and assert the normalised result.
+**Tests**
+- `test/integration/schema_conformance.test.ts` (section 2.5): every repository method and every SQL-writing handler runs against the migrated database without error and produces the expected row.
+- `test/integration/migrations.test.ts`: all migrations apply cleanly to an empty database.
+- The same migrations applied to a fixture that mimics current production data (mixed status casing, epoch-second project timestamps, `default` rows) produce the normalised values described above.
+- After the rebuild, `KeyPoolDO` still loads and serves a `HEALTHY` key, and `grep -rn "'Healthy'\|'invalid'\|'quarantined'" src` returns nothing.
 
 ### WP-1.5 Key submission end to end
+
+**Depends on:** WP-1.2, WP-1.4
 
 **Findings:** F2, D1, D2, K1/K2 audit rows (IP, UA), proof-of-life (Flow B phase 2), GCP probe verification (FR-06, IR-09), transactional writes, silent DO-sync failure (`post_key.ts:132-158`), inline SQL drift root cause.
 
@@ -676,28 +865,34 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
    7. **Proof of life**: one minimal call per provider (Gemini: `generateContent` on the cheapest model with `maxOutputTokens: 1`; Groq: `chat/completions` on `llama-3.1-8b-instant` with `max_tokens: 1`). 200 → OK; 429 → 400 `key_no_quota`; 401/403 → 400 `key_invalid`; 5xx/timeout → 503 `provider_unavailable` (retryable).
    8. Encrypt with the tenant HKDF subkey, compute `key_hash`.
    9. **One `DB.batch([...])`** (atomic in D1): insert `api_keys` (via `ApiKeysRepository`), insert `project_hash_registry` (with `provider`), insert K1 and K2 `consent_attestations` (with `key_id`, `consent_version`, IP, UA).
-   10. After commit, sync DO state: PRIVATE → `KeyPoolDO.addPrivateKey`; COMMUNITY → `Coordinator(provider).upsertKey(status='OBSERVATION', observation_until=now+24h)`. If the sync fails, mark the row `sync_pending=1` (new column) and let the coordinator's 5-minute reconcile (and a KeyPoolDO reconcile on load) repair it; return 201 with `"sync": "pending"`. No `catch {}`.
-3. **GCP probe verification (FR-06).** Before relying on it, run the probe manually against a real free-tier key in staging and record the actual response (status and `details[]`) in `docs/specs/gcp_probe.md`. Implement `forceErrorGcpProbe` to accept 400 **and** 404 responses, search every `details[]` entry of type `google.rpc.ErrorInfo` for `metadata.consumer` (`projects/<n>`) and also `google.rpc.Help`/`ResourceInfo` fallbacks, and return `{ projectNumber } | { unavailable: reason }`. If the probe cannot extract a project for a Google key, **reject COMMUNITY submission** (PRIVATE is allowed) — the Sybil guard must fail closed for the community pool.
-4. **Repository adoption.** All `api_keys` SQL goes through `src/storage/repositories/api_keys/repository.ts` (currently unreachable dead code). Handlers in `keys/*.ts`, `abuse_routes.ts`, `pool_routes.ts`, `admin_handler.ts` and `KeyPoolDO` stop embedding SQL for this table. The repository's queries are covered by the schema conformance test.
+   10. After commit, add the key to its owner's `KeyPoolDO` (PRIVATE and COMMUNITY alike, as today). COMMUNITY keys are written to D1 with `community_routing_status='OBSERVATION'` and `observation_until = now + 24 h`; the coordinator's D1 reconcile registers them once WP-2.1 lands (until then they serve only their owner, which is what OBSERVATION requires). If the DO call fails, mark the row `sync_pending=1` (column from WP-1.4) and let the KeyPoolDO reconcile on its next load repair it; return 201 with `"sync": "pending"`. No `catch {}`.
+3. **GCP probe verification (FR-06).** **Human (before stage 1):** run the probe against a real free-tier key in staging and record the raw response (status and `details[]`) in `docs/specs/gcp_probe.md`; builders implement against that recorded response and use it as a test fixture. Implement `forceErrorGcpProbe` to accept 400 **and** 404 responses, search every `details[]` entry of type `google.rpc.ErrorInfo` for `metadata.consumer` (`projects/<n>`) and also `google.rpc.Help`/`ResourceInfo` fallbacks, and return `{ projectNumber } | { unavailable: reason }`. If the probe cannot extract a project for a Google key, **reject COMMUNITY submission** (PRIVATE is allowed) — the Sybil guard must fail closed for the community pool.
+4. **Repository adoption.** All `api_keys` SQL goes through `src/storage/repositories/api_keys/repository.ts` (currently unreachable dead code). In this WP, `keys/*.ts` and `abuse_routes.ts` stop embedding SQL for this table. `KeyPoolDO` (WP-2.1), `pool_routes.ts` (WP-2.11) and `admin_handler.ts` (WP-5.1) adopt the repository when they are rewritten. The repository's queries are covered by the schema conformance test.
 
 **Tests** (`test/integration/keys/submit.test.ts`)
-- Happy path PRIVATE (Groq) and COMMUNITY (Gemini): 201; rows in `api_keys`, `project_hash_registry` (with provider), two consent rows with IP/UA; coordinator shows the key in OBSERVATION; KeyPoolDO lists the private key.
+- Happy path PRIVATE (Groq) and COMMUNITY (Gemini): 201; rows in `api_keys`, `project_hash_registry` (with provider), two consent rows with IP/UA; the COMMUNITY row is `OBSERVATION` with `observation_until` 24 h ahead; the owner's KeyPoolDO lists both keys.
 - Each gate returns its code: missing K2 → 400; bad Turnstile → 403; Google-only user + COMMUNITY → 403; malformed key → 400; duplicate plaintext → 409; same GCP project from another user → 409 (AC-04); tombstoned project → 409; probe 429 → 400 `key_no_quota`; probe unavailable + COMMUNITY → 422 `project_unverifiable`.
 - Atomicity: force the consent insert to fail (invalid checkbox via test hook) → no `api_keys` row remains.
-- DO sync failure (coordinator stub throws) → 201 with `sync: pending`, and a subsequent reconcile alarm makes the key visible.
+- DO sync failure (the KeyPoolDO call fails) → 201 with `sync: pending`, and the next KeyPoolDO load picks the key up.
+- `test/helpers/world.ts`: `addProviderKey` now goes through `POST /api/keys` with mocked probes.
 - UI (`AddKeyModal.test.ts` rewrite): submit disabled until K1, K2 and a Turnstile token; the request carries `x-turnstile-token`; server error codes render human messages.
 
 ### WP-1.6 Projects and project-scoped API keys
 
+**Depends on:** WP-1.2
+
 **Findings:** D6, D7, server side of F7.
 
 **Implementation**
-- Migration (in `0014`): `DROP TABLE keys;` (the stub from 0002). `ALTER TABLE auth_tokens ADD COLUMN project_id TEXT REFERENCES projects(id);` `ALTER TABLE projects ADD COLUMN rpm_sub_cap INTEGER; ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;`.
+- Migration `0015_projects.sql`: `DROP TABLE keys;` (the stub from 0002). `ALTER TABLE auth_tokens ADD COLUMN project_id TEXT REFERENCES projects(id);` `ALTER TABLE projects ADD COLUMN rpm_sub_cap INTEGER; ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;`; `UPDATE projects SET created_at = created_at * 1000, updated_at = updated_at * 1000;` (epoch seconds → milliseconds, D11).
 - API keys (`POST /api/tokens`) take an optional `project_id` owned by the caller. The auth context carries `projectId` from the token row; `x-project-id` is no longer read (`auth/middleware.ts:374`). Sub-cap comes from `projects.rpm_sub_cap`.
 - `PATCH /api/projects/:id` persists `name`, `description`, `rpm_sub_cap` (bounded by tier), `is_archived`; archived projects' tokens are rejected with 403 `project_archived`.
 - `POST /api/tokens/:id/rotate` is implemented (the UI already calls it): new secret, same id and project, old hash replaced, response shows the secret once.
 
-**Tests:** token bound to project P with sub-cap 2 → third request in a minute returns 429 `project_sub_cap_exceeded` even with `x-project-id` omitted or set to another project; archived project → 403; token rotate returns a new working secret and the old one → 401.
+**Tests**
+- Token bound to project P with sub-cap 2 → third request in a minute returns 429 `project_sub_cap_exceeded` even with `x-project-id` omitted or set to another project.
+- Archived project → 403.
+- Token rotate returns a new working secret and the old one → 401.
 
 ### Phase 1 gate
 - Harness, host matrix, identity, CU, schema conformance, key submission and project tests pass.
@@ -710,9 +905,28 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 **Goal:** the reciprocal commons works as the PRD intends. Contributors earn CU and burst, borrowers accrue debt, jail and decay behave, new keys join after 24 hours, and shared keys respect their real limits.
 
-**Time in tests.** Every DO and the lease orchestrator take a `Clock` (`now(): number`). In the Workers harness, `env.KC_ENV === "test"` enables a `setClockForTest(ms)` RPC on each DO; tests move time and then call `runDurableObjectAlarm(stub)`. Production code never reads `Date.now()` directly in these modules.
+Time-dependent tests use the deterministic clock from WP-2.0.
+
+### WP-2.0 Deterministic test clock for Durable Objects
+
+**Depends on:** none
+
+**Findings:** prerequisite for the time-based tests of FR-05, FR-07, FR-13, FR-20, FR-21, AC-05, AC-06 and AC-12.
+
+**Implementation**
+1. `src/utils/clock.ts`: `export interface Clock { now(): number }` and `systemClock`. `KeyPoolDO`, `TenantQuotaDO`, `PoolCoordinatorDO`, `DemoDO` and the lease orchestrator receive a `Clock` and never call `Date.now()` directly in lease, window, backoff or alarm code.
+2. When `env.KC_ENV === "test"`, each of those DOs exposes an RPC method `setClockForTest(ms: number)` that switches it to a fixed clock; in any other environment the method throws.
+3. Test helper `test/helpers/clock.ts`: `advance(stub, ms)` sets the clock and then calls `runDurableObjectAlarm(stub)` from `cloudflare:test`.
+4. `vitest.workers.config.ts` binds `KC_ENV: "test"`; `wrangler.jsonc` never sets it.
+
+**Tests** (`test/do/clock.test.ts`)
+- A DO in the test environment reports the time set by `setClockForTest`.
+- `setClockForTest` throws when `KC_ENV` is not `test`.
+- `advance()` fires a DO alarm scheduled for the new time.
 
 ### WP-2.1 Coordinator key registry and leases
+
+**Depends on:** WP-2.0
 
 **Findings:** PRD 9.3 (`getNextCommunityKey` absent), FR-04 / R13 (shared-key limits tracked per consumer), stale per-tenant snapshots (`key_pool_do.ts:198-260`), priority fixed at first load (`key_pool_do.ts:225-240`), part of FR-02.
 
@@ -732,37 +946,51 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
 
 ### WP-2.2 Observation lifecycle and anti-cycling
 
+**Depends on:** WP-2.1
+
 **Findings:** FR-07 (keys never leave OBSERVATION), FR-18 (60-minute anti-cycling tier), AC-05.
 
 **Implementation**
 - Coordinator alarm: `UPDATE keys SET status='ACTIVE' WHERE status='OBSERVATION' AND observation_until <= now`, and the same transition in D1 (`api_keys.community_routing_status='ACTIVE'`, `status_changed_at`) in one batch per alarm run. Owners get a notification "Your key joined the community pool" (WP-3.2).
 - During OBSERVATION the key is leasable only with `ownOnly=true` (owner's own traffic), per FR-07.
 - Pool mode PRIVATE→COMMUNITY always starts a fresh 24 h observation; COMMUNITY→PRIVATE removes it from the coordinator immediately (FR-22 freeze still applies, already correct in `ops.ts:66-76`).
-- FR-18: when a submission's project hash had an upstream-revocation tombstone in the prior 24 h, set `api_keys.anti_cycling_until = now + 60 min`. Until then the owner's vesting cap is 100 (1.00×) and the key earns no contribution credit.
+- FR-18: when a submission's project hash had an upstream-revocation tombstone in the prior 24 h, set `api_keys.anti_cycling_until = now + 60 min` (column added by migration `0019_anti_cycling.sql`). Until then the owner's vesting cap is 100 (1.00×) and the key earns no contribution credit.
 - Admin "promote all observation" (`admin_handler.ts:213`) stays as an operator override but goes through the coordinator RPC, not raw SQL.
 
-**Tests:** AC-05: a key submitted at T=0 is not leasable by another tenant at T+23h59m and is at T+24h after one alarm; the owner can use it at T+1 min; switching back to COMMUNITY restarts the clock; FR-18 case yields multiplier 1.00× for 60 minutes and zero credit.
+**Tests**
+- AC-05: a key submitted at T=0 is not leasable by another tenant at T+23h59m and is at T+24h after one alarm.
+- The owner can use it at T+1 min.
+- Switching back to COMMUNITY restarts the clock.
+- FR-18 case yields multiplier 1.00× for 60 minutes and zero credit.
 
 ### WP-2.3 Debt and contribution accounting
+
+**Depends on:** WP-2.1
 
 **Findings:** FR-03 (no callers of `accrueDebt`/`decrementDebt`), D8 (`contributor_standing` never written), AC-02, the hard-coded 1.5×/4.5×/PRISTINE fallbacks (`pool_routes.ts:222-231`, `DebtLedgerWidget.svelte:103-110`).
 
 **Implementation**
 1. `TenantQuotaDO` RPC: `accrueDebt(cu, leaseId)`, `credit(cu, leaseId)` (both idempotent on `leaseId`), `standing()`. `credit` first reduces debt, then adds to contribution (PRD: debt "decrements when the contributor's own key serves another user"). Contribution is kept in 24 hourly buckets so `contributed_24h` is a sliding window (D-12).
 2. The orchestrator calls both on every `borrowed` settlement (4 in 2.4).
-3. **Standing mirror.** A registration-time `INSERT INTO contributor_standing (tenant_id) VALUES (?)`. TenantQuotaDO marks itself dirty on change; its alarm (every 60 s while dirty) upserts `community_debt_cu`, `contributed_cu_24h`, `multiplier_pct`, `jail_status`, `trusted_contributor`, `consecutive_debt_free_days`, `updated_at`.
+3. **Standing mirror.** Migration `0017_standing.sql` adds `contributor_standing.contributed_cu_24h INTEGER NOT NULL DEFAULT 0`, `multiplier_pct INTEGER NOT NULL DEFAULT 100`, `jail_status TEXT NOT NULL DEFAULT 'PRISTINE'` and `last_reset_day TEXT`. A registration-time `INSERT INTO contributor_standing (tenant_id) VALUES (?)`. TenantQuotaDO marks itself dirty on change; its alarm (every 60 s while dirty) upserts `community_debt_cu`, `contributed_cu_24h`, `multiplier_pct`, `jail_status`, `trusted_contributor`, `consecutive_debt_free_days`, `updated_at`.
 4. `GET /api/pool/standing` reads the caller's live standing from their TenantQuotaDO (authoritative); the D1 mirror is used only for admin lists and analytics. Both hard-coded fallbacks are deleted; a missing standing is a 500, not "PRISTINE".
 5. `GET /api/pool/contribution` computes `requests_served_for_community_today`, `personal_requests_today`, `cu_contributed_24h`, `cu_borrowed_24h`, `net_cu` from the coordinator (per-owner counters) and TenantQuotaDO.
 
-**Tests** — AC-02 with a test catalog override where every request costs exactly 1 CU: 100 borrowed requests → borrower debt 100, lender contribution 100; then the borrower's own community key serves 100 requests for others → borrower debt 0. Mirror row equals DO state after the alarm. Standing endpoint for a brand-new user returns debt 0, multiplier 1.00×, from the DO, not from a constant.
+**Tests**
+- AC-02 with a test catalog override where every request costs exactly 1 CU: 100 borrowed requests → borrower debt 100, lender contribution 100.
+- Then the borrower's own community key serves 100 requests for others → borrower debt 0.
+- After the alarm, the `contributor_standing` mirror row equals the DO state.
+- The standing endpoint for a brand-new user returns debt 0 and multiplier 1.00× from the DO, not from a constant.
 
 ### WP-2.4 Multiplier and quota jail
+
+**Depends on:** WP-2.3, WP-2.11, WP-2.6
 
 **Findings:** FR-17, FR-26, Flow F / AC-03 (`quota_jail` never produced), evaluator ignoring the multiplier (`quota/tenant/evaluator.ts:66-70`), D-11.
 
 **Implementation**
 1. `multiplier_pct = min(vesting_cap, debt_cap, band_cap)`, all integers (100 = 1.00×):
-   - `vesting_cap` (FR-17), from the age of the owner's oldest ACTIVE community key: 0–2 h → 150; 2–12 h → 250; ≥ 12 h → 450 (500 if trusted). No community key → 100.
+   - `vesting_cap` (FR-17), from the age of the owner's oldest ACTIVE community key whose drain state is `OK` (D-16; `DRAINED` keys do not count): 0–2 h → 150; 2–12 h → 250; ≥ 12 h → 450 (500 if trusted). No counting community key → 100.
    - `debt_cap` (FR-03): `ratio_pct = debt * 100 / max(contributed_24h, 1)`; > 100 → 100 (HARD_JAIL); > 50 → 150 (SOFT_WARNING); else 450 / 500 trusted (PRISTINE).
    - `band_cap` (FR-26) from the coordinator's utilisation for the tenant's providers (WP-2.11): < 60 % → 450; < 80 % → 300; < 95 % → 150; else 100. The coordinator pushes band changes to a small `pool:bands` value that TenantQuotaDO reads on its alarm (not per request).
 2. `evaluateQuota` uses `effective_limit = tier_limit * multiplier_pct / 100` for RPM and RPD. Tier limits stay the base (`contracts/v3_types.ts:36`).
@@ -776,9 +1004,16 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
    `estimated_days` = smallest `n` with `debt × 0.8ⁿ ≤ contributed_24h`, computed with integers (loop, max 30).
 4. Remove `determineJailStatus`'s dependency on `multiplierCeiling === 100` (fragile equality); jail status derives from `ratio_pct` directly.
 
-**Tests:** table test of `multiplier_pct` across vesting × debt × band combinations; AC-03 (debt 101, contributed 100, own keys exhausted → 429 `quota_jail` body as above); SOFT_WARNING tenant's RPM ceiling equals `tier_rpm × 1.5`; non-contributor stays at tier limits.
+**Tests**
+- Table test of `multiplier_pct` across vesting × debt × band combinations.
+- AC-03 (debt 101, contributed 100, own keys exhausted → 429 `quota_jail` body as above).
+- SOFT_WARNING tenant's RPM ceiling equals `tier_rpm × 1.5`.
+- Non-contributor stays at tier limits.
+- An owner whose only community key is `DRAINED` has `vesting_cap` 100 (1.00×); after the key returns to `OK`, the cap is restored.
 
 ### WP-2.5 Nightly reset: decay, trust, streaks
+
+**Depends on:** WP-2.3
 
 **Findings:** FR-21 (30 % branch unreachable, float decay, 30 vs 7 days), the midnight jail cliff (audit FR-21 second row), D-07, D-12.
 
@@ -795,26 +1030,45 @@ export function nightlyReset(s: DebtState): DebtState {
 - The alarm applies `nightlyReset` once per missed day using `last_reset_day` (catch-up after downtime).
 - `accrueDebt` resets the streak immediately; the trust flag is cleared at the next reset if debt is positive (PRD: "cleared the first day debt goes positive").
 - CONTEXT.md's "30 consecutive days" is corrected to 7.
+- Each reset inserts a `standing_history(tenant_id, day, multiplier_pct, debt_cu, contributed_cu_24h, jail_status)` row (migration `0022_standing_history.sql`); the Analytics tab (WP-4.7) reads it.
 
-**Tests:** trusted tenant decays 30 %, untrusted 20 %; seven debt-free resets → trusted, 500 ceiling; debt 60 with `contributed_24h` 100 across midnight → SOFT_WARNING, not jailed (the old code jailed); three missed alarms apply three decays.
+**Tests**
+- Trusted tenant decays 30 %, untrusted 20 %.
+- Seven debt-free resets → trusted, 500 ceiling.
+- Debt 60 with `contributed_24h` 100 across midnight → SOFT_WARNING, not jailed (the old code jailed).
+- Three missed alarms apply three decays.
 
 ### WP-2.6 Dispatch counters, hero/parasite, self-key accounting
+
+**Depends on:** WP-2.1, WP-3.2
 
 **Findings:** FR-16, FR-02 (`selfKeyRouted` always false), D9 (counter columns never written), AC-10, AC-11, `recordDispatch` missing from the RPC client.
 
 **Implementation**
 - Counters live where the key's state lives: coordinator `keys.dispatched_today`/`dispatched_communal` (community keys, incremented in `settle`; `communal` only when `borrowed`), KeyPoolDO for private keys. Both are SQLite-backed DO storage, so they survive eviction (AC-11).
 - `recordDispatch` and `selfKeyRouted` are deleted from contracts and code.
-- **Classification (FR-16) — design open (D-16).** The PRD's rule (`communal / today < 10 %` ⇒ PARASITE, credit suspended) conflicts with D-04: because every tenant's own traffic uses their own community keys before anyone else's, a key that mostly served its owner is the *expected* outcome, and penalising it would punish the routing the system itself imposes. What FR-16 is really guarding against (threat V02) is a contributor who drains the key **outside** Key Collective, so the pool advertises capacity the key no longer has. Proposal for discussion:
-  - On an RPD-exhaustion 429, compute `kc_seen_pct = (own + communal dispatches through KC today) × 100 / rpd_limit`.
-  - `kc_seen_pct ≥ 70` → normal exhaustion. Record `HERO` when `communal / total ≥ 80 %` (telemetry and a "served the commons" badge only).
-  - `kc_seen_pct < 70` → **externally drained**: the key's effective daily capacity is learned (`effective_rpd = kc_seen at exhaustion`, rolling 7-day median) so the coordinator stops over-lending it; owner gets an informational notification. No credit penalty; credit is already proportional to what the key actually served.
-  - Only if external draining repeats (e.g. 5 of 7 days) does the key's `vesting_cap` drop one step until the pattern stops — a capacity-honesty signal rather than a punishment. Final choice pending owner discussion.
-- At the coordinator's midnight run, per-key daily totals are written to a new D1 table `key_daily_stats(key_id, day, dispatched, communal, cu_served, classification)` and counters reset.
+- **Classification (FR-16, as decided in D-16).** No credit or debt penalty exists; the only consequence of draining is that a drained key stops earning its owner a multiplier.
+  - Counters are kept per key **and model** (Gemini free-tier quotas are per project and per model). On an RPD-exhaustion 429 (detected by WP-3.2), compute `kc_seen_pct = (own + communal dispatches through KC today for that model) × 100 / daily limit` (the model's known limit, else the key's `rpd_limit`) and `communal_pct = communal × 100 / total`.
+  - `kc_seen_pct ≥ 50`: a clean exhaustion. Classify `HERO` when `communal_pct ≥ 80` (badge and telemetry only), otherwise `NORMAL`.
+  - `kc_seen_pct < 50`: a **drained day**. Store `effective_rpd` (rolling 7-day median of dispatches at exhaustion) and lend at most `min(rpd_limit, effective_rpd)` from then on.
+  - A key with drained days on 5 of the last 7 days becomes `DRAINED` (coordinator `keys.drain_state`, mirrored to `api_keys.drain_state` by migration `0018_key_daily_stats.sql`). The owner receives one notification (WP-3.2's table) explaining that the key no longer counts toward their multiplier and how to recover.
+  - A day without a drained exhaustion is clean. After 3 consecutive clean days the key returns to `OK` and counts again; the owner is notified.
+  - Telemetry event `key_classification` records `kc_seen_pct`, `communal_pct` and the result for every exhaustion.
+- At the coordinator's midnight run, per-key daily totals are written to a new D1 table `key_daily_stats(key_id, day, dispatched, communal, cu_served, classification)` (migration `0018_key_daily_stats.sql`) and counters reset.
 
-**Tests:** AC-10 (key with 85 % communal share → HERO, owner credit intact); owner-heavy exhaustion with high `kc_seen_pct` → no classification penalty; external-drain case once D-16 is decided; AC-11 (evict the coordinator instance mid-day via `runInDurableObject` + abort, counters intact after restart); `key_daily_stats` row written at midnight.
+**Tests**
+- AC-10: a key with 85 % communal share that hits its daily limit with `kc_seen_pct ≥ 50` is classified `HERO`; its owner's credit and multiplier are unchanged.
+- A key used mostly by its owner through Key Collective and exhausted with `kc_seen_pct ≥ 50` is not a drained day and triggers no notification.
+- A key exhausted with `kc_seen_pct < 50` records a drained day and stores `effective_rpd`, which then caps lending.
+- Drained days on 5 of 7 days mark the key `DRAINED` and create exactly one notification; the owner's credit, debt and own use of the key are unchanged.
+- 3 consecutive clean days return a `DRAINED` key to `OK` with one notification.
+- Counters are per model: exhausting the key's Flash quota does not count against its Pro quota.
+- AC-11: evicting the coordinator mid-day (via `runInDurableObject` + abort) leaves counters and drain state intact.
+- A `key_daily_stats` row per key and model is written at the midnight run.
 
 ### WP-2.7 Surge brake
+
+**Depends on:** WP-2.1
 
 **Findings:** FR-20 (lone tenant braked after one request, own-key traffic braked, volumes in memory only), R11 (volume = prompt estimate).
 
@@ -824,9 +1078,14 @@ export function nightlyReset(s: DebtState): DebtState {
 - In `lease(ownOnly=false)`: compute the 5-minute window. A brake triggers only when `pool_cu_5min ≥ BRAKE_MIN_POOL_CU` (default 2,000), `active_borrowers ≥ 3`, and `tenant_cu_5min × 100 > 35 × pool_cu_5min`. Brake = refuse borrowed leases for 60 s (`brakes` table). Own keys are never braked.
 - Constants in `src/constants/commons.ts`, overridable via `vars` for tuning.
 
-**Tests:** single borrower sending 1,000 CU in 5 min → never braked; three borrowers with shares 60/20/20 over the minimum → the 60 % tenant is braked for 60 s, still served by its own keys, and unbraked at +61 s; state survives coordinator eviction.
+**Tests**
+- Single borrower sending 1,000 CU in 5 min → never braked.
+- Three borrowers with shares 60/20/20 over the minimum → the 60 % tenant is braked for 60 s, still served by its own keys, and unbraked at +61 s.
+- State survives coordinator eviction.
 
 ### WP-2.8 Eye-for-eye firewall and cold-start share cap
+
+**Depends on:** WP-2.1
 
 **Findings:** FR-19 (display flag only), FR-12 (absent), AC-14.
 
@@ -834,58 +1093,85 @@ export function nightlyReset(s: DebtState): DebtState {
 - FR-19: `lease(ownOnly=false)` requires that the borrower owns at least one `ACTIVE` community key **in this provider shard**. Otherwise `null` with reason `eye_for_eye`; the final 429 says which provider needs a contribution. `eye_for_eye_accessible` in `/api/pool/telemetry` is computed from the same function.
 - FR-12: coordinator tracks each owner's share of CU served to borrowers over the trailing 24 h. With `N` = distinct owners with ACTIVE keys in the shard, cap = 40 % if `N ≤ 5`, else `max(20 %, 200/N %)`. Owners at or above the cap are excluded from borrowed-lease candidates (hard ceiling).
 
-**Tests:** Gemini-only contributor cannot borrow Groq (429 `eye_for_eye`); AC-14 with N = 4 owners and skewed priority → no owner exceeds 40 % of served CU over 1,000 simulated leases; N = 10 → cap 20 %.
+**Tests**
+- Gemini-only contributor cannot borrow Groq (429 `eye_for_eye`).
+- AC-14 with N = 4 owners and skewed priority → no owner exceeds 40 % of served CU over 1,000 simulated leases.
+- N = 10 → cap 20 %.
 
 ### WP-2.9 Reset jitter and leaky-bucket queue
+
+**Depends on:** WP-2.1, WP-3.2
 
 **Findings:** FR-05, FR-23, AC-12; `MIDNIGHT_FREEZE` is an unrelated kill switch (`dispatcher.ts:89`).
 
 **Implementation**
-- Provider reset policy in `src/providers/config.ts`: `{ google: { dailyResetTz: "America/Los_Angeles" }, groq: { dailyResetTz: "UTC" } }` — **verify both against current provider documentation during implementation** and record the source in `docs/specs/provider_quotas.md`.
+- Provider reset policy in `src/providers/config.ts`: `{ google: { dailyResetTz: "America/Los_Angeles" }, groq: { dailyResetTz: "UTC" } }` — values come from `docs/specs/provider_quotas.md`, which the operator records before stage 2 (**Human**).
 - On an RPD-exhaustion 429, the coordinator sets `status='COOLDOWN'`, `reactivate_at = next_reset(provider) + uniform(0, 300 s)` using `crypto.getRandomValues`. The alarm reactivates keys whose `reactivate_at` has passed.
 - Leaky bucket: when `lease` returns `null` because every candidate is in COOLDOWN and `now` is within ±5 minutes of that provider's reset, the orchestrator retries with 250 ms backoff for up to 5 s total before returning 429.
 - `MIDNIGHT_FREEZE` is renamed `MAINTENANCE_MODE` and folded into the kill switch (WP-5.1).
 
-**Tests:** AC-12: exhaust 100 keys at 23:59:30 provider time → all `reactivate_at` within [reset, reset+300 s], spread > 240 s, Kolmogorov–Smirnov statistic against uniform below the 0.05 critical value; a request at reset−2 s waits and succeeds when a key reactivates within 5 s.
+**Tests**
+- AC-12: exhaust 100 keys at 23:59:30 provider time → all `reactivate_at` within [reset, reset+300 s], spread > 240 s, Kolmogorov–Smirnov statistic against uniform below the 0.05 critical value.
+- A request at reset−2 s waits and succeeds when a key reactivates within 5 s.
 
 ### WP-2.10 Passive contributor canary
+
+**Depends on:** WP-2.1, WP-3.2
 
 **Findings:** FR-13 (alarm only classifies).
 
 **Implementation.** KeyPoolDO's 00:00 UTC alarm (it already runs) asks TenantQuotaDO for yesterday's personal request count. If `< 50`, it asks the coordinator for the tenant's community keys and runs the shared proof-of-life probe (WP-1.5) on each: 200 → `HEALTHY`; 401/403 → quarantine flow (WP-3.2); 429 → no action. One request per key per day, as the PRD budgets.
 
-**Tests:** passive tenant with 2 community keys, one revoked upstream (mock 401) → that key QUARANTINED and a notification created; active tenant (≥ 50 requests) → no probe calls.
+**Tests**
+- Passive tenant with 2 community keys, one revoked upstream (mock 401) → that key QUARANTINED and a notification created.
+- Active tenant (≥ 50 requests) → no probe calls.
 
 ### WP-2.11 Truthful pool telemetry
+
+**Depends on:** WP-2.1, WP-2.6
 
 **Findings:** `wProvider` float and wrong scale (8.33 vs 1.00×), `pool_utilization_percent` computed as communal share, provider health only refreshed on page views (stub table), D8/D9 display paths.
 
 **Implementation**
 - Coordinator alarm (hourly) computes per shard: `active`, `observation`, `quarantined`, `utilisation_pct = Σ day_count × 100 / Σ rpd_limit` over ACTIVE keys (true capacity utilisation), `p90_latency_ms` (from its own settle-time latency histogram, not a D1 scan per page view), and `w_provider_pct = active_ratio_pct × min(100, TARGET_P90_MS × 100 / p90) / 100` with `TARGET_P90_MS = 800`. Displayed as `w_provider_pct / 100` with two decimals (1.00× optimal).
 - `/api/pool/telemetry` aggregates both shards' `stats()`; no D1 aggregate query, no `ctx.waitUntil` pushes from a GET handler.
+- `get_keys.ts` and `/api/pool/contribution` read per-key counters from the coordinator; then migration `0023_drop_key_counters.sql` drops `api_keys.dispatched_today`, `dispatched_communal` and `vesting_tier`.
 
-**Tests:** seeded coordinator with known counters → endpoint returns exact integers; `w_provider` is 1.00× when p90 ≤ 800 ms and all keys active; no request to the endpoint mutates coordinator state.
+**Tests**
+- Seeded coordinator with known counters → endpoint returns exact integers.
+- `w_provider` is 1.00× when p90 ≤ 800 ms and all keys active.
+- No request to the endpoint mutates coordinator state.
 
 ### WP-2.12 Demo pool isolation
+
+**Depends on:** WP-2.1
 
 **Findings:** S11 / FR-25 (demo traffic consumes contributor keys), `default`-tenant operator keys (S7 follow-up).
 
 **Implementation.** Reserve tenant `sys_operator` for operator-owned keys (move all `default` rows there after WP-0.7 forensics). Demo tokens authenticate as tenant `sys_demo`; the orchestrator, for `sys_demo`, leases only from `KeyPoolDO("sys_operator")` private keys and never calls the coordinator. Demo requests are excluded from multiplier, debt and pool telemetry.
 
-**Tests:** community keys exist, operator pool empty → demo request 503 `demo_unavailable`, coordinator counters unchanged; with an operator key → served, no `cost_ledger` row marked `borrowed`.
+**Tests**
+- Community keys exist, operator pool empty → demo request 503 `demo_unavailable`, coordinator counters unchanged.
+- With an operator key → served, no `cost_ledger` row marked `borrowed`.
 
 ### WP-2.13 Project hash lifecycle, rotation and deletion
+
+**Depends on:** WP-2.1
 
 **Findings:** FR-08 (ROTATING / TOMBSTONED never used), AC-06, Flow D (rotate replaces the secret in place with no same-project check), revocation → tombstone.
 
 **Implementation**
+- Migration `0020_project_hash_vesting.sql`: `ALTER TABLE project_hash_registry ADD COLUMN vesting_started_at INTEGER;`.
 - **Delete** (`DELETE /api/keys/:id`): mark the key `REVOKED` (soft delete, keeps history), remove from DO/coordinator, set its registry row to `ROTATING`, `rotating_until = now + 30 min`, and store `vesting_started_at` on the registry row.
 - **Resubmission within 30 min** from the same tenant and same project (probe hash matches) → registry back to `ACTIVE`, new key inherits `vesting_started_at` (vesting preserved). Any other tenant → 409.
 - **Expiry:** coordinator alarm (or lazy check at submission) turns expired `ROTATING` into `TOMBSTONED`, `tombstone_until = rotating_until + 14 d`.
 - **Upstream permanent revocation** (repeated 401 after the canary) and **takedown** → `TOMBSTONED` directly.
 - **Rotate** (`POST /api/keys/:id/rotate`) becomes: probe the new key (same project for Google, else 409 `project_mismatch`), proof-of-life, re-encrypt, update `key_hash`, prefix/suffix; vesting preserved.
 
-**Tests:** AC-06 (delete, wait 31 min → resubmission from the same project by anyone → 409 for 14 days, accepted after); in-window resubmission by owner keeps vesting; rotate with a key from another project → 409.
+**Tests**
+- AC-06 (delete, wait 31 min → resubmission from the same project by anyone → 409 for 14 days, accepted after).
+- In-window resubmission by owner keeps vesting.
+- Rotate with a key from another project → 409.
 
 ### Phase 2 gate
 - AC-01, AC-02, AC-03, AC-05, AC-06, AC-10, AC-11, AC-12, AC-14 pass in the Workers harness.
@@ -899,15 +1185,21 @@ export function nightlyReset(s: DebtState): DebtState {
 
 ### WP-3.1 Account usage to the key, not the model
 
+**Depends on:** WP-2.1
+
 **Findings:** R1.
 
 **Problem.** `chat/stream.ts:64,74` and `chat/non_streaming.ts:31,40` pass `cascadeRes.modelDef.id` (a model name) where a key id is required. `KeyPoolDO.recordUsage` throws `KeyNotFound` (swallowed) and every `cost_ledger.key_id` holds a model name.
 
 **Implementation.** With leases (WP-2.1) the response carries `lease.keyId`; both handlers pass it to `settle` and to the ledger. Delete the separate `recordUsage` calls from the response handlers (settlement is the single accounting point). Add a `NOT NULL` foreign-key-style check in the ledger repository: `key_id` must match `^key_`.
 
-**Tests:** non-streaming and streaming completions write `cost_ledger.key_id` equal to the leased key's id; the key's minute counter in its DO increments by exactly 1 per request in both modes.
+**Tests**
+- Non-streaming and streaming completions write `cost_ledger.key_id` equal to the leased key's id.
+- The key's minute counter in its DO increments by exactly 1 per request in both modes.
 
 ### WP-3.2 Upstream status handling, quarantine and notifications
+
+**Depends on:** WP-2.1
 
 **Findings:** R9 (401/429 only call `recordResult(false)`), `recordStatusCode` has no callers, Flow G, D12 (notifications query `created_at`).
 
@@ -923,13 +1215,19 @@ export function nightlyReset(s: DebtState): DebtState {
    | 5xx, timeout | `upstream_error` | breaker failure; open after 5 consecutive, half-open after 60 s |
    | 400 | `request_error` | no key action; return 400 to the client (sanitised), do not fall back |
 2. The status goes to the lease owner (`KeyPoolDO` or coordinator) through `settle(leaseId, outcome)`; D1 `api_keys.status` and `status_changed_at` are updated in the same settle for `key_invalid`, `rpd_exhausted`, and recoveries.
-3. Migration (in `0015_commons.sql`): `CREATE TABLE notifications (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, type TEXT NOT NULL, key_id TEXT, message TEXT NOT NULL, created_at INTEGER NOT NULL, read_at INTEGER); CREATE INDEX idx_notif_tenant_created ON notifications(tenant_id, created_at);`
-4. `GET /api/notifications?since=<ms>` reads that table (tenant-scoped). `POST /api/notifications/:id/read` marks read. Messages use the PRD Flow G text with the key label and provider.
-5. Delete `recordResult` and `recordStatusCode` from `KeyPoolContract`; `settle` replaces both.
+3. Migration `0021_notifications.sql`: `CREATE TABLE notifications (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, type TEXT NOT NULL, key_id TEXT, message TEXT NOT NULL, created_at INTEGER NOT NULL, read_at INTEGER); CREATE INDEX idx_notif_tenant_created ON notifications(tenant_id, created_at);`
+4. Add the owner notification to the abuse takedown (`abuse_routes.ts`: "Your key was revoked after an abuse report"), deferred from WP-0.4.
+5. `GET /api/notifications?since=<ms>` reads that table (tenant-scoped). `POST /api/notifications/:id/read` marks read. Messages use the PRD Flow G text with the key label and provider.
+6. Delete `recordResult` and `recordStatusCode` from `KeyPoolContract`; `settle` replaces both.
 
-**Tests:** for each row of the table, a mocked upstream response produces the stated key state, D1 status, and (where listed) exactly one notification; a 400 does not trigger fallback; breaker opens on the 5th consecutive 5xx and half-opens after 60 s of test clock.
+**Tests**
+- For each row of the table, a mocked upstream response produces the stated key state, D1 status, and (where listed) exactly one notification.
+- A 400 does not trigger fallback.
+- Breaker opens on the 5th consecutive 5xx and half-opens after 60 s of test clock.
 
 ### WP-3.3 Complete OpenAI-compatible responses and parameter passthrough
+
+**Depends on:** none
 
 **Findings:** R8 (tool calls dropped, `finish_reason` hard-coded), R14 (FR-24 passthrough).
 
@@ -938,31 +1236,47 @@ export function nightlyReset(s: DebtState): DebtState {
 2. **Response (non-stream).** Both supported providers speak the OpenAI format through their OpenAI-compatible endpoints, so return the upstream JSON with only these edits: `id` → `chatcmpl-<kc request id>`, `model` → the resolved model id, `usage.kc_cu` added. `choices[].message.tool_calls`, `finish_reason`, `logprobs` survive untouched. Delete `extractContentFromPayload` from the response path (keep it only if a provider without OpenAI format is re-added later).
 3. **Streaming.** Pass SSE chunks through; after upstream `[DONE]`, emit `event: kc.usage` + `data: {"cu": …}` then `data: [DONE]`. Mid-stream upstream errors are sanitised (WP-0.6) before being forwarded as an SSE error event.
 
-**Tests:** tool-call response (mocked Groq and Gemini fixtures) round-trips `tool_calls` and `finish_reason: "tool_calls"`; an arbitrary field `{"foo": 1}` and `safetySettings` reach the mocked upstream body; streaming request carries `include_usage`; final events are `kc.usage` then `[DONE]`.
+**Tests**
+- Tool-call response (mocked Groq and Gemini fixtures) round-trips `tool_calls` and `finish_reason: "tool_calls"`.
+- An arbitrary field `{"foo": 1}` and `safetySettings` reach the mocked upstream body.
+- Streaming request carries `include_usage`.
+- Final events are `kc.usage` then `[DONE]`.
 
 ### WP-3.4 Providers and model catalog
+
+**Depends on:** none
 
 **Findings:** R5, R6, D-06; README aliases that do not exist.
 
 **Implementation**
 1. `src/providers/config.ts` becomes the single provider list: `google` (base `https://generativelanguage.googleapis.com/v1beta/openai`) and `groq` (`https://api.groq.com/openai/v1`). Delete `openai`, `anthropic`, `deepseek`, `cohere`, `mistral`, `together` from `DEFAULT_PROVIDER_BASE_URLS` and the fallback URL guess in `upstream/urls.ts` (`https://api.${provider}.com/v1`). Unknown provider → configuration error.
-2. Catalog (`router/registry/catalog.ts`) keeps only models callable with free-tier Gemini and Groq keys, each with CU weights (2.2). Remove `gpt-4o*`, `claude-*`, `deepseek-chat`.
-3. **Model id verification.** `scripts/verify_catalog.mjs` calls each provider's models endpoint with a staging key and fails if any catalog id is missing (e.g. `gemini-3.8-flash`, `qwen/qwen3.8-27b` flagged in the audit). Run manually before each catalog change and weekly in CI with a secret key (non-blocking job).
+2. Catalog (`router/registry/catalog.ts`) keeps only models callable with free-tier Gemini and Groq keys, keeping their current price fields (this WP runs before WP-1.3, which converts them to CU weights). Remove `gpt-4o*`, `claude-*`, `deepseek-chat`.
+3. **Model id verification.** `scripts/verify_catalog.mjs` calls each provider's models endpoint with a staging key and fails if any catalog id is missing (e.g. `gemini-3.8-flash`, `qwen/qwen3.8-27b` flagged in the audit). Add a weekly, non-blocking CI job that runs it with a secret key. **Human:** run it with real keys after this WP merges and before WP-1.3 starts, and correct any ids it reports.
 4. **Aliases** defined in the catalog and documented in README: `auto` (cheapest capable model across providers the tenant can get a lease for), `smart-fast` (Gemini Flash → Groq 70B), `coder-high` (Gemini Pro → Groq gpt-oss-120b), `open-groq` (Groq 70B → Groq 8B). `cerebras-speed` is removed.
-5. Drop the D1 `model_registry` table and its repository (dead code, WP-5.4); the code catalog is the only source and `/v1/models` serves it with `kc: { cu_base, cu_in_per_1k, cu_out_per_1k }` per model.
+5. Migration `0016_catalog_cleanup.sql`: `DROP TABLE model_registry;`. Delete `src/storage/repositories/model_registry/*` and `tests/storage/repositories/modelRegistry.test.ts` in the same card. The code catalog is the only source; WP-1.3 adds the CU fields to `/v1/models`.
 6. UI: provider selector already shows only Gemini and Groq; PricingTable becomes a CU weight table fed by `/v1/models` (WP-4.6).
 
-**Tests:** `/v1/models` lists only google/groq models; every alias resolves to at least one catalog model; `auto` with a tenant holding only a Groq key routes to Groq without trying Gemini; submission of `provider: "cerebras"` → 400.
+**Tests**
+- `/v1/models` lists only google/groq models.
+- Every alias resolves to at least one catalog model.
+- `auto` with a tenant holding only a Groq key routes to Groq without trying Gemini.
+- Submission of `provider: "cerebras"` → 400.
 
 ### WP-3.5 Response headers
+
+**Depends on:** WP-3.3
 
 **Findings:** R3.
 
 **Implementation.** One `applyKcHeaders(res, ctx)` used by every `/v1` response: `x-kc-request-id: kc_req_<uuid>`, `x-kc-model-used`, `x-kc-provider`, `x-kc-cu` (non-stream), `x-kc-attempts`. Remove `x-kc-tenant-id` and `x-kc-trace-id` from responses (PRD section 12 information boundary: users do not see routing internals). Delete `UpstreamClient.toClientResponse`; header allow-listing already happens because responses are constructed, and a test guards it.
 
-**Tests:** header allow-list test: a mocked upstream sending `x-goog-*`, `server`, `alt-svc`, `x-envoy-*`, `cf-ray` → none appear (AC-08 headers half).
+**Tests**
+- A mocked upstream response carrying `x-goog-*`, `server`, `alt-svc`, `x-envoy-*` and `cf-ray` produces a client response with none of them (AC-08, headers half).
+- Every `/v1` response carries `x-kc-request-id` (`kc_req_<uuid>`), `x-kc-model-used` and `x-kc-provider`, non-streaming responses also `x-kc-cu`, and none carry `x-kc-tenant-id` or `x-kc-trace-id`.
 
 ### WP-3.6 Strict key decryption
+
+**Depends on:** WP-2.1
 
 **Findings:** R12, audit HKDF row (AC-07 weakened by fallbacks).
 
@@ -972,15 +1286,23 @@ export function nightlyReset(s: DebtState): DebtState {
 3. Cache per key id with the row's nonce in the cache key (so rotation invalidates naturally), TTL 5 min; replace `clearDecryptedKeyCache()` (global) with `evict(keyId)`.
 4. `ops/migrate_keys_hkdf.ts`: finish the bulk migration, then remove the legacy path in a follow-up release once `SELECT COUNT(*) FROM api_keys WHERE hkdf_migrated = 0` is 0.
 
-**Tests:** AC-07 (ciphertext of tenant A with tenant B's subkey → `KeyDecryptionError`, key quarantined, upstream never called); corrupted ciphertext → quarantine; legacy row decrypts once and is re-encrypted with `hkdf_migrated=1`.
+**Tests**
+- AC-07 (ciphertext of tenant A with tenant B's subkey → `KeyDecryptionError`, key quarantined, upstream never called).
+- Corrupted ciphertext → quarantine.
+- Legacy row decrypts once and is re-encrypted with `hkdf_migrated=1`.
 
 ### WP-3.7 Streaming usage capture
+
+**Depends on:** WP-3.3
 
 **Findings:** support for 2.2 settlement; R11 via WP-2.7.
 
 **Implementation.** `proxy/sse/usage_extractor.ts` reads the final usage chunk that `include_usage` produces (both providers' OpenAI-compatible streams). If absent, count streamed `delta.content` characters and estimate `ceil(chars / 4)`, flag `usage_estimated = 1`. Settlement runs in `flush`/`cancel` exactly once (existing `finalized` guard kept).
 
-**Tests:** stream with usage chunk → exact CU; without → estimated CU and `usage_estimated = 1`; client abort mid-stream → settlement with partial usage, once.
+**Tests**
+- Stream with usage chunk → exact CU.
+- Without → estimated CU and `usage_estimated = 1`.
+- Client abort mid-stream → settlement with partial usage, once.
 
 ### Phase 3 gate
 - AC-07 and AC-08 pass; R-series tests pass; `grep -rn "toClientResponse\|extractContentFromPayload\|recordStatusCode\|clearDecryptedKeyCache" src` returns nothing.
@@ -993,6 +1315,8 @@ export function nightlyReset(s: DebtState): DebtState {
 
 ### WP-4.1 Typed API client, honest errors
 
+**Depends on:** none
+
 **Findings:** F5, F1 follow-through, client-side stat recomputation (`api.ts:136-183`).
 
 **Implementation**
@@ -1001,9 +1325,13 @@ export function nightlyReset(s: DebtState): DebtState {
 - `getStats` stops recomputing health, RPM headroom and quota on the client; the server's `/api/stats` is authoritative. `App.svelte`'s `daily_quota_limit: 50000` initial value is replaced by a loading state.
 - A global `ErrorToast` shows `ApiError.message`; optimistic updates roll back on error.
 
-**Tests:** component tests with `msw` handlers built from the same zod schemas: delete failure (500) keeps the row and shows an error; schema-violating responses fail tests in CI.
+**Tests**
+- Component tests with `msw` handlers built from the same zod schemas: delete failure (500) keeps the row and shows an error.
+- Schema-violating responses fail tests in CI.
 
 ### WP-4.2 Remove invented data
+
+**Depends on:** WP-4.1, WP-2.3, WP-5.1
 
 **Findings:** every row of the audit's "Hard-coded or invented data" table.
 
@@ -1024,41 +1352,65 @@ export function nightlyReset(s: DebtState): DebtState {
 
 Add a CI guard `scripts/check-ui-literals.mjs` that fails on numeric literals ≥ 10 inside `{…}` template expressions of `ui/src/lib/**/*.svelte` unless whitelisted (layout numbers are in `class`/SVG attributes and excluded).
 
-**Tests:** for each component above, a render test with an empty or error API response asserts no number or name from the old fallback appears.
+**Tests**
+- For each component in the table above, a render test with an empty API response shows no number or name from the old fallback.
+- The same components rendered with an error response show an error state instead of fallback values.
+- `scripts/check-ui-literals.mjs` passes on `ui/src/lib`.
 
 ### WP-4.3 Real admin panel
+
+**Depends on:** WP-4.1, WP-5.1
 
 **Findings:** F8, admin audit/reset rows, admin on console host (WP-1.1).
 
 **Implementation.** Admin SPA served only on `admin.*`. Views: Tenants (live from D1 + DO standing), Keys (routing status, pool mode, delete via coordinator RPC), Providers (coordinator stats, override controls → WP-5.1), Kill switch (WP-5.1), Audit log (server). Every mutation shows the server's response and refreshes from the server.
 
-**Tests:** admin tests run against the harness with a real admin session; each action changes server state and writes an audit row; UI shows the server's audit list.
+**Tests**
+- Admin tests run against the harness with a real admin session.
+- Each action changes server state and writes an audit row.
+- UI shows the server's audit list.
 
 ### WP-4.4 Standing and debt widget
 
+**Depends on:** WP-4.1, WP-2.4
+
 **Findings:** F6, "Standing card" IA row, Flow F card.
 
-**Implementation.** Remove "Resolve debt" and `resolveDebt` entirely (no such concept in the PRD). The widget shows: multiplier with its three caps (vesting / debt / band) and which one binds; `community_debt_cu`, `contributed_cu_24h`, ratio bar with 50 % and 100 % marks; jail state card per PRD section 4.2 colours; trusted streak (`consecutive_debt_free_days` / 7); recovery estimate from the server.
+**Implementation.** Remove "Resolve debt" and `resolveDebt` entirely (no such concept in the PRD). The widget shows: multiplier with its three caps (vesting / debt / band) and which one binds; `community_debt_cu`, `contributed_cu_24h`, ratio bar with 50 % and 100 % marks; a state card with these states and colours (PRD section 4.2): PRISTINE (debt ≤ 50 % of contribution, green, full multiplier), SOFT_WARNING (> 50 %, yellow, multiplier capped at 1.50×), HARD_JAIL (> 100 %, red, 1.00× locked), TRUSTED (7-day debt-free streak, green with a gold star badge); trusted streak (`consecutive_debt_free_days` / 7); recovery estimate from the server.
 
-**Tests:** render per state (PRISTINE, SOFT_WARNING, HARD_JAIL, TRUSTED) from fixture standings; no network call on mount except `GET /api/pool/standing`.
+**Tests**
+- Render per state (PRISTINE, SOFT_WARNING, HARD_JAIL, TRUSTED) from fixture standings.
+- No network call on mount except `GET /api/pool/standing`.
 
 ### WP-4.5 Workbench and projects
+
+**Depends on:** WP-4.1
 
 **Findings:** F7, Workbench rows of WP-4.2.
 
 **Implementation.** All project and token actions go through the typed client (cookie + CSRF). Token rotate uses the endpoint from WP-1.6 and shows the new secret once. Archive and RPM sub-cap edits are pessimistic (update after 200). Project cards show real `rpm_sub_cap` and live RPM.
 
-**Tests:** rotate shows secret once and old token fails; archive persists after reload; sub-cap above tier maximum → server 400 shown inline.
+**Tests**
+- Rotate shows secret once and old token fails.
+- Archive persists after reload.
+- Sub-cap above tier maximum → server 400 shown inline.
 
 ### WP-4.6 Playground and API docs
+
+**Depends on:** WP-4.1
 
 **Findings:** F9, F10.
 
 **Implementation.** Playground obtains a playground token (`POST /api/playground/token`) and calls `API_BASE_URL`; reads `x-kc-cu`, `x-kc-model-used`, and the `kc.usage` SSE event; no `x-tenant-id`. API Docs render from `GET https://api…/v1/openapi.json` (single source; delete hand-written `api_docs/generators.ts` endpoint list and the `/v1/projects`, `/v1/telemetry` examples). PricingTable → "CU weights" from `/v1/models`.
 
-**Tests:** Playground shows CU from the header; docs page lists exactly the OpenAPI paths; no model outside `/v1/models` appears in the weights table.
+**Tests**
+- Playground shows CU from the header.
+- Docs page lists exactly the OpenAPI paths.
+- No model outside `/v1/models` appears in the weights table.
 
 ### WP-4.7 Information architecture per PRD section 4
+
+**Depends on:** WP-4.1, WP-4.4, WP-2.11, WP-3.2, WP-2.5
 
 **Findings:** every row of the audit's IA table.
 
@@ -1068,15 +1420,18 @@ Add a CI guard `scripts/check-ui-literals.mjs` that fails on numeric literals �
 | --- | --- |
 | Top tabs Dashboard / Keys / Pool / Analytics | `SideNavBar`/`TopNavBar` rebuilt with these four; Playground and Docs move under a "Developers" menu; Admin only on `admin.*`; "Commons" and "Workbench" tabs merged into Pool and Dashboard |
 | Dashboard | Standing card (WP-4.4), today's activity (personal requests, burst used, requests served for community), quick access, credentials (endpoint = `API_BASE_URL`, API keys list with create/rotate) |
-| Keys sub-tabs My Keys / Private / Observation | Filtered views of `GET /api/keys`; Observation shows a live countdown from `observation_until`; row expands to detail: pool mode, status, observation, vesting tier, 24 h dispatch `n / rpd_limit`, communal share (from coordinator via `/api/keys/:id/stats`), added date |
+| Keys sub-tabs My Keys / Private / Observation | Filtered views of `GET /api/keys`; Observation shows a live countdown from `observation_until`; row expands to detail: pool mode, status, observation, vesting tier, drain state (whether the key counts toward the multiplier, and days until it counts again), 24 h dispatch `n / rpd_limit`, communal share (from coordinator via `/api/keys/:id/stats`), added date |
 | Rotate modal | PRD Flow D text; explains the 30-minute same-project window (WP-2.13) |
 | Pool toggle modal | Freeze-window message (FR-22) and CU debt settlement text (Flow E) |
 | Pool sub-tabs Community / Provider / My Contribution | From `/api/pool/telemetry` and `/api/pool/contribution` (WP-2.11, WP-2.3). Google-only users see a locked Pool tab with a "Link GitHub to join the community pool" call to action (D-05) |
-| Analytics sub-tabs Usage / Usage ledger / Multiplier history | Usage: requests and CU per day by model (from `daily_cu_rollup`); ledger: paginated `cost_ledger` (CU, tokens, latency, status, borrowed); multiplier history: new `standing_history(tenant_id, day, multiplier_pct, debt_cu, contributed_cu_24h, jail_status)` written at each nightly reset |
+| Analytics sub-tabs Usage / Usage ledger / Multiplier history | Usage: requests and CU per day by model (from `daily_cu_rollup`); ledger: paginated `cost_ledger` (CU, tokens, latency, status, borrowed); multiplier history: `standing_history` rows written by WP-2.5 |
 | Public `/report` page | `console…/report` route renders without sign-in, with the Turnstile widget |
 | Notification toasts every 30 s | Poll `GET /api/notifications?since=` (WP-3.2); mark read on dismiss |
 
-**Tests:** navigation test for the four tabs and sub-tabs; each view renders from msw fixtures that match the contracts; `/report` renders signed-out.
+**Tests**
+- Navigation test for the four tabs and sub-tabs.
+- Each view renders from msw fixtures that match the contracts.
+- `/report` renders signed-out.
 
 ### Phase 4 gate
 - UI test suite (in `gate`) passes; `check-ui-literals` passes; manual walkthrough of PRD Flows A–I on staging recorded in `docs/walkthrough.md` (replacing the current file).
@@ -1087,6 +1442,8 @@ Add a CI guard `scripts/check-ui-literals.mjs` that fails on numeric literals �
 
 ### WP-5.1 Make admin circuit override and kill switch real
 
+**Depends on:** WP-2.1, WP-2.0
+
 **Findings:** stub rows "`POST /api/admin/circuit-breaker`" and "`POST /api/admin/kill-switch`", F8, `MIDNIGHT_FREEZE` (`dispatcher.ts:89`).
 
 **Implementation**
@@ -1094,17 +1451,27 @@ Add a CI guard `scripts/check-ui-literals.mjs` that fails on numeric literals �
 - **Kill switch:** new singleton `CONTROL` (a coordinator instance named `"control"` is enough) storing `{ maintenance: boolean, reason, since }`. `ApiHost` reads it with a 10-second isolate cache and returns `503 { error: { code: "maintenance" } }` with `Retry-After: 60` while on. `MIDNIGHT_FREEZE` env handling is deleted.
 - Both write `admin_audit_logs` (table exists from 0011) and return the stored state, not an echo of the request.
 
-**Tests** (replace `tests/admin/admin_router.test.ts:161-188`, T-04): trip `groq` → a Groq-only request returns 503 `provider_unavailable` and the upstream mock is not called; reset → served. Engage kill switch → `/v1/chat/completions` 503 within 10 s of test clock; console `/api/*` still works; audit rows written.
+**Tests** (replace `tests/admin/admin_router.test.ts:161-188`, T-04)
+- Trip `groq` → a Groq-only request returns 503 `provider_unavailable` and the upstream mock is not called.
+- Resetting the override → the same request is served again.
+- Engaging the kill switch → `/v1/chat/completions` returns 503 within 10 s of test clock, while console `/api/*` keeps working.
+- Each override and kill-switch change writes an `admin_audit_logs` row.
 
 ### WP-5.2 Truthful key tests
+
+**Depends on:** none
 
 **Findings:** stub row "`POST /api/keys/:id/test` … returns success without any network call" (`keys/ops.ts:192-196`).
 
 **Implementation.** `handleTestKey` calls the shared proof-of-life probe (WP-1.5) for the key's provider and returns `{ ok, status: "healthy" | "no_quota" | "invalid" | "unavailable", latency_ms }`. With D-06 there is no "other provider" branch; an unknown provider is a 500 configuration error. The result also updates key status through `settle`-equivalent logic (a `key_invalid` result quarantines).
 
-**Tests:** 200/429/401/timeout from the mocked provider map to the four statuses; the key's D1 status follows.
+**Tests**
+- 200/429/401/timeout from the mocked provider map to the four statuses.
+- The key's D1 status follows.
 
 ### WP-5.3 Replace silent failures with explicit handling
+
+**Depends on:** WP-5.4
 
 **Findings:** 95 empty `catch` blocks in `src/` (of 191); stub rows for `POST /api/keys` DO sync and the takedown's swallowed UPDATEs; 15 `console.*` calls.
 
@@ -1120,9 +1487,15 @@ Add a CI guard `scripts/check-ui-literals.mjs` that fails on numeric literals �
    | Guarded optional features | JSON body parse | Return 400 with `invalid_json` |
 4. Delete the 15 `console.*` calls (auth routes log raw OAuth errors today).
 
-**Tests:** lint runs in `gate:fast`; `grep -c "catch {}"` in `src` is 0.
+**Tests**
+- Lint runs in `gate:fast` and passes.
+- `grep -rc "catch {}" src` reports 0 everywhere.
+
+**HIVE:** one card per top-level directory of `src/`; cards that only add logging use `red: false`.
 
 ### WP-5.4 Dead code: wire or delete
+
+**Depends on:** none
 
 **Findings:** 39 unreachable files (4,085 lines), facades, KeyPoolDO HTTP RPC (N-01 follow-up).
 
@@ -1145,9 +1518,13 @@ Add a CI guard `scripts/check-ui-literals.mjs` that fails on numeric literals �
 | `worker/router/core/key_resolver.ts` | Replace | `resolveLeasedKey` (WP-3.6) |
 | `pool_routes.ts` D1 aggregate queries | Replace | Coordinator stats (WP-2.11) |
 
+**HIVE:** each card deletes one module group together with the tests that import it (see section 10.2), so the type check passes per card; these cards use `red: false`.
+
 After deletion, rerun the reachability script (kept as `scripts/reachability.mjs`, added to `gate`) and require zero unreachable non-test files.
 
 ### WP-5.5 Type safety and configuration hygiene
+
+**Depends on:** WP-5.4
 
 **Findings:** 27 `any` in `src/`, 32 in `ui/src/`; `this as any` passed to `handleAdminRequest` (`dashboard/handler.ts:307`); hard-coded GitHub client id and Firebase config; hard-coded admin emails (`admin@keycollective.io`, `admin@keycollective.ai`); dual package managers (`package-lock.json` and `pnpm-lock.yaml` both present, CI uses `npm ci`, `pnpm-workspace.yaml` modified in the working tree).
 
@@ -1158,9 +1535,17 @@ After deletion, rerun the reachability script (kept as `scripts/reachability.mjs
 - Choose **npm** (CI already uses it): delete `pnpm-lock.yaml` and `pnpm-workspace.yaml` in root and `ui/`.
 - `tsconfig`: add `"noUncheckedIndexedAccess": true` and `"exactOptionalPropertyTypes": true` in a follow-up PR once the codebase compiles cleanly.
 
-**Tests:** `eslint` zero warnings; `tsc` passes; `grep -rn "Ov23li\|keycollective.io\|keycollective.ai" src ui/src` returns nothing.
+**Tests**
+- `eslint` reports zero warnings on `src` and `ui/src`.
+- `tsc --noEmit` passes.
+- `grep -rn "Ov23li\|keycollective.io\|keycollective.ai" src ui/src` returns nothing.
+- Only one lockfile (`package-lock.json`) exists in the root and in `ui/`.
+
+**HIVE:** one card per directory; these cards change no behaviour and use `red: false`.
 
 ### WP-5.6 Documentation truth and runbooks
+
+**Depends on:** WP-6.5
 
 **Findings:** NFR-06 (secret rotation runbook missing), PRD section 1.2 "Implemented" table, README (304 tests, apex endpoints, µ$ header, aliases), CONTEXT.md (30-day trust, microdollar invariant, paths), `docs/data_contracts.go` and `.py`, the 1199/1199 claim in hive commits.
 
@@ -1185,22 +1570,32 @@ After deletion, rerun the reachability script (kept as `scripts/reachability.mjs
 
 ### WP-6.1 Test configuration and inflation
 
+**Depends on:** WP-1.0
+
 **Findings:** T-03, T-06.
 
 **Implementation**
-- Root `vitest.config.ts` (unit, node): `include: ["test/unit/**/*.test.ts", "src/**/*.test.ts", "src/**/*.spec.ts"]` — immediately brings the 17 excluded files (386 tests) under the gate; Appendix B then relocates or deletes each.
+- Root `vitest.config.ts` (unit, node): `include: ["test/unit/**/*.test.ts", "src/**/*.test.ts", "src/**/*.spec.ts"]` — immediately brings the 17 excluded files (386 tests) under the gate; section 10.2 (Appendix B) then relocates or deletes each.
 - Delete `test/auth_middleware.test.ts` (a re-export that runs 43 tests twice) and one of the two identical OAuth suites (both go when `auth/oauth/*` is deleted).
 - UI tests join the gate (`test:ui`).
 
+**HIVE:** configuration and test-deletion cards use `red: false`.
+
 ### WP-6.2 Rewrite tests that pass without testing
 
-**Findings:** T-01, T-02, T-04, T-05, T-07. Per-file actions are in Appendix B. Principles:
+**Depends on:** WP-5.4
+
+**Findings:** T-01, T-02, T-04, T-05, T-07. Per-file actions are in section 10.2 (Appendix B). Principles:
 - A handler or DO test runs against real D1 and real DOs in the Workers pool. Hand-rolled D1 mocks are removed (lint rule from WP-1.0).
 - A test that asserts only the echo of its own request body (e.g. circuit-breaker and kill-switch tests) is replaced by one that asserts a downstream effect (a later request's outcome, a DB row, a DO state).
 - Tests for security-sensitive code use real inputs from the other side of the boundary: real-shaped Gemini error bodies, signed JWTs, real Turnstile siteverify responses (mocked at the HTTP layer only).
 - Migration tests apply **all** migrations, not one.
 
+**HIVE:** one card per test file or small group from section 10.2. Rewrites that keep behaviour use `red: false`; a rewrite that exposes a real bug keeps `red: true` and fixes the bug in the same card.
+
 ### WP-6.3 Acceptance-criteria suite
+
+**Depends on:** none
 
 **Findings:** T-09, AC-01…AC-15.
 
@@ -1226,9 +1621,13 @@ One file per criterion under `test/acceptance/`, each named `acNN_<slug>.test.ts
 
 ### WP-6.4 Security regression suite
 
+**Depends on:** none
+
 `test/integration/security/` keeps one file per finding from Phase 0 (S1, S2, S3, S4, S5, S7, S13, N-01, R2) plus S8 (OAuth state), S10 (master key not a credential), S11 (demo isolation), S12 (no query-string credentials). Each test documents the original exploit in a comment and asserts it now fails.
 
 ### WP-6.5 Gate and CI
+
+**Depends on:** WP-5.3, WP-6.2
 
 **Implementation**
 - `package.json`:
@@ -1246,7 +1645,7 @@ All 15 AC tests, the security suite, and `npm run gate` pass in CI; PRD section 
 
 ---
 
-## Appendix A — Traceability matrix
+## 10.1 Appendix A — Traceability matrix
 
 Every finding from `INTENT_AUDIT.md`, the owner's two concerns, and the issues found while writing this plan. Severity is the audit's rating (— where the audit listed the item without one).
 
@@ -1276,7 +1675,7 @@ Every finding from `INTENT_AUDIT.md`, the owner's two concerns, and the issues f
 | FR-02 `selfKeyRouted` always false | Medium | 2.1, 2.6 |
 | PRD 9.3 coordinator does not pick keys; stale per-tenant snapshots | High | 2.1 |
 | FR-04 shared-key limits per consumer DO | High | 2.1 |
-| FR-16 hero/parasite counters never recorded; parasite rule conflicts with D-04 (open, D-16) | High | 2.6 |
+| FR-16 hero/parasite counters never recorded; parasite rule conflicts with D-04 (redefined by D-16) | High | 2.6, 2.4 |
 | FR-20 brake hits lone tenants and own-key traffic; in-memory volumes | Critical | 2.7 |
 | FR-19 eye-for-eye is display-only | High | 2.8 |
 | FR-12 cold-start share cap absent | High | 2.8 |
@@ -1410,7 +1809,7 @@ Every finding from `INTENT_AUDIT.md`, the owner's two concerns, and the issues f
 
 ---
 
-## Appendix B — Disposition of every existing test file
+## 10.2 Appendix B — Disposition of every existing test file
 
 Actions: **Keep** (valid as is, maybe relocated to `test/unit/pure/`), **Update** (valid intent, assertions change with the fix), **Rewrite** (move to the Workers harness with real D1/DOs), **Delete** (tests dead or duplicated code). "Encodes removed behaviour" lists what must be deleted from the file.
 
@@ -1476,15 +1875,24 @@ Actions: **Keep** (valid as is, maybe relocated to `test/unit/pure/`), **Update*
 
 ---
 
-## Appendix C — Migration sequence
+## 10.3 Appendix C — Migration sequence
 
-| # | File | Phase / WP | Contents | Backup required |
+One migration file per WP (D-19). Numbers are fixed in advance, so application order does not depend on merge order.
+
+| # | File | Stage / WP | Contents | Backup before prod apply |
 | --- | --- | --- | --- | --- |
 | 0011 | `0011_security_hotfix.sql` | 0 / WP-0.4 | `api_keys.key_hash` (+ unique partial index), `api_keys.revoked_at`, `admin_audit_logs` | No |
-| 0012 | `0012_credit_units.sql` | 1 / WP-1.3 | Column renames µ$ → CU on `cost_ledger`, `daily_spend_rollup` (→ `daily_cu_rollup`), `auth_tokens`, `contributor_standing`; ledger `usage_estimated`, `borrowed`, `lender_tenant_id`; recompute historical CU; reset budgets; drop compatibility views. (`model_registry` columns are not renamed: the table is dropped in 0016.) | Yes |
-| 0013 | `0013_identity.sql` | 1 / WP-1.2 | `user_identities`, `sessions`, `users.community_eligible`, `users.sybil_assessed_at`, `users.registration_status`; backfill Google identities for `usr_goog_*`; suspend `gh_*`/`usr_gh_*`; expire all `auth_tokens` | Yes |
-| 0014 | `0014_schema_repair.sql` | 1 / WP-1.4, 1.5, 1.6 | Recreate `consent_attestations` (append-only triggers); rebuild `project_hash_registry` (INTEGER times); rebuild `api_keys` (status enum, `pool_type` default PRIVATE, INTEGER times, `status_changed_at`, `sync_pending`, `key_version`, drop counter columns); `projects` ×1000 timestamps, `rpm_sub_cap`, `is_archived`; `auth_tokens.project_id`; `DROP TABLE keys` | **Yes — table rebuilds** |
-| 0015 | `0015_commons.sql` | 2–3 / WP-2.2, 2.3, 2.6, 3.2, 4.7 | `notifications`, `key_daily_stats`, `standing_history`; `contributor_standing` columns `contributed_cu_24h`, `multiplier_pct`, `jail_status`, `last_reset_day`; `api_keys.anti_cycling_until`; `project_hash_registry.vesting_started_at` | No |
-| 0016 | `0016_catalog_cleanup.sql` | 3 / WP-3.4 | `DROP TABLE model_registry` | No |
+| 0012 | `0012_credit_units.sql` | 1 / WP-1.3 | µ$ → CU renames on `cost_ledger`, `daily_spend_rollup` (→ `daily_cu_rollup`), `auth_tokens`, `contributor_standing`; ledger `usage_estimated`, `borrowed`, `lender_tenant_id`; recompute historical CU; reset budgets; drop compatibility views | Yes |
+| 0013 | `0013_identity.sql` | 1 / WP-1.2 | `user_identities`, `sessions`, `users.community_eligible`, `users.sybil_assessed_at`, `users.registration_status`; backfill Google identities; suspend `gh_*`/`usr_gh_*`; expire all `auth_tokens` | Yes |
+| 0014 | `0014_schema_repair.sql` | 1 / WP-1.4 | Recreate `consent_attestations` (append-only triggers); rebuild `project_hash_registry` (INTEGER times); rebuild `api_keys` (status enum, `pool_type` default PRIVATE, INTEGER times, `status_changed_at`, `sync_pending`, `key_version`; counter columns kept) | **Yes — table rebuilds** |
+| 0015 | `0015_projects.sql` | 1 / WP-1.6 | `DROP TABLE keys`; `auth_tokens.project_id`; `projects.rpm_sub_cap`, `projects.is_archived`; `projects` timestamps ×1000 | No |
+| 0016 | `0016_catalog_cleanup.sql` | 1 / WP-3.4 | `DROP TABLE model_registry` | No |
+| 0017 | `0017_standing.sql` | 2 / WP-2.3 | `contributor_standing.contributed_cu_24h`, `multiplier_pct`, `jail_status`, `last_reset_day` | No |
+| 0018 | `0018_key_daily_stats.sql` | 2 / WP-2.6 | `key_daily_stats` (per key and model); `api_keys.drain_state` | No |
+| 0019 | `0019_anti_cycling.sql` | 2 / WP-2.2 | `api_keys.anti_cycling_until` | No |
+| 0020 | `0020_project_hash_vesting.sql` | 2 / WP-2.13 | `project_hash_registry.vesting_started_at` | No |
+| 0021 | `0021_notifications.sql` | 2 / WP-3.2 | `notifications` | No |
+| 0022 | `0022_standing_history.sql` | 2 / WP-2.5 | `standing_history` | No |
+| 0023 | `0023_drop_key_counters.sql` | 2 / WP-2.11 | drop `api_keys.dispatched_today`, `dispatched_communal`, `vesting_tier` | Yes |
 
 Removed from the chain: `0010_purge_all_keys.sql` (moved to `scripts/qa/`). Every migration is covered by `test/integration/migrations.test.ts` against both an empty database and a production-shaped fixture, and `deploy-prod.yml` exports a D1 backup before applying any migration marked "Yes".
