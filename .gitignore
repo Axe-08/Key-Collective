@@ -19,6 +19,7 @@ secrets/
 *.p12
 
 scripts/seed.sql
+scripts/dev/seed.sql
 
 # Node / TypeScript / Cloudflare
 node_modules
