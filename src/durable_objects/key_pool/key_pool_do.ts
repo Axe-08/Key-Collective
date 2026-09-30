@@ -24,6 +24,7 @@ import {
   SelectKeyOptions,
 } from "../key_selector";
 import { RateLimiter, RateLimiterMetrics } from "../rate_limiter";
+import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
 import { Clock, systemClock } from "../../utils/clock";
 import { handleKeyPoolRpc } from "./rpc";
 import {
@@ -243,7 +244,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
                   COALESCE(cs.community_debt_micro_cu, 0) as owner_debt
            FROM api_keys k
            LEFT JOIN contributor_standing cs ON cs.tenant_id = k.tenant_id
-           WHERE k.status = 'Healthy' 
+           WHERE upper(k.status) = 'HEALTHY'
              AND (k.tenant_id = ? OR (k.pool_type = 'COMMUNITY' AND k.community_routing_status = 'ACTIVE'))`
         ).bind(this.tenantId);
         const result = await stmt.all<{
@@ -289,8 +290,8 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
               priority: calculatedPriority,
               rpmLimit: row.rpm_limit,
               rpdLimit: row.rpd_limit,
-              status: row.status,
-              poolType: (row.pool_type as "PRIVATE" | "COMMUNITY") ?? (isOwnKey ? "PRIVATE" : "COMMUNITY"),
+              status: normaliseKeyStatus(row.status),
+              poolType: row.pool_type != null ? normalisePoolType(row.pool_type) : (isOwnKey ? "PRIVATE" : "COMMUNITY"),
             };
           });
           for (const k of d1Keys) {
