@@ -87,12 +87,11 @@ export async function handleGetProjects(
     try {
       const url = new URL(request.url);
       targetTenant =
-        request.headers.get("x-tenant-id") ||
         url.searchParams.get("tenant_id") ||
         url.searchParams.get("tenantId") ||
         null;
     } catch {
-      targetTenant = request.headers.get("x-tenant-id");
+      targetTenant = null;
     }
   }
 
@@ -162,11 +161,8 @@ export async function handlePostProjects(
       : null;
 
   const isAdmin = tenantId === "admin";
-  const headerTenant = request.headers.get("x-tenant-id");
   const targetTenantId =
-    isAdmin && headerTenant && headerTenant.trim().length > 0
-      ? headerTenant.trim()
-      : isAdmin && body.tenant_id && typeof body.tenant_id === "string" && body.tenant_id.trim().length > 0
+    isAdmin && body.tenant_id && typeof body.tenant_id === "string" && body.tenant_id.trim().length > 0
       ? body.tenant_id.trim()
       : tenantId;
 

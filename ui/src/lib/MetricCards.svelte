@@ -20,11 +20,6 @@
       try {
         const token = localStorage.getItem('kc_auth_token');
         if (token) headers['Authorization'] = `Bearer ${token.trim()}`;
-        const raw = localStorage.getItem('kc_user');
-        if (raw) {
-          const user = JSON.parse(raw);
-          if (user?.id) headers['x-tenant-id'] = user.id;
-        }
       } catch {}
     }
     return headers;

@@ -29,7 +29,6 @@ import {
   SUBNET_VELOCITY_WINDOW_MS,
   SYBIL_SCORE_BUILDER_THRESHOLD,
   SYBIL_SCORE_PROBATIONARY_THRESHOLD,
-  TURNSTILE_TEST_TOKENS,
   evaluateAntiSybil,
   extractSubnet,
   isDatacenterAsn,
@@ -37,59 +36,110 @@ import {
   toSybilScore,
   verifyTurnstileToken,
 } from "../../src/auth/sybil/index";
+import { ConfigurationError } from "../../src/auth/sybil/errors";
 import { TIER_LIMITS_MAP } from "../../src/contracts/v3_types";
+
+// Local test token constants (production fixture short-circuits were removed;
+// verification now always goes through the Cloudflare siteverify stub below).
+const TEST_TOKEN_VALID = "valid-turnstile-token";
+const TEST_TOKEN_INVALID = "invalid-turnstile-token";
+const TEST_TOKEN_SPENT = "spent-turnstile-token";
+const TEST_SECRET = "1x0000000000000000000000000000000AA";
+
+/** Builds a fetchFn stub that mimics Cloudflare's siteverify endpoint. */
+function makeSiteverifyMock() {
+  return vi.fn(async (_url: string, init?: RequestInit) => {
+    const formData = init?.body as FormData;
+    const token = formData?.get("response");
+
+    if (token === TEST_TOKEN_INVALID) {
+      return new Response(
+        JSON.stringify({ success: false, "error-codes": ["invalid-input-response"] }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (token === TEST_TOKEN_SPENT) {
+      return new Response(
+        JSON.stringify({ success: false, "error-codes": ["timeout-or-duplicate"] }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        "error-codes": [],
+        challenge_ts: new Date().toISOString(),
+        hostname: "localhost",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  });
+}
 
 describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", () => {
   let tracker: InMemorySubnetTracker;
+  let mockFetch: ReturnType<typeof makeSiteverifyMock>;
   const REF_NOW = new Date("2026-09-10T12:00:00.000Z"); // Canonical benchmark timestamp
 
   beforeEach(() => {
     tracker = new InMemorySubnetTracker();
     vi.restoreAllMocks();
+    mockFetch = makeSiteverifyMock();
   });
 
   // ==========================================================================
   // Layer 1: Edge Bot Barrier (Cloudflare Turnstile)
   // ==========================================================================
   describe("Layer 1: Edge Bot Barrier (Cloudflare Turnstile)", () => {
-    it("should accept valid turnstile token and pass siteverify", async () => {
-      const result = await verifyTurnstileToken(TURNSTILE_TEST_TOKENS.ALWAYS_PASS);
+    it("should accept a valid turnstile token via the siteverify stub", async () => {
+      const result = await verifyTurnstileToken(TEST_TOKEN_VALID, {
+        secretKey: TEST_SECRET,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
       expect(result.success).toBe(true);
       expect(result.hostname).toBe("localhost");
       expect(result.challengeTs).toBeDefined();
     });
 
-    it("should accept golden test fixture token 'valid_turnstile_response'", async () => {
-      const result = await verifyTurnstileToken(TURNSTILE_TEST_TOKENS.VALID_FIXTURE);
-      expect(result.success).toBe(true);
-    });
-
-    it("should reject standard failure test token '2x0000000000000000000000000000000AB'", async () => {
-      const result = await verifyTurnstileToken(TURNSTILE_TEST_TOKENS.ALWAYS_FAIL);
+    it("should reject a failing token via the siteverify stub", async () => {
+      const result = await verifyTurnstileToken(TEST_TOKEN_INVALID, {
+        secretKey: TEST_SECRET,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
       expect(result.success).toBe(false);
       expect(result.errorCodes).toContain("invalid-input-response");
     });
 
-    it("should reject token fixture 'invalid_turnstile_response'", async () => {
-      const result = await verifyTurnstileToken(TURNSTILE_TEST_TOKENS.INVALID_FIXTURE);
-      expect(result.success).toBe(false);
-      expect(result.errorCodes).toContain("invalid-input-response");
-    });
-
-    it("should reject spent / duplicate tokens", async () => {
-      const result = await verifyTurnstileToken(TURNSTILE_TEST_TOKENS.TOKEN_ALREADY_SPENT);
+    it("should reject spent / duplicate tokens via the siteverify stub", async () => {
+      const result = await verifyTurnstileToken(TEST_TOKEN_SPENT, {
+        secretKey: TEST_SECRET,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
       expect(result.success).toBe(false);
       expect(result.errorCodes).toContain("timeout-or-duplicate");
     });
 
     it("should reject missing or empty turnstile tokens", async () => {
-      const resUndefined = await verifyTurnstileToken(undefined);
+      const resUndefined = await verifyTurnstileToken(undefined, {
+        secretKey: TEST_SECRET,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
       expect(resUndefined.success).toBe(false);
       expect(resUndefined.errorCodes).toContain("missing-input-response");
 
-      const resEmpty = await verifyTurnstileToken("   ");
+      const resEmpty = await verifyTurnstileToken("   ", {
+        secretKey: TEST_SECRET,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
       expect(resEmpty.success).toBe(false);
       expect(resEmpty.errorCodes).toContain("missing-input-response");
+    });
+
+    it("should throw ConfigurationError when secretKey is missing", async () => {
+      await expect(verifyTurnstileToken(TEST_TOKEN_VALID)).rejects.toThrow(ConfigurationError);
+      await expect(verifyTurnstileToken(TEST_TOKEN_VALID, { secretKey: "" })).rejects.toThrow(
+        ConfigurationError
+      );
     });
 
     it("should verify against Cloudflare siteverify HTTP endpoint with mock fetch", async () => {
@@ -145,7 +195,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should cause evaluateAntiSybil to immediately reject bot with score 0 and tier suspended", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_FAIL,
+        turnstileToken: TEST_TOKEN_INVALID,
         clientIp: "203.0.113.10",
         githubProfile: {
           primaryEmail: "bot@gmail.com",
@@ -157,7 +207,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.passed).toBe(false);
       expect(assessment.score).toBe(0);
       expect(assessment.tier).toBe("suspended");
@@ -189,7 +239,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should allow the first registration from a /24 subnet", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.10",
         githubProfile: {
           primaryEmail: "alice@example.com",
@@ -201,7 +251,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.passed).toBe(true);
       expect(assessment.checks.subnetRegistrationCount).toBe(0);
       expect(assessment.tier).toBe("builder");
@@ -213,7 +263,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should penalize second registration from the same /24 subnet within 30 days", async () => {
       const firstInput: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.10",
         githubProfile: {
           primaryEmail: "alice@example.com",
@@ -224,11 +274,11 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         },
         now: REF_NOW,
       };
-      await evaluateAntiSybil(firstInput, { subnetTracker: tracker });
+      await evaluateAntiSybil(firstInput, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       // Second user from different host in SAME /24 subnet
       const secondInput: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.99",
         githubProfile: {
           primaryEmail: "bob@example.com",
@@ -240,7 +290,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: new Date(REF_NOW.getTime() + 2 * 24 * 60 * 60 * 1000), // 2 days later
       };
 
-      const assessment2 = await evaluateAntiSybil(secondInput, { subnetTracker: tracker });
+      const assessment2 = await evaluateAntiSybil(secondInput, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment2.checks.subnetRegistrationCount).toBe(1);
       expect(assessment2.auditReasons.some((r) => r.includes("Subnet velocity limit exceeded"))).toBe(true);
       // Because subnet velocity exceeded, Builder tier requirements are not satisfied -> quarantined to probationary
@@ -249,7 +299,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should permit signup from same subnet after 30-day velocity window has elapsed", async () => {
       const firstInput: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.10",
         githubProfile: {
           primaryEmail: "alice@example.com",
@@ -260,12 +310,12 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         },
         now: REF_NOW,
       };
-      await evaluateAntiSybil(firstInput, { subnetTracker: tracker });
+      await evaluateAntiSybil(firstInput, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       // Subsequent signup 31 days later
       const futureNow = new Date(REF_NOW.getTime() + 31 * 24 * 60 * 60 * 1000);
       const subsequentInput: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.88",
         githubProfile: {
           primaryEmail: "carol@example.com",
@@ -277,14 +327,14 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: futureNow,
       };
 
-      const assessment = await evaluateAntiSybil(subsequentInput, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(subsequentInput, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.checks.subnetRegistrationCount).toBe(0);
       expect(assessment.tier).toBe("builder");
     });
 
     it("should isolate separate /24 subnets from throttling each other", async () => {
       const inputA: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.1",
         githubProfile: {
           primaryEmail: "userA@example.com",
@@ -296,7 +346,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
       const inputB: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.101.1", // Different /24
         githubProfile: {
           primaryEmail: "userB@example.com",
@@ -308,8 +358,8 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      await evaluateAntiSybil(inputA, { subnetTracker: tracker });
-      const assessmentB = await evaluateAntiSybil(inputB, { subnetTracker: tracker });
+      await evaluateAntiSybil(inputA, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
+      const assessmentB = await evaluateAntiSybil(inputB, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       expect(assessmentB.checks.subnetRegistrationCount).toBe(0);
       expect(assessmentB.tier).toBe("builder");
@@ -327,7 +377,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should penalize datacenter ASN ingress in sybil evaluation", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "3.5.140.2",
         asn: 16509, // AWS
         githubProfile: {
@@ -340,14 +390,14 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.auditReasons.some((r) => r.includes("Datacenter ASN"))).toBe(true);
       expect(assessment.score).toBeLessThan(100);
     });
 
     it("should flag and penalize Tor exit nodes (country T1 or isTor flag)", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "185.220.101.5",
         country: "T1",
         isTor: true,
@@ -361,7 +411,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.auditReasons.some((r) => r.includes("Tor exit node"))).toBe(true);
     });
   });
@@ -402,7 +452,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should reject disposable email with score < 40 and tier suspended", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "203.0.113.5",
         githubProfile: {
           primaryEmail: "bot992@temp-mail.org",
@@ -414,7 +464,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.passed).toBe(false);
       expect(assessment.score).toBeLessThan(SYBIL_SCORE_PROBATIONARY_THRESHOLD);
       expect(assessment.tier).toBe("suspended");
@@ -424,7 +474,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should penalize unverified GitHub emails", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "203.0.113.5",
         githubProfile: {
           primaryEmail: "legit@example.com",
@@ -436,7 +486,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.auditReasons.some((r) => r.includes("Primary GitHub email address is unverified"))).toBe(true);
       expect(assessment.score).toBeLessThan(100);
     });
@@ -448,7 +498,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
   describe("Layer 4: GitHub Account Maturity Gate", () => {
     it("should verify mature account meets all thresholds (age >= 30d, repos >= 1, contributions >= 5)", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "203.0.113.20",
         githubProfile: {
           primaryEmail: "senior@example.com",
@@ -460,7 +510,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.checks.accountAgeDays).toBe(100);
       expect(assessment.checks.publicRepos).toBe(8);
       expect(assessment.checks.contributionsCount).toBe(45);
@@ -470,7 +520,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should detect young account (< 30 days old) and record audit reason", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "203.0.113.20",
         githubProfile: {
           primaryEmail: "newbie@example.com",
@@ -482,7 +532,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.checks.accountAgeDays).toBe(10);
       expect(assessment.auditReasons.some((r) => r.includes("GitHub account age (10d) is less than required 30 days"))).toBe(true);
       expect(assessment.tier).toBe("probationary");
@@ -490,7 +540,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should detect 0 public repositories and record audit reason", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "203.0.113.20",
         githubProfile: {
           primaryEmail: "dev@example.com",
@@ -502,7 +552,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.checks.publicRepos).toBe(0);
       expect(assessment.auditReasons.some((r) => r.includes("0 public repositories"))).toBe(true);
       expect(assessment.tier).toBe("probationary");
@@ -510,7 +560,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should detect < 5 lifetime contributions and record audit reason", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "203.0.113.20",
         githubProfile: {
           primaryEmail: "dev@example.com",
@@ -522,7 +572,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.checks.contributionsCount).toBe(3);
       expect(assessment.auditReasons.some((r) => r.includes("GitHub contributions count (3) is less than required 5"))).toBe(true);
       expect(assessment.tier).toBe("probationary");
@@ -530,7 +580,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should accept totalContributions alias if contributionsCount is omitted", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "203.0.113.20",
         githubProfile: {
           primaryEmail: "dev@example.com",
@@ -542,7 +592,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       expect(assessment.checks.contributionsCount).toBe(25);
     });
   });
@@ -555,7 +605,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
       // Junior developer with brand new GitHub account (<30d, 0 repos) but real residential IP,
       // verified email, and valid Turnstile human check
       const juniorDevInput: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "98.12.34.56", // Residential IP
         githubProfile: {
           primaryEmail: "junior.engineer@gmail.com",
@@ -567,7 +617,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(juniorDevInput, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(juniorDevInput, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       // Must NOT be blocked/suspended
       expect(assessment.passed).toBe(true);
@@ -584,7 +634,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should assign builder tier to authentic mature developer", async () => {
       const matureDevInput: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "98.12.34.56",
         githubProfile: {
           primaryEmail: "core.maintainer@gmail.com",
@@ -596,7 +646,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(matureDevInput, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(matureDevInput, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       expect(assessment.passed).toBe(true);
       expect(assessment.tier).toBe("builder");
@@ -611,7 +661,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
 
     it("should hard-reject disposable identity burner bot with HTTP 403 suspension", async () => {
       const disposableBotInput: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "185.220.101.5",
         asn: 24940, // Hetzner
         githubProfile: {
@@ -624,7 +674,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(disposableBotInput, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(disposableBotInput, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       expect(assessment.passed).toBe(false);
       expect(assessment.tier).toBe("suspended");
@@ -639,7 +689,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
     it("tc-v3-01: GitHub OAuth Happy Path & Anti-Sybil Verification", async () => {
       // Golden Input Fixture from docs/golden_tests/v3_cases.yaml
       const goldenCase01: AntiSybilInput = {
-        turnstileToken: "valid_turnstile_response",
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.25",
         githubProfile: {
           createdAt: "2025-01-01T00:00:00Z",
@@ -651,7 +701,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(goldenCase01, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(goldenCase01, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       // Golden assertions
       expect(assessment.passed).toBe(true);
@@ -667,7 +717,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
     it("tc-v3-02: Anti-Sybil Quarantine (Young Account / Burner Email)", async () => {
       // Golden Input Fixture from docs/golden_tests/v3_cases.yaml
       const goldenCase02: AntiSybilInput = {
-        turnstileToken: "valid_turnstile_response",
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.26",
         githubProfile: {
           createdAt: "2026-09-01T00:00:00Z", // 9 days old relative to 2026-09-10
@@ -679,7 +729,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(goldenCase02, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(goldenCase02, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
 
       // Golden assertions: disposable email flagged, quarantine/rejection
       expect(assessment.checks.emailNonDisposable).toBe(false);
@@ -698,7 +748,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
   describe("toSybilScore Contract Adapter", () => {
     it("should transform AntiSybilAssessment into SybilScore with correct riskLevel and flags", async () => {
       const input: AntiSybilInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileToken: TEST_TOKEN_VALID,
         clientIp: "198.51.100.12",
         asn: 16509, // AWS
         isTor: false,
@@ -712,7 +762,7 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
         now: REF_NOW,
       };
 
-      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker });
+      const assessment = await evaluateAntiSybil(input, { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch });
       const sybilScore = toSybilScore(assessment, input);
 
       expect(sybilScore.passed).toBe(assessment.passed);

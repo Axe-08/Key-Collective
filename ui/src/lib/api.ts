@@ -5,41 +5,14 @@ const INITIAL_MOCK_KEYS: APIKey[] = [];
 // In-memory state for fallback/mock simulation
 let memoryKeys: APIKey[] = [];
 
-function getTenantId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem('kc_user');
-    if (!raw) return null;
-    const user = JSON.parse(raw) as { id?: unknown };
-    return user?.id && typeof user.id === 'string' ? user.id : null;
-  } catch {
-    return null;
-  }
-}
-
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   if (typeof window !== 'undefined') {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const queryToken = urlParams.get('token') || urlParams.get('admin_token');
-      if (queryToken && queryToken.trim().length > 0) {
-        localStorage.setItem('kc_auth_token', queryToken.trim());
-      }
-    } catch {
-      // ignore
-    }
     const token = localStorage.getItem('kc_auth_token');
     if (token && token.trim().length > 0) {
       headers['Authorization'] = `Bearer ${token.trim()}`;
-    }
-    // Inject per-user tenant scope so the backend can isolate D1 queries correctly.
-    // All simulated logins share one bearer token; this header is the actual discriminator.
-    const tenantId = getTenantId();
-    if (tenantId) {
-      headers['x-tenant-id'] = tenantId;
     }
   }
   return headers;

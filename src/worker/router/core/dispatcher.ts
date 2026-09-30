@@ -17,7 +17,6 @@ import type {
   WorkerEnv,
 } from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
-import { DurableObjectKeyPoolClient } from "../do_client";
 import { formatRouterError, RouterError } from "../errors";
 import type { ModelRoutesHandler } from "../model_routes";
 import type { DashboardHandler } from "../dashboard_handler";
@@ -39,36 +38,6 @@ export interface DispatchParams {
   chatHandler: ChatHandler;
   resolver: RouterContextResolver;
   now: () => number;
-}
-
-export async function forwardToDO(
-  request: Request,
-  tenantId: string,
-  env: WorkerEnv,
-  resolver: RouterContextResolver
-): Promise<Response> {
-  const keyPool = resolver.getKeyPool(tenantId, env);
-  if (keyPool instanceof DurableObjectKeyPoolClient) {
-    const stub = keyPool.getStub();
-    const url = new URL(request.url);
-
-    const doPath = url.pathname.replace(/^\/v1/, "") || "/";
-    const targetUrl = new URL(doPath + url.search, "http://key-pool");
-
-    const forwardHeaders = new Headers(request.headers);
-    forwardHeaders.set("x-tenant-id", tenantId);
-
-    return await stub.fetch(targetUrl.toString(), {
-      method: request.method,
-      headers: forwardHeaders,
-      body: request.body,
-    });
-  }
-
-  throw new RouterError("Target key pool is not a DurableObjectKeyPoolClient", {
-    statusCode: 500,
-    code: "INVALID_KEY_POOL_TYPE",
-  });
 }
 
 export async function dispatchRoute(params: DispatchParams): Promise<Response> {
@@ -151,21 +120,11 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
         err instanceof ModelNotFoundError ||
         (err && typeof err === "object" && (err as { code?: string }).code === "MODEL_NOT_FOUND")
       ) {
-        return Response.json(
-          {
-            error: `Model '${modelId}' not found in registry`,
-            code: "MODEL_NOT_FOUND",
-            statusCode: 404,
-            details: { modelIdOrAlias: modelId },
-          },
-          {
-            status: 404,
-            headers: {
-              "access-control-allow-origin": "*",
-              "content-type": "application/json; charset=utf-8",
-            },
-          }
+        const res = formatRouterError(
+          err instanceof ModelNotFoundError ? err : new RouterError(`Model '${modelId}' not found`, { code: "MODEL_NOT_FOUND", statusCode: 404 })
         );
+        res.headers.set("access-control-allow-origin", "*");
+        return res;
       }
       throw err;
     }
@@ -188,36 +147,16 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
 
     if (preAuthenticatedContext) {
       authContext = preAuthenticatedContext;
-    } else if (options.requireAuth !== false) {
-      authContext = await authMiddleware.authenticate(request, env);
     } else {
-      const headerTenant =
-        request.headers.get("x-tenant-id") ??
-        request.headers.get("kc-tenant-id") ??
-        "default";
-      authContext = {
-        tenantId: headerTenant,
-        isAuthenticated: false,
-        token: {
-          id: "unauthenticated",
-          hashSha256: "",
-          tenantId: headerTenant,
-          budgetMicrodollars: 0n,
-          spentMicrodollars: 0n,
-          allowedProviders: [],
-          rpmLimit: 1000,
-          expiresAt: null,
-          createdAt: new Date(startTime).toISOString(),
-        },
-        rpmLimit: 1000,
-        currentRpm: 1,
-        remainingRpm: 999,
-        budgetMicrodollars: 0n,
-        spentMicrodollars: 0n,
-      };
+      authContext = await authMiddleware.authenticate(request, env);
     }
 
-    // 4. Assert Tenant Isolation against explicit header if provided (GEMINI.md Invariant)
+    /**
+     * 4. Assert Tenant Isolation against explicit header if provided (GEMINI.md Invariant).
+     * The 'x-tenant-id' header is optional and informational; tenant isolation is strictly
+     * enforced based on authenticated context credentials. If provided, any mismatch
+     * with the authenticated token's tenant will result in an immediate 403.
+     */
     const explicitHeaderTenant = request.headers.get("x-tenant-id");
     if (
       explicitHeaderTenant &&
@@ -244,17 +183,6 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
       const parts = pathname.split("/");
       const modelId = parts[parts.length - 1];
       return modelRoutes.handleGetModel(request, modelId, modelRegistry);
-    }
-
-    if (
-      pathname.startsWith("/v1/keys") ||
-      pathname.startsWith("/keys") ||
-      pathname.startsWith("/v1/metrics") ||
-      pathname.startsWith("/metrics") ||
-      pathname.startsWith("/v1/capacity") ||
-      pathname.startsWith("/capacity")
-    ) {
-      return await forwardToDO(request, authContext.tenantId, env, resolver);
     }
 
     if (

@@ -87,13 +87,22 @@ describe("Admin Gateway & Zero-Knowledge Verification (Production Invariants)", 
       expect(verified).toBe(false);
     });
 
-    it("returns true when request matches ADMIN_TOKEN", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
+    it("accepts ADMIN_TOKEN only via x-kc-admin-token without Origin (WP-0.3)", async () => {
+      const env = createMockEnv();
+      const bearer = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
         headers: { Authorization: "Bearer admin-master-key-secret-12345" },
       });
-      const env = createMockEnv();
-      const verified = await verifyAdminRequest(req, env);
-      expect(verified).toBe(true);
+      expect(await verifyAdminRequest(bearer, env)).toBe(false);
+
+      const header = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
+        headers: { "x-kc-admin-token": "admin-master-key-secret-12345" },
+      });
+      expect(await verifyAdminRequest(header, env)).toBe(true);
+
+      const fromBrowser = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
+        headers: { "x-kc-admin-token": "admin-master-key-secret-12345", origin: "https://admin.keycollective.ai" },
+      });
+      expect(await verifyAdminRequest(fromBrowser, env)).toBe(false);
     });
 
     it("returns false when request matches KC_MASTER_KEY but not ADMIN_TOKEN", async () => {
@@ -108,11 +117,11 @@ describe("Admin Gateway & Zero-Knowledge Verification (Production Invariants)", 
       expect(verified).toBe(false);
     });
 
-    it("supports token query param for browser address bar navigation", async () => {
+    it("rejects the token query param (WP-0.3)", async () => {
       const req = new Request("https://admin.keycollective.ai/api/admin/surveillance?token=admin-master-key-secret-12345");
       const env = createMockEnv();
       const verified = await verifyAdminRequest(req, env);
-      expect(verified).toBe(true);
+      expect(verified).toBe(false);
     });
   });
 

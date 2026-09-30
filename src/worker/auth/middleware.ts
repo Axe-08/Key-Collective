@@ -195,36 +195,6 @@ export class AuthMiddleware implements AuthContract {
     const record = await repo.findByToken(rawToken);
 
     if (!record) {
-      // 2.1 Check if matching master key
-      const masterKey =
-        mergedOptions.masterKey ??
-        (env && !(typeof (env as D1Database).prepare === "function")
-          ? (env as WorkerEnv).KC_MASTER_KEY
-          : undefined);
-
-      if (masterKey && rawToken === masterKey) {
-        return {
-          tenantId: "admin",
-          isAuthenticated: true,
-          token: {
-            id: "master_key",
-            hashSha256: await hashToken(rawToken),
-            tenantId: "admin",
-            budgetMicrodollars: 0n,
-            spentMicrodollars: 0n,
-            allowedProviders: [],
-            rpmLimit: 10000,
-            expiresAt: null,
-            createdAt: new Date(now).toISOString(),
-          },
-          rpmLimit: 10000,
-          currentRpm: 1,
-          remainingRpm: 9999,
-          budgetMicrodollars: 0n,
-          spentMicrodollars: 0n,
-        };
-      }
-
       // 2.2 Check if ephemeral rotating demo token (kc_demo_*)
       if (rawToken.startsWith("kc_demo_")) {
         const demoPool = (env as { DEMO_POOL?: DurableObjectNamespace })?.DEMO_POOL;

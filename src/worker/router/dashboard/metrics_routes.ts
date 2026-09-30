@@ -9,11 +9,10 @@ import type { WorkerEnv } from "../../auth/index";
 export async function handleGetLogs(
   env: WorkerEnv,
   tenantId: string,
-  headerTenant: string | null,
   getKeyPool: (tenantId: string, env: WorkerEnv) => KeyPoolContract
 ): Promise<Response> {
   const isGlobal = tenantId === "admin";
-  const targetTenantId = isGlobal ? (headerTenant || "default") : tenantId;
+  const targetTenantId = tenantId;
   if (!targetTenantId || targetTenantId === "anonymous" || targetTenantId === "guest") {
     return Response.json([]);
   }
@@ -81,10 +80,9 @@ export async function handleGetLogs(
 export async function handleGetStats(
   env: WorkerEnv,
   tenantId: string,
-  headerTenant: string | null,
   getKeyPool: (tenantId: string, env: WorkerEnv) => KeyPoolContract
 ): Promise<Response> {
-  const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+  const targetTenantId = tenantId;
   if (!targetTenantId || targetTenantId === "anonymous" || targetTenantId === "guest") {
     return Response.json({
       total_keys: 0,
@@ -110,7 +108,7 @@ export async function handleGetStats(
   let avgLatency = 0;
   let totalSpendToday = 0;
 
-  const isGlobal = tenantId === "admin" && !headerTenant;
+  const isGlobal = tenantId === "admin";
 
   if (env.DB && typeof env.DB.prepare === "function") {
     const statsQuery = isGlobal

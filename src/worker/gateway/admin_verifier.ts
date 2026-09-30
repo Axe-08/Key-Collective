@@ -26,19 +26,6 @@ export async function verifyAdminRequest(
     rawToken = authHeader.substring(7).trim();
   }
 
-  // Support browser address bar navigation via ?token= or ?admin_token= or cookie
-  if (!rawToken) {
-    try {
-      const url = new URL(request.url);
-      const queryToken = url.searchParams.get("token") || url.searchParams.get("admin_token");
-      if (queryToken && queryToken.trim().length > 0) {
-        rawToken = queryToken.trim();
-      }
-    } catch {
-      // ignore url parsing error
-    }
-  }
-
   if (!rawToken) {
     const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
     if (cookieHeader) {
@@ -46,6 +33,18 @@ export async function verifyAdminRequest(
       if (match && match[1]) {
         rawToken = decodeURIComponent(match[1].trim());
       }
+    }
+  }
+
+  // Break-glass admin token: accepted only via the x-kc-admin-token header,
+  // and only when the request carries no Origin header (never from a browser).
+  const breakGlass =
+    request.headers.get("x-kc-admin-token") || request.headers.get("X-Kc-Admin-Token");
+  const origin = request.headers.get("origin") || request.headers.get("Origin");
+  const adminToken = env.ADMIN_TOKEN as string | undefined;
+  if (breakGlass && !origin && adminToken && adminToken.trim().length > 0) {
+    if (timingSafeEqualStrings(breakGlass.trim(), adminToken.trim())) {
+      return true;
     }
   }
 
@@ -71,15 +70,7 @@ export async function verifyAdminRequest(
     }
   }
 
-  // 3. Env admin token match (timing-safe, strictly separate from KC_MASTER_KEY)
-  const adminToken = env.ADMIN_TOKEN as string | undefined;
-  if (adminToken && adminToken.trim().length > 0) {
-    if (timingSafeEqualStrings(rawToken, adminToken.trim())) {
-      return true;
-    }
-  }
-
-  // 4. Check D1 Database
+  // 3. Check D1 Database
   const db = (env.DB || env.D1_DB) as D1Database | undefined;
   if (!db || typeof db.prepare !== "function") {
     return false;
@@ -106,10 +97,6 @@ export async function verifyAdminRequest(
         }
       }
 
-      if (tokenRow.tenant_id === "admin") {
-        return true;
-      }
-
       // Check users table for this tenant
       try {
         const userStmt = db.prepare(
@@ -127,7 +114,7 @@ export async function verifyAdminRequest(
           if (userRow.is_quarantined === 1 || userRow.is_quarantined === true) {
             return false;
           }
-          if (userRow.tier === "admin" || userRow.role === "admin") {
+          if (userRow.role === "admin") {
             return true;
           }
           if (userRow.email && env.ADMIN_EMAILS) {
@@ -142,39 +129,6 @@ export async function verifyAdminRequest(
       } catch {
         // Ignore table schema differences
       }
-    }
-
-    // Check users table directly
-    try {
-      const directUserStmt = db.prepare(
-        "SELECT id, email, tier, role, is_quarantined FROM users WHERE id = ?"
-      );
-      const directUser = await directUserStmt.bind(rawToken).first<{
-        id: string;
-        email: string | null;
-        tier: string | null;
-        role: string | null;
-        is_quarantined: number | boolean | null;
-      }>();
-
-      if (directUser) {
-        if (directUser.is_quarantined === 1 || directUser.is_quarantined === true) {
-          return false;
-        }
-        if (directUser.tier === "admin" || directUser.role === "admin") {
-          return true;
-        }
-        if (directUser.email && env.ADMIN_EMAILS) {
-          const adminEmails = String(env.ADMIN_EMAILS)
-            .split(",")
-            .map((e) => e.trim().toLowerCase());
-          if (adminEmails.includes(directUser.email.toLowerCase())) {
-            return true;
-          }
-        }
-      }
-    } catch {
-      // Ignore table schema differences
     }
 
     return false;

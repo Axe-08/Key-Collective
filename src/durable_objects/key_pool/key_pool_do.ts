@@ -32,6 +32,12 @@ import {
   KeyPoolDOOptions,
 } from "./types";
 
+declare module "./types" {
+  interface KeyPoolDOOptions {
+    statusCacheTtlMs?: number;
+  }
+}
+
 /**
  * KeyPoolDO — Stateful Per-Tenant Durable Object.
  * Single source of truth for key health, rate limits, and selection within a tenant.
@@ -40,6 +46,8 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   protected readonly ctx: DurableObjectStateLike;
   protected readonly env: KeyPoolDOEnv;
   public tenantId: string;
+  public statusCacheTtlMs: number;
+  private readonly statusCache = new Map<string, { status: string; cachedAt: number }>();
   private readonly storageKeyPrefix = "pool:";
   private readonly timeProvider: () => number;
 
@@ -62,6 +70,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     this.ctx = ctx as DurableObjectStateLike;
     this.env = env ?? {};
     this.timeProvider = options?.timeProvider ?? (() => Date.now());
+    this.statusCacheTtlMs = options?.statusCacheTtlMs ?? 60_000;
 
     // Resolve tenant ID strictly:
     const resolvedTenant =
@@ -114,8 +123,15 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     // Pre-populate keys if provided
     if (options?.keys && options.keys.length > 0) {
       for (const k of options.keys) {
-        this.assertTenant(k.tenantId, k.id);
-        this.keysMap.set(k.id, { ...k, tenantId: this.tenantId });
+        const isCommunal = k.poolType === "COMMUNITY";
+        if (!isCommunal) {
+          this.assertTenant(k.tenantId, k.id);
+        }
+        const safeKey: EncryptedKey = {
+          ...k,
+          tenantId: k.tenantId && k.tenantId.trim().length > 0 ? k.tenantId : this.tenantId,
+        };
+        this.keysMap.set(k.id, safeKey);
       }
       this.keySelector.setKeys(Array.from(this.keysMap.values()));
       this.isLoaded = true;
@@ -188,8 +204,15 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     if (storedKeys && Array.isArray(storedKeys)) {
       for (const k of storedKeys) {
         if (isEncryptedKey(k)) {
-          this.assertTenant(k.tenantId, k.id);
-          this.keysMap.set(k.id, { ...k, tenantId: this.tenantId });
+          const isCommunal = k.poolType === "COMMUNITY";
+          if (!isCommunal) {
+            this.assertTenant(k.tenantId, k.id);
+          }
+          const safeKey: EncryptedKey = {
+            ...k,
+            tenantId: k.tenantId && k.tenantId.trim().length > 0 ? k.tenantId : this.tenantId,
+          };
+          this.keysMap.set(k.id, safeKey);
         }
       }
       this.keySelector.setKeys(Array.from(this.keysMap.values()));
@@ -242,7 +265,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
             return {
               id: row.id,
-              tenantId: this.tenantId,
+              tenantId: isOwnKey ? this.tenantId : row.tenant_id,
               provider: row.provider,
               ciphertext: row.encrypted_key_b64,
               nonce: row.nonce_b64,
@@ -251,6 +274,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
               rpmLimit: row.rpm_limit,
               rpdLimit: row.rpd_limit,
               status: row.status,
+              poolType: (row.pool_type as "PRIVATE" | "COMMUNITY") ?? (isOwnKey ? "PRIVATE" : "COMMUNITY"),
             };
           });
           for (const k of d1Keys) {
@@ -275,6 +299,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
   public clearMemoryCache(): void {
     this.keysMap.clear();
+    this.statusCache.clear();
     this.isLoaded = false;
     this.keySelector.clearMemoryCache();
     this.circuitBreaker.clearMemoryCache();
@@ -296,11 +321,14 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
   private addKeySync(key: EncryptedKey): void {
     this.validateKeyStructure(key);
-    this.assertTenant(key.tenantId, key.id);
+    const isCommunal = key.poolType === "COMMUNITY";
+    if (!isCommunal) {
+      this.assertTenant(key.tenantId, key.id);
+    }
 
     const safeKey: EncryptedKey = {
       ...key,
-      tenantId: this.tenantId,
+      tenantId: key.tenantId && key.tenantId.trim().length > 0 ? key.tenantId : this.tenantId,
     };
     this.keysMap.set(safeKey.id, safeKey);
     this.keySelector.addKey(safeKey);
@@ -333,6 +361,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
   public async removeKey(keyId: string): Promise<boolean> {
     await this.ensureLoaded();
+    this.statusCache.delete(keyId);
     const removedFromMap = this.keysMap.delete(keyId);
     const removedFromSelector = this.keySelector.removeKey(keyId);
     if (removedFromMap || removedFromSelector) {
@@ -416,6 +445,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
   public async clearKeys(): Promise<void> {
     this.keysMap.clear();
+    this.statusCache.clear();
     this.keySelector.clearKeys();
     this.isLoaded = true;
     await this.persistKeys();
@@ -425,6 +455,37 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   // KeyPoolContract Implementation (LLD 3.4)
   // =========================================================================
 
+  private async checkD1KeyStatus(keyId: string): Promise<string | null> {
+    const now = this.now();
+    const cached = this.statusCache.get(keyId);
+
+    if (cached !== undefined && this.statusCacheTtlMs > 0 && (now - cached.cachedAt) <= this.statusCacheTtlMs) {
+      return cached.status;
+    }
+
+    if (!this.env.DB || typeof this.env.DB.prepare !== "function") {
+      return cached?.status ?? null;
+    }
+
+    try {
+      const row = await this.env.DB.prepare("SELECT status FROM api_keys WHERE id = ?")
+        .bind(keyId)
+        .first<{ status: string }>();
+
+      const status = row?.status ?? null;
+      if (status !== null) {
+        if (this.statusCacheTtlMs > 0) {
+          this.statusCache.set(keyId, { status, cachedAt: now });
+        } else {
+          this.statusCache.delete(keyId);
+        }
+      }
+      return status;
+    } catch {
+      return cached?.status ?? null;
+    }
+  }
+
   public async getKey(provider: string): Promise<string> {
     if (!provider || provider.trim().length === 0) {
       throw new InvalidKeyError("Provider parameter cannot be empty");
@@ -432,8 +493,20 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
     await this.ensureLoaded();
 
-    const selected = await this.keySelector.selectKey(provider);
-    return selected.id;
+    while (true) {
+      const selected = await this.keySelector.selectKey(provider);
+
+      const isNotOwned = selected.tenantId !== this.tenantId;
+      if (isNotOwned && this.env.DB && typeof this.env.DB.prepare === "function") {
+        const status = await this.checkD1KeyStatus(selected.id);
+        if (status && status.toUpperCase() === "REVOKED") {
+          await this.removeKey(selected.id);
+          continue;
+        }
+      }
+
+      return selected.id;
+    }
   }
 
   public async getKeyDetails(
@@ -446,8 +519,20 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
 
     await this.ensureLoaded();
 
-    const selected = await this.keySelector.selectKey(provider, options);
-    return { ...selected };
+    while (true) {
+      const selected = await this.keySelector.selectKey(provider, options);
+
+      const isNotOwned = selected.tenantId !== this.tenantId;
+      if (isNotOwned && this.env.DB && typeof this.env.DB.prepare === "function") {
+        const status = await this.checkD1KeyStatus(selected.id);
+        if (status && status.toUpperCase() === "REVOKED") {
+          await this.removeKey(selected.id);
+          continue;
+        }
+      }
+
+      return { ...selected };
+    }
   }
 
   public async recordUsage(

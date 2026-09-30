@@ -575,8 +575,8 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(404);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("MODEL_NOT_FOUND");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("MODEL_NOT_FOUND");
     });
   });
 
@@ -592,8 +592,8 @@ describe("Worker Integration Tests (T4)", () => {
       expect(res.status).toBe(401);
       expect(res.headers.get("www-authenticate")).toContain("Bearer");
 
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("AUTHENTICATION_FAILED");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("AUTHENTICATION_FAILED");
     });
 
     it("rejects invalid bearer token with HTTP 401", async () => {
@@ -608,8 +608,8 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(401);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("AUTHENTICATION_FAILED");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("AUTHENTICATION_FAILED");
     });
 
     it("rejects expired token with HTTP 401", async () => {
@@ -624,8 +624,8 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(401);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("AUTHENTICATION_FAILED");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("AUTHENTICATION_FAILED");
     });
 
     it("rejects provider request when token restricts allowed providers", async () => {
@@ -646,8 +646,8 @@ describe("Worker Integration Tests (T4)", () => {
       });
       const res = await app.fetch(req, env);
       expect(res.status).toBe(401);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("AUTHENTICATION_FAILED");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("AUTHENTICATION_FAILED");
     });
 
     it("enforces tenant isolation: rejects mismatched x-tenant-id with HTTP 403", async () => {
@@ -663,8 +663,8 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(403);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("TENANT_ISOLATION_VIOLATION");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("TENANT_ISOLATION_VIOLATION");
     });
 
     it("enforces budget gating: returns HTTP 429 and Retry-After (Golden Test tc-08)", async () => {
@@ -684,8 +684,8 @@ describe("Worker Integration Tests (T4)", () => {
       expect(res.status).toBe(429);
       expect(res.headers.get("retry-after")).toBe("60");
 
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("QUOTA_EXCEEDED");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("QUOTA_EXCEEDED");
     });
 
     it("enforces sliding-window RPM limit: returns HTTP 429 when RPM exceeded", async () => {
@@ -721,8 +721,8 @@ describe("Worker Integration Tests (T4)", () => {
       const res2 = await testWorker.fetch(makeReq(), env);
       expect(res2.status).toBe(429);
       expect(res2.headers.get("retry-after")).toBeDefined();
-      const body2 = (await res2.json()) as { error: string; code: string };
-      expect(body2.code).toBe("RATE_LIMIT_EXCEEDED");
+      const body2 = (await res2.json()) as { error: { message: string; type: string; code: string } };
+      expect(body2.error.code).toBe("RATE_LIMIT_EXCEEDED");
     });
   });
 
@@ -932,8 +932,8 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(400);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("CONTEXT_WINDOW_EXCEEDED");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("CONTEXT_WINDOW_EXCEEDED");
     });
 
     it("resolves model aliases correctly during completion (Golden Test tc-06)", async () => {
@@ -999,13 +999,13 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await testWorker.fetch(req, env);
       expect(res.status).toBe(400);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("CAPABILITY_MISMATCH");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("CAPABILITY_MISMATCH");
     });
   });
 
   describe("Group 7: DO Capacity Forwarding", () => {
-    it("forwards GET /v1/capacity to tenant DO stub with x-tenant-id", async () => {
+    it("no longer forwards GET /v1/capacity to the tenant DO (WP-0.8, N-01)", async () => {
       const req = new Request("https://api.keycollective.ai/v1/capacity", {
         method: "GET",
         headers: {
@@ -1014,19 +1014,10 @@ describe("Worker Integration Tests (T4)", () => {
       });
 
       const res = await worker.fetch(req, env);
-      expect(res.status).toBe(200);
-
-      const body = (await res.json()) as {
-        capacity: { totalKeys: number; healthyKeys: number; remainingRpm: number };
-      };
-      expect(body.capacity.totalKeys).toBe(3);
-      expect(body.capacity.healthyKeys).toBe(3);
-      expect(body.capacity.remainingRpm).toBe(170);
+      expect(res.status).toBe(404);
 
       const stub = mockDoNamespace.stubs.get("tenant-alpha");
-      expect(stub).toBeDefined();
-      expect(stub?.fetchCalls).toHaveLength(1);
-      expect(stub?.fetchCalls[0].headers.get("x-tenant-id")).toBe("tenant-alpha");
+      expect(stub?.fetchCalls ?? []).toHaveLength(0);
     });
   });
 
@@ -1069,8 +1060,8 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(400);
-      const body = (await res.json()) as { error: string; code: string };
-      expect(body.code).toBe("INVALID_REQUEST_BODY");
+      const body = (await res.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.code).toBe("INVALID_REQUEST_BODY");
     });
   });
 

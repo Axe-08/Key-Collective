@@ -206,6 +206,7 @@ export async function calculateSybilScore(
     auditReasons.push(`Cloudflare Turnstile bot score too low: ${botScore} (bot detected)`);
   } else if (turnstileToken !== undefined && turnstileToken.trim() !== "") {
     const turnstileResult = await verifyTurnstileToken(turnstileToken, {
+      secretKey: req && !(req instanceof Request) ? req.turnstileSecret : undefined,
       remoteIp: clientIp,
       fetchFn: typeof fetch !== "undefined" ? fetch : undefined,
     });

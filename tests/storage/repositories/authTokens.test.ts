@@ -18,6 +18,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   AuthTokensRepository,
+  isReservedTenantId,
   mapRowToAuthTokenRecord,
   AuthTokenRow,
   AuthTokenRecord,
@@ -872,6 +873,127 @@ describe("AuthTokensRepository", () => {
 
       const record = mapRowToAuthTokenRecord(mockRow);
       expect(record.allowedProviders).toEqual([]);
+    });
+  });
+
+  describe("Reserved Tenant IDs and Format Enforcement", () => {
+    describe("isReservedTenantId", () => {
+      it("identifies reserved tenant identifiers as reserved", () => {
+        const reservedWords = [
+          "admin",
+          "default",
+          "demo",
+          "anonymous",
+          "guest",
+          "system",
+        ];
+
+        for (const word of reservedWords) {
+          expect(isReservedTenantId(word)).toBe(true);
+          expect(isReservedTenantId(word.toUpperCase())).toBe(true);
+          expect(isReservedTenantId(`  ${word}  `)).toBe(true);
+        }
+      });
+
+      it("rejects tenant IDs that do not match ^usr_goog_[A-Za-z0-9_-]{10,128}$", () => {
+        const invalidTenantIds = [
+          "",
+          "   ",
+          "tenant_1234567890",
+          "usr_goog_",
+          "usr_goog_short", // 5 chars (< 10)
+          "usr_goog_123456789", // 9 chars (< 10)
+          `usr_goog_${"a".repeat(129)}`, // 129 chars (> 128)
+          "usr_goog_invalid!char",
+          "usr_goog_spaces in id",
+          "usr_goog_user@domain",
+        ];
+
+        for (const id of invalidTenantIds) {
+          expect(isReservedTenantId(id)).toBe(true);
+        }
+      });
+
+      it("accepts valid usr_goog_ tenant IDs", () => {
+        const validTenantIds = [
+          "usr_goog_1234567890", // Exactly 10 chars
+          "usr_goog_abcdefghij1234567890",
+          "usr_goog_A-Z_0-9_a-z", // 12 chars with hyphens and underscores
+          `usr_goog_${"a".repeat(128)}`, // Exactly 128 chars
+          "  usr_goog_1234567890  ", // Trimmed matches
+        ];
+
+        for (const id of validTenantIds) {
+          expect(isReservedTenantId(id)).toBe(false);
+        }
+      });
+    });
+
+    describe("AuthTokensRepository.create", () => {
+      it("throws TenantIsolationError when attempting to create a token with a reserved tenant ID", async () => {
+        const reservedTenantIds = ["admin", "default", "demo", "anonymous", "guest", "system"];
+
+        for (const reserved of reservedTenantIds) {
+          await expect(
+            repo.create({
+              token: "kc_token_reserved_test",
+              tenantId: reserved,
+            })
+          ).rejects.toThrow(TenantIsolationError);
+
+          await expect(
+            repo.create({
+              token: "kc_token_reserved_test",
+              tenantId: reserved,
+            })
+          ).rejects.toThrow(`Tenant ID '${reserved}' is reserved or invalid`);
+        }
+      });
+
+      it("throws TenantIsolationError when attempting to create a token with an invalid tenant ID format", async () => {
+        const invalidTenantIds = ["tenant_abc", "usr_goog_short", "usr_goog_has!symbol"];
+
+        for (const invalid of invalidTenantIds) {
+          await expect(
+            repo.create({
+              token: "kc_token_invalid_format_test",
+              tenantId: invalid,
+            })
+          ).rejects.toThrow(TenantIsolationError);
+
+          await expect(
+            repo.create({
+              token: "kc_token_invalid_format_test",
+              tenantId: invalid,
+            })
+          ).rejects.toThrow(`Tenant ID '${invalid}' is reserved or invalid`);
+        }
+      });
+
+      it("successfully creates and retrieves a token for a valid tenant ID", async () => {
+        const validTenantId = "usr_goog_1234567890";
+        const plainToken = "kc_token_valid_tenant_test";
+
+        const record = await repo.create({
+          token: plainToken,
+          tenantId: validTenantId,
+          budgetMicrodollars: 2_500_000n,
+          rpmLimit: 120,
+        });
+
+        expect(record.id).toBeDefined();
+        expect(record.tenantId).toBe(validTenantId);
+        expect(record.budgetMicrodollars).toBe(2_500_000n);
+        expect(record.rpmLimit).toBe(120);
+
+        const found = await repo.findById(record.id, validTenantId);
+        expect(found).not.toBeNull();
+        expect(found?.tenantId).toBe(validTenantId);
+
+        const foundByToken = await repo.findByToken(plainToken);
+        expect(foundByToken).not.toBeNull();
+        expect(foundByToken?.tenantId).toBe(validTenantId);
+      });
     });
   });
 });

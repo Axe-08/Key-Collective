@@ -2,7 +2,7 @@
  * Key Collective v3 — Cloudflare Turnstile Verification
  */
 
-import { TURNSTILE_TEST_TOKENS } from "./constants";
+import { ConfigurationError } from "./errors";
 import type { TurnstileVerificationResult } from "./types";
 
 /**
@@ -16,6 +16,11 @@ export async function verifyTurnstileToken(
     fetchFn?: typeof fetch;
   } = {}
 ): Promise<TurnstileVerificationResult> {
+  const secretKey = options.secretKey;
+  if (!secretKey || secretKey.trim() === "") {
+    throw new ConfigurationError("Turnstile secretKey is required for verification");
+  }
+
   if (!token || typeof token !== "string" || token.trim() === "") {
     return {
       success: false,
@@ -25,40 +30,10 @@ export async function verifyTurnstileToken(
 
   const trimmedToken = token.trim();
 
-  // Test token handling
-  if (
-    trimmedToken === TURNSTILE_TEST_TOKENS.ALWAYS_PASS ||
-    trimmedToken === TURNSTILE_TEST_TOKENS.VALID_FIXTURE
-  ) {
-    return {
-      success: true,
-      challengeTs: new Date().toISOString(),
-      hostname: "localhost",
-    };
-  }
-
-  if (
-    trimmedToken === TURNSTILE_TEST_TOKENS.ALWAYS_FAIL ||
-    trimmedToken === TURNSTILE_TEST_TOKENS.INVALID_FIXTURE
-  ) {
-    return {
-      success: false,
-      errorCodes: ["invalid-input-response"],
-    };
-  }
-
-  if (trimmedToken === TURNSTILE_TEST_TOKENS.TOKEN_ALREADY_SPENT) {
-    return {
-      success: false,
-      errorCodes: ["timeout-or-duplicate"],
-    };
-  }
-
-  // If secret key is provided and a fetch implementation is available, query Cloudflare
-  const secretKey = options.secretKey;
+  // Query Cloudflare's siteverify endpoint
   const fetchImpl = options.fetchFn ?? (typeof fetch !== "undefined" ? fetch : undefined);
 
-  if (secretKey && fetchImpl) {
+  if (fetchImpl) {
     try {
       const formData = new FormData();
       formData.append("secret", secretKey);
@@ -100,10 +75,9 @@ export async function verifyTurnstileToken(
     }
   }
 
-  // No secretKey and not an official test token -> reject.
-  // Prevents silent bot bypass if TURNSTILE_SECRET_KEY is missing from env.
+  // No fetch implementation available -> reject (cannot verify with Cloudflare).
   return {
     success: false,
-    errorCodes: ["missing-secret-key"],
+    errorCodes: ["missing-fetch-implementation"],
   };
 }

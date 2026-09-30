@@ -8,7 +8,7 @@ import type { WorkerEnv as AppWorkerEnv } from "../../auth/types";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
-import { handleOAuthGithubCallback, handleSyncSession } from "./auth_routes";
+import { handleOAuthGithubCallback, handleGoogleAuth } from "./auth_routes";
 import {
   handleDeleteKey,
   handleGetKeys,
@@ -31,6 +31,7 @@ import {
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
 import { handleAdminRequest } from "../../gateway/admin_handler";
+import { verifyAdminRequest } from "../../gateway/admin_verifier";
 
 export class DashboardRouter {
   constructor(
@@ -52,16 +53,15 @@ export class DashboardRouter {
       (env.KC_MASTER_KEY ? String(env.KC_MASTER_KEY) : undefined);
 
     let tenantId = "anonymous";
-    const headerTenant = request.headers.get("x-tenant-id");
 
     // 0. OAuth GitHub Callback
     if (method === "GET" && pathname === "/api/auth/github/callback") {
       return handleOAuthGithubCallback(request, env);
     }
 
-    // 0.1 User Session Sync to D1
-    if (method === "POST" && pathname === "/api/auth/sync-session") {
-      return handleSyncSession(request, env);
+    // 0.1 Verified Google Sign-In
+    if (method === "POST" && pathname === "/api/auth/google") {
+      return handleGoogleAuth(request, env);
     }
 
     // Auth token extraction
@@ -75,16 +75,6 @@ export class DashboardRouter {
     }
 
     if (!rawToken) {
-      try {
-        const u = new URL(request.url);
-        const queryToken = u.searchParams.get("token") || u.searchParams.get("admin_token");
-        if (queryToken && queryToken.trim().length > 0) {
-          rawToken = queryToken.trim();
-        }
-      } catch {}
-    }
-
-    if (!rawToken) {
       const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
       if (cookieHeader) {
         const match = cookieHeader.match(/(?:^|;\s*)kc_auth_token=([^;]+)/);
@@ -94,9 +84,13 @@ export class DashboardRouter {
       }
     }
 
-    if (rawToken && masterKey && rawToken === masterKey) {
-      tenantId = (headerTenant && headerTenant.trim().length > 0) ? headerTenant.trim() : "admin";
-    } else if (rawToken) {
+    const isAllowListed =
+      (method === "GET" && pathname === "/api/session") ||
+      (method === "POST" && pathname === "/api/abuse/report-key") ||
+      pathname.startsWith("/api/auth/");
+
+    let authFailed = false;
+    if (rawToken) {
       try {
         const authReq = new Request(request.url, {
           headers: new Headers({
@@ -106,30 +100,44 @@ export class DashboardRouter {
         });
         const authContext = await this.authMiddleware.authenticate(authReq, env);
         tenantId = authContext.tenantId || "anonymous";
-        if ((tenantId === "default" || tenantId === "anonymous") && headerTenant && headerTenant.trim().length > 0) {
-          tenantId = headerTenant.trim();
-        }
-      } catch {
-        if (method !== "GET") {
-          return new Response(
-            JSON.stringify({
-              error: {
-                message: "Invalid authorization token",
-                code: "UNAUTHORIZED",
-                statusCode: 401,
-              },
-            }),
-            {
-              status: 401,
-              headers: { "content-type": "application/json; charset=utf-8" },
-            }
-          );
-        }
+      } catch (_err) {
+        authFailed = true;
       }
     }
 
-    if (tenantId === "anonymous" && headerTenant && headerTenant.trim().length > 0) {
-      tenantId = headerTenant.trim();
+    if (authFailed) {
+      if (!isAllowListed) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              message: "Invalid authorization token",
+              code: "UNAUTHORIZED",
+              statusCode: 401,
+            },
+          }),
+          {
+            status: 401,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          }
+        );
+      }
+      tenantId = "anonymous";
+    }
+
+    if (tenantId === "anonymous" && !isAllowListed) {
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: "Authentication required",
+            code: "UNAUTHORIZED",
+            statusCode: 401,
+          },
+        }),
+        {
+          status: 401,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        }
+      );
     }
 
     // 0.2 Real-Time Telemetry Stream (SSE)
@@ -233,7 +241,7 @@ export class DashboardRouter {
         sybil_score?: number;
       } | null = null;
 
-      if (tenantId === "admin" || (rawToken && masterKey && rawToken === masterKey)) {
+      if (tenantId === "admin") {
         user = {
           id: "admin",
           email: "admin@keycollective.ai",
@@ -289,15 +297,7 @@ export class DashboardRouter {
 
     // 0.5 Admin Surveillance APIs (/api/admin/*) on console/dashboard
     if (pathname.startsWith("/api/admin/")) {
-      let isAdmin = tenantId === "admin" || (!!rawToken && !!masterKey && rawToken === masterKey);
-      if (!isAdmin && env.DB && typeof env.DB.prepare === "function" && tenantId && tenantId !== "anonymous") {
-        try {
-          const userRow = await env.DB.prepare("SELECT tier, role FROM users WHERE id = ?").bind(tenantId).first<{ tier?: string; role?: string }>();
-          if (userRow && (userRow.tier === "admin" || userRow.role === "admin")) {
-            isAdmin = true;
-          }
-        } catch {}
-      }
+      const isAdmin = await verifyAdminRequest(request, env, this.options);
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: { message: "Admin access required", code: "FORBIDDEN", statusCode: 403 } }), {
           status: 403,
@@ -314,12 +314,12 @@ export class DashboardRouter {
 
     // 2. POST /api/keys
     if (method === "POST" && pathname === "/api/keys") {
-      return handlePostKeys(request, env, tenantId, headerTenant, masterKey);
+      return handlePostKeys(request, env, tenantId, masterKey);
     }
 
     // 3. DELETE /api/keys/:id
     if (method === "DELETE" && pathname.startsWith("/api/keys/")) {
-      return handleDeleteKey(pathname, env, tenantId, headerTenant);
+      return handleDeleteKey(pathname, env, tenantId);
     }
 
     // PATCH /api/keys/:id/pool-mode (Anti-Midnight Freeze FR-22)
@@ -329,12 +329,12 @@ export class DashboardRouter {
 
     // 3.8 POST /api/keys/:id/rotate
     if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/rotate")) {
-      return handleRotateKeySecret(pathname, request, env, tenantId, headerTenant, masterKey);
+      return handleRotateKeySecret(pathname, request, env, tenantId, masterKey);
     }
 
     // 4. POST /api/keys/:id/test
     if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/test")) {
-      return handleTestKey(pathname, env, tenantId, headerTenant, masterKey);
+      return handleTestKey(pathname, env, tenantId, masterKey);
     }
 
     // 4.1 Projects APIs
@@ -374,12 +374,12 @@ export class DashboardRouter {
 
     // 5. GET /api/logs
     if (method === "GET" && pathname === "/api/logs") {
-      return handleGetLogs(env, tenantId, headerTenant, this.getKeyPool);
+      return handleGetLogs(env, tenantId, this.getKeyPool);
     }
 
     // 6. GET /api/stats
     if (method === "GET" && pathname === "/api/stats") {
-      return handleGetStats(env, tenantId, headerTenant, this.getKeyPool);
+      return handleGetStats(env, tenantId, this.getKeyPool);
     }
 
     // 7. Pool Commons & Notifications Routes (/api/pool/*, /api/notifications)

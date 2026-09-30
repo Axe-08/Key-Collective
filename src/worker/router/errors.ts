@@ -9,7 +9,8 @@ import {
   QuotaExceededError,
   RateLimitExceededError,
 } from "../../errors/key_errors";
-import { sanitizeErrorMessage } from "../error_normalizer";
+import { sanitize } from "../error_normalizer";
+import { Logger } from "../../utils/logger";
 
 /**
  * Concrete domain error for edge routing failures.
@@ -23,80 +24,123 @@ export class RouterError extends DomainError {
   }
 }
 
+export interface FormatRouterErrorOptions {
+  requestId?: string;
+  traceId?: string;
+  tenantId?: string;
+}
+
 /**
  * Formats any caught error or exception into a standardized HTTP Response.
+ * The client body is always { error: { message, type, code } } plus x-kc-request-id.
+ * details is never serialised to clients. Full details go to the server logger keyed by trace id.
  * Injects WWW-Authenticate on 401 and Retry-After on 429.
  */
-export function formatRouterError(error: unknown): Response {
+export function formatRouterError(
+  error: unknown,
+  optionsOrRequestId?: string | FormatRouterErrorOptions
+): Response {
+  const options =
+    typeof optionsOrRequestId === "string"
+      ? { requestId: optionsOrRequestId }
+      : optionsOrRequestId ?? {};
+
+  const requestId = options.requestId ?? crypto.randomUUID();
+  const traceId = options.traceId ?? requestId;
+  const tenantId =
+    options.tenantId ??
+    (error instanceof DomainError && error.details?.tenantId
+      ? String(error.details.tenantId)
+      : "system");
+
+  let statusCode = 500;
+  let code = "INTERNAL_ROUTING_ERROR";
+  let type = "internal_server_error";
+  let rawMessage = "Internal edge routing error";
+  let retryAfter: number | undefined;
+  let isAuthError = false;
+
   if (error instanceof RateLimitExceededError) {
-    const retryAfter = error.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS;
-    const body = error.toJSON();
-    body.error = sanitizeErrorMessage(body.error);
-    return new Response(JSON.stringify(body), {
-      status: error.statusCode,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "retry-after": String(retryAfter),
-      },
-    });
+    statusCode = error.statusCode;
+    code = error.code;
+    type = "rate_limit_error";
+    rawMessage = error.message;
+    retryAfter = error.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS;
+  } else if (error instanceof QuotaExceededError) {
+    statusCode = error.statusCode;
+    code = error.code;
+    type = "rate_limit_error";
+    rawMessage = error.message;
+    retryAfter = DEFAULT_RETRY_AFTER_SECONDS;
+  } else if (error instanceof AuthenticationError) {
+    statusCode = error.statusCode;
+    code = error.code;
+    type = "authentication_error";
+    rawMessage = error.message;
+    isAuthError = true;
+  } else if (error instanceof DomainError) {
+    statusCode = error.statusCode;
+    code = error.code;
+    rawMessage = error.message;
+    if (statusCode === 401) {
+      type = "authentication_error";
+      isAuthError = true;
+    } else if (statusCode === 403) {
+      type = "permission_error";
+    } else if (statusCode === 404) {
+      type = "not_found_error";
+    } else if (statusCode === 429) {
+      type = "rate_limit_error";
+      retryAfter = DEFAULT_RETRY_AFTER_SECONDS;
+    } else if (statusCode === 503) {
+      type = "service_unavailable";
+    } else if (statusCode >= 400 && statusCode < 500) {
+      type = "invalid_request_error";
+    } else {
+      type = "internal_server_error";
+    }
+  } else if (error instanceof Error) {
+    rawMessage = error.message;
+  } else if (typeof error === "string") {
+    rawMessage = error;
   }
 
-  if (error instanceof QuotaExceededError) {
-    const body = error.toJSON();
-    body.error = sanitizeErrorMessage(body.error);
-    return new Response(JSON.stringify(body), {
-      status: error.statusCode,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "retry-after": String(DEFAULT_RETRY_AFTER_SECONDS),
-      },
-    });
+  // Full details go to the server logger keyed by trace id
+  const logger = new Logger({ traceId, tenantId });
+  logger.error(rawMessage, {
+    name: error instanceof Error ? error.name : "UnknownError",
+    code,
+    statusCode,
+    details: error instanceof DomainError ? error.details : undefined,
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+
+  const message = sanitize(rawMessage);
+
+  const headers = new Headers({
+    "content-type": "application/json; charset=utf-8",
+    "x-kc-request-id": requestId,
+  });
+
+  if (retryAfter !== undefined) {
+    headers.set("retry-after", String(retryAfter));
   }
 
-  if (error instanceof AuthenticationError) {
-    const body = error.toJSON();
-    body.error = sanitizeErrorMessage(body.error);
-    return new Response(JSON.stringify(body), {
-      status: error.statusCode,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "www-authenticate": "Bearer",
-      },
-    });
+  if (isAuthError) {
+    headers.set("www-authenticate", "Bearer");
   }
 
-  if (error instanceof DomainError) {
-    const body = error.toJSON();
-    body.error = sanitizeErrorMessage(body.error);
-    return new Response(JSON.stringify(body), {
-      status: error.statusCode,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-      },
-    });
-  }
-
-  const rawMessage =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "Internal edge routing error";
-  const message = sanitizeErrorMessage(rawMessage);
   return new Response(
     JSON.stringify({
       error: {
         message,
-        type: "internal_server_error",
-        code: "INTERNAL_ROUTING_ERROR",
-        statusCode: 500,
+        type,
+        code,
       },
     }),
     {
-      status: 500,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-      },
+      status: statusCode,
+      headers,
     }
   );
 }

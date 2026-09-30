@@ -66,9 +66,6 @@
         headers['Authorization'] = `Bearer ${token.trim()}`;
       }
     }
-    if (account?.id) {
-      headers['x-tenant-id'] = account.id;
-    }
     return headers;
   }
 

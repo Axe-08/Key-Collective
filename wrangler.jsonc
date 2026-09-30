@@ -23,6 +23,10 @@
       {
         "name": "TENANT_QUOTA",
         "class_name": "TenantQuotaDO"
+      },
+      {
+        "name": "RATE_LIMITER",
+        "class_name": "RateLimiterDO"
       }
     ]
   },
@@ -49,6 +53,12 @@
       "tag": "v5",
       "new_sqlite_classes": [
         "TenantQuotaDO"
+      ]
+    },
+    {
+      "tag": "v6",
+      "new_sqlite_classes": [
+        "RateLimiterDO"
       ]
     }
   ],
@@ -89,6 +99,9 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": true
   },
+  "vars": {
+    "FIREBASE_PROJECT_ID": "key-collective-568f8"
+  },
   "env": {
     "dev": {
       "routes": [
@@ -117,6 +130,10 @@
           {
             "name": "TENANT_QUOTA",
             "class_name": "TenantQuotaDO"
+          },
+          {
+            "name": "RATE_LIMITER",
+            "class_name": "RateLimiterDO"
           }
         ]
       },
@@ -166,6 +183,10 @@
           {
             "name": "TENANT_QUOTA",
             "class_name": "TenantQuotaDO"
+          },
+          {
+            "name": "RATE_LIMITER",
+            "class_name": "RateLimiterDO"
           }
         ]
       },
@@ -201,6 +222,10 @@
           {
             "name": "TENANT_QUOTA",
             "class_name": "TenantQuotaDO"
+          },
+          {
+            "name": "RATE_LIMITER",
+            "class_name": "RateLimiterDO"
           }
         ]
       }

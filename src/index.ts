@@ -16,6 +16,7 @@ export interface Env {
   DEMO_POOL?: DurableObjectNamespace;
   POOL_COORDINATOR?: DurableObjectNamespace;
   TENANT_QUOTA?: DurableObjectNamespace;
+  RATE_LIMITER?: DurableObjectNamespace;
   DB: D1Database;
   TELEMETRY?: AnalyticsEngineDataset;
   KC_MASTER_KEY?: string;
@@ -28,6 +29,7 @@ export { KeyPoolDO } from "./durable_objects/key_pool_do";
 export { DemoDO } from "./auth/demo/index";
 export { PoolCoordinatorDO } from "./pool/coordinator_do";
 export { TenantQuotaDO } from "./quota/tenant/index";
+export { RateLimiterDO } from "./durable_objects/rate_limiter_do";
 export { createWorker, MainWorker };
 
 // Cloudflare Worker Default Fetch Handler

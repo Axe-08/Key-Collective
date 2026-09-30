@@ -9,6 +9,7 @@ import type { RouterHandler } from "../router/index";
 import type { WorkerOptions } from "./types";
 import { applyCors } from "./subdomain";
 import { TOKENS_PER_REQUEST_ESTIMATE } from "../../constants/keys";
+import { deriveTenantKey, decrypt, hashApiKey, timingSafeEqualStrings } from "../../crypto";
 
 /**
  * Handles authenticated admin surveillance requests on admin.*.
@@ -90,7 +91,7 @@ export async function handleAdminRequest(
           const auditId = crypto.randomUUID();
           await db
             .prepare(
-              "INSERT INTO admin_audit_logs (id, admin_email, action, target_tenant_id, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+              "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
             )
             .bind(
               auditId,
@@ -126,7 +127,7 @@ export async function handleAdminRequest(
     let body: { status?: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION' | 'REVOKED'; reason?: string } = {};
     try {
       body = (await request.json()) as { status?: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION' | 'REVOKED'; reason?: string };
-    } catch {}
+    } catch { /* ignore */ }
 
     const targetStatus = body.status || 'ACTIVE';
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
@@ -148,6 +149,23 @@ export async function handleAdminRequest(
           .bind(obsUntil, targetKeyId)
           .run();
       }
+
+      try {
+        const auditId = crypto.randomUUID();
+        await db
+          .prepare(
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            auditId,
+            "admin@keycollective.ai",
+            "KEY_ROUTING_STATUS_OVERRIDE",
+            targetKeyId,
+            JSON.stringify({ status: targetStatus, reason: body.reason || null }),
+            request.headers.get("cf-connecting-ip") || "127.0.0.1"
+          )
+          .run();
+      } catch { /* ignore */ }
     }
 
     const res = Response.json({
@@ -165,7 +183,7 @@ export async function handleAdminRequest(
     let body: { pool_type?: 'COMMUNITY' | 'PRIVATE' } = {};
     try {
       body = (await request.json()) as { pool_type?: 'COMMUNITY' | 'PRIVATE' };
-    } catch {}
+    } catch { /* ignore */ }
 
     const targetPool = body.pool_type === 'PRIVATE' ? 'PRIVATE' : 'COMMUNITY';
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
@@ -174,6 +192,23 @@ export async function handleAdminRequest(
         .prepare("UPDATE api_keys SET pool_type = ? WHERE id = ?")
         .bind(targetPool, targetKeyId)
         .run();
+
+      try {
+        const auditId = crypto.randomUUID();
+        await db
+          .prepare(
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            auditId,
+            "admin@keycollective.ai",
+            "KEY_POOL_MODE_SWITCH",
+            targetKeyId,
+            JSON.stringify({ pool_type: targetPool }),
+            request.headers.get("cf-connecting-ip") || "127.0.0.1"
+          )
+          .run();
+      } catch { /* ignore */ }
     }
 
     const res = Response.json({
@@ -191,6 +226,23 @@ export async function handleAdminRequest(
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
     if (db && typeof db.prepare === "function") {
       await db.prepare("DELETE FROM api_keys WHERE id = ?").bind(targetKeyId).run();
+
+      try {
+        const auditId = crypto.randomUUID();
+        await db
+          .prepare(
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            auditId,
+            "admin@keycollective.ai",
+            "KEY_DELETE",
+            targetKeyId,
+            JSON.stringify({}),
+            request.headers.get("cf-connecting-ip") || "127.0.0.1"
+          )
+          .run();
+      } catch { /* ignore */ }
     }
     const res = Response.json({
       success: true,
@@ -199,12 +251,69 @@ export async function handleAdminRequest(
     return options.cors !== false ? applyCors(res) : res;
   }
 
+  // 2.65 Admin Maintenance: Backfill key_hash for existing rows (break-glass only)
+  if (method === "POST" && pathname === "/api/admin/maintenance/backfill-key-hash") {
+    const breakGlassHeader =
+      request.headers.get("x-break-glass-authorization") || request.headers.get("x-break-glass");
+    const breakGlassSecret = env.BREAK_GLASS_TOKEN as string | undefined;
+
+    if (
+      !breakGlassSecret ||
+      breakGlassSecret.trim().length === 0 ||
+      !breakGlassHeader ||
+      !timingSafeEqualStrings(breakGlassHeader.trim(), breakGlassSecret.trim())
+    ) {
+      const res = Response.json(
+        { success: false, error: "Break-glass authorization required" },
+        { status: 403 }
+      );
+      return options.cors !== false ? applyCors(res) : res;
+    }
+
+    const masterKey = env.KC_MASTER_KEY as string | undefined;
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+
+    if (!db || typeof db.prepare !== "function" || !masterKey) {
+      const res = Response.json(
+        { success: false, error: "Database or master key not configured" },
+        { status: 500 }
+      );
+      return options.cors !== false ? applyCors(res) : res;
+    }
+
+    let updatedCount = 0;
+    try {
+      const rowsRes = await db
+        .prepare("SELECT id, tenant_id, encrypted_key_b64, nonce_b64 FROM api_keys WHERE key_hash IS NULL")
+        .all<{ id: string; tenant_id: string; encrypted_key_b64: string; nonce_b64: string }>();
+
+      for (const row of rowsRes.results || []) {
+        try {
+          // Decrypt in memory only; the plaintext key never leaves this scope and is
+          // never logged, returned, or persisted anywhere other than its SHA-256 hash.
+          const tenantKey = await deriveTenantKey(masterKey, row.tenant_id);
+          const plaintextKey = await decrypt(row.encrypted_key_b64, tenantKey, row.nonce_b64);
+          const keyHash = await hashApiKey(plaintextKey);
+          await db.prepare("UPDATE api_keys SET key_hash = ? WHERE id = ?").bind(keyHash, row.id).run();
+          updatedCount += 1;
+        } catch {
+          // Skip rows that fail to decrypt or hash; never surface plaintext or row detail.
+        }
+      }
+    } catch {
+      // Query failed; fall through and report whatever count was updated so far.
+    }
+
+    const res = Response.json({ success: true, updated: updatedCount });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
   // 2.7 Admin Community Pool Management (POST /api/admin/pool/manage)
   if (method === "POST" && pathname === "/api/admin/pool/manage") {
     let body: { action?: string } = {};
     try {
       body = (await request.json()) as { action?: string };
-    } catch {}
+    } catch { /* ignore */ }
 
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
     if (db && typeof db.prepare === "function") {
@@ -240,7 +349,7 @@ export async function handleAdminRequest(
     let body: { provider?: string; state?: 'TRIPPED' | 'CLOSED'; reason?: string; adminEmail?: string } = {};
     try {
       body = (await request.json()) as typeof body;
-    } catch {}
+    } catch { /* ignore */ }
 
     const provider = body.provider || 'all';
     const state = body.state || 'CLOSED';
@@ -253,7 +362,7 @@ export async function handleAdminRequest(
         const auditId = crypto.randomUUID();
         await db
           .prepare(
-            "INSERT INTO admin_audit_logs (id, admin_email, action, target_tenant_id, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
           )
           .bind(
             auditId,
@@ -264,7 +373,7 @@ export async function handleAdminRequest(
             request.headers.get("cf-connecting-ip") || "127.0.0.1"
           )
           .run();
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     const res = Response.json({
@@ -282,7 +391,7 @@ export async function handleAdminRequest(
     let body: { active?: boolean; reason?: string; adminEmail?: string } = {};
     try {
       body = (await request.json()) as typeof body;
-    } catch {}
+    } catch { /* ignore */ }
 
     const active = body.active === true;
     const reason = body.reason || 'Admin global kill switch';
@@ -294,7 +403,7 @@ export async function handleAdminRequest(
         const auditId = crypto.randomUUID();
         await db
           .prepare(
-            "INSERT INTO admin_audit_logs (id, admin_email, action, target_tenant_id, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
           )
           .bind(
             auditId,
@@ -305,7 +414,7 @@ export async function handleAdminRequest(
             request.headers.get("cf-connecting-ip") || "127.0.0.1"
           )
           .run();
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     const res = Response.json({
@@ -369,7 +478,7 @@ export async function handleAdminRequest(
             created_at: string | null;
           }>();
         usersList = uRes.results || [];
-      } catch {}
+      } catch { /* ignore */ }
 
       try {
         const kRes = await db
@@ -399,7 +508,7 @@ export async function handleAdminRequest(
             created_at: string;
           }>();
         keysList = kRes.results || [];
-      } catch {}
+      } catch { /* ignore */ }
 
       try {
         const dRes = await db
@@ -408,7 +517,7 @@ export async function handleAdminRequest(
         for (const row of dRes.results || []) {
           debtMap.set(row.tenant_id, row.community_debt_micro_cu || 0);
         }
-      } catch {}
+      } catch { /* ignore */ }
 
       try {
         const sRes = await db
@@ -419,7 +528,7 @@ export async function handleAdminRequest(
         for (const row of sRes.results || []) {
           spendMap.set(row.tenant_id, row.spend_today || 0);
         }
-      } catch {}
+      } catch { /* ignore */ }
 
       try {
         const aRes = await db
@@ -439,7 +548,7 @@ export async function handleAdminRequest(
             tenantRpmMap.set(row.tenant_id, row.reqs_last_min);
           }
         }
-      } catch {}
+      } catch { /* ignore */ }
 
       try {
         const latencyRow = await db
@@ -450,7 +559,7 @@ export async function handleAdminRequest(
         if (latencyRow?.avg_lat != null) {
           upstreamLatencyMs = Math.round(latencyRow.avg_lat);
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // Group keys by tenant_id
@@ -663,33 +772,39 @@ export async function handleAdminRequest(
       // empty body
     }
     const isQuar = body.is_quarantined !== false ? 1 : 0;
+    const reason = body.reason || "Administrative quarantine";
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
     if (db && typeof db.prepare === "function") {
-      try {
-        const updateRes = await db
-          .prepare(
-            "UPDATE users SET is_quarantined = ?, quarantine_reason = ? WHERE id = ?"
-          )
-          .bind(isQuar, body.reason || "Administrative quarantine", targetTenantId)
-          .run();
-        if (!updateRes.meta?.changes && updateRes.meta?.changes !== undefined && updateRes.meta.changes === 0) {
-          await db
-            .prepare(
-              "INSERT OR IGNORE INTO users (id, is_quarantined, quarantine_reason, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)"
-            )
-            .bind(targetTenantId, isQuar, body.reason || "Administrative quarantine")
-            .run();
-        }
-      } catch {
-        try {
-          await db
-            .prepare(
-              "INSERT OR REPLACE INTO users (id, is_quarantined, quarantine_reason, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)"
-            )
-            .bind(targetTenantId, isQuar, body.reason || "Administrative quarantine")
-            .run();
-        } catch {}
+      const updateRes = await db
+        .prepare(
+          "UPDATE users SET is_quarantined = ?, quarantine_reason = ? WHERE id = ?"
+        )
+        .bind(isQuar, reason, targetTenantId)
+        .run();
+      if (!updateRes?.meta?.changes || updateRes.meta.changes === 0) {
+        const notFoundRes = Response.json(
+          { error: "tenant_not_found", message: "Tenant not found" },
+          { status: 404 }
+        );
+        return options.cors !== false ? applyCors(notFoundRes) : notFoundRes;
       }
+
+      try {
+        const auditId = crypto.randomUUID();
+        await db
+          .prepare(
+            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            auditId,
+            "admin@keycollective.ai",
+            "TENANT_QUARANTINE",
+            targetTenantId,
+            JSON.stringify({ is_quarantined: isQuar === 1, reason }),
+            request.headers.get("cf-connecting-ip") || "127.0.0.1"
+          )
+          .run();
+      } catch { /* ignore */ }
     }
     const res = Response.json({
       success: true,

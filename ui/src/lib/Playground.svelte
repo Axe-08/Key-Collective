@@ -197,15 +197,6 @@ stream = client.chat.completions.create(
         Authorization: `Bearer ${bearerToken.trim()}`,
         'x-pool-fallback': 'lenient',
       };
-      if (typeof window !== 'undefined') {
-        try {
-          const rawUser = localStorage.getItem('kc_user');
-          if (rawUser) {
-            const u = JSON.parse(rawUser);
-            if (u?.id) headers['x-tenant-id'] = u.id;
-          }
-        } catch {}
-      }
 
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',

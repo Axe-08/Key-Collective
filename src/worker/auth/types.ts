@@ -25,6 +25,7 @@ export interface WorkerEnv {
   ASSETS?: { fetch(request: Request | string): Promise<Response> };
   REPORT_WEBHOOK_SECRET?: string;
   MIDNIGHT_FREEZE?: string;
+  FIREBASE_PROJECT_ID?: string;
   [key: string]: unknown;
 }
 

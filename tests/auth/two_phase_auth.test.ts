@@ -39,11 +39,34 @@ import {
   calculateSybilScore,
   verifyTurnstileToken,
   globalSubnetTracker,
-  TURNSTILE_TEST_TOKENS,
   SYBIL_SCORE_BUILDER_THRESHOLD,
   type SybilUserInput,
   type SybilRequestInput,
 } from "../../src/auth/sybil/index";
+
+// Local test token constants (production fixture short-circuits were removed).
+const TURNSTILE_TEST_TOKENS = {
+  ALWAYS_PASS: "test-turnstile-always-pass",
+  ALWAYS_FAIL: "test-turnstile-always-fail",
+} as const;
+
+// Turnstile fixture tokens are no longer honoured (WP-0.5): siteverify is mocked at the HTTP layer.
+// GitHub API mocks are installed via `githubFetch`; everything else falls through to it.
+let githubFetch: typeof fetch | undefined;
+function installSiteverifyMock(original: typeof fetch): void {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("/turnstile/v0/siteverify")) {
+      const token = init?.body instanceof FormData ? String(init.body.get("response")) : "";
+      const success = token !== TURNSTILE_TEST_TOKENS.ALWAYS_FAIL;
+      return new Response(JSON.stringify({ success, "error-codes": success ? [] : ["invalid-input-response"] }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return (githubFetch ?? original)(input, init);
+  }) as typeof fetch;
+}
+
 import {
   generatePKCEPair,
   buildAuthorizationUrl,
@@ -226,6 +249,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // 3. UPDATE USERS
     if (q.includes("UPDATE USERS")) {
+      let changes = 0;
       if (q.includes("SET TIER = ? WHERE ID = ?")) {
         const [tier, id] = this.boundParams;
         const user = this.db.users.get(String(id));
@@ -238,6 +262,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           : [1, this.boundParams[0], this.boundParams[1]];
         const user = this.db.users.get(String(id));
         if (user) {
+          changes = 1;
           user.is_quarantined = isQuar === 1 || isQuar === true ? 1 : 0;
           user.quarantine_reason = String(reason);
         }
@@ -254,7 +279,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           }
         }
       }
-      return { results: [], success: true, meta: { duration: 1 } as any };
+      return { results: [], success: true, meta: { duration: 1, changes } as any };
     }
 
     // 4. INSERT INTO USERS
@@ -310,6 +335,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
 
   beforeEach(async () => {
     vi.restoreAllMocks();
+    installSiteverifyMock(originalFetch);
     globalSubnetTracker.reset();
     db = new MockD1Db();
 
@@ -391,6 +417,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    githubFetch = undefined;
   });
 
   // ==========================================================================
@@ -679,7 +706,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           now: REF_NOW,
         };
         const req: SybilRequestInput = {
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
           clientIp: "198.51.100.20",
         };
 
@@ -702,7 +729,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           now: REF_NOW,
         };
         const req: SybilRequestInput = {
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_FAIL,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_FAIL,
           clientIp: "198.51.100.21",
         };
 
@@ -781,7 +808,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "203.0.113.15",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -801,7 +828,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req1: SybilRequestInput = {
           clientIp: "203.0.113.50",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
         await calculateSybilScore(user1, req1);
 
@@ -815,7 +842,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req2: SybilRequestInput = {
           clientIp: "203.0.113.99",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result2 = await calculateSybilScore(user2, req2);
@@ -839,7 +866,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           const req: SybilRequestInput = {
             clientIp: "198.51.100.88",
             cf: { asn },
-            turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+            turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
           };
 
           const result = await calculateSybilScore(user, req);
@@ -865,7 +892,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           };
           const req: SybilRequestInput = {
             clientIp: "198.51.100.40",
-            turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+            turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
           };
 
           const result = await calculateSybilScore(user, req);
@@ -895,7 +922,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           };
           const req: SybilRequestInput = {
             clientIp: "198.51.100.41",
-            turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+            turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
           };
 
           const result = await calculateSybilScore(user, req);
@@ -918,7 +945,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.42",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -941,7 +968,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.60",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -963,7 +990,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.61",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -987,7 +1014,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.70",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -1007,7 +1034,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.71",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -1027,7 +1054,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.72",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -1053,7 +1080,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
             { status: 200, headers: { "Content-Type": "application/json" } }
           )
         );
-        globalThis.fetch = mockFetch;
+        githubFetch = mockFetch;
 
         const user: SybilUserInput = {
           username: "upstream_octocat",
@@ -1062,7 +1089,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.80",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -1086,7 +1113,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
 
       it("handles GitHub API HTTP 500 or timeout error gracefully without throwing", async () => {
         const mockFetch = vi.fn().mockRejectedValue(new Error("GitHub API Connection Refused"));
-        globalThis.fetch = mockFetch;
+        githubFetch = mockFetch;
 
         const user: SybilUserInput = {
           username: "resilient_user",
@@ -1168,7 +1195,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         const ghUserId = 776655;
         const stateToken = "csrf_secure_state_999";
 
-        globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        githubFetch = vi.fn(async (input: RequestInfo | URL) => {
           const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
           if (urlStr.includes("access_token")) {
@@ -1230,7 +1257,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           },
           {
             clientIp: "198.51.100.55",
-            turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+            turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
           }
         );
 
@@ -1302,7 +1329,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           },
           {
             clientIp: "198.51.100.56",
-            turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+            turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
           }
         );
 
@@ -1346,7 +1373,7 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
           },
           {
             clientIp: "198.51.100.57",
-            turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+            turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
           }
         );
 

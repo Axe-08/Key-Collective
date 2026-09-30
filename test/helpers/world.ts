@@ -1,0 +1,109 @@
+import { env } from "cloudflare:test";
+import {
+  deriveTenantKey,
+  encrypt,
+  generateNonceB64,
+} from "../../src/crypto/encryption";
+
+declare module "cloudflare:test" {
+  interface ProvidedEnv {
+    DB: D1Database;
+    KC_MASTER_KEY?: string;
+  }
+}
+
+export { generateNonceB64 };
+
+export interface TestUser {
+  id: string;
+  email: string;
+  tier: string;
+  role: string;
+}
+
+export interface CreateUserOptions {
+  tier?: string;
+  email?: string;
+}
+
+export interface CreateApiKeyOptions {
+  name?: string;
+  rpmLimit?: number;
+}
+
+export interface AddProviderKeyOptions {
+  provider: string;
+  pool?: string;
+  plaintext: string;
+}
+
+export interface ProviderKeyRecord {
+  id: string;
+  tenant_id: string;
+  provider: string;
+  pool: string;
+}
+
+export async function createUser({
+  tier = "free",
+  email,
+}: CreateUserOptions = {}): Promise<TestUser> {
+  const id = "usr_goog_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  const userEmail = email || `${id}@example.test`;
+  await env.DB.prepare(
+    "INSERT INTO users (id, email, tier, role, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)"
+  )
+    .bind(id, userEmail, tier, "user")
+    .run();
+  return { id, email: userEmail, tier, role: "user" };
+}
+
+export async function createApiKey(
+  user: { id: string },
+  opts: CreateApiKeyOptions = {}
+): Promise<string> {
+  const plaintext = "kc_live_" + crypto.randomUUID().replace(/-/g, "");
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(plaintext)
+  );
+  const hash_sha256 = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  const tokenId = "tok_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  await env.DB.prepare(
+    "INSERT INTO auth_tokens (id, hash_sha256, tenant_id, rpm_limit, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)"
+  )
+    .bind(tokenId, hash_sha256, user.id, opts.rpmLimit || 60)
+    .run();
+  return plaintext;
+}
+
+export async function addProviderKey(
+  user: { id: string },
+  { provider, pool = "COMMUNITY", plaintext }: AddProviderKeyOptions
+): Promise<ProviderKeyRecord> {
+  const masterKey =
+    (env as unknown as { KC_MASTER_KEY?: string }).KC_MASTER_KEY ||
+    "test-master-key-please-rotate";
+  const subkey = await deriveTenantKey(masterKey, user.id);
+  const encrypted = await encrypt(plaintext, subkey);
+  const keyId = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  await env.DB.prepare(
+    "INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix, pool_type, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+  )
+    .bind(
+      keyId,
+      user.id,
+      `${provider}-key`,
+      provider,
+      encrypted.ciphertextB64,
+      encrypted.nonceB64,
+      plaintext.slice(0, 4),
+      plaintext.slice(-4),
+      pool,
+      "Healthy"
+    )
+    .run();
+  return { id: keyId, tenant_id: user.id, provider, pool };
+}

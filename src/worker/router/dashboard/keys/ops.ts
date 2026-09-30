@@ -17,8 +17,7 @@ import type { DurableObjectNamespaceLike } from "../../types";
 export async function handleDeleteKey(
   pathname: string,
   env: WorkerEnv,
-  tenantId: string,
-  headerTenant: string | null
+  tenantId: string
 ): Promise<Response> {
   const keyId = pathname.replace("/api/keys/", "").trim();
   if (!keyId) {
@@ -33,6 +32,14 @@ export async function handleDeleteKey(
     if (tenantId === "admin") {
       await env.DB.prepare("DELETE FROM api_keys WHERE id = ?").bind(keyId).run();
     } else {
+      const existing = await env.DB.prepare(
+        "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
+      ).bind(keyId, tenantId).first<{ id: string }>();
+
+      if (!existing) {
+        throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
+      }
+
       await env.DB.prepare(
         "DELETE FROM api_keys WHERE id = ? AND tenant_id = ?"
       ).bind(keyId, tenantId).run();
@@ -40,17 +47,16 @@ export async function handleDeleteKey(
   }
 
   try {
-    const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+    const targetTenantId = tenantId;
     const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
     if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
       const doId = keyPoolNamespace.idFromName(targetTenantId);
       const stub = keyPoolNamespace.get(doId);
       await stub.fetch(`http://key-pool/keys/${encodeURIComponent(keyId)}`, {
         method: "DELETE",
-        headers: { "x-tenant-id": targetTenantId },
       });
     }
-  } catch {
+  } catch (_err) {
     // DO cleanup fallback
   }
 
@@ -100,9 +106,15 @@ export async function handlePoolMode(
       "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ?"
     ).bind(poolType, commRoutingStatus, obsUntil, keyId).run();
   } else {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
+    ).bind(keyId, tenantId).first<{ id: string }>();
+    if (!existing) {
+      throw new RouterError("Key not found or you do not have permission to modify it", { statusCode: 404 });
+    }
     await env.DB.prepare(
-      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ?, tenant_id = ? WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
-    ).bind(poolType, commRoutingStatus, obsUntil, tenantId, keyId, tenantId).run();
+      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ? AND tenant_id = ?"
+    ).bind(poolType, commRoutingStatus, obsUntil, keyId, tenantId).run();
   }
 
   clearDecryptedKeyCache();
@@ -119,7 +131,6 @@ export async function handleTestKey(
   pathname: string,
   env: WorkerEnv,
   tenantId: string,
-  headerTenant: string | null,
   masterKey?: KeyInput
 ): Promise<Response> {
   const keyId = pathname.replace("/api/keys/", "").replace("/test", "").trim();
@@ -206,7 +217,6 @@ export async function handleRotateKeySecret(
   request: Request,
   env: WorkerEnv,
   tenantId: string,
-  headerTenant: string | null,
   masterKey?: KeyInput
 ): Promise<Response> {
   const keyId = pathname.replace("/api/keys/", "").replace("/rotate", "").trim();
@@ -232,14 +242,14 @@ export async function handleRotateKeySecret(
   // Verify key exists and caller is owner
   if (tenantId !== "admin") {
     const existing = await env.DB.prepare(
-      "SELECT id FROM api_keys WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
+      "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
     ).bind(keyId, tenantId).first<{ id: string }>();
     if (!existing) {
       throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
     }
   }
 
-  const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+  const targetTenantId = tenantId;
   const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
   const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
 
@@ -252,7 +262,7 @@ export async function handleRotateKeySecret(
     ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId).run();
   } else {
     await env.DB.prepare(
-      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ? AND (tenant_id = ? OR tenant_id = 'default')"
+      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ? AND tenant_id = ?"
     ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId, tenantId).run();
   }
 

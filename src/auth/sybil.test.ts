@@ -14,7 +14,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   calculateSybilScore,
   globalSubnetTracker,
-  TURNSTILE_TEST_TOKENS,
   SYBIL_MIN_ACCOUNT_AGE_DAYS,
   SYBIL_MIN_ACTIVITY_REPOS,
   SYBIL_MIN_ACTIVITY_CONTRIBUTIONS,
@@ -22,17 +21,43 @@ import {
   type SybilRequestInput,
 } from "./sybil/index";
 
+// Local test token constants (production fixture short-circuits were removed).
+const TURNSTILE_TEST_TOKENS = {
+  ALWAYS_PASS: "test-turnstile-always-pass",
+  ALWAYS_FAIL: "test-turnstile-always-fail",
+} as const;
+
+// Turnstile fixture tokens are no longer honoured (WP-0.5): siteverify is mocked at the HTTP layer.
+// GitHub API mocks are installed via `githubFetch`; everything else falls through to it.
+let githubFetch: typeof fetch | undefined;
+function installSiteverifyMock(original: typeof fetch): void {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("/turnstile/v0/siteverify")) {
+      const token = init?.body instanceof FormData ? String(init.body.get("response")) : "";
+      const success = token !== TURNSTILE_TEST_TOKENS.ALWAYS_FAIL;
+      return new Response(JSON.stringify({ success, "error-codes": success ? [] : ["invalid-input-response"] }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return (githubFetch ?? original)(input, init);
+  }) as typeof fetch;
+}
+
+
 describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () => {
   const originalFetch = globalThis.fetch;
   const REF_NOW = new Date("2026-09-11T12:00:00.000Z");
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    installSiteverifyMock(originalFetch);
     globalSubnetTracker.reset();
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    githubFetch = undefined;
   });
 
   // ==========================================================================
@@ -49,7 +74,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
         now: REF_NOW,
       };
       const req: SybilRequestInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         clientIp: "198.51.100.10",
       };
 
@@ -62,11 +87,11 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       expect(result.tier).toBe("builder");
     });
 
-    it("rejects arbitrary non-test token when secretKey is absent", async () => {
+    it("refuses to verify any token when secretKey is absent (WP-0.5)", async () => {
       const { verifyTurnstileToken } = await import("./sybil/index");
-      const res = await verifyTurnstileToken("some-unverified-production-token", {});
-      expect(res.success).toBe(false);
-      expect(res.errorCodes).toContain("missing-secret-key");
+      await expect(verifyTurnstileToken("some-unverified-production-token", {})).rejects.toThrow(
+        "Turnstile secretKey is required for verification"
+      );
     });
 
     it("detects bot and immediately sets score to 0 with suspended tier for invalid token", async () => {
@@ -79,7 +104,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
         now: REF_NOW,
       };
       const req: SybilRequestInput = {
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_FAIL,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_FAIL,
         clientIp: "198.51.100.11",
       };
 
@@ -157,7 +182,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "203.0.113.5",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -178,7 +203,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req1: SybilRequestInput = {
         clientIp: "203.0.113.10",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
       await calculateSybilScore(user1, req1);
 
@@ -193,7 +218,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req2: SybilRequestInput = {
         clientIp: "203.0.113.99",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
       const result2 = await calculateSybilScore(user2, req2);
 
@@ -214,7 +239,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       const req: SybilRequestInput = {
         clientIp: "198.51.100.50",
         cf: { asn: 16509 }, // AWS ASN
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -239,7 +264,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.60",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -264,7 +289,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
         };
         const req: SybilRequestInput = {
           clientIp: "198.51.100.70",
-          turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+          turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
         };
 
         const result = await calculateSybilScore(user, req);
@@ -288,7 +313,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.80",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -314,7 +339,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.90",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -337,7 +362,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.91",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -364,7 +389,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.101",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -385,7 +410,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.102",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -406,7 +431,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.103",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -433,7 +458,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       );
-      globalThis.fetch = mockFetch;
+      githubFetch = mockFetch;
 
       const user: SybilUserInput = {
         username: "octocat",
@@ -441,7 +466,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.110",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);
@@ -472,7 +497,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       );
-      globalThis.fetch = mockFetch;
+      githubFetch = mockFetch;
 
       const user: SybilUserInput = {
         username: "autheduser",
@@ -495,7 +520,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
 
     it("handles fetch network failure gracefully without throwing", async () => {
       const mockFetch = vi.fn().mockRejectedValue(new Error("Network timeout"));
-      globalThis.fetch = mockFetch;
+      githubFetch = mockFetch;
 
       const user: SybilUserInput = {
         username: "offlineuser",
@@ -528,7 +553,7 @@ describe("Unified calculateSybilScore(user, req) 5-Layer Defense (AUTH-02)", () 
       };
       const req: SybilRequestInput = {
         clientIp: "198.51.100.120",
-        turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
+        turnstileSecret: "test-secret", turnstileToken: TURNSTILE_TEST_TOKENS.ALWAYS_PASS,
       };
 
       const result = await calculateSybilScore(user, req);

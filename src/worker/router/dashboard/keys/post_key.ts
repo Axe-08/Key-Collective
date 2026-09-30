@@ -17,7 +17,6 @@ export async function handlePostKeys(
   request: Request,
   env: WorkerEnv,
   tenantId: string,
-  headerTenant: string | null,
   masterKey?: KeyInput
 ): Promise<Response> {
   if (!env.DB || typeof env.DB.prepare !== "function") {
@@ -94,10 +93,15 @@ export async function handlePostKeys(
   const randHex = Array.from(randBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
   const keyId = `key_${body.provider}_${Date.now().toString(36)}_${randHex}`;
 
-  const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+  const targetTenantId = tenantId;
 
   const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
   const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
+
+  // Write-time key_hash: SHA-256 hex digest of the raw key, used for lookup/revocation
+  // without ever storing or logging the plaintext key (WP-1.5 finalises consumers).
+  const keyHashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawKey));
+  const keyHash = Array.from(new Uint8Array(keyHashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 
   const poolType = body.pool_type?.toUpperCase() === 'COMMUNITY' ? 'COMMUNITY' : 'PRIVATE';
   const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;
@@ -107,8 +111,8 @@ export async function handlePostKeys(
     `INSERT INTO api_keys (
       id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
       key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-      pool_type, community_routing_status, observation_until
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', ?, ?, ?)`
+      pool_type, community_routing_status, observation_until, key_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', ?, ?, ?, ?)`
   ).bind(
     keyId,
     targetTenantId,
@@ -123,7 +127,8 @@ export async function handlePostKeys(
     priority,
     poolType,
     commRoutingStatus,
-    obsUntil
+    obsUntil,
+    keyHash
   ).run();
 
   await env.DB.prepare("INSERT INTO consent_attestations (key_id, tenant_id, consent_type, consent_version, created_at) VALUES (?, ?, 'K1', 'v1.0', ?)").bind(keyId, targetTenantId, Date.now()).run();
@@ -136,7 +141,7 @@ export async function handlePostKeys(
       const stub = keyPoolNamespace.get(doId);
       await stub.fetch("http://key-pool/keys", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-tenant-id": targetTenantId },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           key: {
             id: keyId,

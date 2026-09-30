@@ -28,6 +28,18 @@ export class SybilDisposableIdentityError extends DomainError {
   }
 }
 
+export class ConfigurationError extends DomainError {
+  public override readonly name = "ConfigurationError";
+  constructor(message = "Service configuration error", details?: Record<string, unknown>) {
+    super(message, {
+      statusCode: 500,
+      code: "CONFIGURATION_ERROR",
+      details,
+    });
+    Object.setPrototypeOf(this, ConfigurationError.prototype);
+  }
+}
+
 export class SubnetQuotaExceededError extends DomainError {
   public override readonly name = "SubnetQuotaExceededError";
   constructor(message = "Subnet quota exceeded: maximum 1 registration per /24 subnet per 30 days", details?: Record<string, unknown>) {

@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import {
   createErrorSanitizerTransform,
   normalizeUpstreamResponse,
+  sanitize,
   sanitizeErrorBody,
   sanitizeResponseHeaders,
   ALLOWED_RESPONSE_HEADERS,
@@ -186,5 +187,82 @@ describe("Error Normalizer: normalizeUpstreamResponse", () => {
 
     expect(normalized.status).toBe(500);
     expect(text).toBe("Internal error 500 at [TRACE_REDACTED]");
+  });
+});
+
+describe("Error Normalizer: sanitize unit table test covering all patterns", () => {
+  const table = [
+    {
+      patternName: "AIza[0-9A-Za-z_\\-]{35} (Google API Key)",
+      input: "Authentication failed for api key AIzaSyD1234567890abcdefghijklmnopqrstuvw at upstream",
+      secret: "AIzaSyD1234567890abcdefghijklmnopqrstuvw",
+      expectedSubstring: "[REDACTED_SECRET]",
+    },
+    {
+      patternName: "gsk_[A-Za-z0-9]{20,} (Groq API Key)",
+      input: "Groq error: invalid key gsk_12345678901234567890123456 supplied",
+      secret: "gsk_12345678901234567890123456",
+      expectedSubstring: "[REDACTED_SECRET]",
+    },
+    {
+      patternName: "sk-[A-Za-z0-9_\\-]{20,} (OpenAI / Anthropic API Key)",
+      input: "Upstream token sk-1234567890abcdef1234567890_openai was rejected",
+      secret: "sk-1234567890abcdef1234567890_openai",
+      expectedSubstring: "[REDACTED_SECRET]",
+    },
+    {
+      patternName: "Bearer\\s+\\S+ (Authorization Bearer Token)",
+      input: "Unauthorized request with Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+      secret: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+      expectedSubstring: "[REDACTED_SECRET]",
+    },
+    {
+      patternName: "projects/\\d{6,} (GCP Project Resource ID)",
+      input: "Permission denied for projects/123456789012/models/gemini-2.0",
+      secret: "projects/123456789012",
+      expectedSubstring: "[PROJECT_REDACTED]",
+    },
+    {
+      patternName: '"consumer"\\s*:\\s*"[^"]+" (GCP Consumer Metadata)',
+      input: '{"error": {"details": [{"metadata": {"consumer": "projects/987654321098"}}]}}',
+      secret: "projects/987654321098",
+      expectedSubstring: '"consumer": "[REDACTED]"',
+    },
+    {
+      patternName: "billingAccounts/[A-Z0-9-]+ (GCP Billing Account)",
+      input: "Account disabled for billingAccounts/012345-ABCDEF-678901 in cloud console",
+      secret: "billingAccounts/012345-ABCDEF-678901",
+      expectedSubstring: "[BILLING_REDACTED]",
+    },
+    {
+      patternName: "key=[^&\\s\"]+ (URL Query Parameter API Key)",
+      input: "Failed request to https://generativelanguage.googleapis.com/v1?key=myCustomSecretKey123&alt=json",
+      secret: "myCustomSecretKey123",
+      expectedSubstring: "key=[REDACTED_SECRET]",
+    },
+    {
+      patternName: "IPv4 (Internal / External IP Addresses)",
+      input: "Connection timeout to host 192.168.1.55 on port 8080",
+      secret: "192.168.1.55",
+      expectedSubstring: "[REDACTED_IP]",
+    },
+    {
+      patternName: "\\b[0-9a-f]{32}/\\d+\\b (Cloud Trace ID)",
+      input: "Error trace 4bf92f3577b34da6a3ce929d0e0e4736/12345 in GCP",
+      secret: "4bf92f3577b34da6a3ce929d0e0e4736/12345",
+      expectedSubstring: "[TRACE_REDACTED]",
+    },
+  ];
+
+  it.each(table)("redacts $patternName", ({ input, secret, expectedSubstring }) => {
+    const result = sanitize(input);
+    expect(result).not.toContain(secret);
+    expect(result).toContain(expectedSubstring);
+  });
+
+  it("handles null, empty, or non-string inputs safely", () => {
+    expect(sanitize("")).toBe("");
+    expect(sanitize(null as unknown as string)).toBe("");
+    expect(sanitize(undefined as unknown as string)).toBe("");
   });
 });
