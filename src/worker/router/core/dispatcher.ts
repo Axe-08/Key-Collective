@@ -17,7 +17,6 @@ import type {
   WorkerEnv,
 } from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
-import { DurableObjectKeyPoolClient } from "../do_client";
 import { formatRouterError, RouterError } from "../errors";
 import type { ModelRoutesHandler } from "../model_routes";
 import type { DashboardHandler } from "../dashboard_handler";
@@ -39,36 +38,6 @@ export interface DispatchParams {
   chatHandler: ChatHandler;
   resolver: RouterContextResolver;
   now: () => number;
-}
-
-export async function forwardToDO(
-  request: Request,
-  tenantId: string,
-  env: WorkerEnv,
-  resolver: RouterContextResolver
-): Promise<Response> {
-  const keyPool = resolver.getKeyPool(tenantId, env);
-  if (keyPool instanceof DurableObjectKeyPoolClient) {
-    const stub = keyPool.getStub();
-    const url = new URL(request.url);
-
-    const doPath = url.pathname.replace(/^\/v1/, "") || "/";
-    const targetUrl = new URL(doPath + url.search, "http://key-pool");
-
-    const forwardHeaders = new Headers(request.headers);
-    forwardHeaders.set("x-tenant-id", tenantId);
-
-    return await stub.fetch(targetUrl.toString(), {
-      method: request.method,
-      headers: forwardHeaders,
-      body: request.body,
-    });
-  }
-
-  throw new RouterError("Target key pool is not a DurableObjectKeyPoolClient", {
-    statusCode: 500,
-    code: "INVALID_KEY_POOL_TYPE",
-  });
 }
 
 export async function dispatchRoute(params: DispatchParams): Promise<Response> {
@@ -224,17 +193,6 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
       const parts = pathname.split("/");
       const modelId = parts[parts.length - 1];
       return modelRoutes.handleGetModel(request, modelId, modelRegistry);
-    }
-
-    if (
-      pathname.startsWith("/v1/keys") ||
-      pathname.startsWith("/keys") ||
-      pathname.startsWith("/v1/metrics") ||
-      pathname.startsWith("/metrics") ||
-      pathname.startsWith("/v1/capacity") ||
-      pathname.startsWith("/capacity")
-    ) {
-      return await forwardToDO(request, authContext.tenantId, env, resolver);
     }
 
     if (

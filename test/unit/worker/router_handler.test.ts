@@ -821,43 +821,43 @@ describe("RouterHandler Unit Tests (T3)", () => {
   });
 
   describe("Direct DO Management Forwarding", () => {
-    it("forwards /v1/keys requests to tenant DO stub", async () => {
+    it("does not forward /v1/keys requests to tenant DO stub; returns 404 ROUTE_NOT_FOUND", async () => {
       const handler = createRouterHandler();
       const req = new Request("http://localhost/v1/keys?provider=google", {
         method: "GET",
       });
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(404);
+      const json = await res.json() as { error: { code: string } };
+      expect(json.error.code).toBe("ROUTE_NOT_FOUND");
 
       const stub = doNamespace.stubs.get("tenant-alpha");
-      expect(stub?.fetchCalls).toHaveLength(1);
-      expect(stub?.fetchCalls[0].url).toContain("/keys");
-      expect(stub?.fetchCalls[0].headers.get("x-tenant-id")).toBe("tenant-alpha");
+      expect(stub?.fetchCalls ?? []).toHaveLength(0);
     });
 
-    it("forwards /v1/metrics requests to tenant DO stub", async () => {
+    it("does not forward /v1/metrics requests to tenant DO stub; returns 404 ROUTE_NOT_FOUND", async () => {
       const handler = createRouterHandler();
       const req = new Request("http://localhost/v1/metrics?keyId=key-1", {
         method: "GET",
       });
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
-      expect(res.status).toBe(200);
-      const json = await res.json() as { metrics: { rpm: number } };
-      expect(json.metrics.rpm).toBe(5);
+      expect(res.status).toBe(404);
+      const json = await res.json() as { error: { code: string } };
+      expect(json.error.code).toBe("ROUTE_NOT_FOUND");
     });
 
-    it("forwards /v1/capacity requests to tenant DO stub", async () => {
+    it("does not forward /v1/capacity requests to tenant DO stub; returns 404 ROUTE_NOT_FOUND", async () => {
       const handler = createRouterHandler();
       const req = new Request("http://localhost/v1/capacity?provider=google", {
         method: "GET",
       });
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
-      expect(res.status).toBe(200);
-      const json = await res.json() as { capacity: { totalKeys: number } };
-      expect(json.capacity.totalKeys).toBe(3);
+      expect(res.status).toBe(404);
+      const json = await res.json() as { error: { code: string } };
+      expect(json.error.code).toBe("ROUTE_NOT_FOUND");
     });
   });
 

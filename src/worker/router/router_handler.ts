@@ -27,7 +27,7 @@ import { DashboardHandler } from "./dashboard_handler";
 import { ModelRoutesHandler } from "./model_routes";
 import type { RouterHandlerOptions } from "./types";
 import { RouterContextResolver } from "./core/resolver";
-import { dispatchRoute, forwardToDO } from "./core/dispatcher";
+import { dispatchRoute } from "./core/dispatcher";
 
 export class RouterHandler {
   private readonly options: RouterHandlerOptions;
@@ -148,14 +148,6 @@ export class RouterHandler {
       traceId,
       startTime
     );
-  }
-
-  public async forwardToDO(
-    request: Request,
-    tenantId: string,
-    env: WorkerEnv
-  ): Promise<Response> {
-    return forwardToDO(request, tenantId, env, this.resolver);
   }
 
   public async handle(
