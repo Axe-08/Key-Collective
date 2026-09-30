@@ -18,7 +18,7 @@ export const ApiKeySchema = z.object({
   pool_type: z.enum(["PRIVATE", "COMMUNITY"]),
   community_routing_status: z.enum(["OBSERVATION", "ACTIVE", "QUARANTINED", "REVOKED"]),
   project_hash_state: z.enum(["ACTIVE", "ROTATING", "TOMBSTONED"]),
-  vesting_tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  vesting_tier: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
   observation_until: z.number().int().positive().nullable(),
   rotating_until: z.number().int().positive().nullable(),
   gcp_project_hash: z.string().length(64).nullable(),
@@ -46,7 +46,7 @@ export type CommunityDebtLedger = z.infer<typeof CommunityDebtLedgerSchema>;
 
 export const ContributorStandingSchema = z.object({
   tenant_id: z.string().min(1),
-  current_multiplier: z.number().min(1.0).max(4.5),
+  current_multiplier: z.number().min(1.0).max(5.0),
   is_trusted_contributor: z.boolean(),
   jail_status: z.enum(["PRISTINE", "SOFT_WARNING", "HARD_JAIL"]),
   debt_threshold_ratio: z.number().min(0),

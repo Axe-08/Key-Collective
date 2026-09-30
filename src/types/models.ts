@@ -181,6 +181,22 @@ export interface APIKey {
   lastUsedAt?: string | null;
   /** ISO-8601 timestamp when key was created */
   createdAt?: string;
+  /** Pool assignment type (PRIVATE or COMMUNITY) */
+  poolType?: "PRIVATE" | "COMMUNITY";
+  /** Status in community pool routing */
+  communityRoutingStatus?: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED" | null;
+  /** Timestamp until observation period ends */
+  observationUntil?: string | number | null;
+  /** Total requests dispatched today */
+  dispatchedToday?: number;
+  /** Communal requests dispatched today */
+  dispatchedCommunal?: number;
+  /** Vesting tier (0, 1, or 2) */
+  vestingTier?: number;
+  /** GCP project hash if probed */
+  providerProjectHash?: string | null;
+  /** HKDF per-tenant migration flag */
+  hkdfMigrated?: number;
 }
 
 /**

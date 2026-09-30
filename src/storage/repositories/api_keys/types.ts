@@ -25,6 +25,14 @@ export interface APIKeyRow {
   circuit_open_until: string | null;
   last_used_at: string | null;
   created_at: string;
+  pool_type?: string;
+  community_routing_status?: string;
+  observation_until?: string | null;
+  dispatched_today?: number;
+  dispatched_communal?: number;
+  vesting_tier?: number;
+  provider_project_hash?: string | null;
+  hkdf_migrated?: number;
 }
 
 /**
@@ -155,5 +163,13 @@ export function mapRowToAPIKey(row: APIKeyRow): APIKey {
     circuitOpenUntil: row.circuit_open_until ?? null,
     lastUsedAt: row.last_used_at ?? null,
     createdAt: row.created_at,
+    poolType: (row.pool_type as "PRIVATE" | "COMMUNITY") ?? "COMMUNITY",
+    communityRoutingStatus: (row.community_routing_status as "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED") ?? null,
+    observationUntil: row.observation_until ?? null,
+    dispatchedToday: row.dispatched_today ?? 0,
+    dispatchedCommunal: row.dispatched_communal ?? 0,
+    vestingTier: row.vesting_tier ?? 0,
+    providerProjectHash: row.provider_project_hash ?? null,
+    hkdfMigrated: row.hkdf_migrated ?? 0,
   };
 }

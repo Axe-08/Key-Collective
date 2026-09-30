@@ -11,6 +11,12 @@ export interface EncryptedKey {
     status?: string;
     circuitOpenUntil?: string | null;
     lastUsedAt?: string | number | null;
+    poolType?: "PRIVATE" | "COMMUNITY";
+    communityRoutingStatus?: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED" | null;
+    observationUntil?: string | number | null;
+    dispatchedToday?: number;
+    dispatchedCommunal?: number;
+    vestingTier?: number;
 }
 
 export interface KeyMetrics {
