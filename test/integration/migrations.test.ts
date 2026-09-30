@@ -88,6 +88,28 @@ describe("migrations integration", () => {
       await env.DB.prepare(statement).run();
     }
 
+    // Seed baseline rows into cost_ledger and daily_spend_rollup before applying rest
+    await env.DB.prepare(`
+      INSERT INTO cost_ledger (
+        id, request_id, tenant_id, key_id, provider, model_id,
+        prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
+        cost_microdollars, latency_ms, status_code, created_at
+      ) VALUES (
+        'evt_fixture_1', 'req_fixture_1', 'default', 'key_default_healthy', 'gemini', 'gemini-2.0-flash',
+        1000, 500, 0, 0, 450, 120, 200, '2024-03-01T12:00:00.000Z'
+      )
+    `).run();
+
+    await env.DB.prepare(`
+      INSERT INTO daily_spend_rollup (
+        tenant_id, day, provider, model_id,
+        total_requests, total_tokens, total_cost_microdollars
+      ) VALUES (
+        'default', '2024-03-01', 'gemini', 'gemini-2.0-flash',
+        1, 1500, 450
+      )
+    `).run();
+
     await expect(applyMigrations(env.DB, rest)).resolves.not.toThrow();
 
     const statuses = await env.DB.prepare(
@@ -104,5 +126,46 @@ describe("migrations integration", () => {
       "SELECT COUNT(*) as count FROM auth_tokens WHERE tenant_id = 'default'",
     ).first<{ count: number }>();
     expect(defaultTenantRows?.count).toBe(1);
+
+    // Migration 0013: backfills cu for all existing cost_ledger rows (no cu IS NULL remaining)
+    const nullCuCount = await env.DB.prepare(
+      "SELECT COUNT(*) as count FROM cost_ledger WHERE cu IS NULL",
+    ).first<{ count: number }>();
+    expect(nullCuCount?.count).toBe(0);
+
+    const fixtureRow = await env.DB.prepare(
+      "SELECT cu, usage_estimated, borrowed, lender_tenant_id FROM cost_ledger WHERE id = 'evt_fixture_1'",
+    ).first<{ cu: number; usage_estimated: number; borrowed: number; lender_tenant_id: string | null }>();
+    expect(fixtureRow).toBeDefined();
+    // 10 + Math.floor((1000 + 999)/1000) + Math.floor(((500 + 0)*4 + 999)/1000) = 10 + 1 + 2 = 13
+    expect(fixtureRow?.cu).toBe(13);
+    expect(fixtureRow?.usage_estimated).toBe(0);
+    expect(fixtureRow?.borrowed).toBe(0);
+    expect(fixtureRow?.lender_tenant_id).toBeNull();
+
+    // Migration 0013: creates daily_cu_rollup with seeded rows from daily_spend_rollup
+    const cuRollupRows = await env.DB.prepare(
+      "SELECT * FROM daily_cu_rollup WHERE tenant_id = 'default'",
+    ).all<{ tenant_id: string; day: string; provider: string; model_id: string; total_requests: number; total_tokens: number; total_cu: number }>();
+    expect(cuRollupRows.results).toBeDefined();
+    expect(cuRollupRows.results.length).toBeGreaterThan(0);
+    expect(cuRollupRows.results[0].total_cu).toBe(0);
+    expect(cuRollupRows.results[0].total_requests).toBe(1);
+    expect(cuRollupRows.results[0].total_tokens).toBe(1500);
+
+    // Migration 0013: adds budget_cu and spent_cu to auth_tokens
+    const authTokensRows = await env.DB.prepare(
+      "SELECT id, budget_cu, spent_cu FROM auth_tokens WHERE tenant_id = 'default'",
+    ).first<{ id: string; budget_cu: number | null; spent_cu: number }>();
+    expect(authTokensRows).toBeDefined();
+    expect(authTokensRows?.budget_cu).toBeNull();
+    expect(authTokensRows?.spent_cu).toBe(0);
+
+    // Migration 0013: adds community_debt_cu to contributor_standing
+    const standingCols = await env.DB.prepare(
+      "PRAGMA table_info(contributor_standing)",
+    ).all<{ name: string }>();
+    const colNames = (standingCols.results ?? []).map((c) => c.name);
+    expect(colNames).toContain("community_debt_cu");
   });
 });
