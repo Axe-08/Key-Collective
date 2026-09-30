@@ -1,6 +1,31 @@
+<script module lang="ts">
+  import { api } from './lib/api';
+  import { ApiError } from './lib/api/client';
+
+  /**
+   * Pure, framework-independent network step of the optimistic delete flow,
+   * exported so the rollback-on-error behaviour can be exercised in tests
+   * without mounting the component. The instance method applies the
+   * optimistic removal synchronously (before this resolves) and rolls back
+   * `keys` when this reports failure.
+   */
+  export async function performDeleteKeyRequest(
+    id: string
+  ): Promise<{ ok: true } | { ok: false; errorMessage: string }> {
+    try {
+      await api.deleteKey(id);
+      return { ok: true };
+    } catch (err: any) {
+      return {
+        ok: false,
+        errorMessage: err instanceof ApiError ? err.message : (err?.message || 'Failed to delete key'),
+      };
+    }
+  }
+</script>
+
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api } from './lib/api';
   import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, ToastMessage, Microdollars } from './lib/types';
   import type { UserAccount, Project, ProjectKey, UserTier } from '../../src/contracts/v3_types';
 
@@ -33,9 +58,10 @@
     current_rpm_used: 0,
     avg_upstream_latency_ms: 0,
     daily_quota_used: 0,
-    daily_quota_limit: 50000,
+    daily_quota_limit: 0,
     proxy_status: 'healthy',
   });
+  let statsLoading = $state(true);
 
   // Microdollar Accounting State (1 USD = 1,000,000 µ$)
   let todaySpendMicrodollars = $state<Microdollars>(0);
@@ -92,7 +118,8 @@
 
       keys = fetchedKeys;
       logs = fetchedLogs;
-      stats = await api.getStats(fetchedKeys, fetchedLogs);
+      stats = await api.getStats();
+      statsLoading = false;
       todaySpendMicrodollars = (stats as any).total_spend_today_microdollars ?? (stats as any).todaySpendMicrodollars ?? (logs.reduce((acc, l) => acc + ((l as any).cost_microdollars || 0), 0)) ?? 0;
     } catch (err: any) {
       console.error('Failed to load dashboard data', err);
@@ -105,7 +132,7 @@
     try {
       const created = await api.createKey(payload);
       keys = [created, ...keys];
-      stats = await api.getStats(keys, logs);
+      stats = await api.getStats();
       addToast('success', `API Key "${created.label}" added to pool with ${created.rpm_limit} RPM / ${created.rpd_limit} RPD.`);
     } catch (err: any) {
       addToast('error', `Failed to add key: ${err?.message || 'Unknown error'}`);
@@ -114,15 +141,18 @@
   }
 
   async function handleDeleteKey(id: string) {
-    try {
-      const keyToDelete = keys.find((k) => k.id === id);
-      await api.deleteKey(id);
-      keys = keys.filter((k) => k.id !== id);
-      stats = await api.getStats(keys, logs);
-      addToast('info', `Key "${keyToDelete?.label || id}" was deleted from the pool.`);
-    } catch (err: any) {
-      addToast('error', `Failed to delete key: ${err?.message || 'Unknown error'}`);
+    const keyToDelete = keys.find((k) => k.id === id);
+    const previousKeys = keys;
+    keys = keys.filter((k) => k.id !== id);
+
+    const result = await performDeleteKeyRequest(id);
+    if (!result.ok) {
+      keys = previousKeys;
+      addToast('error', result.errorMessage);
+      return;
     }
+    stats = await api.getStats();
+    addToast('info', `Key "${keyToDelete?.label || id}" was deleted from the pool.`);
   }
 
   async function handleTestKey(id: string) {
@@ -364,7 +394,7 @@
       isOAuthModalOpen = true;
     }}
     onRefresh={loadData}
-    {isRefreshing}
+    isRefreshing={isRefreshing || statsLoading}
     {todaySpendMicrodollars}
   />
 
@@ -389,7 +419,7 @@
         {logs}
         {stats}
         {todaySpendMicrodollars}
-        {isRefreshing}
+        isRefreshing={isRefreshing || statsLoading}
         {autoRefresh}
         {proxyEndpoint}
         {isEndpointCopied}
