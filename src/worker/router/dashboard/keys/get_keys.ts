@@ -7,6 +7,8 @@
  */
 
 import type { WorkerEnv } from "../../../auth/index";
+import { normaliseKeyStatus, normalisePoolType } from "../../../../contracts/keys";
+import { toEpochMs } from "../../../../utils/time";
 
 export interface FormattedKeyItem {
   id: string;
@@ -22,11 +24,11 @@ export interface FormattedKeyItem {
   requests_today: number;
   total_requests: number;
   avg_latency_ms: number;
-  cooldown_until: string | null;
-  created_at: string;
+  cooldown_until: number | null;
+  created_at: number | null;
   pool_type: "PRIVATE" | "COMMUNITY";
   community_routing_status: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED";
-  observation_until: string | null;
+  observation_until: number | null;
   dispatched_today: number;
   dispatched_communal: number;
   vesting_tier: number;
@@ -136,15 +138,7 @@ export async function handleGetKeys(
   const rows = keysResult.results || [];
   const formattedKeys: FormattedKeyItem[] = rows.map((row) => {
     const metric = metricsMap.get(row.id);
-    const normStatus = row.status.toLowerCase().includes("rate")
-      ? "rate_limited"
-      : row.status.toLowerCase().includes("exhaust")
-      ? "exhausted"
-      : row.status.toLowerCase().includes("invalid")
-      ? "invalid"
-      : row.status.toLowerCase().includes("disable")
-      ? "disabled"
-      : "healthy";
+    const normStatus = normaliseKeyStatus(row.status, row.community_routing_status);
 
     const isOwner = isGlobal ? true : row.tenant_id === tenantId;
 
@@ -165,11 +159,11 @@ export async function handleGetKeys(
       requests_today: metric?.total_reqs ?? 0,
       total_requests: metric?.total_reqs ?? 0,
       avg_latency_ms: metric?.avg_lat ?? 0,
-      cooldown_until: row.circuit_open_until,
-      created_at: row.created_at,
-      pool_type: row.pool_type ?? "COMMUNITY",
+      cooldown_until: toEpochMs(row.circuit_open_until),
+      created_at: toEpochMs(row.created_at),
+      pool_type: normalisePoolType(row.pool_type),
       community_routing_status: row.community_routing_status ?? "OBSERVATION",
-      observation_until: row.observation_until ?? null,
+      observation_until: toEpochMs(row.observation_until),
       dispatched_today: row.dispatched_today ?? 0,
       dispatched_communal: row.dispatched_communal ?? 0,
       vesting_tier: row.vesting_tier ?? 0,
