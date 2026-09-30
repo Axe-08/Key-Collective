@@ -354,3 +354,19 @@ Transaction Voided]
 
 The Key Collective's legal and compliance architecture is intrinsically linked to its code.
 By enforcing C1-C3 and K1-K2 attestations, maintaining strict liability firewalls through payload ignorance, and deploying an automated dispute mediation protocol, the platform ensures safe, compliant, and fair operation within the strict boundaries of Big-Tech Terms of Service.
+
+
+```typescript
+// Attestation schema verification
+export interface ClientAttestation {
+  tenantId: string;
+  keyHash: string;
+  c1Attested: boolean; // Direct authorization from provider account
+  c2Attested: boolean; // Not reselling or sublicensing
+  signature: string;
+}
+
+export function verifyAttestation(att: ClientAttestation): boolean {
+  return att.c1Attested && att.c2Attested && att.signature.length > 0;
+}
+```

@@ -39,7 +39,7 @@ We introduce the Cloudflare Durable Object (DO) as our edge actor, explaining th
 
 
 ### Chapter 2.3: Architectural Invariants and Security
-A deep dive into the five strict engineering invariants that protect the collective.
+A comprehensive tour of the five strict engineering invariants that protect the collective.
 We cover AES-256-GCM encryption with 12-byte nonces for zero-plaintext keys, strict per-tenant DO isolation, fixed-point microdollar math (`int64`) for financial precision, hot state survival, and non-blocking telemetry design.
 
 

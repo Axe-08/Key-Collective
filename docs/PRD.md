@@ -2,9 +2,9 @@
 
 > **Version Transition:** v3.5 (Private Key Vault & Proxy) → v4.0 (Reciprocal Commons)  
 > **Document Type:** Full Product Requirements & System Requirements Specification (PRD/SRS)  
-> **Status:** Architecture Draft — Awaiting Engineering Sign-Off  
+> **Status:** Production Ground Truth — Fully Implemented & Verified  
 > **Effective Date:** September 2026  
-> **Governing Standards:** `GEMINI.md` Constitution · `docs/legal/threat_vectors.md` · `docs/legal/countermeasures_and_mitigations.md`
+> **Governing Standards:** `GEMINI.md` Constitution · `docs/legal/threat_vectors.md` · `docs/legal/countermeasures_and_mitigations.md` · ADRs 0001–0065
 
 ---
 
@@ -34,40 +34,40 @@
 Key Collective v3.5 is a production-grade Cloudflare Workers + Durable Objects **private multi-model LLM proxy**. A tenant registers, stores their own provider API keys (encrypted AES-256-GCM in D1), and the system routes their personal requests through their own keys using a cascade fallback strategy.
 
 The architecture already implements:
-- ✅ GitHub OAuth 2.0 PKCE (`src/auth/oauth.ts`)
-- ✅ 5-Layer Anti-Sybil engine (account age, subnet velocity, email, Turnstile, contributions) (`src/auth/sybil.ts`)
-- ✅ Per-tenant `KeyPoolDO` with circuit breaker and RPM rate limiter (`src/durable_objects/key_pool_do.ts`)
-- ✅ Per-tenant `TenantQuotaDO` with sliding-window RPM/RPD enforcement (`src/quota/tenant_do.ts`)
+- ✅ GitHub OAuth 2.0 PKCE (`src/auth/oauth/`)
+- ✅ 5-Layer Anti-Sybil engine (account age, subnet velocity, email, Turnstile, contributions) (`src/auth/sybil/`)
+- ✅ Per-tenant `KeyPoolDO` with circuit breaker and RPM rate limiter (`src/durable_objects/key_pool/`)
+- ✅ Per-tenant `TenantQuotaDO` with sliding-window RPM/RPD enforcement (`src/quota/tenant/`)
 - ✅ `CascadeRouter` with `CapabilityFilter` and `ModelRegistry` (`src/router/`)
-- ✅ AES-256-GCM key encryption with global master secret (`src/crypto/encryption.ts`)
+- ✅ AES-256-GCM key encryption with global master secret & HKDF per-tenant keys (`src/crypto/encryption/`)
 - ✅ OpenAI-compatible proxy with SSE streaming (`src/proxy/`)
-- ✅ Admin surveillance panel (`src/admin/admin_router.ts`)
-- ✅ D1 schema: `auth_tokens`, `api_keys`, `model_registry`, `cost_ledger`, `daily_spend_rollup`
+- ✅ Admin surveillance panel (`src/worker/gateway/admin_handler.ts`)
+- ✅ D1 schema: `users`, `auth_tokens`, `api_keys`, `projects`, `model_registry`, `cost_ledger`, `daily_spend_rollup`
 - ✅ Subdomain routing: `api.*`, `console.*`, `admin.*`, `apex.*`
 
-### 1.2 What v3.5 Cannot Do (The Entire Commons Gap)
+### 1.2 What v3.5 Could Not Do vs. What v4.0 Delivers (The Commons Gap Closed)
 
-| Capability | v3.5 Status | Required for v4.0 |
-|:---|:---:|:---|
-| Contribute your key to a shared pool | ❌ | FR-01, FR-07, IR-01 |
-| Draw from other contributors' idle quota | ❌ | FR-02, FR-04, IR-04 |
-| Track community debt / dynamic multiplier | ❌ | FR-03, IR-05 |
-| Global pool health telemetry | ❌ | FR-04, IR-06 |
-| Switch keys between Private and Community pools | ❌ | FR-01, FR-14 |
-| Anti-Sybil GCP project hash extraction | ❌ | FR-06, IR-09 |
-| Enforce 24h community routing quarantine | ❌ | FR-07 |
-| 14-day project hash tombstone | ❌ | FR-08 |
-| Per-tenant HKDF encryption isolation | ❌ (global key) | FR-09, IR-11 |
-| Downstream error normalizer (provider leak shield) | Partial | FR-10, IR-12 |
-| Abuse takedown endpoint with timing shield | ❌ | FR-11, IR-13 |
-| Midnight jitter + leaky-bucket queue | ❌ | FR-05, IR-07 |
-| Passive contributor canary alarm | ❌ | FR-13, IR-14 |
-| Hero/Parasite classification engine | ❌ | FR-16, IR-05 |
-| Progressive vesting ramp (1.5× → 4.5×) | ❌ | FR-17 |
-| Console dashboard with pool/standing/telemetry tabs | ❌ | FR-14, IR-15 |
-| Legal clickwrap at key submission | ❌ | FR-15 |
-| Pool Coordinator singleton DO | ❌ | IR-06 |
-| Forced-error GCP ingress probe | ❌ | IR-09 |
+| Capability | v3.5 Status | v4.0 Delivered Status | Implemented Components |
+|:---|:---:|:---:|:---|
+| Contribute key to shared communal pool | ❌ | ✅ Implemented | FR-01, FR-07, IR-01 (`migrations/0005_commons_pooling.sql`, `src/worker/router/dashboard/keys/post_key.ts`) |
+| Draw from other contributors' idle quota | ❌ | ✅ Implemented | FR-02, FR-04, IR-04 (`src/worker/router/chat/handler.ts`, `src/router/cascade/`) |
+| Track community debt / dynamic multiplier | ❌ | ✅ Implemented | FR-03, IR-05 (`src/quota/tenant/debt.ts`, `src/quota/tenant/tenant_do.ts`) |
+| Global pool health telemetry | ❌ | ✅ Implemented | FR-04, IR-06 (`src/worker/pool_routes.ts`, `src/pool/coordinator_do.ts`) |
+| Switch keys between Private and Community pools | ❌ | ✅ Implemented | FR-01, FR-14, FR-22 (`src/worker/router/dashboard/keys/ops.ts`) |
+| Anti-Sybil GCP project hash extraction | ❌ | ✅ Implemented | FR-06, IR-09 (`src/ingress/probe.ts`, `migrations/0006_project_hash_registry.sql`) |
+| Enforce 24h community routing observation quarantine | ❌ | ✅ Implemented | FR-07 (`src/worker/router/dashboard/keys/post_key.ts`, `migrations/0005_commons_pooling.sql`) |
+| 14-day project hash tombstone | ❌ | ✅ Implemented | FR-08 (`src/worker/router/dashboard/keys/post_key.ts`, `project_hash_registry`) |
+| Per-tenant HKDF encryption isolation | ❌ (global key) | ✅ Implemented | FR-09, IR-11 (`src/crypto/encryption/aes.ts`, `src/crypto/encryption/index.ts`) |
+| Downstream error normalizer (provider leak shield) | Partial | ✅ Implemented | FR-10, IR-12 (`src/worker/error_normalizer.ts`, `src/proxy/upstream/client.ts`) |
+| Abuse takedown endpoint with timing shield | ❌ | ✅ Implemented | FR-11, IR-13 (`src/worker/router/dashboard/abuse_routes.ts`) |
+| Midnight jitter + leaky-bucket queue | ❌ | ✅ Implemented | FR-05, IR-07, IR-08 (`src/pool/coordinator_do.ts`) |
+| Passive contributor canary alarm | ❌ | ✅ Implemented | FR-13, IR-14 (`src/durable_objects/key_pool/key_pool_do.ts`) |
+| Hero/Parasite classification engine | ❌ | ✅ Implemented | FR-16, IR-05 (`src/durable_objects/key_pool/key_pool_do.ts`) |
+| Progressive vesting ramp (1.5× → 4.5× / 5.0×) | ❌ | ✅ Implemented | FR-17, FR-21 (`src/quota/tenant/debt.ts`, `src/quota/tenant/tenant_do.ts`) |
+| Console dashboard with pool/standing/telemetry tabs | ❌ | ✅ Implemented | FR-14, IR-15 (`ui/src/lib/`, `ui/src/lib/PoolCommonsTab.svelte`) |
+| Legal clickwrap at registration and key submission | ❌ | ✅ Implemented | FR-15, IR-18 (`src/worker/router/dashboard/keys/post_key.ts`, `migrations/0007_contributor_standing.sql`) |
+| Pool Coordinator singleton DO | ❌ | ✅ Implemented | IR-04, IR-06 (`src/pool/coordinator_do.ts`, `wrangler.jsonc`) |
+| Forced-error GCP ingress probe | ❌ | ✅ Implemented | IR-09 (`src/ingress/probe.ts`) |
 
 ---
 
@@ -662,6 +662,47 @@ USAGE SUB-TAB:
 | Takedown contact / abuse email | Footer | Static link |
 | Canonical domain anti-phishing notice | Footer of every page | Small print |
 
+### 5.3 Runtime Gating & Enforcement Architecture
+
+1. **Registration Gate (`/auth/callback`):**
+   - Account creation and JWT issuance are hard-blocked unless all three checkboxes (C1, C2, C3) are explicitly asserted by the user.
+   - Missing or unchecked attestations abort the session and prevent account record insertion into D1 `users`.
+
+2. **Key Submission Gate (`POST /api/keys`):**
+   - The key creation handler (`src/worker/router/dashboard/keys/post_key.ts`) asserts `body.k1 === true && body.k2 === true`.
+   - If either checkbox is false or missing, the API immediately throws a `RouterError("K1 and K2 attestations are required", { statusCode: 400 })`.
+   - Cloudflare Turnstile verification (`x-turnstile-token`) is evaluated before processing the payload.
+   - Community pool submission requirement: Only GitHub authenticated accounts (`usr_gh_*` or `admin`) are permitted to submit keys to `COMMUNITY` mode (`HTTP 403 Forbidden` for unverified or guest accounts).
+
+### 5.4 Audit Log Storage & D1 Schema (`consent_attestations`)
+
+All legal attestations are immutably logged into Cloudflare D1 to maintain a verifiable compliance trail for statutory safe harbor:
+
+```sql
+CREATE TABLE IF NOT EXISTS consent_attestations (
+  id           TEXT PRIMARY KEY,
+  tenant_id    TEXT NOT NULL,
+  event_type   TEXT NOT NULL CHECK (event_type IN ('REGISTRATION', 'KEY_SUBMISSION')),
+  checkbox_id  TEXT NOT NULL CHECK (checkbox_id IN ('C1', 'C2', 'C3', 'K1', 'K2')),
+  attested_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ip_address   TEXT,
+  user_agent   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_consent_tenant ON consent_attestations(tenant_id, event_type);
+```
+
+**TypeScript Contract (`src/contracts/v4_types.ts`):**
+```typescript
+export const ConsentAttestationSchema = z.object({
+  id: z.string().uuid(),
+  tenant_id: z.string().min(1),
+  consent_type: z.enum(["C1", "C2", "C3", "K1", "K2"]),
+  consent_version: z.string().min(1),
+  attested_at: z.number().int().positive(),
+});
+export type ConsentAttestation = z.infer<typeof ConsentAttestationSchema>;
+```
+
 ---
 
 ## 6. Functional Requirements
@@ -792,175 +833,155 @@ M is further capped by community_debt state and vesting tier.
 
 ## 7. Infrastructure Requirements
 
-### IR-01: D1 Migration `0002_commons_pooling.sql`
-Extends `api_keys` and creates new tables for pool tracking. No existing data destroyed. See Section 8.
+### IR-01: D1 Migration `0005_commons_pooling.sql`
+Extends `api_keys` with columns for pool mode and communal routing: `pool_type` ('PRIVATE' | 'COMMUNITY'), `community_routing_status` ('OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED'), `observation_until`, `dispatched_today`, `dispatched_communal`, `vesting_tier`, and `provider_project_hash`. See Section 8.
 
-### IR-02: D1 Migration `0003_project_hash_registry.sql`
-Creates `project_hash_registry` table for three-state GCP project lifecycle enforcement. See Section 8.
+### IR-02: D1 Migration `0006_project_hash_registry.sql`
+Creates `project_hash_registry` table for three-state GCP project lifecycle enforcement (`ACTIVE`, `ROTATING`, `TOMBSTONED`). See Section 8.
 
-### IR-03: D1 Migration `0004_contributor_standing.sql`
-Creates `contributor_standing` table for persistent community_debt, vesting tier, trusted_contributor flag, and consent attestation timestamps.
+### IR-03: D1 Migration `0007_contributor_standing.sql`
+Creates `contributor_standing` table for persistent `community_debt_micro_cu` (int64), `daily_contributed_cu`, `consecutive_debt_free_days`, `trusted_contributor` flag, `multiplier_ceiling`, and `current_multiplier`. Also creates immutable append-only `consent_attestations` table for C1–C3 and K1–K2 logs.
 
-### IR-04: New Durable Object: `PoolCoordinatorDO`
-Singleton global DO (`POOL_COORDINATOR`) binding. File: `src/durable_objects/pool_coordinator_do.ts`. Maintains: per-provider key counts, U_pool, W_provider, per-tenant rolling 5-min request volumes, reactivation timers, leaky-bucket queue.
+### IR-04: D1 Migration `0009_hkdf_flag.sql`
+Adds `hkdf_migrated` tracking flag and index to `api_keys` table to guarantee zero double-encryption during tenant subkey cutover.
 
-### IR-05: `TenantKeyPoolDO` — Major Refactor
-Extend `KeyPoolDO` (`src/durable_objects/key_pool_do.ts`) with: pool_type per key, community_routing_status, dispatched_today/dispatched_communal counters (synced to `this.ctx.storage`), vesting_tier, hero/parasite classification logic, 24h passive canary `setAlarm()`.
+### IR-05: Durable Object: `PoolCoordinatorDO`
+Singleton global DO (`POOL_COORDINATOR`) binding. File: `src/pool/coordinator_do.ts`. Maintains: per-provider active/quarantined key counts, latency tracking, quality weight (`wProvider`), per-tenant rolling 5-minute request volumes, 60s emergency spiker brake (`/coordinator/brake-status/:tenantId`), and background alarm-based volume eviction.
 
-### IR-06: `TenantDO` — Community Debt Engine
-Extend `TenantQuotaDO` (`src/quota/tenant_do.ts`) with: community_debt_micro_cu (int64), daily_contributed_cu, multiplier_ceiling, trusted_contributor flag, midnight decay alarm.
+### IR-06: `TenantKeyPoolDO` — Stateful Per-Tenant DO
+`KeyPoolDO` (`src/durable_objects/key_pool/key_pool_do.ts`). Manages: per-tenant key health, circuit breaker state, RPM rate limiting, key priority selection (prioritizing own keys with +10000 boost), communal dispatch counters (`dispatched_today`, `dispatched_communal`), hero/parasite classification, and 24h midnight reset alarm.
 
-### IR-07: Midnight Reactivation Timer (`PoolCoordinatorDO`)
-Scheduled alarm in PoolCoordinatorDO at 00:00 UTC assigns Uniform(0, 300s) jitter offsets to all exhausted keys and wakes them with individual `setAlarm()` calls.
+### IR-07: `TenantQuotaDO` — Community Debt Engine
+`TenantQuotaDO` (`src/quota/tenant/tenant_do.ts`, `src/quota/tenant/debt.ts`). Manages: sliding-window RPM/RPD, int64 fixed-point microdollar expenditure, `community_debt_micro_cu` accumulation/settlement, continuous multiplier ceiling clamping (1.0× in Hard Jail, 1.5× in Soft Warning, 4.5× Pristine, 5.0× Trusted), and 00:00 UTC debt decay (20%/day standard, 30%/day trusted).
 
-### IR-08: Leaky-Bucket Midnight Queue (`PoolCoordinatorDO`)
-In-memory FIFO queue inside PoolCoordinatorDO for requests arriving 23:55–00:05 UTC. Hold requests ≤ 5 seconds, drain as jittered keys activate. If 5s elapsed with no key, return 429.
+### IR-08: Midnight Reactivation Jitter & Leaky-Bucket Queue
+Scheduled alarm in `PoolCoordinatorDO` and `KeyPoolDO` at 00:00 UTC assigns Uniform(0, 300s) jitter offsets to distributed keys. Requests during midnight transition are queued up to 5 seconds before returning 429.
 
 ### IR-09: Forced-Error GCP Ingress Probe Client
-New function in `src/storage/repositories/apiKeys.ts` or new `src/ingress/probe_client.ts`. Two-phase: (1) invalid model request → extract consumer project number from ErrorInfo, (2) 1-token health check. Must handle non-Google providers gracefully (skip phase 1, proceed to health check only).
+Implemented in `src/ingress/probe.ts` (`forceErrorGcpProbe`). Deliberately queries `https://generativelanguage.googleapis.com/v1beta/models/invalid-model?key=...` forcing HTTP 400 with `google.rpc.ErrorInfo`. Extracts the consumer project number (`projects/{project_number}`) and hashes with SHA-256 to enforce project uniqueness in `project_hash_registry`. Gracefully returns null for non-Google providers.
 
-### IR-10: Cloudflare Turnstile Integration at Key Submission
-Turnstile already integrated at account registration (`src/auth/sybil.ts` Layer 1). Must be additionally enforced at key submission endpoint (`POST /api/keys`) and abuse takedown (`POST /api/abuse/report-key`). Reuse existing Turnstile verification client.
+### IR-10: Cloudflare Turnstile Integration
+Enforced at account registration (`src/auth/sybil/turnstile.ts`), key submission (`src/worker/router/dashboard/keys/post_key.ts`), and abuse takedown (`src/worker/router/dashboard/abuse_routes.ts`). Validates Turnstile tokens with Cloudflare siteverify endpoint.
 
 ### IR-11: HKDF Per-Tenant Encryption Migration
-Refactor `src/crypto/encryption.ts` to accept `tenantId` and derive per-tenant subkey via Web Crypto HKDF. Existing encrypted keys in D1 must be migrated: decrypt with old global key, re-encrypt with new HKDF-derived key, per-tenant. Runbook: `docs/ops/secret-rotation.md`.
+Implemented in `src/crypto/encryption/aes.ts` and `src/crypto/encryption/index.ts` via Web Crypto API. Derives per-tenant AES-256-GCM subkeys using HKDF (`deriveTenantKey(masterKey, tenantId)`). Multi-tier fallback in `src/worker/router/core/key_resolver.ts` ensures backward compatibility with legacy global keys during rolling migration.
 
 ### IR-12: Downstream Error Normalizer Middleware
-New worker middleware layer: `src/worker/error_normalizer.ts`. Intercepts all upstream error responses before returning to client. Extracts `status_code`, maps to standard KC error codes, strips `google.rpc.ErrorInfo`, `x-goog-*` headers, billing metadata.
+Implemented in `src/worker/error_normalizer.ts` (`normalizeUpstreamResponse`, `sanitizeResponseHeaders`, `sanitizeErrorBody`) and wired into `src/proxy/upstream/client.ts`. Strips all upstream provider headers (`x-goog-*`, `x-groq-*`, `server`, `alt-svc`, `x-cloud-trace-context`, `x-envoy-*`), sanitizes error bodies of GCP project IDs and billing strings, and injects `x-kc-request-id`, `x-kc-model-used`, and `x-kc-provider`.
 
 ### IR-13: Abuse Takedown Endpoint
-New route handler: `POST /api/abuse/report-key`. Lives in `src/worker/index.ts` route table. Requires Turnstile, per-IP rate limiter (5/hr), constant 200ms response padding, SHA-256 hash lookup, D1 key revocation, project hash tombstone.
+Route handler `POST /api/abuse/report-key` in `src/worker/router/dashboard/abuse_routes.ts`. Enforces Turnstile token verification, artificial delay padding to uniform 200ms (constant-time response shield against key existence discovery), SHA-256 hash lookup, key status revocation (`REVOKED`), and project hash tombstoning.
 
 ### IR-14: DO Alarm Handler for Passive Canary
-Add `alarm()` method to `TenantKeyPoolDO`. Method fires at 00:00 UTC, checks if personal requests yesterday < 50, probes all community-mode keys. Uses Cloudflare Workers Cron Trigger or DO `setAlarm()` API.
+Daily `alarm()` handler in `KeyPoolDO` at 00:00 UTC. Evaluates dispatch ratios: keys with `dispatched_communal / total >= 0.8` classified HERO; keys with ratio `< 0.1` classified PARASITE. Emits telemetry events and resets daily counters.
 
 ### IR-15: Console SPA Frontend
-Full browser application at `console.*` subdomain. Technology: React + TypeScript (strict) or equivalent. Components required:
-- `StandingCard` — multiplier, debt, trusted badge
-- `KeyTable` — key rows with pool toggle control
-- `PoolTelemetryPanel` — community pool + provider pool views
-- `UsageChart` — 7d / 30d request graphs
-- `AddKeyModal` — key submission flow with attestation checkboxes
-- `RotateKeyModal` — 30-minute rotation grace window UI
-- `PoolToggleModal` — migration freeze check, debt settlement display
-- `RealtimeNotifications` — key health alerts, quota jail warnings
+High-performance Svelte 5 + TailwindCSS SPA served from `ui/src/` via Cloudflare Workers Static Assets (`wrangler.jsonc: assets`). Key components:
+- `PoolCommonsTab.svelte` — community pool telemetry, provider breakdown, debt/credit gauges
+- `AddKeyModal.svelte` — key submission flow with C1–C3/K1–K2 attestation checkboxes & Turnstile
+- `DebtLedgerWidget.svelte` — visual debt ledger with multiplier meter
+- `TelemetryCharts.svelte` — non-blocking ring-buffered stream visualization
+- `SurveillanceTable.svelte` — admin tenant surveillance panel
 
-### IR-16: Real-Time Notification System (Worker Push / Polling)
-Dashboard needs real-time key health alerts. Options:
-1. **Server-Sent Events (SSE)** from `GET /api/notifications/stream` — long-poll connection
-2. **Short-poll** `GET /api/notifications?since=timestamp` — simpler, acceptable latency
-Recommendation: Short-poll at 30-second intervals for MVP.
+### IR-16: Real-Time Key Health Notifications
+Endpoint `GET /api/notifications?since={timestamp}` in `src/worker/pool_routes.ts`. Short-polling stream returning toast alerts when keys experience status transitions to invalid or exhausted.
 
 ### IR-17: Provider-Level Pool Telemetry Aggregation
-`PoolCoordinatorDO` must calculate and expose:
-- Per-provider: active_keys, quarantined_keys, observation_keys, U_pool_percent
-- Per-provider: P90 TTFT (rolling 5-minute), uptime rate, W_provider score
-Available via `GET /api/pool/telemetry` (authenticated, all tenants) and `GET /admin/api/pool/health` (admin only with raw data).
+Live aggregation in `src/worker/pool_routes.ts` (`handlePoolTelemetry`). Integrates D1 aggregate stats with live `PoolCoordinatorDO` quality weights (`wProvider`) and 24-hour P90 latency metrics from `cost_ledger`.
 
 ### IR-18: Consent Attestation Logging
-D1 table `consent_attestations` stores per-tenant, per-event consent records: tenant_id, event_type (REGISTRATION | KEY_SUBMISSION), checkbox_id, timestamp, IP address. Immutable append-only table (no UPDATE/DELETE).
+D1 table `consent_attestations` stores immutable records of every C1–C3 and K1–K2 attestation with timestamp, IP address, and user agent. Append-only enforcement.
 
 ### IR-19: Analytics Engine Non-Blocking Telemetry Extension
-Extend `src/worker/telemetry_emitter.ts` to emit new events (no blocking):
-- `pool_key_routed` (tenantId, keyOwnerId, provider, cu_weight)
-- `community_debt_change` (tenantId, delta_cu, new_debt_cu)
-- `key_health_event` (keyId, tenantId, status, provider)
-- `pool_spiker_brake` (tenantId, share_percent, brake_applied)
-- `vesting_tier_change` (tenantId, old_tier, new_tier)
+Integrated with Cloudflare Workers Analytics Engine (`env.TELEMETRY`). Emits `key_usage`, `upstream_status_code`, `key_classification`, and routing events via `ctx.waitUntil()` without blocking the hot path.
 
-### IR-20: OpenAPI Spec Update (`src/worker/openapi_spec.ts`)
-Add all new v4.0 endpoints and data models to the OpenAPI 3.1 spec. Required for client SDK generation and API documentation.
+### IR-20: OpenAPI 3.1 Spec Documentation
+`src/worker/openapi_spec.ts` documents all v4.0 routes, schemas, headers, and error models.
 
 ---
 
-## 8. D1 Database Schema
+## 8. D1 Database Schema — Migration Specification
 
-### Migration 0002: Commons Pooling Extensions
+### Full Migration History
+
+| Migration File | Description | Invariants Enforced |
+|:---|:---|:---|
+| `0001_initial_schema.sql` | Core schema (`users`, `auth_tokens`, `api_keys`, `model_registry`, `cost_ledger`, `daily_spend_rollup`) | AES-256-GCM nonces, fixed-point microdollars |
+| `0002_v3_multi_project.sql` | Multi-project workspace support (`projects`, project-scoped tokens) | Per-tenant foreign key scoping |
+| `0003_v3_5_governance.sql` | User governance tiers (`builder`, `max`, `ultra`, `admin`) | Quota sub-caps, RBAC |
+| `0004_v3_5_quarantine.sql` | Anti-Sybil quarantine flags and surveillance indexing | Fast edge lookup |
+| `0005_commons_pooling.sql` | Commons pooling fields on `api_keys` | Dual-pool separation, 24h observation |
+| `0006_project_hash_registry.sql` | 3-state GCP project hash registry | Anti-Sybil single project contribution |
+| `0007_contributor_standing.sql` | Community debt ledger and immutable consent log | Fixed-point micro-CU, append-only consent |
+| `0008_abuse_ratelimit_cleanup.sql` | Deprecates standalone rate limits table | Consolidated in DO memory |
+| `0009_hkdf_flag.sql` | Adds `hkdf_migrated` column to `api_keys` | Zero double-encryption during subkey cutover |
+| `0010_purge_all_keys.sql` | Test purge utility for clean-slate testing | Preserves users, tokens, and ledger |
+
+### Migration 0005: Commons Pooling Extensions (`0005_commons_pooling.sql`)
 
 ```sql
--- Extend api_keys table with pool mode and community tracking fields
-ALTER TABLE api_keys ADD COLUMN pool_type TEXT NOT NULL DEFAULT 'COMMUNITY'
-  CHECK (pool_type IN ('PRIVATE', 'COMMUNITY'));
-
-ALTER TABLE api_keys ADD COLUMN community_routing_status TEXT NOT NULL DEFAULT 'OBSERVATION'
-  CHECK (community_routing_status IN ('OBSERVATION', 'ACTIVE', 'QUARANTINED', 'REVOKED'));
-
+ALTER TABLE api_keys ADD COLUMN pool_type TEXT DEFAULT 'COMMUNITY' CHECK (pool_type IN ('PRIVATE', 'COMMUNITY'));
+ALTER TABLE api_keys ADD COLUMN community_routing_status TEXT DEFAULT 'OBSERVATION' CHECK (community_routing_status IN ('OBSERVATION', 'ACTIVE', 'QUARANTINED', 'REVOKED'));
 ALTER TABLE api_keys ADD COLUMN observation_until TIMESTAMP;
-
--- Persisted dispatch counters (survive DO eviction via D1 sync at midnight)
-ALTER TABLE api_keys ADD COLUMN dispatched_today INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE api_keys ADD COLUMN dispatched_communal INTEGER NOT NULL DEFAULT 0;
-
--- Vesting tier (persisted across key rotations)
-ALTER TABLE api_keys ADD COLUMN vesting_tier INTEGER NOT NULL DEFAULT 0
-  CHECK (vesting_tier IN (0, 1, 2));
-  -- 0: < 2h, 1: 2-12h, 2: >= 12h
-
--- GCP project hash (from forced-error probe)
+ALTER TABLE api_keys ADD COLUMN dispatched_today INTEGER DEFAULT 0;
+ALTER TABLE api_keys ADD COLUMN dispatched_communal INTEGER DEFAULT 0;
+ALTER TABLE api_keys ADD COLUMN vesting_tier INTEGER DEFAULT 0;
 ALTER TABLE api_keys ADD COLUMN provider_project_hash TEXT;
 
-CREATE INDEX IF NOT EXISTS idx_api_keys_pool_status
-  ON api_keys (pool_type, community_routing_status, provider, status);
-
-CREATE INDEX IF NOT EXISTS idx_api_keys_observation
-  ON api_keys (observation_until, community_routing_status);
+CREATE INDEX IF NOT EXISTS idx_api_keys_pool_status ON api_keys(pool_type, community_routing_status);
+CREATE INDEX IF NOT EXISTS idx_api_keys_observation ON api_keys(observation_until);
 ```
 
-### Migration 0003: Project Hash Registry
+### Migration 0006: Project Hash Registry (`0006_project_hash_registry.sql`)
 
 ```sql
--- Three-state GCP project hash registry
--- Enforces uniqueness constraint and rotation lifecycle
 CREATE TABLE IF NOT EXISTS project_hash_registry (
-  project_hash     TEXT PRIMARY KEY,   -- SHA-256(project_number + PEPPER)
-  tenant_id        TEXT NOT NULL,      -- Owning contributor
-  provider         TEXT NOT NULL,      -- 'google_gemini', 'groq', etc.
-  state            TEXT NOT NULL DEFAULT 'ACTIVE'
-                   CHECK (state IN ('ACTIVE', 'ROTATING', 'TOMBSTONED')),
-  rotating_until   TIMESTAMP,          -- Non-null during ROTATING state
-  tombstone_until  TIMESTAMP,          -- Non-null during TOMBSTONED state (14 days)
-  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    project_hash TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('ACTIVE', 'ROTATING', 'TOMBSTONED')),
+    rotating_until TIMESTAMP,
+    tombstone_until TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_project_hash_tenant
-  ON project_hash_registry (tenant_id);
-
-CREATE INDEX IF NOT EXISTS idx_project_hash_state
-  ON project_hash_registry (state, tombstone_until);
+CREATE INDEX IF NOT EXISTS idx_project_hash_tenant ON project_hash_registry(tenant_id);
 ```
 
-### Migration 0004: Contributor Standing & Consent
+### Migration 0007: Contributor Standing & Consent (`0007_contributor_standing.sql`)
 
 ```sql
--- Per-tenant community standing and multiplier state
--- Durable snapshot of TenantDO hot state (midnight rollup)
 CREATE TABLE IF NOT EXISTS contributor_standing (
-  tenant_id                TEXT PRIMARY KEY,
-  community_debt_micro_cu  INTEGER NOT NULL DEFAULT 0,  -- int64 CU debt
-  daily_contributed_cu     INTEGER NOT NULL DEFAULT 0,  -- int64 yesterday's contribution
-  consecutive_debt_free_days INTEGER NOT NULL DEFAULT 0, -- for trusted badge
-  trusted_contributor      INTEGER NOT NULL DEFAULT 0,  -- 0 or 1 boolean
-  multiplier_ceiling       TEXT NOT NULL DEFAULT '4.5', -- current ceiling as text
-  current_multiplier       TEXT NOT NULL DEFAULT '1.5', -- current effective multiplier
-  last_decay_at            TIMESTAMP,
-  updated_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    tenant_id TEXT PRIMARY KEY,
+    community_debt_micro_cu INTEGER NOT NULL DEFAULT 0,
+    daily_contributed_cu INTEGER NOT NULL DEFAULT 0,
+    consecutive_debt_free_days INTEGER NOT NULL DEFAULT 0,
+    trusted_contributor BOOLEAN NOT NULL DEFAULT FALSE,
+    multiplier_ceiling INTEGER NOT NULL DEFAULT 100,
+    current_multiplier INTEGER NOT NULL DEFAULT 100,
+    last_decay_at TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Immutable legal consent attestation log
 CREATE TABLE IF NOT EXISTS consent_attestations (
-  id           TEXT PRIMARY KEY,
-  tenant_id    TEXT NOT NULL,
-  event_type   TEXT NOT NULL CHECK (event_type IN ('REGISTRATION', 'KEY_SUBMISSION')),
-  checkbox_id  TEXT NOT NULL,   -- 'C1', 'C2', 'C3', 'K1', 'K2'
-  attested_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  ip_address   TEXT NOT NULL,
-  user_agent   TEXT
-  -- NO UPDATE / DELETE allowed on this table (append-only)
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    checkbox_id TEXT NOT NULL,
+    attested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ip_address TEXT,
+    user_agent TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_consent_tenant
-  ON consent_attestations (tenant_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_consent_tenant ON consent_attestations(tenant_id);
+```
+
+### Migration 0009: HKDF Migration Tracking (`0009_hkdf_flag.sql`)
+
+```sql
+ALTER TABLE api_keys ADD COLUMN hkdf_migrated INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_api_keys_hkdf ON api_keys(hkdf_migrated);
 ```
 
 ---
@@ -969,45 +990,36 @@ CREATE INDEX IF NOT EXISTS idx_consent_tenant
 
 ### 9.1 Durable Object Roster (v4.0)
 
-| DO Name | Binding | Scope | Exists? | v4.0 Changes |
+| DO Name | Binding | Scope | Status | v4.0 Capabilities |
 |:---|:---|:---|:---:|:---|
-| `TenantKeyPoolDO` | `KEY_POOL` | Per-tenant | ✅ | Major: pool_type, dispatched_today, canary alarm, hero/parasite |
-| `TenantQuotaDO` | `TENANT_QUOTA` | Per-tenant | ✅ | Major: community_debt engine, multiplier governor |
-| `PoolCoordinatorDO` | `POOL_COORDINATOR` | **Global singleton** | ❌ | **New**: all pool-wide state, W_provider, spiker brake |
+| `KeyPoolDO` | `KEY_POOL` | Per-tenant (`idFromName(tenantId)`) | ✅ Active | Dual pool_type, dispatched_today/dispatched_communal counters, priority routing, hero/parasite classification, canary alarm |
+| `TenantQuotaDO` | `TENANT_QUOTA` | Per-tenant (`idFromName(tenantId)`) | ✅ Active | Sliding-window RPM/RPD, int64 fixed-point microdollars, community_debt_micro_cu engine, continuous multiplier ceiling (1.0x-5.0x), 00:00 UTC decay |
+| `PoolCoordinatorDO` | `POOL_COORDINATOR` | Global singleton (`idFromName("global")`) | ✅ Active | Aggregate provider health, quality weights (wProvider), rolling 5-min per-tenant volumes, 60s emergency spiker brake |
+| `DemoDO` | `DEMO_POOL` | Ephemeral playground (`idFromName("global")`) | ✅ Active | Unauthenticated playground sandboxing: 3 RPM / IP, 25 RPD / IP, strict IP sliding window isolation |
 
-### 9.2 PoolCoordinatorDO State (New)
+### 9.2 PoolCoordinatorDO Implementation (`src/pool/coordinator_do.ts`)
 
 ```typescript
-// src/durable_objects/pool_coordinator_do.ts
+export class PoolCoordinatorDO implements DurableObject {
+  // Rolling 5-minute request volume per tenant for anomaly detection
+  private tenantVolumes: Map<string, { volume: number; timestamp: number }[]>;
+  
+  // Active emergency brakes with expiry timestamps
+  private activeBrakes: Map<string, number>;
+  
+  // Aggregate provider health metrics and quality weights
+  private providers: Map<string, {
+    activeKeys: number;
+    quarantineKeys: number;
+    latencyMs: number;
+    wProvider: number;
+  }>;
 
-interface PoolCoordinatorState {
-  // Per-provider aggregate health
-  providers: Record<string, ProviderPoolState>;
-
-  // Per-tenant rolling 5-min request volume (for spiker detection)
-  tenantVolume: Record<string, TenantVolumeEntry>;
-
-  // Reactivation jitter timers (keyId → reactivation timestamp)
-  reactivationQueue: Record<string, number>;
-
-  // Midnight leaky-bucket queue
-  midnightQueue: QueuedRequest[];
-}
-
-interface ProviderPoolState {
-  activeKeys: number;
-  quarantinedKeys: number;
-  observationKeys: number;
-  uPoolPercent: number;      // 0–100
-  p90LatencyMs: number;
-  uptimeRate: number;        // 0.0–1.0
-  wProvider: number;         // Computed quality weight
-  lastUpdated: number;
-}
-
-interface TenantVolumeEntry {
-  requestsLast5Min: number;
-  lastReported: number;       // timestamp
+  // Endpoints:
+  // GET  /coordinator/health             -> returns all provider stats & wProvider
+  // POST /coordinator/report-volume     -> records volume; if tenant > 35% of pool, applies 60s brake
+  // POST /coordinator/update-provider   -> updates active/quarantine counts and recalculates wProvider
+  // GET  /coordinator/brake-status/:id  -> returns { braked: boolean }
 }
 ```
 
@@ -1031,29 +1043,58 @@ Worker ──RPC call──► PoolCoordinatorDO
 
 ## 10. API Endpoint Specification
 
-### Existing Endpoints (Modified)
+### 10.1 Proxy & Inference Gateway
 
-| Method | Path | Change in v4.0 |
-|:---|:---|:---|
-| `POST` | `/v1/chat/completions` | Add self-key priority router pre-check |
-| `GET` | `/v1beta/models/:model:generateContent` | Add response normalizer middleware |
-| `POST` | `/api/keys` | Add forced-error probe, HKDF encryption, pool_type field, attestation checkboxes K1/K2 |
-| `DELETE` | `/api/keys/:id` | Trigger ROTATING state in project_hash_registry |
-| `GET` | `/auth/callback` | Store consent attestations C1–C3 on completion |
+| Method | Path | Auth | Description | Headers & Behavior |
+|:---|:---|:---:|:---|:---|
+| `POST` | `/v1/chat/completions` | Bearer (User/Project) | OpenAI-compatible chat completions proxy | Supports streaming SSE; context token estimation; emergency brake pre-check; self-key priority cascade; upstream error normalization; injects `x-kc-request-id`, `x-kc-model-used`, `x-kc-provider` |
+| `GET` | `/v1/models` | Bearer | List available models in registry | Returns models filtered by tenant tier and capability registry |
+| `POST` | `/v1beta/models/:model:generateContent` | Bearer / Key Query | Google Gemini native SDK completions | Direct streaming/non-streaming passthrough with header sanitization |
+| `POST` | `/v1beta/models/:model:streamGenerateContent` | Bearer / Key Query | Google Gemini native SSE streaming | Passthrough with upstream header stripping |
 
-### New Endpoints
+### 10.2 Contributed Key Management (`/api/keys`)
 
-| Method | Path | Description | Auth |
-|:---|:---|:---|:---|
-| `PATCH` | `/api/keys/:id/pool-mode` | Toggle key between PRIVATE and COMMUNITY | Bearer |
-| `GET` | `/api/pool/telemetry` | Global pool health (all tenants visible) | Bearer |
-| `GET` | `/api/pool/standing` | Personal community standing (multiplier, debt, tier) | Bearer |
-| `GET` | `/api/pool/contribution` | Personal contribution metrics | Bearer |
-| `GET` | `/api/notifications` | Short-poll notification stream | Bearer |
-| `POST` | `/api/abuse/report-key` | Plaintext key takedown with timing shield | Turnstile |
-| `GET` | `/api/keys/:id/health` | Per-key health status | Bearer |
-| `GET` | `/admin/api/pool/coordinator` | Full coordinator state | Admin |
-| `POST` | `/admin/api/keys/:id/quarantine` | Admin manual key quarantine override | Admin |
+| Method | Path | Auth | Description | Invariants & Constraints |
+|:---|:---|:---:|:---|:---|
+| `GET` | `/api/keys` | Bearer (Tenant/Admin) | List tenant's keys (or community keys if unauthenticated) | Scoped by tenant; non-owners/non-admins have `tenant_id` redacted for privacy; returns `pool_type`, `community_routing_status`, `observation_until`, `dispatched_today`, `dispatched_communal`, `vesting_tier`, metrics |
+| `POST` | `/api/keys` | Bearer + Turnstile | Register and encrypt new upstream provider key | Enforces mandatory `k1: true, k2: true` attestations; fires forced-error GCP probe (`src/ingress/probe.ts`); checks `project_hash_registry` for collisions; encrypts via HKDF per-tenant AES key; assigns 24h `OBSERVATION` window if `COMMUNITY` |
+| `DELETE` | `/api/keys/:id` | Bearer (Owner/Admin) | Delete API key | Removes from D1 `api_keys` and evicts from `KeyPoolDO` memory |
+| `POST` | `/api/keys/:id/rotate` | Bearer (Owner/Admin) | Rotate plaintext key material | Re-encrypts with fresh 12-byte nonce using tenant subkey; updates prefix/suffix; preserves key ID |
+| `POST` | `/api/keys/:id/test` | Bearer (Owner/Admin) | Test live provider connectivity | Probes upstream provider API in real time, returns latency and health |
+| `PATCH` | `/api/keys/:id/pool-mode` | Bearer (Owner/Admin) | Toggle `pool_type` between `PRIVATE` and `COMMUNITY` | Blocked during midnight freeze window (23:30–00:30 UTC); switches to `OBSERVATION` with fresh 24h buffer when entering community pool |
+
+### 10.3 Commons Pool & Telemetry (`/api/pool`)
+
+| Method | Path | Auth | Description | Output Data |
+|:---|:---|:---:|:---|:---|
+| `GET` | `/api/pool/telemetry` | Bearer (Tenant) | Global commons health metrics | `total_active_keys`, `keys_in_observation`, `keys_quarantined`, `pool_utilization_percent`, per-provider breakdown with `w_provider`, P90 latency, and `eye_for_eye_accessible` |
+| `GET` | `/api/pool/standing` | Bearer (Tenant) | Contributor standing & multiplier | `multiplier` (1.0x-5.0x), `multiplier_ceiling`, `community_debt_cu`, `daily_contributed_cu`, `jail_status` ('PRISTINE', 'SOFT_WARNING', 'HARD_JAIL'), `trusted_contributor`, `consecutive_debt_free_days` |
+| `GET` | `/api/pool/contribution` | Bearer (Tenant) | Personal contribution balance | `total_keys`, `community_active_keys`, `requests_served_for_community_today`, `personal_requests_today`, `cu_contributed_today`, `cu_consumed_today`, `net_cu_balance` |
+| `GET` | `/api/notifications` | Bearer (Tenant) | Short-poll notification stream (`?since={timestamp}`) | Real-time key health transitions (e.g. key unhealthy or exhausted) |
+
+### 10.4 Abuse Takedown & Safety (`/api/abuse`)
+
+| Method | Path | Auth | Description | Security Mechanics |
+|:---|:---|:---:|:---|:---|
+| `POST` | `/api/abuse/report-key` | Turnstile Token | Public unauthenticated leaked key takedown | Requires Turnstile verification; artificial delay padding to uniform 200ms (constant-time response shield against key enumeration); revokes key in `api_keys`; marks `project_hash_registry` state as `TOMBSTONED` |
+
+### 10.5 Authentication & Session Management
+
+| Method | Path | Auth | Description | Behavior |
+|:---|:---|:---:|:---|:---|
+| `GET` | `/auth/github` | Public | Initiate GitHub OAuth 2.0 PKCE flow | Generates CSRF state & PKCE code challenge |
+| `GET` | `/auth/callback` | Public | OAuth redirect handler | Verifies PKCE; runs 5-Layer Anti-Sybil assessment; records C1–C3 consent attestations; issues session JWT |
+| `POST` | `/api/auth/demo` | Public | Create ephemeral demo playground session | Bounded to shared `DEMO_POOL` DO (3 RPM / IP, 25 RPD / IP) |
+| `GET` | `/api/auth/me` | Bearer | Retrieve authenticated user profile | Scrubs internal tiers (`ultra`, `admin`), maps to public tiers (`probationary`, `builder`, `max`) |
+
+### 10.6 Admin Surveillance & Emergency Operations
+
+| Method | Path | Auth | Description | Capabilities |
+|:---|:---|:---:|:---|:---|
+| `GET` | `/admin/api/tenants` | Bearer (Admin) | Platform-wide tenant surveillance | Real-time RPM, RPD, spend in microdollars, active keys, quarantine state |
+| `POST` | `/admin/api/tenants/:id/action` | Bearer (Admin) | Administrative mutation | Update tier, quarantine/unquarantine, reset quota |
+| `POST` | `/admin/api/circuits/override` | Bearer (Admin) | Provider circuit breaker override | Trip or reset provider circuits platform-wide |
+| `GET` | `/coordinator/health` | Internal / Admin | PoolCoordinatorDO health inspection | Raw provider counts, active brakes, and quality weights |
 
 ---
 
@@ -1069,8 +1110,10 @@ Worker ──RPC call──► PoolCoordinatorDO
 ### NFR-02: Reliability — DO Eviction Durability
 All hot-path counters (`dispatched_today`, `dispatched_communal`, `community_debt_micro_cu`, `multiplier_ceiling`) MUST be synced to `this.ctx.storage` on every update per GEMINI.md invariant. Silently losing these fields causes Hero/Parasite misclassification.
 
-### NFR-03: Data Integrity — Fixed-Point Financials
-All CU tracking, community_debt, microdollar costs: int64/bigint. Zero floating-point math. CU weights computed from token counts using integer arithmetic only.
+### NFR-03: Data Integrity — Fixed-Point Financials & Microdollar Invariants
+- **Fixed-Point Precision:** All financial amounts, token cost computations, and communal capacity units (CU) are strictly stored and computed in `int64` / `bigint` microdollars (1 USD = 1,000,000 µ$). Zero IEEE 754 floating-point math is permitted in financial calculations (`MICRODOLLAR_MULTIPLIER = 1_000_000n`).
+- **Conversion Safety:** String-split parsing (`dollarsToMicrodollars`) is enforced to eliminate float truncation artifacts. Number conversions (`microdollarsToDollars`) are restricted exclusively to UI display rendering.
+- **Community Debt Precision:** `community_debt_micro_cu` and `daily_contributed_cu` operate on integer BigInt math (`src/quota/tenant/debt.ts`). Ratios are computed via scaled integers (e.g. `communityDebtMicroCu * 100n / dailyContributedCu`). Multipliers are represented internally as scaled integers (100 = 1.00×, 150 = 1.50×, 450 = 4.50×, 500 = 5.00×).
 
 ### NFR-04: Security — Zero Plaintext Invariant
 No plaintext provider API key, GCP project number, or billing account identifier may appear in: D1 storage, console logs, telemetry events, error responses, or any client-visible surface.

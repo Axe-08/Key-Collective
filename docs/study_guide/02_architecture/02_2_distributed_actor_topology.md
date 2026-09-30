@@ -178,41 +178,23 @@ By serializing access, it ensures we never push a key past its physical TPM limi
 
 
 **Functions:**
-- Periodically audits the sum of all TenantQuotaDO Net Positions to verify the $\sum NP_i \equiv 0$ equilibrium invariant.
+- Periodically audits the sum of all TenantQuotaDO Net Positions to verify the \(\sum_{i=1}^{N} \text{NP}_i \equiv 0\) equilibrium invariant.
 - Distributes dynamic configuration updates (e.g., changes to the microdollar pricing model) to the other actors.
 - Mediates dispute resolution protocols.
 
-
-
-
-
 ## 5. Transactional Storage: The Hot State Survival Mechanism
-
-
-
-
 
 While Durable Objects keep state in memory for blistering speed, they are ephemeral.
 The platform can evict them during low traffic or migrate them to a different continent if the traffic center of gravity shifts.
 
-
-
-
-
 To survive this, DOs utilize `this.ctx.storage`.
-
-
-
-
 
 ### 5.1 The In-Memory Circuit Breaker
 When a request hits the KeyPoolDO:
-1.
-The DO checks an in-memory variable (e.g., `this.keyStats[keyId].rpm`).
-2.
-This read takes < 1 microsecond.
-3.
-If the request is routed, the memory variable is incremented.
+1. The DO checks an in-memory variable (e.g., `this.keyStats[keyId].rpm`).
+2. This read takes `< 1 microsecond`.
+3. If the request is routed, the memory variable is incremented.
+
 
 
 

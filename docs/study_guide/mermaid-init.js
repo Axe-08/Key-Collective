@@ -21,10 +21,13 @@
 
         mermaid.initialize({
             startOnLoad: false,
-            theme: isDark ? "dark" : "default"
+            theme: isDark ? "dark" : "default",
+            securityLevel: 'loose'
         });
 
         const codeBlocks = document.querySelectorAll("pre code.language-mermaid");
+        if (codeBlocks.length === 0) return;
+
         codeBlocks.forEach((codeBlock) => {
             const pre = codeBlock.parentElement;
             const div = document.createElement("div");
@@ -33,8 +36,15 @@
             pre.parentElement.replaceChild(div, pre);
         });
 
-        mermaid.run();
+        try {
+            mermaid.run({
+                querySelector: '.mermaid'
+            });
+        } catch (e) {
+            console.error("Mermaid execution error:", e);
+        }
     }
+
 
     function init() {
         if (typeof mermaid === "undefined") {

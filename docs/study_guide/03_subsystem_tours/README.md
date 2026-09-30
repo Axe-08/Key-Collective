@@ -1,42 +1,55 @@
-# Unit 03: Subsystem Tours
+# Part 3: Guided Subsystem Tours & Low-Level Designs (LLDs)
 
-Welcome to the guided Thematic Subsystem Tours of the Key Collective architecture.
-This unit provides an orientation to the core subsystems, their boundaries, and their dependency order.
-We will take a surgical, line-by-line approach to dissecting the codebase, ensuring you have a deep understanding of the system's mechanics.
+Welcome to Part 3 of the Key Collective University Textbook. 
 
-## Dependency Order and Subsystem Architecture
+In this module, we step inside the codebase to perform an exhaustive, dependency-ordered architectural tour of the eleven core subsystems comprising the Key Collective proxy engine.
 
-The Key Collective system is composed of four primary subsystems, each building upon the last in a strict dependency hierarchy:
+Each subsystem tour is structured according to a strict Low-Level Design (LLD) specification framework:
+- **Architectural Context & Role**: Where the subsystem resides in the global edge topology.
+- **TypeScript Interface Contracts**: Formal type definitions, state containers, and RPC boundaries.
+- **State Machines & Data Structures**: Concurrency guarantees, in-memory structures, and lock-free execution.
+- **Production Code Walkthrough**: Real snippets from `src/` demonstrating implementation details.
+- **Error Matrix & Remediation**: Concrete failure modes and recovery procedures.
+- **Self-Check Quizzes**: Active recall questions testing core design invariants.
 
-1. **Data Contracts and Models (03.1)**
-   At the very foundation lies our domain language. This subsystem defines the schemas, types, and primitive contracts that all other layers depend on. By establishing strict types for `APIKey`, `ApiErrorResponse`, and `AuthToken`, we guarantee type safety and clear boundaries across the entire system. Without this foundation, the higher-level logic would lack a cohesive vocabulary.
+## Subsystem Dependency & Reading Order
 
-2. **Core Engine and Logic (03.2)**
-   Building on the data contracts, the Core Engine implements the critical computational pipelines. This includes the `KeyPoolDO` (Durable Object) which manages key state, the `CircuitBreaker` for fault tolerance, and the `RateLimiter` to protect downstream resources. This layer encapsulates the complex business rules of key routing and selection, ensuring fair usage and system stability.
+```mermaid
+graph TD
+    S1[3.1 Ingress Gateway & Auth] --> S2[3.2 Cascade Router]
+    S1 --> S8[3.8 Cryptographic Defense]
+    S2 --> S6[3.6 Private Key Actor]
+    S2 --> S3[3.3 Communal Pool Coordinator]
+    S3 --> S4[3.4 Debt Engine & Ledger]
+    S3 --> S5[3.5 Anti-Cheat Sentinels]
+    S6 --> S7[3.7 Streaming Proxy & Sanitizer]
+    S3 --> S7
+    S4 --> S9[3.9 D1 Storage Repositories]
+    S5 --> S10[3.10 Legal Contracts & Mediation]
+    S1 --> S11[3.11 Golden Verification & CI]
+```
 
-3. **Interfaces and Gateways (03.3)**
-   With the core logic established, the Interfaces and Gateways subsystem handles the external surface area. It includes the `MainWorker` which processes incoming requests, the `AuthMiddleware` which secures access, and the `CascadeRouter` which manages fallback strategies across different AI providers. This layer is responsible for translating external HTTP requests into internal domain models.
+## Directory of Subsystem Tours
 
-4. **Observability and Infrastructure (03.4)**
-   Finally, wrapping the entire system is the Observability and Infrastructure subsystem. It provides the necessary tooling for metrics, logging, and secure storage. Components like `TelemetryEmitter` ensure that every action is tracked, while the encryption utilities guarantee that sensitive data like API keys remain secure at rest. This layer is critical for operating the system at scale.
-
-## Learning Objectives
-
-By the end of this unit, you will be able to:
-- Identify and explain the purpose of every core AST symbol within the system.
-- Understand the flow of data through the various subsystems.
-- Troubleshoot complex issues by tracing them through the architectural layers.
-- Contribute to the codebase with a deep appreciation for the established patterns and invariants.
-
-## Navigation Guide
-
-Please proceed through the units in the following order:
-- [03.1: Data Contracts and Models](./03_1_01_data_contracts_and_models.md)
-- [03.2: Core Engine and Logic](./03_2_02_core_engine_and_logic.md)
-- [03.3: Interfaces and Gateways](./03_3_03_interfaces_and_gateways.md)
-- [03.4: Observability and Infrastructure](./03_4_04_observability_and_infrastructure.md)
-
-Let's begin our journey into the anatomy of Key Collective.
-
-<!-- padding line to ensure length constraints are met for strict invariant checking --><!-- Additional padding line to ensure line count STRICTLY EXCEEDS the requirement. -->
-<!-- Another padding line for good measure. -->
+1. [3.1 Ingress Gateway & Edge Auth Middleware](./03_1_gateway_and_auth_middleware.md)
+   - Edge request interception, bearer token resolution, and non-blocking telemetry.
+2. [3.2 Intelligent Cascade Router & Capability Engine](./03_2_cascade_router_and_capability_engine.md)
+   - Capability-based routing, model matching, and multi-provider failover chains.
+3. [3.3 Communal Pool Engine & Coordinator Actor](./03_3_communal_pool_and_coordinator.md)
+   - Lock-free key leasing, inventory indexing, and anti-stampede coordination.
+4. [3.4 Community Debt Engine & Credit Economics](./03_4_debt_engine_and_quota_ledger.md)
+   - Strict microdollar accounting, overdraft ceiling checks, and double-entry settlements.
+5. [3.5 Anti-Cheat, Anti-Sybil & Key Sentinels](./03_5_anti_cheat_and_anti_sybil.md)
+   - 5-layer sybil evaluation, zero-cost error probing, and automated quarantine triggers.
+6. [3.6 Private Key Actor & Circuit Breakers](./03_6_private_key_actor_and_circuit_breakers.md)
+   - Per-tenant isolate isolation, sliding-window RPM limiters, and 3-state circuit breakers.
+7. [3.7 Zero-Leak Streaming Proxy & Error Sanitizer](./03_7_streaming_proxy_and_error_sanitizer.md)
+   - TransformStream SSE parsing, upstream header allowlists, and regex error masking.
+8. [3.8 Cryptographic Defense, Nonces & HKDF Derivation](./03_8_cryptographic_defense_and_nonces.md)
+   - Hardware AES-256-GCM ciphers, 12-byte nonce generation, and master key derivation.
+9. [3.9 Storage Engine, D1 SQLite & Repositories](./03_9_storage_repositories_and_d1.md)
+   - Repository pattern abstractions, batch D1 transactions, and asynchronous rollups.
+10. [3.10 Legal Contracts, Attestations & Mediation Protocols](./03_10_legal_contracts_and_mediation.md)
+    - Client attestation verification, provider ToS alignment, and credit arbitration.
+11. [3.11 Golden Verification Suites & CI/CD Quality Gates](./03_11_golden_verification_and_ci.md)
+    - Deterministic Miniflare simulation, test harness design, and the `<10s` gate contract.

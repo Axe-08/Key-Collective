@@ -10,9 +10,15 @@
       "TypeScript"
     ],
     "toolchains": [
-      "pnpm"
+      "pnpm",
+      "wrangler",
+      "vitest"
     ],
-    "frameworks": []
+    "frameworks": [
+      "Cloudflare Workers",
+      "Durable Objects",
+      "D1"
+    ]
   },
   "parts": [
     {
@@ -232,6 +238,5 @@
       "estimated_read_time_mins": 35,
       "summary": "4 codebase scavenger hunts, 12-question master quiz with collapsible spoilers, and graduation coding challenge."
     }
-  ],
-  "last_imported_at": "2026-09-19T14:39:31.147634+00:00"
+  ]
 }

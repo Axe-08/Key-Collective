@@ -248,7 +248,8 @@ For every 1 client API request, the infrastructure executes:
 
 
 **Total Infrastructure Cost per 1 Million Client Requests:**
-$Cost_{1M} = 0.30 + 0.30 + 0.30 + 0.25 + 0.075 \approx \$1.225 \text{ per Million Requests}$
+
+$$\text{Cost}_{1\text{M}} = \$0.30 + \$0.30 + \$0.30 + \$0.25 + \$0.075 \approx \$1.225 \text{ per Million Requests}$$
 
 
 
@@ -304,7 +305,7 @@ We project the system economics across three distinct phases of scale.
 - **Scale:** 100 Tenants.
 - **Traffic:** 50 Million requests/month.
 - **Cost Calculation:** 
-  - $50 \times \$1.225 = \$61.25$
+  - 50M requests × $1.225 / M = **$61.25**
   - Add DO GB-s baseline: ~$10
 - **Estimated Monthly Cost:** **~$71.25 / month**
 - **Architecture Status:** Easily runs on default Cloudflare limits. D1 handles coalesced writes without breaking a sweat.
@@ -324,7 +325,7 @@ We project the system economics across three distinct phases of scale.
 - **Scale:** 10,000 Tenants.
 - **Traffic:** 500 Million requests/month.
 - **Cost Calculation:** 
-  - $500 \times \$1.225 = \$612.50$
+  - 500M requests × $1.225 / M = **$612.50**
   - Add DO GB-s overhead: ~$50
 - **Estimated Monthly Cost:** **~$662.50 / month**
 - **Architecture Status:** Requires careful monitoring of TenantQuotaDO hotspots. Coalescing ratio to D1 might need tuning from 10:1 to 50:1 to keep D1 write costs flat. Analytics Engine easily scales.
@@ -344,7 +345,7 @@ We project the system economics across three distinct phases of scale.
 - **Scale:** 100,000 Tenants.
 - **Traffic:** 5 Billion requests/month.
 - **Cost Calculation:**
-  - $5,000 \times \$1.225 = \$6,125.00$
+  - 5,000M requests × $1.225 / M = **$6,125.00**
   - Add DO GB-s overhead: ~$500
 - **Estimated Monthly Cost:** **~$6,625.00 / month**
 - **Architecture Status:** At 1,900 requests per second (RPS) sustained, the Edge Proxies scale linearly. The KeyPoolDOs will require sharding (e.g., `gpt-4-pool-shard-1`, `gpt-4-pool-shard-2`) to avoid single-thread CPU saturation in V8 isolates, as a single DO begins to choke around 500-1000 RPS depending on compute complexity.
@@ -389,3 +390,23 @@ By heavily leveraging Cloudflare's edge primitives (Workers + Durable Objects + 
 
 This concludes Part 2 of the textbook.
 You are now equipped with the architectural, economic, and legal frameworks necessary to understand the deep implementation details in the upcoming sections.
+
+
+```typescript
+// Edge latency budget assertion
+export interface LatencyBudget {
+  tlsTerminationMs: number;
+  authVerificationMs: number;
+  durableObjectLookupMs: number;
+  cryptoDecryptionMs: number;
+  totalEdgeOverheadMs: number;
+}
+
+export const SLA_BUDGET: LatencyBudget = {
+  tlsTerminationMs: 3,
+  authVerificationMs: 1,
+  durableObjectLookupMs: 2,
+  cryptoDecryptionMs: 1,
+  totalEdgeOverheadMs: 15 // Target ceiling
+};
+```

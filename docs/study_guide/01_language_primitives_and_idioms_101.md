@@ -41,8 +41,9 @@ Imagine you are a banker tasked with tracking millions of micro-transactions. If
 
 To permanently solve this, we rely on **Fixed-Point Microdollars**. 
 We represent all financial values exclusively as integers, specifically `int64` microdollars. 
-A value of `$1.00 USD` is represented exactly as `1,000,000 µ$`. 
-A fraction of a cent, say `$0.001`, is perfectly represented as `1,000 µ$`. 
+A value of `1.00 USD` is represented exactly as `1,000,000 µ$` (1,000,000 microdollars). 
+A fraction of a cent, say `0.001 USD`, is perfectly represented as `1,000 µ$`. 
+
 
 ```typescript
 // An example of how we define model pricing strictly using microdollars

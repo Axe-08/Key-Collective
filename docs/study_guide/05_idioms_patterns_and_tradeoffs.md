@@ -1,161 +1,363 @@
-# 05 Idioms, Patterns, and Trade-offs
+# 05: Idioms, Patterns, and Trade-offs
 
-Every codebase has a "grain" to it—a set of established patterns that dictate how problems should be solved. Fighting the grain leads to technical debt, confusing bug reports, and difficult migrations; working with it leads to maintainable, robust, and predictable software.
+Every codebase exhibits a distinct engineering vernacular—an idiomatic architecture that governs how distributed state is partitioned, how errors are classified, and how failures cascade. Conforming to this vernacular ensures consistency, resilience, and operational simplicity at the edge.
 
-This document outlines the core engineering patterns that define Key Collective v2. It also candidly documents the architectural trade-offs we accepted, because no system is perfect, and understanding the weaknesses is just as important as understanding the strengths.
+This chapter documents the core design patterns, comprehensive error taxonomy, and deliberate trade-offs of Key Collective.
 
-## Core Engineering Patterns
+---
 
-### Pattern 1: Per-Tenant Actor Isolation via Durable Objects
+## 1. Domain Error Hierarchy & Zero-Tautology Invariant
 
-In standard Node.js/Express applications, state is global or request-scoped. In Key Collective, state is **tenant-scoped**. We natively use the Actor Model pattern, implemented via Cloudflare Durable Objects.
+A central idiom in Key Collective is **Zero-Tautology Error Messages**. Throwing generic errors like `new Error("Failed to route")` or `new Error("Provider error")` is strictly prohibited. Every error must specify:
+1. The **exact system invariant** that was breached.
+2. The **operational context** (e.g. `tenantId`, `provider`, `modelAlias`, `costMicrodollars`).
+3. The **recommended resolution** for the caller.
 
-Whenever you need to interact with a tenant's data (their keys, their limits, their spend), you do not query a central database and mutate a global cache. Instead, you route the request to the tenant's specific `KeyPoolDO` using `env.KEY_POOL.idFromName(tenantId)`.
+All custom errors inherit from a standardized base that renders to `DomainErrorJson` (configured via `DomainErrorOptions`).
 
-This creates strict memory isolation. If Tenant A manages to crash their DO due to an edge-case bug, Tenant B is completely unaffected because they exist in an entirely different memory space. This is a massive reliability win.
-
-### Pattern 2: Transactional Storage Hydration & Survivability
-
-Durable Objects can be evicted from memory by Cloudflare at any time to manage cluster resources. Therefore, you can never assume that class properties will survive indefinitely in RAM.
-
-The pattern for hot state (like RPM counters or the `CircuitBreakerState`) is to hydrate from `this.ctx.storage` on instantiation, and to periodically sync mutations back to storage.
+### 1.1 Routing & Provider Error Taxonomy
 
 ```typescript
-// The Hydration Pattern
-export class KeyPoolDO {
-  private totalTokensConsumed = 0;
+// src/errors/routing_errors.ts & src/errors/model_errors.ts
+export interface ProviderRoutingErrorOptions extends DomainErrorOptions {
+  provider: string;
+  statusCode?: number;
+  reason?: string;
+}
 
-  async fetch(request: Request) {
-    // 1. Hydrate if necessary. We use blockConcurrencyWhile to ensure
-    // we don't process requests while state is still loading.
-    this.ctx.blockConcurrencyWhile(async () => {
-      this.totalTokensConsumed = await this.ctx.storage.get("tokens") || 0;
-    });
-    
-    // 2. Mutate in memory for extreme speed. We avoid awaiting DB writes here.
-    this.totalTokensConsumed += 100;
-    
-    // 3. Flush to transactional storage asynchronously to survive eviction.
-    // The DO environment guarantees this will complete before eviction.
-    this.ctx.storage.put("tokens", this.totalTokensConsumed);
-    
-    return new Response("OK");
+export class ProviderRoutingError extends DomainError {
+  constructor(message: string, options: ProviderRoutingErrorOptions) {
+    super(message, options);
+  }
+}
+
+export interface ProviderTimeoutErrorOptions extends DomainErrorOptions {
+  provider: string;
+  timeoutMs: Milliseconds;
+}
+
+export class ProviderTimeoutError extends DomainError {
+  constructor(message: string, options: ProviderTimeoutErrorOptions) {
+    super(message, options);
+  }
+}
+
+export interface NoAvailableProviderErrorOptions extends DomainErrorOptions {
+  modelAlias: string;
+  attemptedProviders: string[];
+}
+
+export class NoAvailableProviderError extends DomainError {
+  constructor(message: string, options: NoAvailableProviderErrorOptions) {
+    super(message, options);
+  }
+}
+
+export interface RouterErrorOptions extends DomainErrorOptions {
+  route: string;
+}
+
+export class RouterError extends DomainError {
+  constructor(message: string, options: RouterErrorOptions) {
+    super(message, options);
   }
 }
 ```
-`this.ctx.storage` is transactional and durable. D1 is used for analytics and long-term persistence, but `ctx.storage` is the single source of truth for the DO's immediate operational state.
 
-### Pattern 3: Fixed-Point Microdollar Arithmetic
+When an alias cannot be resolved, an `UnknownModelAliasError` (with `UnknownModelAliasErrorOptions`) or `ModelNotFoundError` (with `ModelNotFoundErrorOptions`) is raised, referencing the canonical `KnownModelAlias` or `KnownModelProvider` catalog.
 
-Never, ever use standard JavaScript floating-point numbers to calculate costs. IEEE-754 floats will inevitably introduce drift, and your billing ledgers will become corrupted.
+### 1.2 Capacity, Rate Limiting & Circuit Breaker Errors
 
-Every data contract (`KeyPoolContract`, `RouterContract`, `ModelPricing`, `TenantSpendSummary`) that references money must rigidly use the microdollar pattern. 
-1 USD = exactly 1,000,000 microdollars.
+When upstream capacity is exhausted:
+- If all API keys in the tenant pool have exceeded RPM/TPM limits, the engine throws `KeyExhaustedError` (with `KeyExhaustedErrorOptions`) or `KeyNotFoundError` (with `KeyNotFoundErrorOptions`).
+- When a key violates formatting or tenant boundaries, `InvalidKeyError` (with `InvalidKeyErrorOptions`) is thrown.
+- If upstream error rates cross the threshold, the circuit breaker opens, throwing `CircuitBreakerTrippedError` (with `CircuitBreakerTrippedErrorOptions`).
+- If a tenant exceeds their allotted quota or attempts cross-tenant tampering, the engine throws `QuotaExceededError` (with `QuotaExceededErrorOptions`), `TenantIsolationError` (with `TenantIsolationErrorOptions`), or `TenantIsolationViolationError`.
+- For token authorization failures, the auth gate produces `AuthenticationError` (with `AuthenticationErrorOptions`), returning an `AuthMiddlewareFailure` instead of an `AuthMiddlewareSuccess`.
 
-If a model costs $2.50 per million tokens, the configuration should store `2500` (which represents the cost of 1000 tokens in microdollars). All aggregations, subtractions, and budget limits must be calculated strictly as `int64` integers.
+### 1.3 Capability & Context Window Validation
 
-### Pattern 4: Non-blocking Edge Telemetry
-
-When proxying LLM requests, latency is the primary metric users care about. We absolutely cannot block the response stream to wait for a database insert or a logging network call to complete.
-
-Any operation that does not strictly need to complete before the user receives their response must be wrapped in `ctx.waitUntil()`. This signals to the Cloudflare runtime that the worker should stay alive to finish the background task even after the HTTP response has already been sent to the client.
-
-We use the `TelemetryContract` to define strict schemas for what we log, and the `TelemetryEmitter` pushes these events using `waitUntil`.
+Before dispatching an inference call, the `CapabilityFilter` validates that the candidate model satisfies the prompt's requirements:
 
 ```typescript
-// The Non-blocking Telemetry Pattern
-export function handleRequest(request: Request, env: Env, ctx: ExecutionContext) {
-  const response = performComplexRoutingLogic();
-  
-  // Do NOT await this! The user shouldn't wait for our analytics.
-  ctx.waitUntil(
-    env.ANALYTICS_QUEUE.send({
-      tenantId: "123",
-      latencyMs: 450,
-      timestamp: Date.now()
-    })
-  );
-  
-  // Return immediately to the client
-  return response;
+// src/router/capability/types.ts
+export interface CapabilityRequirements {
+  requiresVision?: boolean;
+  requiresTools?: boolean;
+  requiresJsonSchema?: boolean;
+  minContextWindow?: number;
+}
+
+export interface CapabilityCheckResult {
+  capable: boolean;
+  missingCapabilities: string[];
+}
+
+export interface ContextValidationResult {
+  valid: boolean;
+  estimatedTokens: number;
+  maxTokensAllowed: number;
 }
 ```
 
-### Pattern 5: Zero-Plaintext Cryptographic Invariant
+If a candidate model lacks required multi-modal or tool features, the router throws `CapabilityMismatchError` (with `CapabilityMismatchErrorOptions`). If prompt tokens exceed the model's physical window, `ContextWindowExceededError` (with `ContextWindowExceededErrorOptions`) prevents downstream provider rejection.
 
-This is a non-negotiable security invariant. A plaintext API key must never exist in persistent storage, and it must never be logged to any observability platform.
+---
 
-We use AES-256-GCM via the Web Crypto API. The pattern requires generating a cryptographically secure, unique 12-byte CSPRNG nonce for every single encryption operation. The nonce is stored alongside the ciphertext. 
+## 2. Dynamic Fallback Cascades & Resilience Patterns
 
-The `AuthContract` enforces that any key payload leaving the system boundary is redacted (e.g., `sk-ant-api03-...abcd`). Plaintext keys only exist in the exact local scope where `fetch()` is called inside the `UpstreamClient`. They must not be attached to classes or global objects.
+The cascade routing pattern provides seamless failover across diverse providers without requiring client retries.
 
-### Pattern 6: Zero-Tautology Error Messages
-
-Do not write error messages that merely restate the code. For instance, throwing `Error("Failed to fetch")` from a `fetch()` call is a tautology and useless for debugging. 
-
-Our pattern dictates that errors must include the *intent*, the *cause*, and the *resolution* if possible. Always wrap upstream errors with context about what the router was attempting to achieve.
-
-```typescript
-// Bad
-throw new Error("D1 insert failed");
-
-// Good
-throw new Error(`Failed to persist ledger for tenant ${tenantId}. Cause: D1 uniqueness constraint violation. Ensure nonces are not reused.`);
+```mermaid
+flowchart TD
+    A[CascadeRouteRequest] --> B[CapabilityFilter: ModelFilterCriteria]
+    B --> C{Primary Model Available?}
+    C -->|Yes & Breaker Closed| D[Dispatch Primary Model]
+    C -->|No / Breaker Open| E[Inspect FallbackConfig]
+    E --> F[Evaluate Fallback Candidates]
+    F --> G{Healthy Candidate Found?}
+    G -->|Yes| H[Dispatch Fallback Candidate]
+    G -->|No| I[Throw FallbackExhaustedError]
+    D -->|Failure Status / Timeout| J[Trigger FallbackTrigger]
+    J --> E
 ```
 
-### Pattern 7: Defensive Default Fallbacks
-
-When configurations are missing or D1 lookups fail unexpectedly, the system should not crash hard if a safe default exists. The `ModelRegistry` relies on safe default configurations to avoid breaking the routing pipeline if a specific pricing entry is accidentally deleted.
-
-### Pattern 8: Integration Testing over Mocking
-
-We rely heavily on Cloudflare's specific runtime APIs (`env.KEY_POOL.idFromName`). Mocking these extensively in Jest leads to tests that pass in CI but fail in production because the mock doesn't accurately represent the complex concurrency model of Durable Objects. 
-
-We heavily bias towards integration testing using Miniflare, testing the actual HTTP proxy surface area rather than deeply mocking internal functions. This is our primary testing pattern.
-
-### Pattern 9: Strong Type Guards for External Data
-
-Data crossing the network boundary (either from a client or from an upstream AI provider) must never be trusted. We use Zod schemas to define strict boundaries. If an upstream provider sends a malformed `StreamUsage` block, the Zod parser will catch it and drop the invalid chunk, rather than propagating `NaN` into our billing ledgers.
+### 2.1 Fallback Configuration Contracts
 
 ```typescript
-// Zod parsing example
-const StreamUsageSchema = z.object({
-  prompt_tokens: z.number().int().nonnegative(),
-  completion_tokens: z.number().int().nonnegative(),
-  total_tokens: z.number().int().nonnegative(),
-});
+// src/router/cascade/types.ts
+export interface FallbackConfig {
+  maxAttempts: number;
+  candidateModels: readonly string[];
+  triggers: readonly FallbackTrigger[];
+  allowDegradedFallback?: boolean;
+}
 
-// Always parse, never cast using 'as'
-const safeUsage = StreamUsageSchema.parse(rawJson);
+export interface FallbackExhaustedErrorOptions extends DomainErrorOptions {
+  requestedModel: string;
+  attempts: FallbackAttempt[];
+}
+
+export class FallbackExhaustedError extends DomainError {
+  constructor(message: string, options: FallbackExhaustedErrorOptions) {
+    super(message, options);
+  }
+}
 ```
 
-### Pattern 10: Idempotent Ledger Writes
+Fallback triggers include `"rate_limit"`, `"circuit_breaker_open"`, and `"upstream_error"`. If all candidates in the chain fail, `FallbackExhaustedError` is returned with full audit telemetry.
 
-Because Cloudflare Workers can retry tasks internally when using Queues or `ctx.waitUntil()`, all writes to the D1 billing ledger must be idempotent. We include a unique idempotent UUID in every cost payload. If the write fails and is retried, the unique ID ensures we do not double-bill the tenant. This is a foundational distributed systems pattern that prevents silent financial corruption.
+### 2.2 Circuit Breaker & Rate Limiter Configuration
 
-## Architectural Trade-offs Table
+Circuit breakers and rate limiters operate transactionally inside Durable Objects:
 
-There is no free lunch in systems design. Every architectural decision carries a cost. Here are the deliberate trade-offs we accepted in Key Collective v2.
+```typescript
+// src/durable_objects/circuit_breaker/types.ts & rate_limiter/types.ts
+export interface CircuitBreakerConfig {
+  failureThreshold: number;
+  recoveryTimeMs: number;
+  sampleWindowMs: number;
+}
 
-| Decision | What we gained | What we sacrificed (The Trade-off) |
+export interface CircuitBreakerOptions {
+  config?: CircuitBreakerConfig;
+  storage?: DurableObjectStorageLike;
+  timeProvider?: () => number;
+}
+
+export interface RateLimitConfig {
+  rpm: number;
+  tpm?: number;
+  windowSeconds: number;
+}
+
+export interface RateLimitEntry {
+  timestamp: number;
+  tokens: number;
+}
+
+export interface RateLimitCheckResult {
+  allowed: boolean;
+  remainingRpm: number;
+  retryAfterSeconds?: number;
+}
+
+export interface RateLimiterData {
+  entries: RateLimitEntry[];
+  lastRefillTimestamp: number;
+}
+
+export interface RateLimiterMetrics {
+  currentRpm: number;
+  peakRpm: number;
+  totalRequests: number;
+}
+
+export interface RateLimiterOptions {
+  config: RateLimitConfig;
+  storage?: DurableObjectStorageLike;
+}
+```
+
+Administrators can dynamically reset or override trips via `ProviderCircuitOverridePayload`.
+
+---
+
+## 3. Storage Repositories & Accounting Ledger
+
+Persistent database operations follow repository patterns that abstract Cloudflare D1 SQL queries into type-safe domain collections.
+
+### 3.1 Authentication & Credential Repositories
+
+```typescript
+// src/storage/repositories/
+export interface AuthTokenRepositoryConfig {
+  db: D1Database;
+  tableName?: string;
+}
+
+export interface AuthTokenRecord {
+  tokenHash: string;
+  tenantId: string;
+  tier: string;
+  createdAtUtc: string;
+  expiresAtUtc?: string | null;
+}
+
+export interface AuthTokenRow {
+  token_hash: string;
+  tenant_id: string;
+  tier: string;
+  created_at_utc: string;
+  expires_at_utc?: string | null;
+}
+
+export interface APIKeyRow {
+  key_id: string;
+  tenant_id: string;
+  provider: string;
+  ciphertext: string;
+  nonce: string;
+  tag: string;
+}
+
+export interface ApiKeyRepository {
+  createKey(input: CreateApiKeyInput): Promise<void>;
+  updateKey(input: UpdateApiKeyInput): Promise<void>;
+}
+
+export interface ApiKeysRepository extends ApiKeyRepository {}
+```
+
+### 3.2 Cost Accounting & Community Debt Ledger
+
+Financial accounting records every completion event immutably:
+
+```typescript
+// src/storage/repositories/cost_ledger/types.ts & src/quota/tenant/types.ts
+export interface CostBreakdown {
+  promptTokens: number;
+  completionTokens: number;
+  promptCostMicrodollars: bigint;
+  completionCostMicrodollars: bigint;
+  totalCostMicrodollars: bigint;
+}
+
+export interface CostLedgerEvent {
+  eventId: string;
+  tenantId: string;
+  model: string;
+  provider: string;
+  breakdown: CostBreakdown;
+  timestamp: number;
+}
+
+export interface CommunityDebtLedger {
+  tenantId: string;
+  contributedTokensMicrodollars: bigint;
+  consumedTokensMicrodollars: bigint;
+  netStandingMicrodollars: bigint;
+  standingTier: 'CREDITOR' | 'BALANCED' | 'DEBTOR' | 'RESTRICTED';
+}
+```
+
+If an invalid cost event is ingested (e.g. negative microdollar amounts), `InvalidCostLedgerEventError` is thrown, halting database corruption.
+
+---
+
+## 4. Frontend UI State & Developer Workbench Types
+
+The web dashboard and interactive documentation interface (`ui/src/lib/`) utilize strict types for client-side state:
+
+```typescript
+// ui/src/lib/types.ts
+export interface ModalState {
+  isOpen: boolean;
+  mode: 'create' | 'edit' | 'delete';
+  keyId?: string;
+}
+
+export interface KeyFormData {
+  label: string;
+  provider: string;
+  rawKey: string;
+  rpmLimit: number;
+}
+
+export interface ToastMessage {
+  id: string;
+  type: 'success' | 'warning' | 'error' | 'info';
+  message: string;
+}
+
+export interface ModelOption {
+  id: string;
+  provider: string;
+}
+
+export interface ModelPricingItem {
+  id: string;
+  owned_by: string;
+  routing_engine: string;
+  inputCost1kMicro: number;
+  outputCost1kMicro: number;
+  bulletClass: string;
+  isDeprecated: boolean;
+}
+
+export interface WorkbenchProps {
+  initialTenantId: string;
+  projects: Project[];
+  activeProject?: ExtendedProject;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface ExtendedProject extends Project {
+  apiKeysCount: number;
+  totalSpendMicrodollars: bigint;
+}
+
+export interface MaskedKeyParts {
+  prefix: string;
+  maskedMiddle: string;
+  suffix: string;
+}
+
+export type Milliseconds = number;
+```
+
+---
+
+## 5. Architectural Trade-offs Matrix
+
+| Architectural Decision | Advantages Gained | Incurred Cost / Trade-off |
 | :--- | :--- | :--- |
-| **In-memory DO vs Redis** | Zero-latency reads, strict tenant isolation, no external network hops for state. | DOs have a single point of concurrency per tenant. A single tenant cannot easily handle 10,000 concurrent requests without careful sharding logic, whereas Redis scales horizontally. |
-| **D1 SQLite vs Postgres** | Native edge integration, zero connection pooling issues, globally distributed reads. | SQLite lacks advanced JSON indexing and concurrent write throughput compared to a tuned Postgres cluster. Writes are funneled through a single primary region, leading to write latency. |
-| **Edge Streaming vs Buffering** | Unbeatable Time-To-First-Token (TTFT), extremely low memory footprint on the worker. | Calculating exact token usage requires custom stream interceptors (`SSEStreamTransformer`) because we can't just count the final string length. If the connection drops mid-stream, precise billing gets complicated. |
-| **Strict TypeScript (`noImplicitAny`)** | Confidence in refactoring, self-documenting data contracts, far fewer runtime crashes. | Higher friction during rapid prototyping. You cannot simply pass arbitrary JSON objects around; everything must go through a validator first, slowing down initial development speed. |
-
-## Beginner Traps and Gotchas
-
-If you are new to this codebase, watch out for these very common pitfalls that have burned developers before:
-
-1. **Awaiting `waitUntil`**: A common mistake is writing `await ctx.waitUntil(...)`. This defeats the entire purpose. `waitUntil` takes a promise, but you should not `await` the `waitUntil` call itself. It turns non-blocking code into blocking code.
-2. **Floating Point Math in UI**: You might see microdollars in the backend, but forget to divide by 1,000,000 in the frontend UI. Always ensure the presentation layer formats the `int64` correctly, otherwise a $5.00 charge will display as a $5,000,000 charge.
-3. **Global State in Workers**: Do not use `let` or `const` outside of the request handler to store tenant data. Workers are reused across requests. Global variables will leak data between different requests and entirely different tenants. Always use the Durable Object for state.
-4. **Swallowing Upstream Errors**: When an LLM provider fails, do not just return a generic 500 status code. The `CascadeRouter` needs the specific status code (429 vs 500) to know whether it should retry the same provider later or switch entirely. Always propagate the specific error type to the routing layer.
-5. **Ignoring Memory Leaks in Transforms**: If your `SSEStreamTransformer` maintains internal arrays that grow indefinitely during a stream, a sufficiently long AI response will OOM the edge worker. Ensure transformations are purely stream-based without unbounded accumulations.
-6. **Bypassing the Contract Layer**: Bypassing the Zod validation in `src/contracts` by using `any` or `as type` is strictly forbidden. It defeats the type safety guarantees and re-introduces the class of runtime bugs we explicitly architected this system to eliminate.
-
-By internalizing these patterns and trade-offs, you will write code that feels native to the Key Collective environment and avoids introducing systemic risk.
-
-### Final Words
-These patterns form the bedrock of the Key Collective architecture. Straying from them should only be done with significant, documented justification.
+| **In-Memory DO Actor State vs Global Redis** | Zero-latency reads, linearizable per-tenant consistency, no cross-region network hops. | Concurrency is bounded to a single DO instance per tenant. High parallelism requires sharding. |
+| **D1 SQLite vs External PostgreSQL** | Zero connection pool exhaustion, native edge binding, zero maintenance overhead. | Write operations serialize through primary region, creating slight write latency for bulk ledger writes. |
+| **Fixed-Point Microdollars vs IEEE Floats** | Absolute mathematical precision, zero drift across millions of transactions, audit certainty. | Requires BigInt serialization logic when persisting to JSON/SQL, preventing direct float math. |
+| **Edge Stream Interception vs Buffering** | Ultra-low TTFT, bounded worker memory consumption, smooth streaming UX. | Usage metadata extraction must inspect raw SSE stream frames dynamically before connection closes. |

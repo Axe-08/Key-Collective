@@ -1,91 +1,56 @@
 {
   "project_name": "key-collective",
-  "total_files": 87,
-  "total_loc": 36262,
-  "total_classes": 214,
-  "total_functions": 172,
+  "total_files": 278,
+  "total_loc": 59177,
+  "total_classes": 347,
+  "total_functions": 316,
   "classes": [
     {
-      "name": "ProxyServer",
-      "file": "internal/proxy/handler.go",
-      "line": 16,
+      "name": "TimeSeriesData",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 9,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "KeyManager",
-      "file": "internal/proxy/manager.go",
-      "line": 12,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DB",
-      "file": "internal/db/sqlite.go",
+      "name": "StreamStatus",
+      "file": "ui/src/lib/TelemetryCharts.ts",
       "line": 14,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "APIKey",
-      "file": "internal/domain/contracts.go",
-      "line": 22,
+      "name": "ChartStats",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 16,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "RequestLog",
-      "file": "internal/domain/contracts.go",
-      "line": 45,
+      "name": "TelemetryChartOptions",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 24,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "ProxyStats",
-      "file": "internal/domain/contracts.go",
-      "line": 56,
+      "name": "ChartSubscriber",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 30,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "KeyResponse",
-      "file": "internal/api/handler.go",
-      "line": 19,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CreateKeyRequest",
-      "file": "internal/api/handler.go",
+      "name": "StatusSubscriber",
+      "file": "ui/src/lib/TelemetryCharts.ts",
       "line": 31,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "ErrorResponse",
-      "file": "internal/api/handler.go",
-      "line": 40,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "MessageResponse",
-      "file": "internal/api/handler.go",
-      "line": 44,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "TestKeyResponse",
-      "file": "internal/api/handler.go",
-      "line": 49,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "Handler",
-      "file": "internal/api/handler.go",
-      "line": 55,
+      "name": "TelemetryStreamChart",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 36,
       "docstring": "",
       "methods": []
     },
@@ -104,37 +69,184 @@
       "methods": []
     },
     {
-      "name": "APIKey",
+      "name": "PoolType",
       "file": "ui/src/lib/types.ts",
       "line": 5,
       "docstring": "",
       "methods": []
     },
     {
+      "name": "CommunityRoutingStatus",
+      "file": "ui/src/lib/types.ts",
+      "line": 6,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "APIKey",
+      "file": "ui/src/lib/types.ts",
+      "line": 8,
+      "docstring": "",
+      "methods": []
+    },
+    {
       "name": "RequestLog",
       "file": "ui/src/lib/types.ts",
-      "line": 23,
+      "line": 34,
       "docstring": "",
       "methods": []
     },
     {
       "name": "PoolStats",
       "file": "ui/src/lib/types.ts",
-      "line": 35,
+      "line": 46,
       "docstring": "",
       "methods": []
     },
     {
       "name": "CreateKeyPayload",
       "file": "ui/src/lib/types.ts",
-      "line": 49,
+      "line": 60,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "GlobalPoolTelemetry",
+      "file": "ui/src/lib/types.ts",
+      "line": 73,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProviderPoolMetrics",
+      "file": "ui/src/lib/types.ts",
+      "line": 82,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContributorStanding",
+      "file": "ui/src/lib/types.ts",
+      "line": 93,
       "docstring": "",
       "methods": []
     },
     {
       "name": "ToastMessage",
       "file": "ui/src/lib/types.ts",
-      "line": 58,
+      "line": 103,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "Microdollars",
+      "file": "ui/src/lib/types.ts",
+      "line": 109,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DebtEntry",
+      "file": "ui/src/lib/types.ts",
+      "line": 121,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ExtendedProject",
+      "file": "ui/src/lib/workbench/types.ts",
+      "line": 9,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ExtendedKey",
+      "file": "ui/src/lib/workbench/types.ts",
+      "line": 17,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TierMatrixItem",
+      "file": "ui/src/lib/workbench/types.ts",
+      "line": 23,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "WorkbenchProps",
+      "file": "ui/src/lib/workbench/types.ts",
+      "line": 36,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProviderFilter",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "line": 6,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelOption",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "line": 8,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelPricingItem",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "line": 13,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ResponseChunk",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "line": 26,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PKCEBundle",
+      "file": "ui/src/lib/oauth/pkce.ts",
+      "line": 45,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptedPayload",
+      "file": "ui/src/lib/add_key/crypto.ts",
+      "line": 38,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyType",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 8,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyFormData",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 10,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModalState",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 15,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StateListener",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 29,
       "docstring": "",
       "methods": []
     },
@@ -176,14 +288,21 @@
     {
       "name": "KeyMetrics",
       "file": "src/contracts/key_pool.ts",
-      "line": 16,
+      "line": 22,
       "docstring": "",
       "methods": []
     },
     {
       "name": "KeyPoolContract",
       "file": "src/contracts/key_pool.ts",
-      "line": 22,
+      "line": 28,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CanonicalProvider",
+      "file": "src/contracts/providers.ts",
+      "line": 2,
       "docstring": "",
       "methods": []
     },
@@ -223,44 +342,247 @@
       "methods": []
     },
     {
-      "name": "MaskedKeyParts",
-      "file": "src/constants/crypto.ts",
-      "line": 71,
+      "name": "Microdollars",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 7,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "EncryptedData",
-      "file": "src/crypto/encryption.ts",
-      "line": 35,
+      "name": "Milliseconds",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 8,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "EncryptedPayload",
-      "file": "src/crypto/encryption.ts",
+      "name": "EdgeSubdomain",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 11,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "HostRouteDecision",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 13,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PublicTier",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 24,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InternalTier",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 25,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TierCapabilities",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 27,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UserIdentity",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 38,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PublicUserProfile",
+      "file": "src/contracts/v3_5_types.ts",
       "line": 54,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "KeyInput",
-      "file": "src/crypto/encryption.ts",
-      "line": 65,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "PlaintextInput",
-      "file": "src/crypto/encryption.ts",
+      "name": "SybilProofResult",
+      "file": "src/contracts/v3_5_types.ts",
       "line": 70,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "CiphertextInput",
-      "file": "src/crypto/encryption.ts",
-      "line": 77,
+      "name": "TenantSurveillanceRow",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 86,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AdminActionPayload",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 99,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProviderCircuitOverridePayload",
+      "file": "src/contracts/v3_5_types.ts",
+      "line": 107,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UserTier",
+      "file": "src/contracts/v3_types.ts",
+      "line": 15,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TierLimits",
+      "file": "src/contracts/v3_types.ts",
+      "line": 27,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UserAccount",
+      "file": "src/contracts/v3_types.ts",
+      "line": 98,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AntiSybilAssessment",
+      "file": "src/contracts/v3_types.ts",
+      "line": 117,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "Project",
+      "file": "src/contracts/v3_types.ts",
+      "line": 135,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProjectKey",
+      "file": "src/contracts/v3_types.ts",
+      "line": 150,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoSession",
+      "file": "src/contracts/v3_types.ts",
+      "line": 165,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "OAuthProviderConfig",
+      "file": "src/contracts/v3_types.ts",
+      "line": 176,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "OAuthUserProfile",
+      "file": "src/contracts/v3_types.ts",
+      "line": 191,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "OAuthTokenResponse",
+      "file": "src/contracts/v3_types.ts",
+      "line": 202,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "JWTPayload",
+      "file": "src/contracts/v3_types.ts",
+      "line": 216,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SybilScore",
+      "file": "src/contracts/v3_types.ts",
+      "line": 231,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoSessionState",
+      "file": "src/contracts/v3_types.ts",
+      "line": 254,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ConsentAttestation",
+      "file": "src/contracts/v4_types.ts",
+      "line": 11,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiKey",
+      "file": "src/contracts/v4_types.ts",
+      "line": 32,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CommunityDebtLedger",
+      "file": "src/contracts/v4_types.ts",
+      "line": 45,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContributorStanding",
+      "file": "src/contracts/v4_types.ts",
+      "line": 55,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RoutingDecision",
+      "file": "src/contracts/v4_types.ts",
+      "line": 73,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TakedownReport",
+      "file": "src/contracts/v4_types.ts",
+      "line": 81,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PoolMetrics",
+      "file": "src/contracts/v4_types.ts",
+      "line": 94,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProjectHashRegistry",
+      "file": "src/contracts/v4_types.ts",
+      "line": 104,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "MaskedKeyParts",
+      "file": "src/constants/crypto.ts",
+      "line": 71,
       "docstring": "",
       "methods": []
     },
@@ -272,163 +594,254 @@
       "methods": []
     },
     {
-      "name": "CircuitBreakerState",
-      "file": "src/durable_objects/circuit_breaker.ts",
+      "name": "EncryptionService",
+      "file": "src/crypto/encryption/aes.ts",
+      "line": 267,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyInput",
+      "file": "src/crypto/encryption/types.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptedPayload",
+      "file": "src/crypto/encryption/types.ts",
+      "line": 17,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EncryptedPayloadInput",
+      "file": "src/crypto/encryption/types.ts",
       "line": 29,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "CircuitBreakerData",
-      "file": "src/durable_objects/circuit_breaker.ts",
-      "line": 40,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CircuitBreakerOptions",
-      "file": "src/durable_objects/circuit_breaker.ts",
-      "line": 52,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DurableObjectStorageLike",
-      "file": "src/durable_objects/circuit_breaker.ts",
-      "line": 73,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CircuitBreaker",
-      "file": "src/durable_objects/circuit_breaker.ts",
-      "line": 151,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "KeyPoolDOEnv",
-      "file": "src/durable_objects/key_pool_do.ts",
-      "line": 46,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "KeyPoolDOOptions",
-      "file": "src/durable_objects/key_pool_do.ts",
-      "line": 56,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DurableObjectStateLike",
-      "file": "src/durable_objects/key_pool_do.ts",
-      "line": 76,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "KeyPoolDO",
-      "file": "src/durable_objects/key_pool_do.ts",
-      "line": 110,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "SelectableKey",
-      "file": "src/durable_objects/key_selector.ts",
+      "name": "CryptoConfig",
+      "file": "src/crypto/encryption/types.ts",
       "line": 37,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "KeySelectionStrategy",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 53,
+      "name": "EncryptedKey",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 44,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "KeySelectorOptions",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 64,
+      "name": "KeyPoolContract",
+      "file": "src/durable_objects/key_pool.ts",
+      "line": 33,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "SelectKeyOptions",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 86,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "KeyTriageItem",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 102,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "KeyTriageResult",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 123,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CapacitySummary",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 137,
+      "name": "KeyPool",
+      "file": "src/durable_objects/key_pool.ts",
+      "line": 43,
       "docstring": "",
       "methods": []
     },
     {
       "name": "KeySelector",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 167,
+      "file": "src/durable_objects/key_selector/selector.ts",
+      "line": 42,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "RateLimitEntry",
-      "file": "src/durable_objects/rate_limiter.ts",
+      "name": "StrategyContext",
+      "file": "src/durable_objects/key_selector/strategies.ts",
+      "line": 9,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TriageContext",
+      "file": "src/durable_objects/key_selector/triage.ts",
+      "line": 38,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SelectableKey",
+      "file": "src/durable_objects/key_selector/types.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeySelectionStrategy",
+      "file": "src/durable_objects/key_selector/types.ts",
+      "line": 35,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeySelectorOptions",
+      "file": "src/durable_objects/key_selector/types.ts",
+      "line": 46,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SelectKeyOptions",
+      "file": "src/durable_objects/key_selector/types.ts",
+      "line": 68,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyTriageItem",
+      "file": "src/durable_objects/key_selector/types.ts",
+      "line": 84,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyTriageResult",
+      "file": "src/durable_objects/key_selector/types.ts",
+      "line": 105,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapacitySummary",
+      "file": "src/durable_objects/key_selector/types.ts",
+      "line": 119,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolDO",
+      "file": "src/durable_objects/key_pool/key_pool_do.ts",
+      "line": 39,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolRpcHandlerContext",
+      "file": "src/durable_objects/key_pool/rpc.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolDOEnv",
+      "file": "src/durable_objects/key_pool/types.ts",
+      "line": 17,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "KeyPoolDOOptions",
+      "file": "src/durable_objects/key_pool/types.ts",
+      "line": 27,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStateLike",
+      "file": "src/durable_objects/key_pool/types.ts",
       "line": 47,
       "docstring": "",
       "methods": []
     },
     {
+      "name": "RateLimiter",
+      "file": "src/durable_objects/rate_limiter/limiter.ts",
+      "line": 33,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RateLimitEntry",
+      "file": "src/durable_objects/rate_limiter/types.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
       "name": "RateLimiterData",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 56,
+      "file": "src/durable_objects/rate_limiter/types.ts",
+      "line": 28,
       "docstring": "",
       "methods": []
     },
     {
       "name": "RateLimiterOptions",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 65,
+      "file": "src/durable_objects/rate_limiter/types.ts",
+      "line": 37,
       "docstring": "",
       "methods": []
     },
     {
       "name": "RateLimitCheckResult",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 89,
+      "file": "src/durable_objects/rate_limiter/types.ts",
+      "line": 61,
       "docstring": "",
       "methods": []
     },
     {
       "name": "RateLimiterMetrics",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 104,
+      "file": "src/durable_objects/rate_limiter/types.ts",
+      "line": 76,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "RateLimiter",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 160,
+      "name": "CircuitBreaker",
+      "file": "src/durable_objects/circuit_breaker/breaker.ts",
+      "line": 40,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StateTransitionResult",
+      "file": "src/durable_objects/circuit_breaker/state_machine.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerStorage",
+      "file": "src/durable_objects/circuit_breaker/storage.ts",
+      "line": 13,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerState",
+      "file": "src/durable_objects/circuit_breaker/types.ts",
+      "line": 16,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerData",
+      "file": "src/durable_objects/circuit_breaker/types.ts",
+      "line": 27,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CircuitBreakerOptions",
+      "file": "src/durable_objects/circuit_breaker/types.ts",
+      "line": 39,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStorageLike",
+      "file": "src/durable_objects/circuit_breaker/types.ts",
+      "line": 60,
       "docstring": "",
       "methods": []
     },
@@ -720,422 +1133,541 @@
       "methods": []
     },
     {
-      "name": "StreamUsage",
-      "file": "src/proxy/sse_transformer.ts",
-      "line": 26,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "SSEEvent",
-      "file": "src/proxy/sse_transformer.ts",
-      "line": 52,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "StreamMetadata",
-      "file": "src/proxy/sse_transformer.ts",
-      "line": 68,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "SSEStreamTransformerOptions",
-      "file": "src/proxy/sse_transformer.ts",
-      "line": 94,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "SSEStreamTransformer",
-      "file": "src/proxy/sse_transformer.ts",
-      "line": 345,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpstreamClientOptions",
-      "file": "src/proxy/upstream_client.ts",
-      "line": 105,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpstreamRequest",
-      "file": "src/proxy/upstream_client.ts",
-      "line": 147,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpstreamResponse",
-      "file": "src/proxy/upstream_client.ts",
-      "line": 181,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpstreamChatRequest",
-      "file": "src/proxy/upstream_client.ts",
-      "line": 212,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpstreamChatResponse",
-      "file": "src/proxy/upstream_client.ts",
-      "line": 240,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpstreamClient",
-      "file": "src/proxy/upstream_client.ts",
-      "line": 608,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CapabilityRequirements",
-      "file": "src/router/capability_filter.ts",
-      "line": 25,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CapabilityCheckResult",
-      "file": "src/router/capability_filter.ts",
-      "line": 49,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ModelSortStrategy",
-      "file": "src/router/capability_filter.ts",
-      "line": 63,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "FilterOptions",
-      "file": "src/router/capability_filter.ts",
-      "line": 68,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "RequirementExtractionOptions",
-      "file": "src/router/capability_filter.ts",
-      "line": 78,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CapabilityFilter",
-      "file": "src/router/capability_filter.ts",
-      "line": 119,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CascadeRouteRequest",
-      "file": "src/router/cascade_router.ts",
-      "line": 52,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CascadeRouteResponse",
-      "file": "src/router/cascade_router.ts",
-      "line": 101,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CascadeRouterOptions",
-      "file": "src/router/cascade_router.ts",
-      "line": 123,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CascadeRouter",
-      "file": "src/router/cascade_router.ts",
-      "line": 211,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ContextWindowExceededErrorOptions",
-      "file": "src/router/model_registry.ts",
-      "line": 41,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ContextWindowExceededError",
-      "file": "src/router/model_registry.ts",
-      "line": 52,
-      "docstring": "",
-      "methods": []
-    },
-    {
       "name": "TokenUsage",
-      "file": "src/router/model_registry.ts",
-      "line": 106,
+      "file": "src/proxy/cost_calculator.ts",
+      "line": 12,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "CostBreakdown",
-      "file": "src/router/model_registry.ts",
-      "line": 120,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ContextValidationResult",
-      "file": "src/router/model_registry.ts",
-      "line": 136,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ModelFilterCriteria",
-      "file": "src/router/model_registry.ts",
-      "line": 158,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ModelRegistryOptions",
-      "file": "src/router/model_registry.ts",
-      "line": 178,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "IModelRegistry",
-      "file": "src/router/model_registry.ts",
-      "line": 188,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ModelRegistry",
-      "file": "src/router/model_registry.ts",
-      "line": 420,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "APIKeyRow",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 51,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CreateApiKeyInput",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 72,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "InsertEncryptedApiKeyInput",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 100,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpdateApiKeyInput",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 136,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ListApiKeysOptions",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 156,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CountApiKeysOptions",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 170,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ApiKeyRepository",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 204,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ApiKeysRepository",
-      "file": "src/storage/repositories/apiKeys.ts",
-      "line": 984,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthTokenRow",
-      "file": "src/storage/repositories/authTokens.ts",
-      "line": 36,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthTokenRecord",
-      "file": "src/storage/repositories/authTokens.ts",
-      "line": 53,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CreateAuthTokenParams",
-      "file": "src/storage/repositories/authTokens.ts",
-      "line": 81,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthTokenRepositoryConfig",
-      "file": "src/storage/repositories/authTokens.ts",
-      "line": 105,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "TokenValidationResult",
-      "file": "src/storage/repositories/authTokens.ts",
-      "line": 113,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "UpdateAuthTokenParams",
-      "file": "src/storage/repositories/authTokens.ts",
-      "line": 125,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthTokensRepository",
-      "file": "src/storage/repositories/authTokens.ts",
-      "line": 178,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CostLedgerError",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 24,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "InvalidCostLedgerEventError",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 40,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "TenantIsolationViolationError",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 56,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CostLedgerEventInput",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 72,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DailySpendRollup",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 107,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DailySpendRollupInput",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 127,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ListCostEventsOptions",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 143,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ListDailyRollupsOptions",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 165,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "TenantSpendSummary",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 185,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "CostLedgerRepository",
-      "file": "src/storage/repositories/costLedger.ts",
-      "line": 403,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "ModelRegistryRow",
-      "file": "src/storage/repositories/modelRegistry.ts",
+      "name": "ModelPricing",
+      "file": "src/proxy/cost_calculator.ts",
       "line": 18,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "ModelFilterOptions",
-      "file": "src/storage/repositories/modelRegistry.ts",
-      "line": 39,
+      "name": "CostBreakdown",
+      "file": "src/proxy/cost_calculator.ts",
+      "line": 23,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "ModelCapabilitiesFilter",
-      "file": "src/storage/repositories/modelRegistry.ts",
-      "line": 67,
+      "name": "UpstreamClient",
+      "file": "src/proxy/upstream/client.ts",
+      "line": 49,
       "docstring": "",
       "methods": []
     },
     {
-      "name": "IModelRegistryRepository",
-      "file": "src/storage/repositories/modelRegistry.ts",
-      "line": 89,
+      "name": "UpstreamClientOptions",
+      "file": "src/proxy/upstream/types.ts",
+      "line": 81,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamRequest",
+      "file": "src/proxy/upstream/types.ts",
+      "line": 140,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamResponse",
+      "file": "src/proxy/upstream/types.ts",
+      "line": 174,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamChatRequest",
+      "file": "src/proxy/upstream/types.ts",
+      "line": 205,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpstreamChatResponse",
+      "file": "src/proxy/upstream/types.ts",
+      "line": 233,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SSEStreamTransformer",
+      "file": "src/proxy/sse/transformer.ts",
+      "line": 20,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StreamUsage",
+      "file": "src/proxy/sse/types.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SSEEvent",
+      "file": "src/proxy/sse/types.ts",
+      "line": 38,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StreamMetadata",
+      "file": "src/proxy/sse/types.ts",
+      "line": 54,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SSEStreamTransformerOptions",
+      "file": "src/proxy/sse/types.ts",
+      "line": 80,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContextWindowExceededErrorOptions",
+      "file": "src/router/registry/errors.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContextWindowExceededError",
+      "file": "src/router/registry/errors.ts",
+      "line": 25,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRegistry",
+      "file": "src/router/registry/registry.ts",
+      "line": 47,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TokenUsage",
+      "file": "src/router/registry/types.ts",
+      "line": 18,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostBreakdown",
+      "file": "src/router/registry/types.ts",
+      "line": 32,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ContextValidationResult",
+      "file": "src/router/registry/types.ts",
+      "line": 48,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelFilterCriteria",
+      "file": "src/router/registry/types.ts",
+      "line": 70,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRegistryOptions",
+      "file": "src/router/registry/types.ts",
+      "line": 90,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "IModelRegistry",
+      "file": "src/router/registry/types.ts",
+      "line": 100,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityFilter",
+      "file": "src/router/capability/filter.ts",
+      "line": 26,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityRequirements",
+      "file": "src/router/capability/types.ts",
+      "line": 11,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CapabilityCheckResult",
+      "file": "src/router/capability/types.ts",
+      "line": 35,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelSortStrategy",
+      "file": "src/router/capability/types.ts",
+      "line": 49,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FilterOptions",
+      "file": "src/router/capability/types.ts",
+      "line": 54,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RequirementExtractionOptions",
+      "file": "src/router/capability/types.ts",
+      "line": 64,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CandidateResolutionContext",
+      "file": "src/router/cascade/evaluator.ts",
+      "line": 37,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "FallbackExecutionContext",
+      "file": "src/router/cascade/fallback.ts",
+      "line": 36,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouter",
+      "file": "src/router/cascade/router.ts",
+      "line": 53,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouteRequest",
+      "file": "src/router/cascade/types.ts",
+      "line": 22,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouteResponse",
+      "file": "src/router/cascade/types.ts",
+      "line": 73,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CascadeRouterOptions",
+      "file": "src/router/cascade/types.ts",
+      "line": 97,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StoredMetrics",
+      "file": "src/storage/do.ts",
+      "line": 26,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DOStorageAdapter",
+      "file": "src/storage/do.ts",
+      "line": 36,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerError",
+      "file": "src/storage/repositories/cost_ledger/errors.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InvalidCostLedgerEventError",
+      "file": "src/storage/repositories/cost_ledger/errors.ts",
+      "line": 30,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantIsolationViolationError",
+      "file": "src/storage/repositories/cost_ledger/errors.ts",
+      "line": 46,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerRepository",
+      "file": "src/storage/repositories/cost_ledger/repository.ts",
+      "line": 45,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerEventInput",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DailySpendRollup",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 54,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DailySpendRollupInput",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 74,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ListCostEventsOptions",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 90,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ListDailyRollupsOptions",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 112,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantSpendSummary",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 132,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerDbRow",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 144,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DailySpendRollupDbRow",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 164,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AggregateDbRow",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 177,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ReconcileRollupDbRow",
+      "file": "src/storage/repositories/cost_ledger/types.ts",
+      "line": 187,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiKeyRepository",
+      "file": "src/storage/repositories/api_keys/repository.ts",
+      "line": 55,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ApiKeysRepository",
+      "file": "src/storage/repositories/api_keys/repository.ts",
+      "line": 683,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "APIKeyRow",
+      "file": "src/storage/repositories/api_keys/types.ts",
+      "line": 12,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateApiKeyInput",
+      "file": "src/storage/repositories/api_keys/types.ts",
+      "line": 41,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InsertEncryptedApiKeyInput",
+      "file": "src/storage/repositories/api_keys/types.ts",
+      "line": 69,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpdateApiKeyInput",
+      "file": "src/storage/repositories/api_keys/types.ts",
+      "line": 105,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ListApiKeysOptions",
+      "file": "src/storage/repositories/api_keys/types.ts",
+      "line": 125,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CountApiKeysOptions",
+      "file": "src/storage/repositories/api_keys/types.ts",
+      "line": 139,
       "docstring": "",
       "methods": []
     },
     {
       "name": "ModelRegistryRepository",
-      "file": "src/storage/repositories/modelRegistry.ts",
-      "line": 241,
+      "file": "src/storage/repositories/model_registry/repository.ts",
+      "line": 15,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRegistryRow",
+      "file": "src/storage/repositories/model_registry/types.ts",
+      "line": 6,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelFilterOptions",
+      "file": "src/storage/repositories/model_registry/types.ts",
+      "line": 27,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelCapabilitiesFilter",
+      "file": "src/storage/repositories/model_registry/types.ts",
+      "line": 55,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "IModelRegistryRepository",
+      "file": "src/storage/repositories/model_registry/types.ts",
+      "line": 77,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokensRepository",
+      "file": "src/storage/repositories/auth_tokens/repository.ts",
+      "line": 24,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "Microdollars",
+      "file": "src/storage/repositories/auth_tokens/types.ts",
+      "line": 7,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokenRow",
+      "file": "src/storage/repositories/auth_tokens/types.ts",
+      "line": 13,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokenRecord",
+      "file": "src/storage/repositories/auth_tokens/types.ts",
+      "line": 30,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateAuthTokenParams",
+      "file": "src/storage/repositories/auth_tokens/types.ts",
+      "line": 58,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthTokenRepositoryConfig",
+      "file": "src/storage/repositories/auth_tokens/types.ts",
+      "line": 82,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TokenValidationResult",
+      "file": "src/storage/repositories/auth_tokens/types.ts",
+      "line": 90,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "UpdateAuthTokenParams",
+      "file": "src/storage/repositories/auth_tokens/types.ts",
+      "line": 102,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "D1StorageAdapter",
+      "file": "src/storage/d1/adapter.ts",
+      "line": 23,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantMetrics",
+      "file": "src/storage/d1/types.ts",
+      "line": 11,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DailySpendRollupRecord",
+      "file": "src/storage/d1/types.ts",
+      "line": 18,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RollupInput",
+      "file": "src/storage/d1/types.ts",
+      "line": 28,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CostLedgerRecordInput",
+      "file": "src/storage/d1/types.ts",
+      "line": 38,
       "docstring": "",
       "methods": []
     },
@@ -1345,133 +1877,14 @@
     {
       "name": "RouterDecision",
       "file": "src/types/models.ts",
-      "line": 189,
+      "line": 205,
       "docstring": "",
       "methods": []
     },
     {
       "name": "CostLedgerEvent",
       "file": "src/types/models.ts",
-      "line": 206,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "WorkerEnv",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 45,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthenticatedContext",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 57,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthMiddlewareOptions",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 81,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthMiddlewareSuccess",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 112,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthMiddlewareFailure",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 122,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthMiddlewareResult",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 132,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "InMemoryRateLimiterStorage",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 141,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "AuthMiddleware",
-      "file": "src/worker/auth_middleware.ts",
-      "line": 340,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "HealthResponse",
-      "file": "src/worker/index.ts",
-      "line": 50,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "WorkerOptions",
-      "file": "src/worker/index.ts",
-      "line": 71,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "MainWorker",
-      "file": "src/worker/index.ts",
-      "line": 105,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "RouterError",
-      "file": "src/worker/router_handler.ts",
-      "line": 100,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DurableObjectStubLike",
-      "file": "src/worker/router_handler.ts",
-      "line": 113,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DurableObjectNamespaceLike",
-      "file": "src/worker/router_handler.ts",
-      "line": 130,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "DurableObjectKeyPoolClient",
-      "file": "src/worker/router_handler.ts",
-      "line": 139,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "RouterHandlerOptions",
-      "file": "src/worker/router_handler.ts",
-      "line": 399,
-      "docstring": "",
-      "methods": []
-    },
-    {
-      "name": "RouterHandler",
-      "file": "src/worker/router_handler.ts",
-      "line": 438,
+      "line": 222,
       "docstring": "",
       "methods": []
     },
@@ -1502,308 +1915,770 @@
       "line": 215,
       "docstring": "",
       "methods": []
+    },
+    {
+      "name": "DurableObjectKeyPoolClient",
+      "file": "src/worker/router/do_client.ts",
+      "line": 24,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterError",
+      "file": "src/worker/router/errors.ts",
+      "line": 17,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ModelRoutesHandler",
+      "file": "src/worker/router/model_routes.ts",
+      "line": 11,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterHandler",
+      "file": "src/worker/router/router_handler.ts",
+      "line": 32,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStubLike",
+      "file": "src/worker/router/types.ts",
+      "line": 22,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectNamespaceLike",
+      "file": "src/worker/router/types.ts",
+      "line": 39,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterHandlerOptions",
+      "file": "src/worker/router/types.ts",
+      "line": 47,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DashboardRouter",
+      "file": "src/worker/router/dashboard/handler.ts",
+      "line": 35,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ProjectRecord",
+      "file": "src/worker/router/dashboard/project_routes.ts",
+      "line": 17,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TokenSummary",
+      "file": "src/worker/router/dashboard/token_routes.ts",
+      "line": 20,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CreateTokenBody",
+      "file": "src/worker/router/dashboard/token_routes.ts",
+      "line": 32,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DispatchParams",
+      "file": "src/worker/router/core/dispatcher.ts",
+      "line": 29,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "RouterContextResolver",
+      "file": "src/worker/router/core/resolver.ts",
+      "line": 28,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ChatHandler",
+      "file": "src/worker/router/chat/handler.ts",
+      "line": 22,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ChatHandlerDependencies",
+      "file": "src/worker/router/chat/types.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "MainWorker",
+      "file": "src/worker/gateway/main_worker.ts",
+      "line": 25,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "HealthResponse",
+      "file": "src/worker/gateway/types.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "WorkerOptions",
+      "file": "src/worker/gateway/types.ts",
+      "line": 35,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddleware",
+      "file": "src/worker/auth/middleware.ts",
+      "line": 79,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InMemoryRateLimiterStorage",
+      "file": "src/worker/auth/storage.ts",
+      "line": 13,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "WorkerEnv",
+      "file": "src/worker/auth/types.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthenticatedContext",
+      "file": "src/worker/auth/types.ts",
+      "line": 35,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareOptions",
+      "file": "src/worker/auth/types.ts",
+      "line": 59,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareSuccess",
+      "file": "src/worker/auth/types.ts",
+      "line": 92,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareFailure",
+      "file": "src/worker/auth/types.ts",
+      "line": 102,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthMiddlewareResult",
+      "file": "src/worker/auth/types.ts",
+      "line": 112,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SybilBotDetectedError",
+      "file": "src/auth/sybil/errors.ts",
+      "line": 7,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SybilDisposableIdentityError",
+      "file": "src/auth/sybil/errors.ts",
+      "line": 19,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SubnetQuotaExceededError",
+      "file": "src/auth/sybil/errors.ts",
+      "line": 31,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "GitHubMaturityProfile",
+      "file": "src/auth/sybil/types.ts",
+      "line": 10,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AntiSybilInput",
+      "file": "src/auth/sybil/types.ts",
+      "line": 26,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TurnstileVerificationResult",
+      "file": "src/auth/sybil/types.ts",
+      "line": 38,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SubnetTracker",
+      "file": "src/auth/sybil/types.ts",
+      "line": 45,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "EvaluateAntiSybilOptions",
+      "file": "src/auth/sybil/types.ts",
+      "line": 51,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CfBotManagementLike",
+      "file": "src/auth/sybil/types.ts",
+      "line": 58,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CfPropertiesLike",
+      "file": "src/auth/sybil/types.ts",
+      "line": 63,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SybilUserInput",
+      "file": "src/auth/sybil/types.ts",
+      "line": 70,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SybilRequestInput",
+      "file": "src/auth/sybil/types.ts",
+      "line": 99,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "SybilScoreResult",
+      "file": "src/auth/sybil/types.ts",
+      "line": 116,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "InMemorySubnetTracker",
+      "file": "src/auth/sybil/utils.ts",
+      "line": 101,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "AuthorizationUrlOptions",
+      "file": "src/auth/oauth/types.ts",
+      "line": 23,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "OAuthLoginOptions",
+      "file": "src/auth/oauth/types.ts",
+      "line": 32,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "OAuthLoginResult",
+      "file": "src/auth/oauth/types.ts",
+      "line": 41,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PKCEPair",
+      "file": "src/auth/oauth/types.ts",
+      "line": 48,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "OAuthStatePair",
+      "file": "src/auth/oauth/types.ts",
+      "line": 54,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "OAuthProviderPreset",
+      "file": "src/auth/oauth/types.ts",
+      "line": 59,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoDO",
+      "file": "src/auth/demo/do.ts",
+      "line": 41,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoSandboxConfig",
+      "file": "src/auth/demo/sandbox.ts",
+      "line": 75,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoSandbox",
+      "file": "src/auth/demo/sandbox.ts",
+      "line": 86,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "StoredDemoTokenData",
+      "file": "src/auth/demo/storage.ts",
+      "line": 11,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoStorage",
+      "file": "src/auth/demo/storage.ts",
+      "line": 16,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoDOStorageLike",
+      "file": "src/auth/demo/types.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStateLike",
+      "file": "src/auth/demo/types.ts",
+      "line": 31,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "IpWindowData",
+      "file": "src/auth/demo/types.ts",
+      "line": 44,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoRateLimitResult",
+      "file": "src/auth/demo/types.ts",
+      "line": 64,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DemoDOOptions",
+      "file": "src/auth/demo/types.ts",
+      "line": 79,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ActiveDemoToken",
+      "file": "src/auth/demo/types.ts",
+      "line": 97,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TokenValidationResult",
+      "file": "src/auth/demo/types.ts",
+      "line": 105,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "CheckAndConsumeResult",
+      "file": "src/auth/demo/types.ts",
+      "line": 113,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DebtState",
+      "file": "src/quota/tenant/debt.ts",
+      "line": 5,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "QuotaEvaluationContext",
+      "file": "src/quota/tenant/evaluator.ts",
+      "line": 10,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantQuotaDO",
+      "file": "src/quota/tenant/tenant_do.ts",
+      "line": 40,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObjectStateLike",
+      "file": "src/quota/tenant/types.ts",
+      "line": 14,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "DurableObject",
+      "file": "src/quota/tenant/types.ts",
+      "line": 28,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "QuotaEntry",
+      "file": "src/quota/tenant/types.ts",
+      "line": 45,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantQuotaData",
+      "file": "src/quota/tenant/types.ts",
+      "line": 55,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ConsumeQuotaRequest",
+      "file": "src/quota/tenant/types.ts",
+      "line": 72,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "ConsumeQuotaResult",
+      "file": "src/quota/tenant/types.ts",
+      "line": 85,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "TenantQuotaDOOptions",
+      "file": "src/quota/tenant/types.ts",
+      "line": 115,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "PoolCoordinatorDO",
+      "file": "src/pool/coordinator_do.ts",
+      "line": 3,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "LoggerContext",
+      "file": "src/utils/logger.ts",
+      "line": 1,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "LogLevel",
+      "file": "src/utils/logger.ts",
+      "line": 6,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "LogEntry",
+      "file": "src/utils/logger.ts",
+      "line": 8,
+      "docstring": "",
+      "methods": []
+    },
+    {
+      "name": "Logger",
+      "file": "src/utils/logger.ts",
+      "line": 17,
+      "docstring": "",
+      "methods": []
     }
   ],
   "functions": [
     {
-      "name": "main",
-      "file": "cmd/key-collective/main.go",
-      "line": 17,
-      "signature": "func main() {",
+      "name": "connectStream",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 310,
+      "signature": "export function connectStream(endpoint: string): void {",
       "docstring": ""
     },
     {
-      "name": "Encrypt",
-      "file": "internal/proxy/crypto.go",
-      "line": 14,
-      "signature": "func Encrypt(plaintext string, masterKey string) ([]byte, error) {",
-      "docstring": ""
-    },
-    {
-      "name": "Decrypt",
-      "file": "internal/proxy/crypto.go",
-      "line": 36,
-      "signature": "func Decrypt(ciphertext []byte, masterKey string) (string, error) {",
-      "docstring": ""
-    },
-    {
-      "name": "HashToken",
-      "file": "internal/proxy/crypto.go",
-      "line": 62,
-      "signature": "func HashToken(token string) string {",
-      "docstring": ""
-    },
-    {
-      "name": "ServeHTTP",
-      "file": "internal/proxy/handler.go",
-      "line": 22,
-      "signature": "func (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {",
-      "docstring": ""
-    },
-    {
-      "name": "NewKeyManager",
-      "file": "internal/proxy/manager.go",
-      "line": 18,
-      "signature": "func NewKeyManager(keys []*domain.APIKey, dailyLimit int) *KeyManager {",
-      "docstring": ""
-    },
-    {
-      "name": "GetBestKey",
-      "file": "internal/proxy/manager.go",
-      "line": 26,
-      "signature": "func (km *KeyManager) GetBestKey(preferredProvider domain.Provider) (*domain.API",
-      "docstring": ""
-    },
-    {
-      "name": "ReportSuccess",
-      "file": "internal/proxy/manager.go",
-      "line": 119,
-      "signature": "func (km *KeyManager) ReportSuccess(key *domain.APIKey, latencyMs float64) {",
-      "docstring": ""
-    },
-    {
-      "name": "ReportError",
-      "file": "internal/proxy/manager.go",
-      "line": 128,
-      "signature": "func (km *KeyManager) ReportError(key *domain.APIKey, statusCode int) {",
-      "docstring": ""
-    },
-    {
-      "name": "AddKey",
-      "file": "internal/proxy/manager.go",
-      "line": 141,
-      "signature": "func (km *KeyManager) AddKey(key *domain.APIKey) {",
-      "docstring": ""
-    },
-    {
-      "name": "RemoveKey",
-      "file": "internal/proxy/manager.go",
-      "line": 148,
-      "signature": "func (km *KeyManager) RemoveKey(id string) bool {",
-      "docstring": ""
-    },
-    {
-      "name": "GetKeys",
-      "file": "internal/proxy/manager.go",
-      "line": 161,
-      "signature": "func (km *KeyManager) GetKeys() []*domain.APIKey {",
-      "docstring": ""
-    },
-    {
-      "name": "GetStats",
-      "file": "internal/proxy/manager.go",
-      "line": 170,
-      "signature": "func (km *KeyManager) GetStats() (active int, healthy int, rateLimited int) {",
-      "docstring": ""
-    },
-    {
-      "name": "TestKeyManager_GetBestKey",
-      "file": "internal/proxy/manager_test.go",
-      "line": 10,
-      "signature": "func TestKeyManager_GetBestKey(t *testing.T) {",
-      "docstring": ""
-    },
-    {
-      "name": "TestKeyManager_AddRemoveAndStats",
-      "file": "internal/proxy/manager_test.go",
-      "line": 76,
-      "signature": "func TestKeyManager_AddRemoveAndStats(t *testing.T) {",
-      "docstring": ""
-    },
-    {
-      "name": "New",
-      "file": "internal/db/sqlite.go",
-      "line": 18,
-      "signature": "func New(sqlDB *sql.DB) *DB {",
-      "docstring": ""
-    },
-    {
-      "name": "InitDB",
-      "file": "internal/db/sqlite.go",
-      "line": 22,
-      "signature": "func InitDB(dbPath string) (*DB, error) {",
-      "docstring": ""
-    },
-    {
-      "name": "InsertKey",
-      "file": "internal/db/sqlite.go",
-      "line": 78,
-      "signature": "func (db *DB) InsertKey(key *domain.APIKey, encrypted []byte) error {",
-      "docstring": ""
-    },
-    {
-      "name": "GetKeys",
-      "file": "internal/db/sqlite.go",
-      "line": 111,
-      "signature": "func (db *DB) GetKeys() ([]*domain.APIKey, error) {",
-      "docstring": ""
-    },
-    {
-      "name": "DeleteKey",
-      "file": "internal/db/sqlite.go",
-      "line": 157,
-      "signature": "func (db *DB) DeleteKey(id string) error {",
-      "docstring": ""
-    },
-    {
-      "name": "GetRecentLogs",
-      "file": "internal/db/sqlite.go",
-      "line": 173,
-      "signature": "func (db *DB) GetRecentLogs(limit int) ([]*domain.RequestLog, error) {",
-      "docstring": ""
-    },
-    {
-      "name": "GetStats",
-      "file": "internal/db/sqlite.go",
-      "line": 229,
-      "signature": "func (db *DB) GetStats() (*domain.ProxyStats, error) {",
-      "docstring": ""
-    },
-    {
-      "name": "InsertLog",
-      "file": "internal/db/sqlite.go",
-      "line": 258,
-      "signature": "func (db *DB) InsertLog(l *domain.RequestLog) error {",
-      "docstring": ""
-    },
-    {
-      "name": "setupTestDB",
-      "file": "internal/db/sqlite_test.go",
-      "line": 13,
-      "signature": "func setupTestDB(t *testing.T) (*DB, func()) {",
-      "docstring": ""
-    },
-    {
-      "name": "TestDB_InsertAndGetKeys",
-      "file": "internal/db/sqlite_test.go",
-      "line": 35,
-      "signature": "func TestDB_InsertAndGetKeys(t *testing.T) {",
-      "docstring": ""
-    },
-    {
-      "name": "TestDB_DeleteKey",
-      "file": "internal/db/sqlite_test.go",
-      "line": 101,
-      "signature": "func TestDB_DeleteKey(t *testing.T) {",
-      "docstring": ""
-    },
-    {
-      "name": "TestDB_LogsAndStats",
-      "file": "internal/db/sqlite_test.go",
-      "line": 141,
-      "signature": "func TestDB_LogsAndStats(t *testing.T) {",
-      "docstring": ""
-    },
-    {
-      "name": "NewHandler",
-      "file": "internal/api/handler.go",
-      "line": 61,
-      "signature": "func NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *H",
-      "docstring": ""
-    },
-    {
-      "name": "RegisterRoutes",
-      "file": "internal/api/handler.go",
-      "line": 69,
-      "signature": "func (h *Handler) RegisterRoutes(mux *http.ServeMux) {",
-      "docstring": ""
-    },
-    {
-      "name": "HandleGetKeys",
-      "file": "internal/api/handler.go",
-      "line": 78,
-      "signature": "func (h *Handler) HandleGetKeys(w http.ResponseWriter, r *http.Request) {",
-      "docstring": ""
-    },
-    {
-      "name": "HandleCreateKey",
-      "file": "internal/api/handler.go",
-      "line": 116,
-      "signature": "func (h *Handler) HandleCreateKey(w http.ResponseWriter, r *http.Request) {",
-      "docstring": ""
-    },
-    {
-      "name": "HandleDeleteKey",
-      "file": "internal/api/handler.go",
-      "line": 213,
-      "signature": "func (h *Handler) HandleDeleteKey(w http.ResponseWriter, r *http.Request) {",
-      "docstring": ""
-    },
-    {
-      "name": "HandleTestKey",
-      "file": "internal/api/handler.go",
-      "line": 243,
-      "signature": "func (h *Handler) HandleTestKey(w http.ResponseWriter, r *http.Request) {",
-      "docstring": ""
-    },
-    {
-      "name": "HandleGetLogs",
-      "file": "internal/api/handler.go",
-      "line": 301,
-      "signature": "func (h *Handler) HandleGetLogs(w http.ResponseWriter, r *http.Request) {",
-      "docstring": ""
-    },
-    {
-      "name": "HandleGetStats",
-      "file": "internal/api/handler.go",
+      "name": "updateChart",
+      "file": "ui/src/lib/TelemetryCharts.ts",
       "line": 318,
-      "signature": "func (h *Handler) HandleGetStats(w http.ResponseWriter, r *http.Request) {",
+      "signature": "export function updateChart(data: TimeSeriesData): void {",
       "docstring": ""
     },
     {
-      "name": "extractPrefixSuffix",
-      "file": "internal/api/handler.go",
-      "line": 337,
-      "signature": "func extractPrefixSuffix(key string) (string, string) {",
+      "name": "disconnectStream",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 325,
+      "signature": "export function disconnectStream(): void {",
       "docstring": ""
     },
     {
-      "name": "writeJSON",
-      "file": "internal/api/handler.go",
-      "line": 349,
-      "signature": "func writeJSON(w http.ResponseWriter, status int, data any) {",
+      "name": "getChartPoints",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 332,
+      "signature": "export function getChartPoints(): readonly TimeSeriesData[] {",
       "docstring": ""
     },
     {
-      "name": "setupTestAPI",
-      "file": "internal/api/handler_test.go",
-      "line": 20,
-      "signature": "func setupTestAPI(t *testing.T) (*Handler, *http.ServeMux, func()) {",
+      "name": "getChartStats",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 339,
+      "signature": "export function getChartStats(): ChartStats {",
       "docstring": ""
     },
     {
-      "name": "TestAPI_KeysLifecycle",
-      "file": "internal/api/handler_test.go",
-      "line": 47,
-      "signature": "func TestAPI_KeysLifecycle(t *testing.T) {",
+      "name": "resetChart",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "line": 346,
+      "signature": "export function resetChart(): void {",
       "docstring": ""
     },
     {
-      "name": "TestAPI_CreateKeyValidation",
-      "file": "internal/api/handler_test.go",
-      "line": 179,
-      "signature": "func TestAPI_CreateKeyValidation(t *testing.T) {",
+      "name": "formatMicrodollars",
+      "file": "ui/src/lib/types.ts",
+      "line": 111,
+      "signature": "export function formatMicrodollars(amount: Microdollars): string {",
       "docstring": ""
     },
     {
-      "name": "TestAPI_LogsAndStats",
-      "file": "internal/api/handler_test.go",
-      "line": 231,
-      "signature": "func TestAPI_LogsAndStats(t *testing.T) {",
+      "name": "isAnomaly",
+      "file": "ui/src/lib/admin/surveillance/helpers.ts",
+      "line": 9,
+      "signature": "export function isAnomaly(tenant: TenantSurveillanceRow): boolean {",
       "docstring": ""
     },
     {
-      "name": "TestAPI_TestKey",
-      "file": "internal/api/handler_test.go",
-      "line": 312,
-      "signature": "func TestAPI_TestKey(t *testing.T) {",
+      "name": "getTierBadgeClass",
+      "file": "ui/src/lib/admin/surveillance/helpers.ts",
+      "line": 14,
+      "signature": "export function getTierBadgeClass(tier: UserTier): string {",
       "docstring": ""
     },
     {
-      "name": "Handler",
-      "file": "ui/ui.go",
-      "line": 13,
-      "signature": "func Handler() http.Handler {",
+      "name": "getAuthProviderIcon",
+      "file": "ui/src/lib/admin/surveillance/helpers.ts",
+      "line": 33,
+      "signature": "export function getAuthProviderIcon(provider: string): string {",
+      "docstring": ""
+    },
+    {
+      "name": "formatRelativeTime",
+      "file": "ui/src/lib/admin/surveillance/helpers.ts",
+      "line": 44,
+      "signature": "export function formatRelativeTime(ts: number): string {",
+      "docstring": ""
+    },
+    {
+      "name": "formatRelativeTime",
+      "file": "ui/src/lib/workbench/formatters.ts",
+      "line": 9,
+      "signature": "export function formatRelativeTime(dateStr: string | null | undefined): string {",
+      "docstring": ""
+    },
+    {
+      "name": "formatDate",
+      "file": "ui/src/lib/workbench/formatters.ts",
+      "line": 27,
+      "signature": "export function formatDate(dateStr: string | null | undefined): string {",
+      "docstring": ""
+    },
+    {
+      "name": "generateMarkdownExport",
+      "file": "ui/src/lib/workbench/formatters.ts",
+      "line": 35,
+      "signature": "export function generateMarkdownExport(",
+      "docstring": ""
+    },
+    {
+      "name": "generateCurlSnippet",
+      "file": "ui/src/lib/api_docs/generators.ts",
+      "line": 6,
+      "signature": "export function generateCurlSnippet(",
+      "docstring": ""
+    },
+    {
+      "name": "generateTsSnippet",
+      "file": "ui/src/lib/api_docs/generators.ts",
+      "line": 23,
+      "signature": "export function generateTsSnippet(",
+      "docstring": ""
+    },
+    {
+      "name": "generatePySnippet",
+      "file": "ui/src/lib/api_docs/generators.ts",
+      "line": 44,
+      "signature": "export function generatePySnippet(",
+      "docstring": ""
+    },
+    {
+      "name": "generateOpenApiJson",
+      "file": "ui/src/lib/api_docs/generators.ts",
+      "line": 65,
+      "signature": "export function generateOpenApiJson(baseUrl: string): string {",
+      "docstring": ""
+    },
+    {
+      "name": "generateApiDocsMarkdown",
+      "file": "ui/src/lib/api_docs/generators.ts",
+      "line": 167,
+      "signature": "export function generateApiDocsMarkdown(",
+      "docstring": ""
+    },
+    {
+      "name": "uint8ArrayToBase64Url",
+      "file": "ui/src/lib/oauth/pkce.ts",
+      "line": 6,
+      "signature": "export function uint8ArrayToBase64Url(bytes: Uint8Array): string {",
+      "docstring": ""
+    },
+    {
+      "name": "generateCodeVerifier",
+      "file": "ui/src/lib/oauth/pkce.ts",
+      "line": 17,
+      "signature": "export function generateCodeVerifier(length = 64): string {",
+      "docstring": ""
+    },
+    {
+      "name": "generateCodeChallenge",
+      "file": "ui/src/lib/oauth/pkce.ts",
+      "line": 38,
+      "signature": "export async function generateCodeChallenge(verifier: string): Promise<string> {",
+      "docstring": ""
+    },
+    {
+      "name": "createPKCEBundle",
+      "file": "ui/src/lib/oauth/pkce.ts",
+      "line": 52,
+      "signature": "export async function createPKCEBundle(): Promise<PKCEBundle> {",
+      "docstring": ""
+    },
+    {
+      "name": "generateNonce",
+      "file": "ui/src/lib/add_key/crypto.ts",
+      "line": 9,
+      "signature": "export function generateNonce(length = 12): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "uint8ArrayToBase64",
+      "file": "ui/src/lib/add_key/crypto.ts",
+      "line": 18,
+      "signature": "export function uint8ArrayToBase64(buffer: Uint8Array): string {",
+      "docstring": ""
+    },
+    {
+      "name": "base64ToUint8Array",
+      "file": "ui/src/lib/add_key/crypto.ts",
+      "line": 28,
+      "signature": "export function base64ToUint8Array(base64: string): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "encryptPayload",
+      "file": "ui/src/lib/add_key/crypto.ts",
+      "line": 61,
+      "signature": "export async function encryptPayload(plaintext: string): Promise<EncryptedPayloa",
+      "docstring": ""
+    },
+    {
+      "name": "decryptPayload",
+      "file": "ui/src/lib/add_key/crypto.ts",
+      "line": 88,
+      "signature": "export async function decryptPayload(ciphertext: Uint8Array, nonce: Uint8Array):",
+      "docstring": ""
+    },
+    {
+      "name": "subscribeModalState",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 38,
+      "signature": "export function subscribeModalState(listener: StateListener): () => void {",
+      "docstring": ""
+    },
+    {
+      "name": "getModalState",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 44,
+      "signature": "export function getModalState(): Readonly<ModalState> {",
+      "docstring": ""
+    },
+    {
+      "name": "setModalSubmitHandler",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 50,
+      "signature": "export function setModalSubmitHandler(",
+      "docstring": ""
+    },
+    {
+      "name": "openModal",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 56,
+      "signature": "export function openModal(type: KeyType = 'gemini'): void {",
+      "docstring": ""
+    },
+    {
+      "name": "closeModal",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 62,
+      "signature": "export function closeModal(): void {",
+      "docstring": ""
+    },
+    {
+      "name": "submitKey",
+      "file": "ui/src/lib/add_key/state.ts",
+      "line": 67,
+      "signature": "export async function submitKey(data: KeyFormData): Promise<void> {",
+      "docstring": ""
+    },
+    {
+      "name": "normalizeProvider",
+      "file": "src/contracts/providers.ts",
+      "line": 4,
+      "signature": "export function normalizeProvider(provider: string): CanonicalProvider {",
       "docstring": ""
     },
     {
@@ -1881,76 +2756,6 @@
       "file": "src/constants/limits.ts",
       "line": 95,
       "signature": "export function isValidCircuitBreakerThreshold(threshold: unknown): threshold is",
-      "docstring": ""
-    },
-    {
-      "name": "uint8ArrayToBase64",
-      "file": "src/crypto/encryption.ts",
-      "line": 83,
-      "signature": "export function uint8ArrayToBase64(bytes: Uint8Array): string {",
-      "docstring": ""
-    },
-    {
-      "name": "base64ToUint8Array",
-      "file": "src/crypto/encryption.ts",
-      "line": 97,
-      "signature": "export function base64ToUint8Array(b64: string): Uint8Array {",
-      "docstring": ""
-    },
-    {
-      "name": "generateNonce",
-      "file": "src/crypto/encryption.ts",
-      "line": 123,
-      "signature": "export function generateNonce(lengthBytes: number = NONCE_LENGTH_BYTES): Uint8Ar",
-      "docstring": ""
-    },
-    {
-      "name": "generateNonceB64",
-      "file": "src/crypto/encryption.ts",
-      "line": 137,
-      "signature": "export function generateNonceB64(lengthBytes: number = NONCE_LENGTH_BYTES): stri",
-      "docstring": ""
-    },
-    {
-      "name": "deriveKey",
-      "file": "src/crypto/encryption.ts",
-      "line": 149,
-      "signature": "export async function deriveKey(secret: string | Uint8Array): Promise<CryptoKey>",
-      "docstring": ""
-    },
-    {
-      "name": "importRawKey",
-      "file": "src/crypto/encryption.ts",
-      "line": 180,
-      "signature": "export async function importRawKey(rawKey: Uint8Array): Promise<CryptoKey> {",
-      "docstring": ""
-    },
-    {
-      "name": "encrypt",
-      "file": "src/crypto/encryption.ts",
-      "line": 283,
-      "signature": "export async function encrypt(",
-      "docstring": ""
-    },
-    {
-      "name": "decryptRaw",
-      "file": "src/crypto/encryption.ts",
-      "line": 356,
-      "signature": "export async function decryptRaw(",
-      "docstring": ""
-    },
-    {
-      "name": "decrypt",
-      "file": "src/crypto/encryption.ts",
-      "line": 450,
-      "signature": "export async function decrypt(",
-      "docstring": ""
-    },
-    {
-      "name": "hashToken",
-      "file": "src/crypto/encryption.ts",
-      "line": 473,
-      "signature": "export async function hashToken(token: string): Promise<string> {",
       "docstring": ""
     },
     {
@@ -2150,334 +2955,406 @@
       "docstring": ""
     },
     {
-      "name": "createDefaultCircuitBreakerData",
-      "file": "src/durable_objects/circuit_breaker.ts",
-      "line": 108,
-      "signature": "export function createDefaultCircuitBreakerData(): CircuitBreakerData {",
+      "name": "generateNonce",
+      "file": "src/crypto/encryption/aes.ts",
+      "line": 34,
+      "signature": "export function generateNonce(length: number = NONCE_LENGTH_BYTES): Uint8Array {",
       "docstring": ""
     },
     {
-      "name": "isCircuitBreakerState",
-      "file": "src/durable_objects/circuit_breaker.ts",
+      "name": "generateNonceB64",
+      "file": "src/crypto/encryption/aes.ts",
+      "line": 49,
+      "signature": "export function generateNonceB64(length: number = NONCE_LENGTH_BYTES): string {",
+      "docstring": ""
+    },
+    {
+      "name": "encrypt",
+      "file": "src/crypto/encryption/aes.ts",
+      "line": 61,
+      "signature": "export async function encrypt(",
+      "docstring": ""
+    },
+    {
+      "name": "parseDecryptionInput",
+      "file": "src/crypto/encryption/aes.ts",
+      "line": 120,
+      "signature": "export function parseDecryptionInput(",
+      "docstring": ""
+    },
+    {
+      "name": "decryptRaw",
+      "file": "src/crypto/encryption/aes.ts",
+      "line": 188,
+      "signature": "export async function decryptRaw(",
+      "docstring": ""
+    },
+    {
+      "name": "decrypt",
+      "file": "src/crypto/encryption/aes.ts",
+      "line": 250,
+      "signature": "export async function decrypt(",
+      "docstring": ""
+    },
+    {
+      "name": "hexToUint8Array",
+      "file": "src/crypto/encryption/digest.ts",
+      "line": 21,
+      "signature": "export function hexToUint8Array(hex: string): Uint8Array {",
+      "docstring": ""
+    },
+    {
+      "name": "decodeBase64OrHex",
+      "file": "src/crypto/encryption/digest.ts",
+      "line": 40,
+      "signature": "export function decodeBase64OrHex(input: string, expectedLength?: number): Uint8",
+      "docstring": ""
+    },
+    {
+      "name": "deriveKey",
+      "file": "src/crypto/encryption/keys.ts",
+      "line": 29,
+      "signature": "export async function deriveKey(secret: string | Uint8Array): Promise<CryptoKey>",
+      "docstring": ""
+    },
+    {
+      "name": "importRawKey",
+      "file": "src/crypto/encryption/keys.ts",
+      "line": 61,
+      "signature": "export async function importRawKey(rawKey: Uint8Array): Promise<CryptoKey> {",
+      "docstring": ""
+    },
+    {
+      "name": "deriveTenantKey",
+      "file": "src/crypto/encryption/keys.ts",
+      "line": 84,
+      "signature": "export async function deriveTenantKey(",
+      "docstring": ""
+    },
+    {
+      "name": "resolveKey",
+      "file": "src/crypto/encryption/keys.ts",
       "line": 122,
-      "signature": "export function isCircuitBreakerState(value: unknown): value is CircuitBreakerSt",
+      "signature": "export async function resolveKey(key: KeyInput, isDecryption: boolean): Promise<",
       "docstring": ""
     },
     {
-      "name": "isCircuitBreakerData",
-      "file": "src/durable_objects/circuit_breaker.ts",
-      "line": 132,
-      "signature": "export function isCircuitBreakerData(value: unknown): value is CircuitBreakerDat",
+      "name": "generateEncryptionKey",
+      "file": "src/crypto/encryption/keys.ts",
+      "line": 152,
+      "signature": "export async function generateEncryptionKey(): Promise<CryptoKey> {",
+      "docstring": ""
+    },
+    {
+      "name": "importKeyFromRaw",
+      "file": "src/crypto/encryption/keys.ts",
+      "line": 166,
+      "signature": "export async function importKeyFromRaw(rawKey: ArrayBuffer | Uint8Array): Promis",
+      "docstring": ""
+    },
+    {
+      "name": "importKeyFromBase64",
+      "file": "src/crypto/encryption/keys.ts",
+      "line": 174,
+      "signature": "export async function importKeyFromBase64(base64Key: string): Promise<CryptoKey>",
+      "docstring": ""
+    },
+    {
+      "name": "importKeyFromHex",
+      "file": "src/crypto/encryption/keys.ts",
+      "line": 182,
+      "signature": "export async function importKeyFromHex(hexKey: string): Promise<CryptoKey> {",
+      "docstring": ""
+    },
+    {
+      "name": "resolveMasterKey",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 66,
+      "signature": "export function resolveMasterKey(masterKey?: KeyInput): KeyInput {",
+      "docstring": ""
+    },
+    {
+      "name": "validateNonce",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 146,
+      "signature": "export function validateNonce(nonce: Uint8Array | string): boolean {",
       "docstring": ""
     },
     {
       "name": "isEncryptedKey",
-      "file": "src/durable_objects/key_pool_do.ts",
-      "line": 89,
+      "file": "src/durable_objects/crypto.ts",
+      "line": 158,
       "signature": "export function isEncryptedKey(value: unknown): value is EncryptedKey {",
       "docstring": ""
     },
     {
-      "name": "isSelectableKey",
-      "file": "src/durable_objects/key_selector.ts",
-      "line": 150,
-      "signature": "export function isSelectableKey(value: unknown): value is SelectableKey {",
+      "name": "decryptKeyRaw",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 185,
+      "signature": "export async function decryptKeyRaw(",
       "docstring": ""
     },
     {
-      "name": "createDefaultRateLimiterData",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 117,
-      "signature": "export function createDefaultRateLimiterData(): RateLimiterData {",
+      "name": "decryptKey",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 297,
+      "signature": "export async function decryptKey(",
       "docstring": ""
     },
     {
-      "name": "isRateLimitEntry",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 128,
-      "signature": "export function isRateLimitEntry(value: unknown): value is RateLimitEntry {",
+      "name": "decryptKey",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 301,
+      "signature": "export async function decryptKey(",
       "docstring": ""
     },
     {
-      "name": "isRateLimiterData",
-      "file": "src/durable_objects/rate_limiter.ts",
-      "line": 143,
-      "signature": "export function isRateLimiterData(value: unknown): value is RateLimiterData {",
+      "name": "decryptKey",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 306,
+      "signature": "export async function decryptKey(",
+      "docstring": ""
+    },
+    {
+      "name": "decryptApiKey",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 349,
+      "signature": "export async function decryptApiKey(",
+      "docstring": ""
+    },
+    {
+      "name": "decrypt",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 359,
+      "signature": "export async function decrypt(",
+      "docstring": ""
+    },
+    {
+      "name": "encryptKey",
+      "file": "src/durable_objects/crypto.ts",
+      "line": 377,
+      "signature": "export async function encryptKey(",
       "docstring": ""
     }
   ],
   "snippets": [
     {
-      "title": "`ProxyServer` (internal/proxy/handler.go:16)",
-      "file": "internal/proxy/handler.go",
-      "start_line": 16,
-      "end_line": 41,
-      "code": "type ProxyServer struct {\n\tManager     *KeyManager\n\tValidTokens map[string]bool // hashed token -> true\n\tLogChannel  chan *domain.RequestLog\n}\n\nfunc (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {\n\tstartTime := time.Now()\n\n\t// 1. Validate Auth Token\n\tauthHeader := r.Header.Get(\"Authorization\")\n\tif len(authHeader) < 8 || authHeader[:7] != \"Bearer \" {\n\t\thttp.Error(w, \"Unauthorized\", http.StatusUnauthorized)\n\t\treturn\n\t}\n\ttoken := authHeader[7:]\n\thashed := HashToken(token)\n\tif !p.ValidTokens[hashed] {\n\t\thttp.Error(w, \"Unauthorized\", http.StatusUnauthorized)\n\t\treturn\n\t}\n\n\t// 2. Read body to parse provider if possible (e.g., model name checking)\n\tbodyBytes, _ := io.ReadAll(r.Body)\n\tr.Body.Close()\n\tr.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))"
+      "title": "`TimeSeriesData` (ui/src/lib/TelemetryCharts.ts:9)",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "start_line": 9,
+      "end_line": 34,
+      "code": "export type TimeSeriesData = {\n  timestamp: number;\n  value: number;\n};\n\nexport type StreamStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';\n\nexport interface ChartStats {\n  readonly min: number;\n  readonly max: number;\n  readonly avg: number;\n  readonly current: number;\n  readonly count: number;\n}\n\nexport interface TelemetryChartOptions {\n  maxPoints?: number;\n  autoReconnect?: boolean;\n  reconnectDelayMs?: number;\n}\n\nexport type ChartSubscriber = (points: readonly TimeSeriesData[], stats: ChartStats) => void;\nexport type StatusSubscriber = (status: StreamStatus, endpoint: string | null) => void;\n\n/**\n * High-performance, non-blocking telemetry stream chart controller."
     },
     {
-      "title": "`KeyManager` (internal/proxy/manager.go:12)",
-      "file": "internal/proxy/manager.go",
-      "start_line": 12,
-      "end_line": 37,
-      "code": "type KeyManager struct {\n\tkeys       []*domain.APIKey\n\tmu         sync.RWMutex\n\tdailyLimit int\n}\n\nfunc NewKeyManager(keys []*domain.APIKey, dailyLimit int) *KeyManager {\n\treturn &KeyManager{\n\t\tkeys:       keys,\n\t\tdailyLimit: dailyLimit,\n\t}\n}\n\n// GetBestKey selects the most optimal key based on priority, RPM headroom, and latency\nfunc (km *KeyManager) GetBestKey(preferredProvider domain.Provider) (*domain.APIKey, error) {\n\tkm.mu.Lock()\n\tdefer km.mu.Unlock()\n\n\tnow := time.Now()\n\ttotalToday := 0\n\n\t// Sliding window resets and global quota check\n\tfor _, k := range km.keys {\n\t\ttotalToday += k.RequestsToday\n\n\t\t// Reset minute window if 60s passed"
-    },
-    {
-      "title": "`DB` (internal/db/sqlite.go:14)",
-      "file": "internal/db/sqlite.go",
+      "title": "`StreamStatus` (ui/src/lib/TelemetryCharts.ts:14)",
+      "file": "ui/src/lib/TelemetryCharts.ts",
       "start_line": 14,
       "end_line": 39,
-      "code": "type DB struct {\n\t*sql.DB\n}\n\nfunc New(sqlDB *sql.DB) *DB {\n\treturn &DB{DB: sqlDB}\n}\n\nfunc InitDB(dbPath string) (*DB, error) {\n\tdb, err := sql.Open(\"sqlite\", dbPath)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\n\t// WAL mode for concurrency\n\tif _, err := db.Exec(\"PRAGMA journal_mode=WAL;\"); err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to enable WAL: %w\", err)\n\t}\n\n\tschema := `\n\tCREATE TABLE IF NOT EXISTS api_keys (\n\t\tid TEXT PRIMARY KEY,\n\t\tkey_hash TEXT UNIQUE NOT NULL,\n\t\tkey_prefix TEXT NOT NULL,\n\t\tkey_suffix TEXT NOT NULL,\n\t\tencrypted_key BLOB NOT NULL,"
+      "code": "export type StreamStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';\n\nexport interface ChartStats {\n  readonly min: number;\n  readonly max: number;\n  readonly avg: number;\n  readonly current: number;\n  readonly count: number;\n}\n\nexport interface TelemetryChartOptions {\n  maxPoints?: number;\n  autoReconnect?: boolean;\n  reconnectDelayMs?: number;\n}\n\nexport type ChartSubscriber = (points: readonly TimeSeriesData[], stats: ChartStats) => void;\nexport type StatusSubscriber = (status: StreamStatus, endpoint: string | null) => void;\n\n/**\n * High-performance, non-blocking telemetry stream chart controller.\n */\nexport class TelemetryStreamChart {\n  private _points: TimeSeriesData[] = [];\n  private _status: StreamStatus = 'idle';\n  private _endpoint: string | null = null;"
     },
     {
-      "title": "`APIKey` (internal/domain/contracts.go:22)",
-      "file": "internal/domain/contracts.go",
-      "start_line": 22,
-      "end_line": 47,
-      "code": "type APIKey struct {\n\tID           string    `json:\"id\" db:\"id\"`\n\tKeyHash      string    `json:\"-\" db:\"key_hash\"`\n\tKeyPrefix    string    `json:\"key_prefix\" db:\"key_prefix\"`\n\tKeySuffix    string    `json:\"key_suffix\" db:\"key_suffix\"`\n\tEncryptedKey []byte    `json:\"-\" db:\"encrypted_key\"`\n\tProvider     Provider  `json:\"provider\" db:\"provider\"`\n\tLabel        string    `json:\"label\" db:\"label\"`\n\tRPMLimit     int       `json:\"rpm_limit\" db:\"rpm_limit\"`\n\tRPDLimit     int       `json:\"rpd_limit\" db:\"rpd_limit\"`\n\tPriority     int       `json:\"priority\" db:\"priority\"`\n\tStatus       KeyStatus `json:\"status\" db:\"status\"`\n\n\t// Runtime State (not persisted to DB immediately)\n\tDecrypted         string    `json:\"-\"`\n\tRequestsThisMin   int       `json:\"-\"`\n\tRequestsToday     int       `json:\"-\"`\n\tMinuteWindowStart time.Time `json:\"-\"`\n\tTotalLatencyMs    float64   `json:\"-\"`\n\tTotalRequests     int64     `json:\"-\"`\n\tCooldownUntil     time.Time `json:\"-\"`\n}\n\ntype RequestLog struct {\n\tID         string    `json:\"id\"`\n\tKeyID      string    `json:\"key_id\"`"
+      "title": "`ChartStats` (ui/src/lib/TelemetryCharts.ts:16)",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "start_line": 16,
+      "end_line": 41,
+      "code": "export interface ChartStats {\n  readonly min: number;\n  readonly max: number;\n  readonly avg: number;\n  readonly current: number;\n  readonly count: number;\n}\n\nexport interface TelemetryChartOptions {\n  maxPoints?: number;\n  autoReconnect?: boolean;\n  reconnectDelayMs?: number;\n}\n\nexport type ChartSubscriber = (points: readonly TimeSeriesData[], stats: ChartStats) => void;\nexport type StatusSubscriber = (status: StreamStatus, endpoint: string | null) => void;\n\n/**\n * High-performance, non-blocking telemetry stream chart controller.\n */\nexport class TelemetryStreamChart {\n  private _points: TimeSeriesData[] = [];\n  private _status: StreamStatus = 'idle';\n  private _endpoint: string | null = null;\n  private readonly _maxPoints: number;\n  private readonly _autoReconnect: boolean;"
     },
     {
-      "title": "`RequestLog` (internal/domain/contracts.go:45)",
-      "file": "internal/domain/contracts.go",
-      "start_line": 45,
-      "end_line": 61,
-      "code": "type RequestLog struct {\n\tID         string    `json:\"id\"`\n\tKeyID      string    `json:\"key_id\"`\n\tProvider   Provider  `json:\"provider\"`\n\tStatusCode int       `json:\"status_code\"`\n\tLatencyMs  float64   `json:\"latency_ms\"`\n\tBytesIn    int64     `json:\"bytes_in\"`\n\tBytesOut   int64     `json:\"bytes_out\"`\n\tCreatedAt  time.Time `json:\"created_at\"`\n}\n\ntype ProxyStats struct {\n\tActiveKeys         int `json:\"active_keys\"`\n\tTotalRequestsToday int `json:\"total_requests_today\"`\n\tHealthyCount       int `json:\"healthy_count\"`\n\tRateLimitedCount   int `json:\"rate_limited_count\"`\n}"
+      "title": "`TelemetryChartOptions` (ui/src/lib/TelemetryCharts.ts:24)",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "start_line": 24,
+      "end_line": 49,
+      "code": "export interface TelemetryChartOptions {\n  maxPoints?: number;\n  autoReconnect?: boolean;\n  reconnectDelayMs?: number;\n}\n\nexport type ChartSubscriber = (points: readonly TimeSeriesData[], stats: ChartStats) => void;\nexport type StatusSubscriber = (status: StreamStatus, endpoint: string | null) => void;\n\n/**\n * High-performance, non-blocking telemetry stream chart controller.\n */\nexport class TelemetryStreamChart {\n  private _points: TimeSeriesData[] = [];\n  private _status: StreamStatus = 'idle';\n  private _endpoint: string | null = null;\n  private readonly _maxPoints: number;\n  private readonly _autoReconnect: boolean;\n  private readonly _reconnectDelayMs: number;\n  private _eventSource: EventSource | null = null;\n  private _chartSubscribers = new Set<ChartSubscriber>();\n  private _statusSubscribers = new Set<StatusSubscriber>();\n  private _pendingQueue: TimeSeriesData[] = [];\n  private _flushScheduled = false;\n  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;\n"
     },
     {
-      "title": "`ProxyStats` (internal/domain/contracts.go:56)",
-      "file": "internal/domain/contracts.go",
-      "start_line": 56,
-      "end_line": 61,
-      "code": "type ProxyStats struct {\n\tActiveKeys         int `json:\"active_keys\"`\n\tTotalRequestsToday int `json:\"total_requests_today\"`\n\tHealthyCount       int `json:\"healthy_count\"`\n\tRateLimitedCount   int `json:\"rate_limited_count\"`\n}"
+      "title": "`ChartSubscriber` (ui/src/lib/TelemetryCharts.ts:30)",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "start_line": 30,
+      "end_line": 55,
+      "code": "export type ChartSubscriber = (points: readonly TimeSeriesData[], stats: ChartStats) => void;\nexport type StatusSubscriber = (status: StreamStatus, endpoint: string | null) => void;\n\n/**\n * High-performance, non-blocking telemetry stream chart controller.\n */\nexport class TelemetryStreamChart {\n  private _points: TimeSeriesData[] = [];\n  private _status: StreamStatus = 'idle';\n  private _endpoint: string | null = null;\n  private readonly _maxPoints: number;\n  private readonly _autoReconnect: boolean;\n  private readonly _reconnectDelayMs: number;\n  private _eventSource: EventSource | null = null;\n  private _chartSubscribers = new Set<ChartSubscriber>();\n  private _statusSubscribers = new Set<StatusSubscriber>();\n  private _pendingQueue: TimeSeriesData[] = [];\n  private _flushScheduled = false;\n  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;\n\n  constructor(options: TelemetryChartOptions = {}) {\n    this._maxPoints = options.maxPoints ?? 60;\n    this._autoReconnect = options.autoReconnect ?? true;\n    this._reconnectDelayMs = options.reconnectDelayMs ?? 2000;\n  }\n"
     },
     {
-      "title": "`KeyResponse` (internal/api/handler.go:19)",
-      "file": "internal/api/handler.go",
-      "start_line": 19,
-      "end_line": 44,
-      "code": "type KeyResponse struct {\n\tID        string           `json:\"id\"`\n\tKeyPrefix string           `json:\"key_prefix\"`\n\tKeySuffix string           `json:\"key_suffix\"`\n\tProvider  domain.Provider  `json:\"provider\"`\n\tLabel     string           `json:\"label\"`\n\tRPMLimit  int              `json:\"rpm_limit\"`\n\tRPDLimit  int              `json:\"rpd_limit\"`\n\tPriority  int              `json:\"priority\"`\n\tStatus    domain.KeyStatus `json:\"status\"`\n}\n\ntype CreateKeyRequest struct {\n\tLabel    string          `json:\"label\"`\n\tProvider domain.Provider `json:\"provider\"`\n\tKey      string          `json:\"key\"`\n\tRPMLimit int             `json:\"rpm_limit\"`\n\tRPDLimit int             `json:\"rpd_limit\"`\n\tPriority int             `json:\"priority\"`\n}\n\ntype ErrorResponse struct {\n\tError string `json:\"error\"`\n}\n\ntype MessageResponse struct {"
-    },
-    {
-      "title": "`CreateKeyRequest` (internal/api/handler.go:31)",
-      "file": "internal/api/handler.go",
+      "title": "`StatusSubscriber` (ui/src/lib/TelemetryCharts.ts:31)",
+      "file": "ui/src/lib/TelemetryCharts.ts",
       "start_line": 31,
       "end_line": 56,
-      "code": "type CreateKeyRequest struct {\n\tLabel    string          `json:\"label\"`\n\tProvider domain.Provider `json:\"provider\"`\n\tKey      string          `json:\"key\"`\n\tRPMLimit int             `json:\"rpm_limit\"`\n\tRPDLimit int             `json:\"rpd_limit\"`\n\tPriority int             `json:\"priority\"`\n}\n\ntype ErrorResponse struct {\n\tError string `json:\"error\"`\n}\n\ntype MessageResponse struct {\n\tMessage string `json:\"message\"`\n\tID      string `json:\"id,omitempty\"`\n}\n\ntype TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB"
+      "code": "export type StatusSubscriber = (status: StreamStatus, endpoint: string | null) => void;\n\n/**\n * High-performance, non-blocking telemetry stream chart controller.\n */\nexport class TelemetryStreamChart {\n  private _points: TimeSeriesData[] = [];\n  private _status: StreamStatus = 'idle';\n  private _endpoint: string | null = null;\n  private readonly _maxPoints: number;\n  private readonly _autoReconnect: boolean;\n  private readonly _reconnectDelayMs: number;\n  private _eventSource: EventSource | null = null;\n  private _chartSubscribers = new Set<ChartSubscriber>();\n  private _statusSubscribers = new Set<StatusSubscriber>();\n  private _pendingQueue: TimeSeriesData[] = [];\n  private _flushScheduled = false;\n  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;\n\n  constructor(options: TelemetryChartOptions = {}) {\n    this._maxPoints = options.maxPoints ?? 60;\n    this._autoReconnect = options.autoReconnect ?? true;\n    this._reconnectDelayMs = options.reconnectDelayMs ?? 2000;\n  }\n\n  public get points(): readonly TimeSeriesData[] {"
     },
     {
-      "title": "`ErrorResponse` (internal/api/handler.go:40)",
-      "file": "internal/api/handler.go",
-      "start_line": 40,
-      "end_line": 65,
-      "code": "type ErrorResponse struct {\n\tError string `json:\"error\"`\n}\n\ntype MessageResponse struct {\n\tMessage string `json:\"message\"`\n\tID      string `json:\"id,omitempty\"`\n}\n\ntype TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,"
-    },
-    {
-      "title": "`MessageResponse` (internal/api/handler.go:44)",
-      "file": "internal/api/handler.go",
-      "start_line": 44,
-      "end_line": 69,
-      "code": "type MessageResponse struct {\n\tMessage string `json:\"message\"`\n\tID      string `json:\"id,omitempty\"`\n}\n\ntype TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,\n\t}\n}\n\nfunc (h *Handler) RegisterRoutes(mux *http.ServeMux) {"
-    },
-    {
-      "title": "`TestKeyResponse` (internal/api/handler.go:49)",
-      "file": "internal/api/handler.go",
-      "start_line": 49,
-      "end_line": 74,
-      "code": "type TestKeyResponse struct {\n\tSuccess   bool    `json:\"success\"`\n\tLatencyMs float64 `json:\"latency_ms\"`\n\tMessage   string  `json:\"message\"`\n}\n\ntype Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,\n\t}\n}\n\nfunc (h *Handler) RegisterRoutes(mux *http.ServeMux) {\n\tmux.HandleFunc(\"GET /api/keys\", h.HandleGetKeys)\n\tmux.HandleFunc(\"POST /api/keys\", h.HandleCreateKey)\n\tmux.HandleFunc(\"DELETE /api/keys/{id}\", h.HandleDeleteKey)\n\tmux.HandleFunc(\"POST /api/keys/{id}/test\", h.HandleTestKey)\n\tmux.HandleFunc(\"GET /api/logs\", h.HandleGetLogs)"
-    },
-    {
-      "title": "`Handler` (internal/api/handler.go:55)",
-      "file": "internal/api/handler.go",
-      "start_line": 55,
-      "end_line": 80,
-      "code": "type Handler struct {\n\tDB        *db.DB\n\tManager   *proxy.KeyManager\n\tMasterKey string\n}\n\nfunc NewHandler(database *db.DB, manager *proxy.KeyManager, masterKey string) *Handler {\n\treturn &Handler{\n\t\tDB:        database,\n\t\tManager:   manager,\n\t\tMasterKey: masterKey,\n\t}\n}\n\nfunc (h *Handler) RegisterRoutes(mux *http.ServeMux) {\n\tmux.HandleFunc(\"GET /api/keys\", h.HandleGetKeys)\n\tmux.HandleFunc(\"POST /api/keys\", h.HandleCreateKey)\n\tmux.HandleFunc(\"DELETE /api/keys/{id}\", h.HandleDeleteKey)\n\tmux.HandleFunc(\"POST /api/keys/{id}/test\", h.HandleTestKey)\n\tmux.HandleFunc(\"GET /api/logs\", h.HandleGetLogs)\n\tmux.HandleFunc(\"GET /api/stats\", h.HandleGetStats)\n}\n\nfunc (h *Handler) HandleGetKeys(w http.ResponseWriter, r *http.Request) {\n\tkeys, err := h.DB.GetKeys()\n\tif err != nil {"
+      "title": "`TelemetryStreamChart` (ui/src/lib/TelemetryCharts.ts:36)",
+      "file": "ui/src/lib/TelemetryCharts.ts",
+      "start_line": 36,
+      "end_line": 61,
+      "code": "export class TelemetryStreamChart {\n  private _points: TimeSeriesData[] = [];\n  private _status: StreamStatus = 'idle';\n  private _endpoint: string | null = null;\n  private readonly _maxPoints: number;\n  private readonly _autoReconnect: boolean;\n  private readonly _reconnectDelayMs: number;\n  private _eventSource: EventSource | null = null;\n  private _chartSubscribers = new Set<ChartSubscriber>();\n  private _statusSubscribers = new Set<StatusSubscriber>();\n  private _pendingQueue: TimeSeriesData[] = [];\n  private _flushScheduled = false;\n  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;\n\n  constructor(options: TelemetryChartOptions = {}) {\n    this._maxPoints = options.maxPoints ?? 60;\n    this._autoReconnect = options.autoReconnect ?? true;\n    this._reconnectDelayMs = options.reconnectDelayMs ?? 2000;\n  }\n\n  public get points(): readonly TimeSeriesData[] {\n    return this._points;\n  }\n\n  public get status(): StreamStatus {\n    return this._status;"
     },
     {
       "title": "`Provider` (ui/src/lib/types.ts:1)",
       "file": "ui/src/lib/types.ts",
       "start_line": 1,
       "end_line": 26,
-      "code": "export type Provider = 'gemini' | 'groq';\n\nexport type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n}\n\nexport interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;"
+      "code": "export type Provider = 'gemini' | 'groq' | 'sambanova' | 'cerebras';\n\nexport type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';\n\nexport type PoolType = 'COMMUNITY' | 'PRIVATE';\nexport type CommunityRoutingStatus = 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n  pool_type?: PoolType;\n  community_routing_status?: CommunityRoutingStatus;\n  observation_until?: string | null;"
     },
     {
       "title": "`KeyStatus` (ui/src/lib/types.ts:3)",
       "file": "ui/src/lib/types.ts",
       "start_line": 3,
       "end_line": 28,
-      "code": "export type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n}\n\nexport interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;\n  status_code: number;\n  latency_ms: number;"
+      "code": "export type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';\n\nexport type PoolType = 'COMMUNITY' | 'PRIVATE';\nexport type CommunityRoutingStatus = 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n  pool_type?: PoolType;\n  community_routing_status?: CommunityRoutingStatus;\n  observation_until?: string | null;\n  dispatched_today?: number;\n  dispatched_communal?: number;"
     },
     {
-      "title": "`APIKey` (ui/src/lib/types.ts:5)",
+      "title": "`PoolType` (ui/src/lib/types.ts:5)",
       "file": "ui/src/lib/types.ts",
       "start_line": 5,
       "end_line": 30,
-      "code": "export interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n}\n\nexport interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;\n  status_code: number;\n  latency_ms: number;\n  bytes_in: number;\n  bytes_out: number;"
+      "code": "export type PoolType = 'COMMUNITY' | 'PRIVATE';\nexport type CommunityRoutingStatus = 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n  pool_type?: PoolType;\n  community_routing_status?: CommunityRoutingStatus;\n  observation_until?: string | null;\n  dispatched_today?: number;\n  dispatched_communal?: number;\n  vesting_tier?: 0 | 1 | 2;\n  tenant_id?: string;"
     },
     {
-      "title": "`RequestLog` (ui/src/lib/types.ts:23)",
+      "title": "`CommunityRoutingStatus` (ui/src/lib/types.ts:6)",
       "file": "ui/src/lib/types.ts",
-      "start_line": 23,
-      "end_line": 48,
+      "start_line": 6,
+      "end_line": 31,
+      "code": "export type CommunityRoutingStatus = 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED';\n\nexport interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n  pool_type?: PoolType;\n  community_routing_status?: CommunityRoutingStatus;\n  observation_until?: string | null;\n  dispatched_today?: number;\n  dispatched_communal?: number;\n  vesting_tier?: 0 | 1 | 2;\n  tenant_id?: string;\n  is_owner?: boolean;"
+    },
+    {
+      "title": "`APIKey` (ui/src/lib/types.ts:8)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 8,
+      "end_line": 33,
+      "code": "export interface APIKey {\n  id: string;\n  key_prefix: string;\n  key_suffix: string;\n  provider: Provider;\n  label: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  status: KeyStatus;\n  requests_this_min?: number;\n  requests_today?: number;\n  cooldown_until?: string | null;\n  total_requests?: number;\n  avg_latency_ms?: number;\n  created_at?: string;\n  pool_type?: PoolType;\n  community_routing_status?: CommunityRoutingStatus;\n  observation_until?: string | null;\n  dispatched_today?: number;\n  dispatched_communal?: number;\n  vesting_tier?: 0 | 1 | 2;\n  tenant_id?: string;\n  is_owner?: boolean;\n}\n"
+    },
+    {
+      "title": "`RequestLog` (ui/src/lib/types.ts:34)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 34,
+      "end_line": 59,
       "code": "export interface RequestLog {\n  id: string;\n  key_id: string;\n  provider: Provider;\n  status_code: number;\n  latency_ms: number;\n  bytes_in: number;\n  bytes_out: number;\n  created_at: string;\n  model?: string;\n}\n\nexport interface PoolStats {\n  total_keys: number;\n  healthy_keys: number;\n  rate_limited_keys: number;\n  invalid_keys: number;\n  total_rpm_headroom: number;\n  total_rpm_limit: number;\n  current_rpm_used: number;\n  avg_upstream_latency_ms: number;\n  daily_quota_used: number;\n  daily_quota_limit: number;\n  proxy_status: 'healthy' | 'degraded' | 'offline';\n}\n"
     },
     {
-      "title": "`PoolStats` (ui/src/lib/types.ts:35)",
+      "title": "`PoolStats` (ui/src/lib/types.ts:46)",
       "file": "ui/src/lib/types.ts",
-      "start_line": 35,
-      "end_line": 60,
-      "code": "export interface PoolStats {\n  total_keys: number;\n  healthy_keys: number;\n  rate_limited_keys: number;\n  invalid_keys: number;\n  total_rpm_headroom: number;\n  total_rpm_limit: number;\n  current_rpm_used: number;\n  avg_upstream_latency_ms: number;\n  daily_quota_used: number;\n  daily_quota_limit: number;\n  proxy_status: 'healthy' | 'degraded' | 'offline';\n}\n\nexport interface CreateKeyPayload {\n  provider: Provider;\n  label: string;\n  key: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n}\n\nexport interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';"
+      "start_line": 46,
+      "end_line": 71,
+      "code": "export interface PoolStats {\n  total_keys: number;\n  healthy_keys: number;\n  rate_limited_keys: number;\n  invalid_keys: number;\n  total_rpm_headroom: number;\n  total_rpm_limit: number;\n  current_rpm_used: number;\n  avg_upstream_latency_ms: number;\n  daily_quota_used: number;\n  daily_quota_limit: number;\n  proxy_status: 'healthy' | 'degraded' | 'offline';\n}\n\nexport interface CreateKeyPayload {\n  provider: Provider;\n  label: string;\n  key: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  pool_type: PoolType;\n  k1: boolean;\n  k2: boolean;\n  turnstile_token: string;\n}"
     },
     {
-      "title": "`CreateKeyPayload` (ui/src/lib/types.ts:49)",
+      "title": "`CreateKeyPayload` (ui/src/lib/types.ts:60)",
       "file": "ui/src/lib/types.ts",
-      "start_line": 49,
-      "end_line": 62,
-      "code": "export interface CreateKeyPayload {\n  provider: Provider;\n  label: string;\n  key: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n}\n\nexport interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';\n  message: string;\n}"
+      "start_line": 60,
+      "end_line": 85,
+      "code": "export interface CreateKeyPayload {\n  provider: Provider;\n  label: string;\n  key: string;\n  rpm_limit: number;\n  rpd_limit: number;\n  priority: number;\n  pool_type: PoolType;\n  k1: boolean;\n  k2: boolean;\n  turnstile_token: string;\n}\n\nexport interface GlobalPoolTelemetry {\n  total_active_keys: number;\n  keys_in_observation: number;\n  keys_quarantined: number;\n  pool_utilization_percent: number;\n  provider_pools: ProviderPoolMetrics[];\n  snapshot_time: string;         // ISO timestamp\n}\n\nexport interface ProviderPoolMetrics {\n  provider: Provider;\n  active_keys: number;\n  quarantined_keys: number;"
     },
     {
-      "title": "`ToastMessage` (ui/src/lib/types.ts:58)",
+      "title": "`GlobalPoolTelemetry` (ui/src/lib/types.ts:73)",
       "file": "ui/src/lib/types.ts",
-      "start_line": 58,
-      "end_line": 62,
-      "code": "export interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';\n  message: string;\n}"
+      "start_line": 73,
+      "end_line": 98,
+      "code": "export interface GlobalPoolTelemetry {\n  total_active_keys: number;\n  keys_in_observation: number;\n  keys_quarantined: number;\n  pool_utilization_percent: number;\n  provider_pools: ProviderPoolMetrics[];\n  snapshot_time: string;         // ISO timestamp\n}\n\nexport interface ProviderPoolMetrics {\n  provider: Provider;\n  active_keys: number;\n  quarantined_keys: number;\n  observation_keys: number;\n  u_pool_percent: number;        // 0\u2013100\n  w_provider: number;            // 0.0\u20131.0 quality weight\n  p90_latency_ms: number;\n  eye_for_eye_accessible: boolean;\n}\n\nexport interface ContributorStanding {\n  multiplier: number;\n  multiplier_ceiling: number;\n  community_debt_cu: number;\n  daily_contributed_cu: number;\n  trusted_contributor: boolean;"
     },
     {
-      "title": "`Env` (src/index.ts:14)",
-      "file": "src/index.ts",
-      "start_line": 14,
-      "end_line": 31,
-      "code": "export interface Env {\n  KEY_POOL: DurableObjectNamespace;\n  DB: D1Database;\n  TELEMETRY: AnalyticsEngineDataset;\n  KC_MASTER_KEY?: string;\n  [key: string]: unknown;\n}\n\nexport { HealthResponse, WorkerEnv };\nexport { KeyPoolDO } from \"./durable_objects/key_pool_do\";\nexport { createWorker, MainWorker };\nexport type { WorkerOptions };\n\n// Re-export all worker module components\nexport * from \"./worker/index\";\n\n// Cloudflare Worker Default Fetch Handler\nexport default worker;"
+      "title": "`ProviderPoolMetrics` (ui/src/lib/types.ts:82)",
+      "file": "ui/src/lib/types.ts",
+      "start_line": 82,
+      "end_line": 107,
+      "code": "export interface ProviderPoolMetrics {\n  provider: Provider;\n  active_keys: number;\n  quarantined_keys: number;\n  observation_keys: number;\n  u_pool_percent: number;        // 0\u2013100\n  w_provider: number;            // 0.0\u20131.0 quality weight\n  p90_latency_ms: number;\n  eye_for_eye_accessible: boolean;\n}\n\nexport interface ContributorStanding {\n  multiplier: number;\n  multiplier_ceiling: number;\n  community_debt_cu: number;\n  daily_contributed_cu: number;\n  trusted_contributor: boolean;\n  jail_status: 'PRISTINE' | 'SOFT_WARNING' | 'HARD_JAIL';\n  consecutive_debt_free_days: number;\n}\n\nexport interface ToastMessage {\n  id: string;\n  type: 'success' | 'error' | 'info' | 'warning';\n  message: string;\n}"
     },
     {
-      "title": "`AuthToken` (src/contracts/auth.ts:1)",
-      "file": "src/contracts/auth.ts",
-      "start_line": 1,
-      "end_line": 16,
-      "code": "export interface AuthToken {\n    id: string;\n    tenantId: string;\n    tokenHash: string;\n    createdAt: number;\n    expiresAt: number | null;\n}\n\nexport interface AuthContext {\n    tenantId: string;\n    isAuthenticated: boolean;\n}\n\nexport interface AuthContract {\n    verifyToken(bearerToken: string): Promise<AuthContext>;\n}"
-    },
-    {
-      "title": "`AuthContext` (src/contracts/auth.ts:9)",
-      "file": "src/contracts/auth.ts",
+      "title": "`ExtendedProject` (ui/src/lib/workbench/types.ts:9)",
+      "file": "ui/src/lib/workbench/types.ts",
       "start_line": 9,
-      "end_line": 16,
-      "code": "export interface AuthContext {\n    tenantId: string;\n    isAuthenticated: boolean;\n}\n\nexport interface AuthContract {\n    verifyToken(bearerToken: string): Promise<AuthContext>;\n}"
+      "end_line": 34,
+      "code": "export interface ExtendedProject extends Project {\n  assignedRpm?: number;\n  latencyMs?: number;\n  latency?: string;\n  icon?: string;\n  iconColor?: string;\n}\n\nexport interface ExtendedKey extends ProjectKey {\n  fullSecret?: string;\n  displayTime?: string;\n  displayCreated?: string;\n}\n\nexport interface TierMatrixItem {\n  id: UserTier;\n  name: string;\n  icon: string;\n  badge: string;\n  badgeClass: string;\n  quotaText: string;\n  description: string;\n  footerText: string;\n  dailyUsagePercent: number;\n  minWidth: string;\n}"
     },
     {
-      "title": "`AuthContract` (src/contracts/auth.ts:14)",
-      "file": "src/contracts/auth.ts",
-      "start_line": 14,
-      "end_line": 16,
-      "code": "export interface AuthContract {\n    verifyToken(bearerToken: string): Promise<AuthContext>;\n}"
+      "title": "`ExtendedKey` (ui/src/lib/workbench/types.ts:17)",
+      "file": "ui/src/lib/workbench/types.ts",
+      "start_line": 17,
+      "end_line": 42,
+      "code": "export interface ExtendedKey extends ProjectKey {\n  fullSecret?: string;\n  displayTime?: string;\n  displayCreated?: string;\n}\n\nexport interface TierMatrixItem {\n  id: UserTier;\n  name: string;\n  icon: string;\n  badge: string;\n  badgeClass: string;\n  quotaText: string;\n  description: string;\n  footerText: string;\n  dailyUsagePercent: number;\n  minWidth: string;\n}\n\nexport interface WorkbenchProps {\n  userAccount?: UserAccount;\n  projects?: Project[];\n  keys?: ProjectKey[];\n  providerKeys?: APIKey[];\n  onSelectTier?: (tier: UserTier) => void;\n  onCreateProject?: (project: Partial<Project>) => void;"
     },
     {
-      "title": "`EncryptedKey` (src/contracts/key_pool.ts:1)",
-      "file": "src/contracts/key_pool.ts",
-      "start_line": 1,
-      "end_line": 26,
-      "code": "export interface EncryptedKey {\n    id: string;\n    tenantId: string;\n    provider: string;\n    ciphertext: string;\n    nonce: string;\n    label?: string;\n    priority?: number;\n    rpmLimit?: number;\n    rpdLimit?: number;\n    status?: string;\n    circuitOpenUntil?: string | null;\n    lastUsedAt?: string | number | null;\n}\n\nexport interface KeyMetrics {\n    rpm: number;\n    circuitBreakerTripped: boolean;\n    costAccumulatedMicrodollars: bigint;\n}\n\nexport interface KeyPoolContract {\n    getKey(provider: string): Promise<string>;\n    recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;\n    recordResult(keyId: string, success: boolean): Promise<void>;\n}"
+      "title": "`TierMatrixItem` (ui/src/lib/workbench/types.ts:23)",
+      "file": "ui/src/lib/workbench/types.ts",
+      "start_line": 23,
+      "end_line": 48,
+      "code": "export interface TierMatrixItem {\n  id: UserTier;\n  name: string;\n  icon: string;\n  badge: string;\n  badgeClass: string;\n  quotaText: string;\n  description: string;\n  footerText: string;\n  dailyUsagePercent: number;\n  minWidth: string;\n}\n\nexport interface WorkbenchProps {\n  userAccount?: UserAccount;\n  projects?: Project[];\n  keys?: ProjectKey[];\n  providerKeys?: APIKey[];\n  onSelectTier?: (tier: UserTier) => void;\n  onCreateProject?: (project: Partial<Project>) => void;\n  onRotateKey?: (keyId: string) => void;\n  onRevokeKey?: (keyId: string) => void;\n  onDeleteKey?: (keyId: string) => void;\n  onToggleKeyStatus?: (keyId: string) => void;\n  onRefreshProviderKeys?: () => Promise<void> | void;\n}"
     },
     {
-      "title": "`KeyMetrics` (src/contracts/key_pool.ts:16)",
-      "file": "src/contracts/key_pool.ts",
-      "start_line": 16,
-      "end_line": 26,
-      "code": "export interface KeyMetrics {\n    rpm: number;\n    circuitBreakerTripped: boolean;\n    costAccumulatedMicrodollars: bigint;\n}\n\nexport interface KeyPoolContract {\n    getKey(provider: string): Promise<string>;\n    recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;\n    recordResult(keyId: string, success: boolean): Promise<void>;\n}"
+      "title": "`WorkbenchProps` (ui/src/lib/workbench/types.ts:36)",
+      "file": "ui/src/lib/workbench/types.ts",
+      "start_line": 36,
+      "end_line": 61,
+      "code": "export interface WorkbenchProps {\n  userAccount?: UserAccount;\n  projects?: Project[];\n  keys?: ProjectKey[];\n  providerKeys?: APIKey[];\n  onSelectTier?: (tier: UserTier) => void;\n  onCreateProject?: (project: Partial<Project>) => void;\n  onRotateKey?: (keyId: string) => void;\n  onRevokeKey?: (keyId: string) => void;\n  onDeleteKey?: (keyId: string) => void;\n  onToggleKeyStatus?: (keyId: string) => void;\n  onRefreshProviderKeys?: () => Promise<void> | void;\n}\n\nexport const DEFAULT_USER_ACCOUNT: UserAccount = {\n  id: '',\n  githubId: 0,\n  githubUsername: '',\n  primaryEmail: '',\n  tier: 'demo',\n  avatarUrl: '',\n  isEmailVerified: false,\n  githubCreatedAt: '',\n  sybilScore: 0,\n  registrationIp: '',\n  createdAt: '',"
     },
     {
-      "title": "`KeyPoolContract` (src/contracts/key_pool.ts:22)",
-      "file": "src/contracts/key_pool.ts",
-      "start_line": 22,
-      "end_line": 26,
-      "code": "export interface KeyPoolContract {\n    getKey(provider: string): Promise<string>;\n    recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;\n    recordResult(keyId: string, success: boolean): Promise<void>;\n}"
+      "title": "`ProviderFilter` (ui/src/lib/api_docs/types.ts:6)",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "start_line": 6,
+      "end_line": 31,
+      "code": "export type ProviderFilter = 'OpenAI Compatible' | 'Anthropic' | 'Gemini' | 'Groq' | 'DeepSeek';\n\nexport interface ModelOption {\n  id: string;\n  provider: string;\n}\n\nexport interface ModelPricingItem {\n  id: string;\n  owned_by: string;\n  routing_engine: string;\n  inputCost1kMicro: number;\n  outputCost1kMicro: number;\n  inputCostPerMUsd: string;\n  outputCostPerMUsd: string;\n  bulletClass: string;\n  isDeprecated: boolean;\n  sunsetAt?: string | null;\n}\n\nexport interface ResponseChunk {\n  text: string;\n  class: string;\n}\n\nexport const CANONICAL_MODELS: ModelOption[] = ["
     },
     {
-      "title": "`RouteRequest` (src/contracts/router.ts:1)",
-      "file": "src/contracts/router.ts",
-      "start_line": 1,
-      "end_line": 14,
-      "code": "export interface RouteRequest {\n    modelAlias: string;\n    messages: unknown[];\n    stream: boolean;\n}\n\nexport interface RouteResponse {\n    content: string;\n    costMicrodollars: bigint;\n}\n\nexport interface RouterContract {\n    route(request: RouteRequest): Promise<RouteResponse>;\n}"
+      "title": "`ModelOption` (ui/src/lib/api_docs/types.ts:8)",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "start_line": 8,
+      "end_line": 33,
+      "code": "export interface ModelOption {\n  id: string;\n  provider: string;\n}\n\nexport interface ModelPricingItem {\n  id: string;\n  owned_by: string;\n  routing_engine: string;\n  inputCost1kMicro: number;\n  outputCost1kMicro: number;\n  inputCostPerMUsd: string;\n  outputCostPerMUsd: string;\n  bulletClass: string;\n  isDeprecated: boolean;\n  sunsetAt?: string | null;\n}\n\nexport interface ResponseChunk {\n  text: string;\n  class: string;\n}\n\nexport const CANONICAL_MODELS: ModelOption[] = [\n  { id: 'gemini-3.8-flash', provider: 'google' },\n  { id: 'gemini-3.5-flash', provider: 'google' },"
     },
     {
-      "title": "`RouteResponse` (src/contracts/router.ts:7)",
-      "file": "src/contracts/router.ts",
-      "start_line": 7,
-      "end_line": 14,
-      "code": "export interface RouteResponse {\n    content: string;\n    costMicrodollars: bigint;\n}\n\nexport interface RouterContract {\n    route(request: RouteRequest): Promise<RouteResponse>;\n}"
+      "title": "`ModelPricingItem` (ui/src/lib/api_docs/types.ts:13)",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "start_line": 13,
+      "end_line": 38,
+      "code": "export interface ModelPricingItem {\n  id: string;\n  owned_by: string;\n  routing_engine: string;\n  inputCost1kMicro: number;\n  outputCost1kMicro: number;\n  inputCostPerMUsd: string;\n  outputCostPerMUsd: string;\n  bulletClass: string;\n  isDeprecated: boolean;\n  sunsetAt?: string | null;\n}\n\nexport interface ResponseChunk {\n  text: string;\n  class: string;\n}\n\nexport const CANONICAL_MODELS: ModelOption[] = [\n  { id: 'gemini-3.8-flash', provider: 'google' },\n  { id: 'gemini-3.5-flash', provider: 'google' },\n  { id: 'gemini-3.5-flash-lite', provider: 'google' },\n  { id: 'gemini-3.1-pro-preview', provider: 'google' },\n  { id: 'gemini-2.5-flash', provider: 'google' },\n  { id: 'qwen/qwen3.8-27b', provider: 'groq' },\n  { id: 'qwen/qwen3.6-27b', provider: 'groq' },"
     },
     {
-      "title": "`RouterContract` (src/contracts/router.ts:12)",
-      "file": "src/contracts/router.ts",
-      "start_line": 12,
-      "end_line": 14,
-      "code": "export interface RouterContract {\n    route(request: RouteRequest): Promise<RouteResponse>;\n}"
+      "title": "`ResponseChunk` (ui/src/lib/api_docs/types.ts:26)",
+      "file": "ui/src/lib/api_docs/types.ts",
+      "start_line": 26,
+      "end_line": 44,
+      "code": "export interface ResponseChunk {\n  text: string;\n  class: string;\n}\n\nexport const CANONICAL_MODELS: ModelOption[] = [\n  { id: 'gemini-3.8-flash', provider: 'google' },\n  { id: 'gemini-3.5-flash', provider: 'google' },\n  { id: 'gemini-3.5-flash-lite', provider: 'google' },\n  { id: 'gemini-3.1-pro-preview', provider: 'google' },\n  { id: 'gemini-2.5-flash', provider: 'google' },\n  { id: 'qwen/qwen3.8-27b', provider: 'groq' },\n  { id: 'qwen/qwen3.6-27b', provider: 'groq' },\n  { id: 'openai/gpt-oss-120b', provider: 'groq' },\n  { id: 'openai/gpt-oss-20b', provider: 'groq' },\n  { id: 'deepseek/deepseek-r1-distill-llama-70b', provider: 'deepseek' },\n  { id: 'Meta-Llama-3.1-405B-Instruct', provider: 'sambanova' },\n  { id: 'llama3.1-70b', provider: 'cerebras' },\n];"
     },
     {
-      "title": "`TelemetryEvent` (src/contracts/telemetry.ts:1)",
-      "file": "src/contracts/telemetry.ts",
-      "start_line": 1,
-      "end_line": 13,
-      "code": "export interface TelemetryEvent {\n    traceId: string;\n    tenantId: string;\n    timestamp: number;\n    eventType: string;\n    latencyMs: number;\n    costMicrodollars: bigint;\n    metadata: Record<string, string>;\n}\n\nexport interface TelemetryContract {\n    emit(event: TelemetryEvent): void;\n}"
+      "title": "`PKCEBundle` (ui/src/lib/oauth/pkce.ts:45)",
+      "file": "ui/src/lib/oauth/pkce.ts",
+      "start_line": 45,
+      "end_line": 70,
+      "code": "export interface PKCEBundle {\n  verifier: string;\n  challenge: string;\n  stateToken: string;\n  nonceHex: string;\n}\n\nexport async function createPKCEBundle(): Promise<PKCEBundle> {\n  const verifier = generateCodeVerifier(64);\n  const challenge = await generateCodeChallenge(verifier);\n  const stateBytes = new Uint8Array(24);\n  const nonceBytes = new Uint8Array(16);\n  crypto.getRandomValues(stateBytes);\n  crypto.getRandomValues(nonceBytes);\n\n  const stateToken = uint8ArrayToBase64Url(stateBytes);\n  const nonceHex = Array.from(nonceBytes)\n    .map((b) => b.toString(16).padStart(2, \"0\"))\n    .join(\"\");\n\n  if (typeof sessionStorage !== \"undefined\") {\n    sessionStorage.setItem(\"kc_pkce_verifier\", verifier);\n    sessionStorage.setItem(\"kc_oauth_state\", stateToken);\n  }\n\n  return { verifier, challenge, stateToken, nonceHex };"
+    },
+    {
+      "title": "`EncryptedPayload` (ui/src/lib/add_key/crypto.ts:38)",
+      "file": "ui/src/lib/add_key/crypto.ts",
+      "start_line": 38,
+      "end_line": 63,
+      "code": "export interface EncryptedPayload {\n  ciphertext: Uint8Array;\n  nonce: Uint8Array;\n  combined: Uint8Array;\n  nonceB64: string;\n  ciphertextB64: string;\n  combinedB64: string;\n}\n\nlet _cryptoKey: CryptoKey | null = null;\nasync function getCryptoKey(): Promise<CryptoKey> {\n  if (_cryptoKey) return _cryptoKey;\n  const rawKey = new Uint8Array(32); // 256-bit key\n  _cryptoKey = await crypto.subtle.importKey(\n    'raw',\n    rawKey,\n    'AES-GCM',\n    true,\n    ['encrypt', 'decrypt']\n  );\n  return _cryptoKey;\n}\n\nexport async function encryptPayload(plaintext: string): Promise<EncryptedPayload> {\n  const key = await getCryptoKey();\n  const nonce = generateNonce();"
+    },
+    {
+      "title": "`KeyType` (ui/src/lib/add_key/state.ts:8)",
+      "file": "ui/src/lib/add_key/state.ts",
+      "start_line": 8,
+      "end_line": 33,
+      "code": "export type KeyType = 'gemini' | 'groq' | string;\n\nexport type KeyFormData = {\n  name: string;\n  key: string;\n};\n\nexport interface ModalState {\n  isOpen: boolean;\n  type: KeyType;\n  lastSubmittedData?: KeyFormData;\n  lastEncryptedPayload?: EncryptedPayload;\n}\n\nconst modalState: ModalState = {\n  isOpen: false,\n  type: 'gemini',\n  lastSubmittedData: undefined,\n  lastEncryptedPayload: undefined,\n};\n\nexport type StateListener = (state: Readonly<ModalState>) => void;\nconst stateListeners = new Set<StateListener>();\n\nfunction notifyListeners() {\n  for (const listener of stateListeners) {"
+    },
+    {
+      "title": "`KeyFormData` (ui/src/lib/add_key/state.ts:10)",
+      "file": "ui/src/lib/add_key/state.ts",
+      "start_line": 10,
+      "end_line": 35,
+      "code": "export type KeyFormData = {\n  name: string;\n  key: string;\n};\n\nexport interface ModalState {\n  isOpen: boolean;\n  type: KeyType;\n  lastSubmittedData?: KeyFormData;\n  lastEncryptedPayload?: EncryptedPayload;\n}\n\nconst modalState: ModalState = {\n  isOpen: false,\n  type: 'gemini',\n  lastSubmittedData: undefined,\n  lastEncryptedPayload: undefined,\n};\n\nexport type StateListener = (state: Readonly<ModalState>) => void;\nconst stateListeners = new Set<StateListener>();\n\nfunction notifyListeners() {\n  for (const listener of stateListeners) {\n    listener(modalState);\n  }"
+    },
+    {
+      "title": "`ModalState` (ui/src/lib/add_key/state.ts:15)",
+      "file": "ui/src/lib/add_key/state.ts",
+      "start_line": 15,
+      "end_line": 40,
+      "code": "export interface ModalState {\n  isOpen: boolean;\n  type: KeyType;\n  lastSubmittedData?: KeyFormData;\n  lastEncryptedPayload?: EncryptedPayload;\n}\n\nconst modalState: ModalState = {\n  isOpen: false,\n  type: 'gemini',\n  lastSubmittedData: undefined,\n  lastEncryptedPayload: undefined,\n};\n\nexport type StateListener = (state: Readonly<ModalState>) => void;\nconst stateListeners = new Set<StateListener>();\n\nfunction notifyListeners() {\n  for (const listener of stateListeners) {\n    listener(modalState);\n  }\n}\n\nexport function subscribeModalState(listener: StateListener): () => void {\n  stateListeners.add(listener);\n  listener(modalState);"
     }
   ],
   "files": [
     {
-      "path": "cmd/key-collective/main.go",
-      "loc": 110,
+      "path": "vitest.config.ts",
+      "loc": 13,
       "class_count": 0,
-      "function_count": 1
-    },
-    {
-      "path": "internal/proxy/crypto.go",
-      "loc": 65,
-      "class_count": 0,
-      "function_count": 3
-    },
-    {
-      "path": "internal/proxy/handler.go",
-      "loc": 120,
-      "class_count": 1,
-      "function_count": 1
-    },
-    {
-      "path": "internal/proxy/manager.go",
-      "loc": 190,
-      "class_count": 1,
-      "function_count": 8
-    },
-    {
-      "path": "internal/proxy/manager_test.go",
-      "loc": 126,
-      "class_count": 0,
-      "function_count": 2
-    },
-    {
-      "path": "internal/db/sqlite.go",
-      "loc": 283,
-      "class_count": 1,
-      "function_count": 8
-    },
-    {
-      "path": "internal/db/sqlite_test.go",
-      "loc": 241,
-      "class_count": 0,
-      "function_count": 4
-    },
-    {
-      "path": "internal/domain/contracts.go",
-      "loc": 61,
-      "class_count": 3,
       "function_count": 0
-    },
-    {
-      "path": "internal/api/handler.go",
-      "loc": 353,
-      "class_count": 6,
-      "function_count": 10
-    },
-    {
-      "path": "internal/api/handler_test.go",
-      "loc": 349,
-      "class_count": 0,
-      "function_count": 5
     },
     {
       "path": "ui/svelte.config.js",
@@ -2486,14 +3363,14 @@
       "function_count": 0
     },
     {
-      "path": "ui/ui.go",
-      "loc": 19,
+      "path": "ui/vite.config.ts",
+      "loc": 14,
       "class_count": 0,
-      "function_count": 1
+      "function_count": 0
     },
     {
-      "path": "ui/vite.config.ts",
-      "loc": 11,
+      "path": "ui/vitest.config.ts",
+      "loc": 31,
       "class_count": 0,
       "function_count": 0
     },
@@ -2504,20 +3381,140 @@
       "function_count": 0
     },
     {
+      "path": "ui/src/lib/AddKeyModal.test.ts",
+      "loc": 238,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/DebtLedgerWidget.test.ts",
+      "loc": 217,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/PoolCommonsTab.test.ts",
+      "loc": 70,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/TelemetryCharts.test.ts",
+      "loc": 300,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/TelemetryCharts.ts",
+      "loc": 348,
+      "class_count": 7,
+      "function_count": 6
+    },
+    {
       "path": "ui/src/lib/api.ts",
-      "loc": 310,
+      "loc": 309,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/firebase.ts",
+      "loc": 17,
       "class_count": 0,
       "function_count": 0
     },
     {
       "path": "ui/src/lib/types.ts",
-      "loc": 62,
-      "class_count": 7,
+      "loc": 127,
+      "class_count": 14,
+      "function_count": 1
+    },
+    {
+      "path": "ui/src/lib/admin/surveillance/helpers.ts",
+      "loc": 52,
+      "class_count": 0,
+      "function_count": 4
+    },
+    {
+      "path": "ui/src/lib/admin/surveillance/index.ts",
+      "loc": 4,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/workbench/formatters.ts",
+      "loc": 109,
+      "class_count": 0,
+      "function_count": 3
+    },
+    {
+      "path": "ui/src/lib/workbench/index.ts",
+      "loc": 13,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/workbench/types.ts",
+      "loc": 150,
+      "class_count": 4,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/api_docs/generators.ts",
+      "loc": 266,
+      "class_count": 0,
+      "function_count": 5
+    },
+    {
+      "path": "ui/src/lib/api_docs/index.ts",
+      "loc": 10,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/api_docs/types.ts",
+      "loc": 44,
+      "class_count": 4,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/oauth/index.ts",
+      "loc": 5,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/oauth/pkce.ts",
+      "loc": 71,
+      "class_count": 1,
+      "function_count": 4
+    },
+    {
+      "path": "ui/src/lib/add_key/crypto.ts",
+      "loc": 99,
+      "class_count": 1,
+      "function_count": 5
+    },
+    {
+      "path": "ui/src/lib/add_key/index.ts",
+      "loc": 6,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ui/src/lib/add_key/state.ts",
+      "loc": 81,
+      "class_count": 4,
+      "function_count": 6
+    },
+    {
+      "path": "ui/src/lib/playground/index.ts",
+      "loc": 4,
+      "class_count": 0,
       "function_count": 0
     },
     {
       "path": "src/index.ts",
-      "loc": 31,
+      "loc": 34,
       "class_count": 1,
       "function_count": 0
     },
@@ -2529,15 +3526,27 @@
     },
     {
       "path": "src/contracts/index.ts",
-      "loc": 4,
+      "loc": 7,
       "class_count": 0,
       "function_count": 0
     },
     {
       "path": "src/contracts/key_pool.ts",
-      "loc": 26,
+      "loc": 33,
       "class_count": 3,
       "function_count": 0
+    },
+    {
+      "path": "src/contracts/keys.ts",
+      "loc": 1,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/providers.ts",
+      "loc": 10,
+      "class_count": 1,
+      "function_count": 1
     },
     {
       "path": "src/contracts/router.ts",
@@ -2549,6 +3558,24 @@
       "path": "src/contracts/telemetry.ts",
       "loc": 13,
       "class_count": 2,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/v3_5_types.ts",
+      "loc": 112,
+      "class_count": 13,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/v3_types.ts",
+      "loc": 263,
+      "class_count": 13,
+      "function_count": 0
+    },
+    {
+      "path": "src/contracts/v4_types.ts",
+      "loc": 104,
+      "class_count": 8,
       "function_count": 0
     },
     {
@@ -2570,16 +3597,22 @@
       "function_count": 0
     },
     {
+      "path": "src/constants/keys.ts",
+      "loc": 5,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
       "path": "src/constants/limits.ts",
       "loc": 101,
       "class_count": 0,
       "function_count": 2
     },
     {
-      "path": "src/crypto/encryption.ts",
-      "loc": 483,
-      "class_count": 5,
-      "function_count": 10
+      "path": "src/crypto/encryption.spec.ts",
+      "loc": 124,
+      "class_count": 0,
+      "function_count": 0
     },
     {
       "path": "src/crypto/hashing.ts",
@@ -2600,33 +3633,201 @@
       "function_count": 15
     },
     {
-      "path": "src/durable_objects/circuit_breaker.ts",
-      "loc": 510,
-      "class_count": 5,
-      "function_count": 3
+      "path": "src/crypto/encryption/aes.ts",
+      "loc": 337,
+      "class_count": 1,
+      "function_count": 6
     },
     {
-      "path": "src/durable_objects/index.ts",
-      "loc": 26,
+      "path": "src/crypto/encryption/digest.ts",
+      "loc": 57,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/crypto/encryption/index.ts",
+      "loc": 14,
       "class_count": 0,
       "function_count": 0
     },
     {
-      "path": "src/durable_objects/key_pool_do.ts",
-      "loc": 869,
+      "path": "src/crypto/encryption/keys.ts",
+      "loc": 185,
+      "class_count": 0,
+      "function_count": 8
+    },
+    {
+      "path": "src/crypto/encryption/types.ts",
+      "loc": 39,
       "class_count": 4,
-      "function_count": 1
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/circuit_breaker.ts",
+      "loc": 1,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/crypto.spec.ts",
+      "loc": 465,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/crypto.ts",
+      "loc": 480,
+      "class_count": 1,
+      "function_count": 10
+    },
+    {
+      "path": "src/durable_objects/index.ts",
+      "loc": 37,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_pool.spec.ts",
+      "loc": 297,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_pool.ts",
+      "loc": 75,
+      "class_count": 2,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_pool_do.ts",
+      "loc": 6,
+      "class_count": 0,
+      "function_count": 0
     },
     {
       "path": "src/durable_objects/key_selector.ts",
-      "loc": 1105,
-      "class_count": 8,
-      "function_count": 1
+      "loc": 6,
+      "class_count": 0,
+      "function_count": 0
     },
     {
       "path": "src/durable_objects/rate_limiter.ts",
-      "loc": 685,
-      "class_count": 6,
+      "loc": 6,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_selector/index.ts",
+      "loc": 9,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_selector/selector.ts",
+      "loc": 594,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_selector/strategies.ts",
+      "loc": 181,
+      "class_count": 1,
+      "function_count": 6
+    },
+    {
+      "path": "src/durable_objects/key_selector/triage.ts",
+      "loc": 282,
+      "class_count": 1,
+      "function_count": 3
+    },
+    {
+      "path": "src/durable_objects/key_selector/types.ts",
+      "loc": 143,
+      "class_count": 7,
+      "function_count": 1
+    },
+    {
+      "path": "src/durable_objects/key_pool/index.ts",
+      "loc": 8,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_pool/key_pool_do.ts",
+      "loc": 645,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/key_pool/rpc.ts",
+      "loc": 227,
+      "class_count": 1,
+      "function_count": 1
+    },
+    {
+      "path": "src/durable_objects/key_pool/types.ts",
+      "loc": 75,
+      "class_count": 3,
+      "function_count": 1
+    },
+    {
+      "path": "src/durable_objects/rate_limiter/data.ts",
+      "loc": 43,
+      "class_count": 0,
+      "function_count": 3
+    },
+    {
+      "path": "src/durable_objects/rate_limiter/index.ts",
+      "loc": 4,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/rate_limiter/limiter.ts",
+      "loc": 484,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/rate_limiter/types.ts",
+      "loc": 84,
+      "class_count": 5,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/rate_limiter/window.ts",
+      "loc": 95,
+      "class_count": 0,
+      "function_count": 5
+    },
+    {
+      "path": "src/durable_objects/circuit_breaker/breaker.ts",
+      "loc": 236,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/circuit_breaker/index.ts",
+      "loc": 9,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/circuit_breaker/state_machine.ts",
+      "loc": 120,
+      "class_count": 1,
+      "function_count": 5
+    },
+    {
+      "path": "src/durable_objects/circuit_breaker/storage.ts",
+      "loc": 57,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/durable_objects/circuit_breaker/types.ts",
+      "loc": 132,
+      "class_count": 4,
       "function_count": 3
     },
     {
@@ -2666,6 +3867,12 @@
       "function_count": 2
     },
     {
+      "path": "src/proxy/cost_calculator.ts",
+      "loc": 286,
+      "class_count": 3,
+      "function_count": 9
+    },
+    {
       "path": "src/proxy/index.ts",
       "loc": 17,
       "class_count": 0,
@@ -2678,22 +3885,76 @@
       "function_count": 0
     },
     {
-      "path": "src/proxy/sse_transformer.ts",
-      "loc": 806,
-      "class_count": 5,
-      "function_count": 1
-    },
-    {
       "path": "src/proxy/upstream_client.test.ts",
       "loc": 974,
       "class_count": 0,
       "function_count": 0
     },
     {
-      "path": "src/proxy/upstream_client.ts",
-      "loc": 1135,
-      "class_count": 6,
-      "function_count": 5
+      "path": "src/proxy/upstream/client.ts",
+      "loc": 648,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/upstream/errors.ts",
+      "loc": 123,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/proxy/upstream/headers.ts",
+      "loc": 119,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/proxy/upstream/index.ts",
+      "loc": 13,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/upstream/payload.ts",
+      "loc": 84,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/proxy/upstream/types.ts",
+      "loc": 246,
+      "class_count": 5,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/upstream/urls.ts",
+      "loc": 62,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/proxy/sse/index.ts",
+      "loc": 8,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/sse/transformer.ts",
+      "loc": 481,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/sse/types.ts",
+      "loc": 119,
+      "class_count": 4,
+      "function_count": 0
+    },
+    {
+      "path": "src/proxy/sse/usage_extractor.ts",
+      "loc": 216,
+      "class_count": 0,
+      "function_count": 1
     },
     {
       "path": "src/router/capability_filter.test.ts",
@@ -2702,22 +3963,10 @@
       "function_count": 0
     },
     {
-      "path": "src/router/capability_filter.ts",
-      "loc": 719,
-      "class_count": 6,
-      "function_count": 1
-    },
-    {
       "path": "src/router/cascade_router.test.ts",
-      "loc": 875,
+      "loc": 899,
       "class_count": 0,
       "function_count": 0
-    },
-    {
-      "path": "src/router/cascade_router.ts",
-      "loc": 595,
-      "class_count": 4,
-      "function_count": 2
     },
     {
       "path": "src/router/index.ts",
@@ -2732,40 +3981,298 @@
       "function_count": 0
     },
     {
-      "path": "src/router/model_registry.ts",
-      "loc": 1078,
-      "class_count": 9,
+      "path": "src/router/registry/catalog.ts",
+      "loc": 334,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/registry/errors.ts",
+      "loc": 74,
+      "class_count": 2,
       "function_count": 1
     },
     {
-      "path": "src/storage/index.ts",
+      "path": "src/router/registry/helpers.ts",
+      "loc": 42,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/router/registry/index.ts",
       "loc": 9,
       "class_count": 0,
       "function_count": 0
     },
     {
-      "path": "src/storage/repositories/apiKeys.ts",
-      "loc": 984,
-      "class_count": 8,
+      "path": "src/router/registry/registry.ts",
+      "loc": 706,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/registry/types.ts",
+      "loc": 150,
+      "class_count": 6,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/capability/auditor.ts",
+      "loc": 129,
+      "class_count": 0,
+      "function_count": 3
+    },
+    {
+      "path": "src/router/capability/extractor.ts",
+      "loc": 200,
+      "class_count": 0,
       "function_count": 1
     },
     {
-      "path": "src/storage/repositories/authTokens.ts",
-      "loc": 701,
-      "class_count": 7,
+      "path": "src/router/capability/filter.ts",
+      "loc": 202,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/capability/index.ts",
+      "loc": 6,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/capability/sorter.ts",
+      "loc": 52,
+      "class_count": 0,
       "function_count": 1
     },
     {
-      "path": "src/storage/repositories/costLedger.ts",
-      "loc": 1242,
-      "class_count": 10,
+      "path": "src/router/capability/token_estimator.ts",
+      "loc": 65,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/router/capability/types.ts",
+      "loc": 98,
+      "class_count": 5,
+      "function_count": 2
+    },
+    {
+      "path": "src/router/cascade/evaluator.ts",
+      "loc": 216,
+      "class_count": 1,
       "function_count": 5
     },
     {
-      "path": "src/storage/repositories/modelRegistry.ts",
-      "loc": 727,
-      "class_count": 5,
+      "path": "src/router/cascade/fallback.ts",
+      "loc": 214,
+      "class_count": 1,
+      "function_count": 1
+    },
+    {
+      "path": "src/router/cascade/index.ts",
+      "loc": 21,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/cascade/router.ts",
+      "loc": 202,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/router/cascade/types.ts",
+      "loc": 159,
+      "class_count": 3,
       "function_count": 2
+    },
+    {
+      "path": "src/storage/d1.spec.ts",
+      "loc": 492,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/do.spec.ts",
+      "loc": 343,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/do.ts",
+      "loc": 167,
+      "class_count": 2,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/index.ts",
+      "loc": 11,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/cost_ledger/errors.ts",
+      "loc": 57,
+      "class_count": 3,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/cost_ledger/helpers.ts",
+      "loc": 158,
+      "class_count": 0,
+      "function_count": 5
+    },
+    {
+      "path": "src/storage/repositories/cost_ledger/index.ts",
+      "loc": 8,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/cost_ledger/repository.ts",
+      "loc": 884,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/cost_ledger/types.ts",
+      "loc": 193,
+      "class_count": 10,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/api_keys/crypto.ts",
+      "loc": 129,
+      "class_count": 0,
+      "function_count": 5
+    },
+    {
+      "path": "src/storage/repositories/api_keys/index.ts",
+      "loc": 9,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/api_keys/repository.ts",
+      "loc": 683,
+      "class_count": 2,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/api_keys/types.ts",
+      "loc": 175,
+      "class_count": 6,
+      "function_count": 1
+    },
+    {
+      "path": "src/storage/repositories/api_keys/validation.ts",
+      "loc": 60,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/storage/repositories/model_registry/index.ts",
+      "loc": 4,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/model_registry/mapper.ts",
+      "loc": 94,
+      "class_count": 0,
+      "function_count": 4
+    },
+    {
+      "path": "src/storage/repositories/model_registry/repository.ts",
+      "loc": 501,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/model_registry/sql.ts",
+      "loc": 32,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/model_registry/types.ts",
+      "loc": 99,
+      "class_count": 4,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/auth_tokens/index.ts",
+      "loc": 3,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/auth_tokens/mapper.ts",
+      "loc": 43,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/storage/repositories/auth_tokens/repository.spec.ts",
+      "loc": 349,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/auth_tokens/repository.ts",
+      "loc": 519,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/repositories/auth_tokens/types.ts",
+      "loc": 107,
+      "class_count": 7,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/d1/adapter.ts",
+      "loc": 81,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/d1/index.ts",
+      "loc": 17,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/d1/keys.ts",
+      "loc": 159,
+      "class_count": 0,
+      "function_count": 4
+    },
+    {
+      "path": "src/storage/d1/ledger.ts",
+      "loc": 95,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/storage/d1/rollups.ts",
+      "loc": 159,
+      "class_count": 0,
+      "function_count": 3
+    },
+    {
+      "path": "src/storage/d1/types.ts",
+      "loc": 109,
+      "class_count": 4,
+      "function_count": 0
+    },
+    {
+      "path": "src/storage/d1/validation.ts",
+      "loc": 40,
+      "class_count": 0,
+      "function_count": 3
     },
     {
       "path": "src/types/api.ts",
@@ -2787,33 +4294,531 @@
     },
     {
       "path": "src/types/models.ts",
-      "loc": 361,
+      "loc": 377,
       "class_count": 11,
       "function_count": 9
     },
     {
-      "path": "src/worker/auth_middleware.ts",
-      "loc": 695,
-      "class_count": 8,
-      "function_count": 4
+      "path": "src/worker/error_normalizer.ts",
+      "loc": 88,
+      "class_count": 0,
+      "function_count": 5
+    },
+    {
+      "path": "src/worker/index.test.ts",
+      "loc": 602,
+      "class_count": 0,
+      "function_count": 0
     },
     {
       "path": "src/worker/index.ts",
-      "loc": 262,
-      "class_count": 3,
-      "function_count": 2
+      "loc": 79,
+      "class_count": 0,
+      "function_count": 1
     },
     {
-      "path": "src/worker/router_handler.ts",
-      "loc": 1287,
-      "class_count": 6,
-      "function_count": 3
+      "path": "src/worker/openapi_spec.ts",
+      "loc": 587,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/pool_routes.ts",
+      "loc": 332,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router_handler.test.ts",
+      "loc": 311,
+      "class_count": 0,
+      "function_count": 0
     },
     {
       "path": "src/worker/telemetry_emitter.ts",
       "loc": 419,
       "class_count": 4,
       "function_count": 3
+    },
+    {
+      "path": "src/worker/router/chat_handler.ts",
+      "loc": 1,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/dashboard_handler.ts",
+      "loc": 5,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/demo_routes.ts",
+      "loc": 65,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router/do_client.ts",
+      "loc": 283,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/errors.ts",
+      "loc": 102,
+      "class_count": 1,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router/index.ts",
+      "loc": 12,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/model_routes.ts",
+      "loc": 138,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/router_handler.ts",
+      "loc": 199,
+      "class_count": 1,
+      "function_count": 2
+    },
+    {
+      "path": "src/worker/router/types.ts",
+      "loc": 80,
+      "class_count": 3,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/dashboard/abuse_routes.ts",
+      "loc": 126,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router/dashboard/auth_routes.ts",
+      "loc": 232,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/worker/router/dashboard/handler.ts",
+      "loc": 404,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/dashboard/index.ts",
+      "loc": 9,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/dashboard/metrics_routes.ts",
+      "loc": 225,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/worker/router/dashboard/project_routes.ts",
+      "loc": 358,
+      "class_count": 1,
+      "function_count": 4
+    },
+    {
+      "path": "src/worker/router/dashboard/token_routes.ts",
+      "loc": 469,
+      "class_count": 2,
+      "function_count": 4
+    },
+    {
+      "path": "src/worker/router/dashboard/keys/get_keys.ts",
+      "loc": 171,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router/dashboard/keys/index.ts",
+      "loc": 7,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/dashboard/keys/ops.ts",
+      "loc": 267,
+      "class_count": 0,
+      "function_count": 4
+    },
+    {
+      "path": "src/worker/router/dashboard/keys/post_key.ts",
+      "loc": 177,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router/core/dispatcher.ts",
+      "loc": 332,
+      "class_count": 1,
+      "function_count": 2
+    },
+    {
+      "path": "src/worker/router/core/key_resolver.test.ts",
+      "loc": 118,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/core/key_resolver.ts",
+      "loc": 176,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/worker/router/core/resolver.ts",
+      "loc": 148,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/chat/handler.ts",
+      "loc": 253,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/chat/index.ts",
+      "loc": 4,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/router/chat/non_streaming.ts",
+      "loc": 167,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router/chat/stream.ts",
+      "loc": 164,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/router/chat/types.ts",
+      "loc": 36,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/gateway/admin_handler.ts",
+      "loc": 752,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/gateway/admin_verifier.ts",
+      "loc": 184,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/gateway/console_handler.ts",
+      "loc": 90,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/gateway/index.ts",
+      "loc": 11,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/gateway/main_worker.ts",
+      "loc": 212,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/gateway/subdomain.ts",
+      "loc": 71,
+      "class_count": 0,
+      "function_count": 3
+    },
+    {
+      "path": "src/worker/gateway/types.ts",
+      "loc": 60,
+      "class_count": 2,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/auth/error_formatter.ts",
+      "loc": 52,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/auth/index.ts",
+      "loc": 5,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/auth/middleware.ts",
+      "loc": 707,
+      "class_count": 1,
+      "function_count": 3
+    },
+    {
+      "path": "src/worker/auth/storage.ts",
+      "loc": 77,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/worker/auth/token_extractor.ts",
+      "loc": 57,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/worker/auth/types.ts",
+      "loc": 114,
+      "class_count": 6,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/index.ts",
+      "loc": 3,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/oauth.test.ts",
+      "loc": 520,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/sybil.test.ts",
+      "loc": 552,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/sybil/constants.ts",
+      "loc": 87,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/sybil/engine.ts",
+      "loc": 294,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/auth/sybil/errors.ts",
+      "loc": 41,
+      "class_count": 3,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/sybil/index.ts",
+      "loc": 11,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/sybil/scoring.ts",
+      "loc": 424,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/auth/sybil/turnstile.ts",
+      "loc": 109,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/auth/sybil/types.ts",
+      "loc": 149,
+      "class_count": 10,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/sybil/utils.ts",
+      "loc": 138,
+      "class_count": 1,
+      "function_count": 3
+    },
+    {
+      "path": "src/auth/oauth/client.ts",
+      "loc": 344,
+      "class_count": 0,
+      "function_count": 4
+    },
+    {
+      "path": "src/auth/oauth/crypto.ts",
+      "loc": 182,
+      "class_count": 0,
+      "function_count": 3
+    },
+    {
+      "path": "src/auth/oauth/index.ts",
+      "loc": 15,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/oauth/pkce.ts",
+      "loc": 101,
+      "class_count": 0,
+      "function_count": 4
+    },
+    {
+      "path": "src/auth/oauth/providers.ts",
+      "loc": 81,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/auth/oauth/types.ts",
+      "loc": 65,
+      "class_count": 6,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/demo/constants.ts",
+      "loc": 18,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/demo/demo.test.ts",
+      "loc": 190,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/demo/do.ts",
+      "loc": 392,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/demo/index.ts",
+      "loc": 14,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/demo/sandbox.ts",
+      "loc": 291,
+      "class_count": 2,
+      "function_count": 2
+    },
+    {
+      "path": "src/auth/demo/storage.ts",
+      "loc": 61,
+      "class_count": 2,
+      "function_count": 0
+    },
+    {
+      "path": "src/auth/demo/types.ts",
+      "loc": 119,
+      "class_count": 8,
+      "function_count": 0
+    },
+    {
+      "path": "src/quota/index.ts",
+      "loc": 6,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/quota/limits.ts",
+      "loc": 52,
+      "class_count": 0,
+      "function_count": 2
+    },
+    {
+      "path": "src/quota/tenant/debt.ts",
+      "loc": 69,
+      "class_count": 1,
+      "function_count": 3
+    },
+    {
+      "path": "src/quota/tenant/evaluator.ts",
+      "loc": 224,
+      "class_count": 1,
+      "function_count": 3
+    },
+    {
+      "path": "src/quota/tenant/index.ts",
+      "loc": 4,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "src/quota/tenant/tenant_do.ts",
+      "loc": 443,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/quota/tenant/types.ts",
+      "loc": 151,
+      "class_count": 7,
+      "function_count": 1
+    },
+    {
+      "path": "src/ingress/probe.ts",
+      "loc": 32,
+      "class_count": 0,
+      "function_count": 1
+    },
+    {
+      "path": "src/pool/coordinator_do.ts",
+      "loc": 152,
+      "class_count": 1,
+      "function_count": 0
+    },
+    {
+      "path": "src/utils/logger.ts",
+      "loc": 59,
+      "class_count": 4,
+      "function_count": 0
+    },
+    {
+      "path": "test/abuse_routes.test.ts",
+      "loc": 194,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/auth_middleware.test.ts",
+      "loc": 1,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/env.test.ts",
+      "loc": 59,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/error_normalizer.test.ts",
+      "loc": 190,
+      "class_count": 0,
+      "function_count": 0
     },
     {
       "path": "test/durable_objects/circuit_breaker.test.ts",
@@ -2853,7 +4858,13 @@
     },
     {
       "path": "test/unit/worker/auth_middleware.test.ts",
-      "loc": 849,
+      "loc": 1202,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/unit/worker/dashboard_session_telemetry.test.ts",
+      "loc": 159,
       "class_count": 0,
       "function_count": 0
     },
@@ -2866,6 +4877,24 @@
     {
       "path": "test/unit/worker/telemetry_emitter.test.ts",
       "loc": 411,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/unit/quota/limits.test.ts",
+      "loc": 69,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/unit/quota/tenant_do.test.ts",
+      "loc": 437,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "test/unit/utils/logger.test.ts",
+      "loc": 90,
       "class_count": 0,
       "function_count": 0
     },
@@ -2918,6 +4947,12 @@
       "function_count": 0
     },
     {
+      "path": "tests/storage/migrations.test.ts",
+      "loc": 49,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
       "path": "tests/storage/repositories/apiKeys.test.ts",
       "loc": 1003,
       "class_count": 0,
@@ -2925,7 +4960,7 @@
     },
     {
       "path": "tests/storage/repositories/authTokens.test.ts",
-      "loc": 874,
+      "loc": 877,
       "class_count": 0,
       "function_count": 0
     },
@@ -2940,6 +4975,48 @@
       "loc": 981,
       "class_count": 0,
       "function_count": 0
+    },
+    {
+      "path": "tests/auth/oauth.test.ts",
+      "loc": 520,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/auth/sybil.test.ts",
+      "loc": 759,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/auth/two_phase_auth.test.ts",
+      "loc": 1386,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/admin/admin_router.test.ts",
+      "loc": 190,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/pool/coordinator_do.test.ts",
+      "loc": 210,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "tests/integration/coordinator_wiring.test.ts",
+      "loc": 140,
+      "class_count": 0,
+      "function_count": 0
+    },
+    {
+      "path": "ops/migrate_keys_hkdf.ts",
+      "loc": 45,
+      "class_count": 0,
+      "function_count": 1
     }
   ],
   "github_base_url": "https://github.com/Axe-08/Key-Collective",

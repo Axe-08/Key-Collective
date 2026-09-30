@@ -153,32 +153,19 @@ This provides hard sandbox isolation equivalent to microVMs.
 
 
 
-**The Rule:** All financial, cost, and quota calculations must use integer arithmetic representing microdollars ($\mu\$$).
+**The Rule:** All financial, cost, and quota calculations must use integer arithmetic representing microdollars (`µ$`).
 Floating-point math (`float`, `double`) is strictly forbidden for financials.
-
-
-
-
-
-
-
 
 ### 4.1 The Threat Model
 The IEEE 754 floating-point standard cannot accurately represent base-10 decimals (e.g., `0.1 + 0.2 === 0.30000000000000004`).
-In a system processing billions of micro-transactions a day, floating-point drift will cause the Credit/Debt equilibrium ($\sum NP_i \equiv 0$) to diverge, creating ghost money or destroying real value.
-
-
-
-
-
-
-
+In a system processing billions of micro-transactions a day, floating-point drift will cause the Credit/Debt equilibrium (\(\sum_{i=1}^{N} \text{NP}_i \equiv 0\)) to diverge, creating ghost money or destroying real value.
 
 ### 4.2 The Implementation
-1 USD is defined as 1,000,000 $\mu\$$.
-If an OpenAI GPT-4o request costs $0.0015, it is recorded as `1500` $\mu\$$.
-All variables tracking debt, credit, and costs must be typed as `int64` (or `BigInt` in TypeScript if exceeding safe integer bounds, though standard JS numbers are safe up to $9 \times 10^{15}$, which is $9 billion).
+1 USD is defined as 1,000,000 `µ$` (microdollars).
+If an OpenAI GPT-4o request costs $0.0015, it is recorded as `1500` `µ$`.
+All variables tracking debt, credit, and costs must be typed as `int64` (or `BigInt` in TypeScript if exceeding safe integer bounds, though standard JS numbers are safe up to \(9 \times 10^{15}\) microdollars, which is over $9 billion USD).
 No division operations are permitted on cost integers unless explicitly bounded with `Math.floor()`.
+
 
 
 
