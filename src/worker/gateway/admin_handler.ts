@@ -136,18 +136,18 @@ export async function handleAdminRequest(
     if (db && typeof db.prepare === "function") {
       if (targetStatus === 'ACTIVE') {
         await db
-          .prepare("UPDATE api_keys SET community_routing_status = 'ACTIVE', observation_until = NULL, status = 'Healthy' WHERE id = ?")
+          .prepare("UPDATE api_keys SET community_routing_status = 'ACTIVE', observation_until = NULL, status = 'HEALTHY' WHERE id = ?")
           .bind(targetKeyId)
           .run();
       } else if (targetStatus === 'QUARANTINED') {
         await db
-          .prepare("UPDATE api_keys SET community_routing_status = 'QUARANTINED', status = 'quarantined' WHERE id = ?")
+          .prepare("UPDATE api_keys SET community_routing_status = 'QUARANTINED', status = 'QUARANTINED' WHERE id = ?")
           .bind(targetKeyId)
           .run();
       } else if (targetStatus === 'OBSERVATION') {
         const obsUntil = Date.now() + 24 * 60 * 60 * 1000;
         await db
-          .prepare("UPDATE api_keys SET community_routing_status = 'OBSERVATION', observation_until = ?, status = 'Healthy' WHERE id = ?")
+          .prepare("UPDATE api_keys SET community_routing_status = 'OBSERVATION', observation_until = ?, status = 'HEALTHY' WHERE id = ?")
           .bind(obsUntil, targetKeyId)
           .run();
       }

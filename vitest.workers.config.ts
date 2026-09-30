@@ -21,7 +21,11 @@ export default defineWorkersConfig(async () => {
       },
     ],
     test: {
-      include: ["test/integration/**/*.test.ts", "test/do/**/*.test.ts"],
+      include: [
+        "test/integration/**/*.test.ts",
+        "test/do/**/*.test.ts",
+        "tests/storage/repositories/apiKeys.test.ts",
+      ],
       setupFiles: ["./test/setup/apply-migrations.ts"],
       poolOptions: {
         workers: {

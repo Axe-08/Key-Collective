@@ -10,7 +10,13 @@ export default defineConfig({
   },
   test: {
     include: ['test/**/*.test.ts', 'tests/**/*.test.ts', 'src/**/*.test.ts', 'src/**/*.spec.ts'],
-    exclude: ['test/integration/**', 'test/do/**', 'ui/**', 'node_modules/**'],
+    exclude: [
+      'test/integration/**',
+      'test/do/**',
+      'ui/**',
+      'node_modules/**',
+      'tests/storage/repositories/apiKeys.test.ts',
+    ],
     passWithNoTests: false,
     environment: 'node',
     testTimeout: 15000,
