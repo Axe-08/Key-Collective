@@ -353,9 +353,11 @@ export class FallbackExhaustedError extends DomainError {
     message?: string,
     options: Omit<FallbackExhaustedErrorOptions, "attemptedRoutes"> = {}
   ) {
-    const msg =
-      message ??
-      `Primary route and all ${attemptedRoutes.length} fallback routes exhausted without success`;
+    // Public message is a fixed string with no provider error text; the
+    // attempted routes (which may embed upstream error text) are retained
+    // only internally (this.attemptedRoutes / details) for server logs and
+    // the x-kc-attempts count header, never in the message shown to clients.
+    const msg = message ?? "All upstream routes failed";
     super(msg, {
       ...options,
       statusCode: 502,

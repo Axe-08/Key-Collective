@@ -46,78 +46,67 @@ export function mapUpstreamHttpError(
   modelId?: string,
   timeoutMs?: number
 ): DomainError {
-  const truncatedMsg = truncateText(responseText, 500);
+  // Upstream response body is retained only on the internal `upstreamBody`
+  // property for server-side logging; it must never appear in the public
+  // error `message` (which flows to client responses via formatRouterError).
+  const upstreamBody = truncateText(responseText, 1000);
 
   // 1. Rate Limits (HTTP 429) -> RateLimitExceededError
   if (status === 429) {
     const retryAfter = parseRetryAfter(headers?.get("retry-after") ?? null);
-    return new RateLimitExceededError(
-      `Upstream provider '${provider}' rate limit exceeded (HTTP 429): ${truncatedMsg}`,
-      {
-        provider,
-        retryAfterSeconds: retryAfter,
-        details: {
-          upstreamStatusCode: 429,
-          upstreamResponseText: truncateText(responseText, 1000),
-        },
-      }
-    );
+    return new RateLimitExceededError("Upstream rate limit", {
+      provider,
+      retryAfterSeconds: retryAfter,
+      details: {
+        upstreamStatusCode: 429,
+        upstreamBody,
+      },
+    });
   }
 
   // 2. Authentication / Authorization Failures (HTTP 401 / 403) -> InvalidKeyError
   if (status === 401 || status === 403) {
-    return new InvalidKeyError(
-      `Upstream provider '${provider}' rejected API key (HTTP ${status}): ${truncatedMsg}`,
-      {
-        provider,
-        reason: truncatedMsg,
-        details: {
-          upstreamStatusCode: status,
-          upstreamResponseText: truncateText(responseText, 1000),
-        },
-      }
-    );
+    return new InvalidKeyError("Upstream authentication failed", {
+      provider,
+      reason: "Upstream authentication failed",
+      details: {
+        upstreamStatusCode: status,
+        upstreamBody,
+      },
+    });
   }
 
   // 3. Timeouts (HTTP 408 / 504) -> ProviderTimeoutError
   if (status === 408 || status === 504) {
-    return new ProviderTimeoutError(
-      provider,
-      `Upstream provider '${provider}' timed out (HTTP ${status}): ${truncatedMsg}`,
-      {
-        modelId,
-        timeoutMs: timeoutMs ?? DEFAULT_UPSTREAM_TIMEOUT_MS,
-        details: {
-          upstreamStatusCode: status,
-          upstreamResponseText: truncateText(responseText, 1000),
-        },
-      }
-    );
+    return new ProviderTimeoutError(provider, "Upstream timeout", {
+      modelId,
+      timeoutMs: timeoutMs ?? DEFAULT_UPSTREAM_TIMEOUT_MS,
+      details: {
+        upstreamStatusCode: status,
+        upstreamBody,
+      },
+    });
   }
 
   // 4. Server Errors (HTTP 500, 502, 503) -> ProviderRoutingError
   if (status >= 500) {
-    return new ProviderRoutingError(
-      provider,
-      `Upstream provider '${provider}' service error (HTTP ${status}): ${truncatedMsg}`,
-      {
-        modelId,
-        upstreamStatusCode: status,
-        upstreamResponseText: truncateText(responseText, 1000),
-        statusCode: status === 504 ? 504 : 502,
-      }
-    );
+    return new ProviderRoutingError(provider, "Upstream unavailable", {
+      modelId,
+      upstreamStatusCode: status,
+      details: {
+        upstreamBody,
+      },
+      statusCode: status === 504 ? 504 : 502,
+    });
   }
 
   // 5. Client Errors (HTTP 400, 404, 422) -> ProviderRoutingError
-  return new ProviderRoutingError(
-    provider,
-    `Upstream provider '${provider}' rejected request (HTTP ${status}): ${truncatedMsg}`,
-    {
-      modelId,
-      upstreamStatusCode: status,
-      upstreamResponseText: truncateText(responseText, 1000),
-      statusCode: 502,
-    }
-  );
+  return new ProviderRoutingError(provider, "Upstream unavailable", {
+    modelId,
+    upstreamStatusCode: status,
+    details: {
+      upstreamBody,
+    },
+    statusCode: 502,
+  });
 }

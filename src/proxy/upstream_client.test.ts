@@ -307,7 +307,7 @@ describe("UpstreamClient", () => {
       expect(rlErr.statusCode).toBe(429);
       expect(rlErr.provider).toBe("openai");
       expect(rlErr.retryAfterSeconds).toBe(45);
-      expect(rlErr.message).toContain("rate limit exceeded");
+      expect(rlErr.message).toBe("Upstream rate limit");
     });
 
     it("maps HTTP 429 with HTTP-date Retry-After header to seconds delta", () => {
@@ -337,7 +337,7 @@ describe("UpstreamClient", () => {
       const keyErr401 = err401 as InvalidKeyError;
       expect(keyErr401.statusCode).toBe(400);
       expect(keyErr401.provider).toBe("anthropic");
-      expect(keyErr401.reason).toContain("invalid or revoked");
+      expect(keyErr401.message).toBe("Upstream authentication failed");
 
       const err403 = mapUpstreamHttpError("google", 403, "API key not authorized for model");
       expect(err403).toBeInstanceOf(InvalidKeyError);
