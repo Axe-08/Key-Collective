@@ -10,15 +10,6 @@ function getAuthHeaders(): Record<string, string> {
     'Content-Type': 'application/json',
   };
   if (typeof window !== 'undefined') {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const queryToken = urlParams.get('token') || urlParams.get('admin_token');
-      if (queryToken && queryToken.trim().length > 0) {
-        localStorage.setItem('kc_auth_token', queryToken.trim());
-      }
-    } catch {
-      // ignore
-    }
     const token = localStorage.getItem('kc_auth_token');
     if (token && token.trim().length > 0) {
       headers['Authorization'] = `Bearer ${token.trim()}`;
