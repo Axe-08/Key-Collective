@@ -1,0 +1,29 @@
+name: Verify Model Catalog
+
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  verify-catalog:
+    name: Verify catalog ids against live provider endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (v22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run verify_catalog.mjs
+        run: node scripts/verify_catalog.mjs
+        env:
+          GOOGLE_STAGING_KEY: ${{ secrets.GOOGLE_STAGING_KEY }}
+          GROQ_STAGING_KEY: ${{ secrets.GROQ_STAGING_KEY }}
