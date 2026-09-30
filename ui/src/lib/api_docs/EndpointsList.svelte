@@ -59,7 +59,6 @@
             <div class="flex items-center justify-between"><span class="text-primary font-bold">Authorization</span><span class="text-on-surface">Bearer &lt;kc_token&gt;</span></div>
             <div class="flex items-center justify-between"><span class="text-primary font-bold">Content-Type</span><span class="text-on-surface">application/json</span></div>
             <div class="flex items-center justify-between text-outline"><span class="font-bold">x-pool-fallback</span><span>lenient | strict | none (default: lenient)</span></div>
-            <div class="flex items-center justify-between text-outline"><span class="font-bold">x-tenant-id</span><span>usr_gh_... | default (optional tenant scope)</span></div>
           </div>
         </div>
 

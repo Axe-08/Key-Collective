@@ -47,11 +47,6 @@
       const headers: Record<string, string> = {};
       const token = localStorage.getItem('kc_auth_token');
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const savedUser = localStorage.getItem('kc_user');
-      if (savedUser) {
-        const u = JSON.parse(savedUser);
-        if (u?.id) headers['x-tenant-id'] = u.id;
-      }
       const res = await fetch('/api/notifications', { headers });
       if (res.ok) {
         const data = await res.json();
