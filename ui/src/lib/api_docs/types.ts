@@ -14,10 +14,10 @@ export interface ModelPricingItem {
   id: string;
   owned_by: string;
   routing_engine: string;
-  inputCost1kMicro: number;
-  outputCost1kMicro: number;
-  inputCostPerMUsd: string;
-  outputCostPerMUsd: string;
+  cu_base: number;
+  cu_in_per_1k: number;
+  cu_cached_per_1k: number;
+  cu_out_per_1k: number;
   bulletClass: string;
   isDeprecated: boolean;
   sunsetAt?: string | null;
