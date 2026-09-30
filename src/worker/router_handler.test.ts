@@ -1,36 +1,36 @@
 import { describe, expect, it, vi } from "vitest";
-import { sanitizeErrorMessage, SECRET_REGEX, IP_REGEX } from "./error_normalizer";
+import { sanitize, SECRET_REGEX, IP_REGEX } from "./error_normalizer";
 import { formatRouterError, RouterHandler } from "./router/index";
 import type { AuthenticatedContext, WorkerEnv } from "./auth/types";
 import { RouterError } from "./router/index";
 import { encryptKey } from "../durable_objects/crypto";
 
 describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
-  describe("sanitizeErrorMessage", () => {
+  describe("sanitize", () => {
     it("Format error containing an IP", () => {
       const raw = "Connection failed to 192.168.1.100 on port 443";
-      const sanitized = sanitizeErrorMessage(raw);
+      const sanitized = sanitize(raw);
       expect(sanitized).toBe("Connection failed to [REDACTED_IP] on port 443");
       expect(sanitized).not.toContain("192.168.1.100");
     });
 
     it("Format error containing sk-key", () => {
       const raw = "Authentication failed for key sk-1234567890abcdef1234567890: invalid credentials";
-      const sanitized = sanitizeErrorMessage(raw);
+      const sanitized = sanitize(raw);
       expect(sanitized).toBe("Authentication failed for key [REDACTED_SECRET]: invalid credentials");
       expect(sanitized).not.toContain("sk-1234567890abcdef1234567890");
     });
 
     it("redacts Bearer tokens", () => {
       const raw = "Upstream returned 401 with header Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
-      const sanitized = sanitizeErrorMessage(raw);
+      const sanitized = sanitize(raw);
       expect(sanitized).toBe("Upstream returned 401 with header Authorization: [REDACTED_SECRET]");
       expect(sanitized).not.toContain("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
     });
 
     it("redacts multiple IP addresses and multiple secrets in a single message", () => {
       const raw = "Proxy error from 10.0.0.1 to 172.16.254.1 using sk-key12345678901234567890";
-      const sanitized = sanitizeErrorMessage(raw);
+      const sanitized = sanitize(raw);
       expect(sanitized).toBe("Proxy error from [REDACTED_IP] to [REDACTED_IP] using [REDACTED_SECRET]");
       expect(sanitized).not.toContain("10.0.0.1");
       expect(sanitized).not.toContain("172.16.254.1");
@@ -38,7 +38,7 @@ describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
     });
 
     it("handles empty or falsy message gracefully", () => {
-      expect(sanitizeErrorMessage("")).toBe("");
+      expect(sanitize("")).toBe("");
     });
   });
 
@@ -47,33 +47,47 @@ describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
       const error = new Error("Failed to reach upstream host 10.128.0.5: Connection timed out");
       const response = formatRouterError(error);
       expect(response.status).toBe(500);
+      expect(response.headers.get("x-kc-request-id")).toBeDefined();
 
-      const body = (await response.json()) as { error: { message: string; code: string; statusCode: number } };
+      const body = (await response.json()) as { error: { message: string; type: string; code: string } };
       expect(body.error.message).toBe("Failed to reach upstream host [REDACTED_IP]: Connection timed out");
       expect(body.error.message).not.toContain("10.128.0.5");
+      expect(body.error.type).toBe("internal_server_error");
       expect(body.error.code).toBe("INTERNAL_ROUTING_ERROR");
-      expect(body.error.statusCode).toBe(500);
+      expect((body as Record<string, unknown>).details).toBeUndefined();
     });
 
     it("Format error containing sk-key", async () => {
       const error = new Error("Upstream rejected token sk-abcdefghijklmnopqrstuvwxyz1234567890");
       const response = formatRouterError(error);
       expect(response.status).toBe(500);
+      expect(response.headers.get("x-kc-request-id")).toBeDefined();
 
-      const body = (await response.json()) as { error: { message: string; code: string; statusCode: number } };
+      const body = (await response.json()) as { error: { message: string; type: string; code: string } };
       expect(body.error.message).toBe("Upstream rejected token [REDACTED_SECRET]");
       expect(body.error.message).not.toContain("sk-abcdef");
+      expect(body.error.type).toBe("internal_server_error");
+      expect(body.error.code).toBe("INTERNAL_ROUTING_ERROR");
+      expect((body as Record<string, unknown>).details).toBeUndefined();
     });
 
     it("sanitizes DomainError messages", async () => {
-      const error = new RouterError("DO node 192.168.0.1 failed to route sk-12345678901234567890abcdef");
+      const error = new RouterError("DO node 192.168.0.1 failed to route sk-12345678901234567890abcdef", {
+        details: { confidentialToken: "secret-do-details" },
+      });
       const response = formatRouterError(error);
       expect(response.status).toBe(500);
+      expect(response.headers.get("x-kc-request-id")).toBeDefined();
 
-      const body = (await response.json()) as { error: string };
-      expect(body.error).toBe("DO node [REDACTED_IP] failed to route [REDACTED_SECRET]");
-      expect(body.error).not.toContain("192.168.0.1");
-      expect(body.error).not.toContain("sk-123456");
+      const body = (await response.json()) as { error: { message: string; type: string; code: string } };
+      expect(body.error.message).toBe("DO node [REDACTED_IP] failed to route [REDACTED_SECRET]");
+      expect(body.error.message).not.toContain("192.168.0.1");
+      expect(body.error.message).not.toContain("sk-123456");
+      expect(body.error.type).toBe("internal_server_error");
+      expect(body.error.code).toBe("INTERNAL_DOMAIN_ERROR");
+      // details is never serialized to clients
+      expect((body as Record<string, unknown>).details).toBeUndefined();
+      expect((body.error as unknown as Record<string, unknown>).details).toBeUndefined();
     });
   });
 });
