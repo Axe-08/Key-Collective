@@ -52,7 +52,6 @@ export class DashboardRouter {
       (env.KC_MASTER_KEY ? String(env.KC_MASTER_KEY) : undefined);
 
     let tenantId = "anonymous";
-    const headerTenant = request.headers.get("x-tenant-id");
 
     // 0. OAuth GitHub Callback
     if (method === "GET" && pathname === "/api/auth/github/callback") {
@@ -81,7 +80,9 @@ export class DashboardRouter {
         if (queryToken && queryToken.trim().length > 0) {
           rawToken = queryToken.trim();
         }
-      } catch {}
+      } catch (_err) {
+        // Query param parsing fallback
+      }
     }
 
     if (!rawToken) {
@@ -94,8 +95,14 @@ export class DashboardRouter {
       }
     }
 
+    const isAllowListed =
+      (method === "GET" && pathname === "/api/session") ||
+      (method === "POST" && pathname === "/api/abuse/report-key") ||
+      pathname.startsWith("/api/auth/");
+
+    let authFailed = false;
     if (rawToken && masterKey && rawToken === masterKey) {
-      tenantId = (headerTenant && headerTenant.trim().length > 0) ? headerTenant.trim() : "admin";
+      tenantId = "admin";
     } else if (rawToken) {
       try {
         const authReq = new Request(request.url, {
@@ -106,30 +113,44 @@ export class DashboardRouter {
         });
         const authContext = await this.authMiddleware.authenticate(authReq, env);
         tenantId = authContext.tenantId || "anonymous";
-        if ((tenantId === "default" || tenantId === "anonymous") && headerTenant && headerTenant.trim().length > 0) {
-          tenantId = headerTenant.trim();
-        }
-      } catch {
-        if (method !== "GET") {
-          return new Response(
-            JSON.stringify({
-              error: {
-                message: "Invalid authorization token",
-                code: "UNAUTHORIZED",
-                statusCode: 401,
-              },
-            }),
-            {
-              status: 401,
-              headers: { "content-type": "application/json; charset=utf-8" },
-            }
-          );
-        }
+      } catch (_err) {
+        authFailed = true;
       }
     }
 
-    if (tenantId === "anonymous" && headerTenant && headerTenant.trim().length > 0) {
-      tenantId = headerTenant.trim();
+    if (authFailed) {
+      if (!isAllowListed) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              message: "Invalid authorization token",
+              code: "UNAUTHORIZED",
+              statusCode: 401,
+            },
+          }),
+          {
+            status: 401,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          }
+        );
+      }
+      tenantId = "anonymous";
+    }
+
+    if (tenantId === "anonymous" && !isAllowListed) {
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: "Authentication required",
+            code: "UNAUTHORIZED",
+            statusCode: 401,
+          },
+        }),
+        {
+          status: 401,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        }
+      );
     }
 
     // 0.2 Real-Time Telemetry Stream (SSE)
@@ -314,12 +335,12 @@ export class DashboardRouter {
 
     // 2. POST /api/keys
     if (method === "POST" && pathname === "/api/keys") {
-      return handlePostKeys(request, env, tenantId, headerTenant, masterKey);
+      return handlePostKeys(request, env, tenantId, masterKey);
     }
 
     // 3. DELETE /api/keys/:id
     if (method === "DELETE" && pathname.startsWith("/api/keys/")) {
-      return handleDeleteKey(pathname, env, tenantId, headerTenant);
+      return handleDeleteKey(pathname, env, tenantId);
     }
 
     // PATCH /api/keys/:id/pool-mode (Anti-Midnight Freeze FR-22)
@@ -329,12 +350,12 @@ export class DashboardRouter {
 
     // 3.8 POST /api/keys/:id/rotate
     if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/rotate")) {
-      return handleRotateKeySecret(pathname, request, env, tenantId, headerTenant, masterKey);
+      return handleRotateKeySecret(pathname, request, env, tenantId, masterKey);
     }
 
     // 4. POST /api/keys/:id/test
     if (method === "POST" && pathname.startsWith("/api/keys/") && pathname.endsWith("/test")) {
-      return handleTestKey(pathname, env, tenantId, headerTenant, masterKey);
+      return handleTestKey(pathname, env, tenantId, masterKey);
     }
 
     // 4.1 Projects APIs
@@ -374,12 +395,12 @@ export class DashboardRouter {
 
     // 5. GET /api/logs
     if (method === "GET" && pathname === "/api/logs") {
-      return handleGetLogs(env, tenantId, headerTenant, this.getKeyPool);
+      return handleGetLogs(env, tenantId, this.getKeyPool);
     }
 
     // 6. GET /api/stats
     if (method === "GET" && pathname === "/api/stats") {
-      return handleGetStats(env, tenantId, headerTenant, this.getKeyPool);
+      return handleGetStats(env, tenantId, this.getKeyPool);
     }
 
     // 7. Pool Commons & Notifications Routes (/api/pool/*, /api/notifications)

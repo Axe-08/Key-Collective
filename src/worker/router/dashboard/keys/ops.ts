@@ -17,8 +17,7 @@ import type { DurableObjectNamespaceLike } from "../../types";
 export async function handleDeleteKey(
   pathname: string,
   env: WorkerEnv,
-  tenantId: string,
-  headerTenant: string | null
+  tenantId: string
 ): Promise<Response> {
   const keyId = pathname.replace("/api/keys/", "").trim();
   if (!keyId) {
@@ -33,6 +32,14 @@ export async function handleDeleteKey(
     if (tenantId === "admin") {
       await env.DB.prepare("DELETE FROM api_keys WHERE id = ?").bind(keyId).run();
     } else {
+      const existing = await env.DB.prepare(
+        "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
+      ).bind(keyId, tenantId).first<{ id: string }>();
+
+      if (!existing) {
+        throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
+      }
+
       await env.DB.prepare(
         "DELETE FROM api_keys WHERE id = ? AND tenant_id = ?"
       ).bind(keyId, tenantId).run();
@@ -40,17 +47,16 @@ export async function handleDeleteKey(
   }
 
   try {
-    const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+    const targetTenantId = tenantId;
     const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
     if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
       const doId = keyPoolNamespace.idFromName(targetTenantId);
       const stub = keyPoolNamespace.get(doId);
       await stub.fetch(`http://key-pool/keys/${encodeURIComponent(keyId)}`, {
         method: "DELETE",
-        headers: { "x-tenant-id": targetTenantId },
       });
     }
-  } catch {
+  } catch (_err) {
     // DO cleanup fallback
   }
 
@@ -119,7 +125,6 @@ export async function handleTestKey(
   pathname: string,
   env: WorkerEnv,
   tenantId: string,
-  headerTenant: string | null,
   masterKey?: KeyInput
 ): Promise<Response> {
   const keyId = pathname.replace("/api/keys/", "").replace("/test", "").trim();
@@ -206,7 +211,6 @@ export async function handleRotateKeySecret(
   request: Request,
   env: WorkerEnv,
   tenantId: string,
-  headerTenant: string | null,
   masterKey?: KeyInput
 ): Promise<Response> {
   const keyId = pathname.replace("/api/keys/", "").replace("/rotate", "").trim();
@@ -239,7 +243,7 @@ export async function handleRotateKeySecret(
     }
   }
 
-  const targetTenantId = tenantId === "admin" ? (headerTenant || "default") : tenantId;
+  const targetTenantId = tenantId;
   const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
   const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
 
