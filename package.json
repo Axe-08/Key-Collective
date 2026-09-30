@@ -13,6 +13,7 @@
     "test:db": "vitest run tests/storage/migrations.test.ts"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.41",
     "@cloudflare/workers-types": "^4.20240909.0",
     "@types/node": "^26.5.0",
     "typescript": "^5.9.3",
