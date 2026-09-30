@@ -9,9 +9,9 @@
     "test": "vitest run",
     "test:unit": "vitest run test/unit tests",
     "test:workers": "vitest run -c vitest.workers.config.ts",
-    "test:ui": "npm --prefix ui run check",
+    "test:ui": "vitest run --root ui",
     "gate:fast": "npm run typecheck && npm run test:unit && node scripts/check-no-sql-mocks.mjs",
-    "gate": "npm run gate:fast && npm run test:workers",
+    "gate": "npm run gate:fast && npm run test:workers && npm run test:ui",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test:db": "vitest run tests/storage/migrations.test.ts"
