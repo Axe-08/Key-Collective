@@ -778,8 +778,10 @@ describe("ApiKeyRepository (storage-repo-keys)", () => {
       await repo.updateStatus(created.id, TENANT_A, "RateLimited", cooldown);
 
       const fetched = await repo.getByIdOrThrow(created.id, TENANT_A);
-      expect(fetched.status).toBe("RateLimited");
-      expect(fetched.circuitOpenUntil).toBe(cooldown);
+      // status/timestamp reads are normalised: normaliseKeyStatus("RateLimited") falls
+      // through to the tolerant default, and circuitOpenUntil becomes epoch-ms.
+      expect(fetched.status).toBe("QUARANTINED");
+      expect(fetched.circuitOpenUntil).toBe(Date.parse(cooldown));
     });
 
     it("records last used timestamp via recordUsage", async () => {
@@ -796,7 +798,7 @@ describe("ApiKeyRepository (storage-repo-keys)", () => {
       await repo.recordUsage(created.id, TENANT_A, timestamp);
 
       const fetched = await repo.getByIdOrThrow(created.id, TENANT_A);
-      expect(fetched.lastUsedAt).toBe(timestamp);
+      expect(fetched.lastUsedAt).toBe(Date.parse(timestamp));
     });
 
     it("throws KeyNotFoundError when updating non-existent key or wrong tenant", async () => {
@@ -993,11 +995,47 @@ describe("ApiKeyRepository (storage-repo-keys)", () => {
       expect(mapped.rpmLimit).toBe(120);
       expect(mapped.rpdLimit).toBe(3000);
       expect(mapped.priority).toBe(15);
-      expect(mapped.status).toBe("Healthy");
+      // status is normalised via normaliseKeyStatus: raw "Healthy" -> canonical "HEALTHY"
+      expect(mapped.status).toBe("HEALTHY");
+      expect(mapped.status).not.toBe("Healthy");
       expect(mapped.circuitOpenUntil).toBeNull();
-      expect(mapped.lastUsedAt).toBe("2026-09-01T00:00:00Z");
-      expect(mapped.createdAt).toBe("2026-08-01T00:00:00Z");
-      expect(isAPIKey(mapped)).toBe(true);
+      // timestamps are normalised via toEpochMs: ISO-8601 strings -> epoch-ms numbers
+      expect(mapped.lastUsedAt).toBe(Date.parse("2026-09-01T00:00:00Z"));
+      expect(mapped.lastUsedAt).not.toBe("2026-09-01T00:00:00Z");
+      expect(typeof mapped.lastUsedAt).toBe("number");
+      expect(mapped.createdAt).toBe(Date.parse("2026-08-01T00:00:00Z"));
+      expect(mapped.createdAt).not.toBe("2026-08-01T00:00:00Z");
+      expect(typeof mapped.createdAt).toBe("number");
+    });
+
+    it("normalises pool_type and preserves null passthrough for optional timestamps", () => {
+      const row: APIKeyRow = {
+        id: "row-2",
+        tenant_id: "tenant-y",
+        label: "Row Label 2",
+        provider: "groq",
+        encrypted_key_b64: "Y2lwaGVydGV4dA==",
+        nonce_b64: "MTIzNDU2Nzg5MDEy",
+        key_prefix: "gsk_12",
+        key_suffix: "9900",
+        rpm_limit: 60,
+        rpd_limit: 1500,
+        priority: 0,
+        status: "quarantined",
+        circuit_open_until: null,
+        last_used_at: null,
+        created_at: "2026-08-01T00:00:00Z",
+        pool_type: "community",
+        observation_until: null,
+      };
+
+      const mapped = mapRowToAPIKey(row);
+      expect(mapped.status).toBe("QUARANTINED");
+      expect(mapped.poolType).toBe("COMMUNITY");
+      expect(mapped.poolType).not.toBe("community");
+      expect(mapped.circuitOpenUntil).toBeNull();
+      expect(mapped.lastUsedAt).toBeNull();
+      expect(mapped.observationUntil).toBeNull();
     });
   });
 });

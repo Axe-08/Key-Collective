@@ -4,6 +4,8 @@
  */
 
 import { APIKey, KeyStatus, ModelProvider } from "../../../types/models";
+import { normaliseKeyStatus, normalisePoolType } from "../../../contracts/keys";
+import { toEpochMs } from "../../../utils/time";
 
 /**
  * Raw database row structure for table `api_keys` in Cloudflare D1.
@@ -159,13 +161,13 @@ export function mapRowToAPIKey(row: APIKeyRow): APIKey {
     rpmLimit: row.rpm_limit,
     rpdLimit: row.rpd_limit,
     priority: row.priority,
-    status: row.status as KeyStatus,
-    circuitOpenUntil: row.circuit_open_until ?? null,
-    lastUsedAt: row.last_used_at ?? null,
-    createdAt: row.created_at,
-    poolType: (row.pool_type as "PRIVATE" | "COMMUNITY") ?? "COMMUNITY",
+    status: normaliseKeyStatus(row.status, row.community_routing_status) as unknown as KeyStatus,
+    circuitOpenUntil: toEpochMs(row.circuit_open_until) as unknown as APIKey["circuitOpenUntil"],
+    lastUsedAt: toEpochMs(row.last_used_at) as unknown as APIKey["lastUsedAt"],
+    createdAt: toEpochMs(row.created_at) as unknown as APIKey["createdAt"],
+    poolType: normalisePoolType(row.pool_type ?? null),
     communityRoutingStatus: (row.community_routing_status as "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED") ?? null,
-    observationUntil: row.observation_until ?? null,
+    observationUntil: toEpochMs(row.observation_until ?? null),
     dispatchedToday: row.dispatched_today ?? 0,
     dispatchedCommunal: row.dispatched_communal ?? 0,
     vestingTier: row.vesting_tier ?? 0,
