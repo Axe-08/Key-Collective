@@ -43,6 +43,29 @@ export function isReservedTenantId(id: string): boolean {
 }
 
 /**
+ * Converts a raw D1 database row into a strongly-typed domain AuthTokenRecord,
+ * populating budgetCu and spentCu.
+ */
+function toAuthTokenRecord(row: AuthTokenRow): AuthTokenRecord {
+  const base = mapRowToAuthTokenRecord(row);
+  const budgetCu =
+    row.budget_cu === null
+      ? null
+      : row.budget_cu !== undefined
+      ? BigInt(row.budget_cu)
+      : undefined;
+  const spentCu =
+    row.spent_cu !== undefined && row.spent_cu !== null
+      ? BigInt(row.spent_cu)
+      : 0n;
+  return {
+    ...base,
+    budgetCu,
+    spentCu,
+  };
+}
+
+/**
  * AuthTokensRepository
  *
  * Provides repository methods for persisting, querying, verifying,
@@ -155,6 +178,31 @@ export class AuthTokensRepository {
       }
     }
 
+    // CU budgets: bind bigints as strings, null if unlimited
+    let budgetCu: bigint | null | undefined = undefined;
+    if (params.budgetCu !== undefined) {
+      budgetCu =
+        params.budgetCu === null
+          ? null
+          : typeof params.budgetCu === "bigint"
+          ? params.budgetCu
+          : BigInt(params.budgetCu);
+      if (budgetCu !== null && budgetCu < 0n) {
+        throw new TypeError("budgetCu cannot be negative");
+      }
+    }
+
+    let spentCu = 0n;
+    if (params.spentCu !== undefined) {
+      spentCu =
+        typeof params.spentCu === "bigint"
+          ? params.spentCu
+          : BigInt(params.spentCu);
+      if (spentCu < 0n) {
+        throw new TypeError("spentCu cannot be negative");
+      }
+    }
+
     // 4. Rate limits & Allowed Providers
     const rpmLimit = params.rpmLimit ?? DEFAULT_RPM_LIMIT;
     if (!isValidRpmLimit(rpmLimit)) {
@@ -171,7 +219,7 @@ export class AuthTokensRepository {
     }
     const createdAtIso = new Date().toISOString();
 
-    // 6. Insert into D1 database
+    // 6. Insert into D1 database (binding budget_cu and spent_cu as strings)
     const query = `
       INSERT INTO auth_tokens (
         id,
@@ -184,8 +232,10 @@ export class AuthTokensRepository {
         allowed_providers,
         rpm_limit,
         expires_at,
-        created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        created_at,
+        budget_cu,
+        spent_cu
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const stmt = this.db.prepare(query).bind(
@@ -199,7 +249,9 @@ export class AuthTokensRepository {
       allowedProvidersJson,
       rpmLimit,
       expiresAtIso,
-      createdAtIso
+      createdAtIso,
+      budgetCu !== undefined && budgetCu !== null ? budgetCu.toString() : null,
+      spentCu.toString()
     );
 
     await stmt.run();
@@ -212,6 +264,8 @@ export class AuthTokensRepository {
       nonceB64,
       budgetMicrodollars: budgetMicro,
       spentMicrodollars: spentMicro,
+      budgetCu: budgetCu ?? null,
+      spentCu,
       allowedProviders,
       rpmLimit,
       expiresAt: expiresAtIso,
@@ -240,7 +294,7 @@ export class AuthTokensRepository {
       return null;
     }
 
-    return mapRowToAuthTokenRecord(row);
+    return toAuthTokenRecord(row);
   }
 
   /**
@@ -258,7 +312,7 @@ export class AuthTokensRepository {
       return null;
     }
 
-    return mapRowToAuthTokenRecord(row);
+    return toAuthTokenRecord(row);
   }
 
   /**
@@ -278,7 +332,7 @@ export class AuthTokensRepository {
       const query = "SELECT * FROM auth_tokens WHERE id = ? AND tenant_id = ? LIMIT 1";
       const row = await this.db.prepare(query).bind(id.trim(), cleanTenantId).first<AuthTokenRow>();
       if (row) {
-        return mapRowToAuthTokenRecord(row);
+        return toAuthTokenRecord(row);
       }
 
       // Check if ID exists under another tenant to detect cross-tenant access violation
@@ -295,7 +349,7 @@ export class AuthTokensRepository {
 
     const query = "SELECT * FROM auth_tokens WHERE id = ? LIMIT 1";
     const row = await this.db.prepare(query).bind(id.trim()).first<AuthTokenRow>();
-    return row ? mapRowToAuthTokenRecord(row) : null;
+    return row ? toAuthTokenRecord(row) : null;
   }
 
   /**
@@ -322,7 +376,7 @@ export class AuthTokensRepository {
 
     const res = await this.db.prepare(query).bind(cleanTenantId, limit, offset).all<AuthTokenRow>();
     const rows = res.results ?? [];
-    return rows.map(mapRowToAuthTokenRecord);
+    return rows.map(toAuthTokenRecord);
   }
 
   /**
@@ -398,12 +452,13 @@ export class AuthTokensRepository {
   }
 
   /**
-   * Updates the budget ceiling of a token in fixed-point int64 microdollars.
+   * Updates the budget ceiling of a token in fixed-point int64 microdollars and/or Credit Units.
    */
   public async updateBudget(
     id: string,
     tenantId: string,
-    budgetMicrodollars: Microdollars | number
+    budgetMicrodollars: Microdollars | number,
+    budgetCu?: bigint | number | null
   ): Promise<boolean> {
     const budget =
       typeof budgetMicrodollars === "bigint"
@@ -419,18 +474,39 @@ export class AuthTokensRepository {
       return false;
     }
 
-    const query = "UPDATE auth_tokens SET budget_microdollars = ? WHERE id = ? AND tenant_id = ?";
-    const res = await this.db.prepare(query).bind(Number(budget), id.trim(), tenantId.trim()).run();
+    let bCu: bigint | null = null;
+    if (budgetCu !== undefined) {
+      bCu =
+        budgetCu === null
+          ? null
+          : typeof budgetCu === "bigint"
+          ? budgetCu
+          : BigInt(budgetCu);
+      if (bCu !== null && bCu < 0n) {
+        throw new TypeError("budgetCu cannot be negative");
+      }
+    } else {
+      bCu = existing.budgetCu ?? null;
+    }
+
+    const queryMicro = "UPDATE auth_tokens SET budget_microdollars = ? WHERE id = ? AND tenant_id = ?";
+    const res = await this.db.prepare(queryMicro).bind(Number(budget), id.trim(), tenantId.trim()).run();
+
+    const queryCu = "UPDATE auth_tokens SET budget_cu = ? WHERE id = ? AND tenant_id = ?";
+    await this.db.prepare(queryCu).bind(bCu !== null ? bCu.toString() : null, id.trim(), tenantId.trim()).run();
+
     return (res.meta?.changes ?? 0) > 0;
   }
 
   /**
-   * Records financial expenditure against a token in fixed-point int64 microdollars.
+   * Records financial expenditure against a token in fixed-point int64 microdollars and Credit Units.
+   * Binds bigint values as strings, never Number(bigint).
    */
   public async recordSpend(
     id: string,
     tenantId: string,
-    spendMicrodollars: Microdollars | number
+    spendMicrodollars: Microdollars | number,
+    spendCu?: bigint | number
   ): Promise<Microdollars> {
     const spend =
       typeof spendMicrodollars === "bigint"
@@ -441,6 +517,17 @@ export class AuthTokensRepository {
       throw new TypeError("spendMicrodollars cannot be negative");
     }
 
+    const cuSpend =
+      spendCu !== undefined
+        ? typeof spendCu === "bigint"
+          ? spendCu
+          : BigInt(spendCu)
+        : spend;
+
+    if (cuSpend < 0n) {
+      throw new TypeError("spendCu cannot be negative");
+    }
+
     const existing = await this.findById(id, tenantId);
     if (!existing) {
       throw new AuthenticationError(`Token '${id}' not found for tenant '${tenantId}'`, {
@@ -449,8 +536,14 @@ export class AuthTokensRepository {
     }
 
     const newSpent = existing.spentMicrodollars + spend;
-    const query = "UPDATE auth_tokens SET spent_microdollars = ? WHERE id = ? AND tenant_id = ?";
-    await this.db.prepare(query).bind(Number(newSpent), id.trim(), tenantId.trim()).run();
+    const newSpentCu = (existing.spentCu ?? 0n) + cuSpend;
+
+    const queryMicro = "UPDATE auth_tokens SET spent_microdollars = ? WHERE id = ? AND tenant_id = ?";
+    await this.db.prepare(queryMicro).bind(Number(newSpent), id.trim(), tenantId.trim()).run();
+
+    const queryCu = "UPDATE auth_tokens SET spent_cu = ? WHERE id = ? AND tenant_id = ?";
+    await this.db.prepare(queryCu).bind(newSpentCu.toString(), id.trim(), tenantId.trim()).run();
+
     return newSpent;
   }
 
@@ -478,6 +571,28 @@ export class AuthTokensRepository {
       if (b < 0n) throw new TypeError("budgetMicrodollars cannot be negative");
       updates.push("budget_microdollars = ?");
       values.push(Number(b));
+    }
+
+    if (params.budgetCu !== undefined) {
+      const bCu =
+        params.budgetCu === null
+          ? null
+          : typeof params.budgetCu === "bigint"
+          ? params.budgetCu
+          : BigInt(params.budgetCu);
+      if (bCu !== null && bCu < 0n) throw new TypeError("budgetCu cannot be negative");
+      updates.push("budget_cu = ?");
+      values.push(bCu?.toString() ?? null);
+    }
+
+    if (params.spentCu !== undefined) {
+      const sCu =
+        typeof params.spentCu === "bigint"
+          ? params.spentCu
+          : BigInt(params.spentCu);
+      if (sCu < 0n) throw new TypeError("spentCu cannot be negative");
+      updates.push("spent_cu = ?");
+      values.push(sCu.toString());
     }
 
     if (params.allowedProviders !== undefined) {
@@ -523,6 +638,7 @@ export class AuthTokensRepository {
 
   /**
    * Validates an incoming bearer token for edge authentication.
+   * Reads budget_cu and spent_cu (NULL budget_cu means unlimited).
    */
   public async validateToken(
     plainToken: string,
@@ -553,9 +669,20 @@ export class AuthTokensRepository {
       }
     }
 
-    // Check budget exhaustion (int64 microdollars)
-    if (record.budgetMicrodollars > 0n && record.spentMicrodollars >= record.budgetMicrodollars) {
-      return { valid: false, reason: "budget_exceeded", token: record };
+    // Check budget exhaustion: read budget_cu and spent_cu (NULL budget_cu means unlimited)
+    if (record.budgetCu !== undefined) {
+      if (record.budgetCu !== null) {
+        const spentCu = record.spentCu ?? 0n;
+        if (spentCu >= record.budgetCu) {
+          return { valid: false, reason: "budget_exceeded", token: record };
+        }
+      }
+      // NULL budget_cu means unlimited
+    } else {
+      // Fallback for microdollars when budgetCu column is not present
+      if (record.budgetMicrodollars > 0n && record.spentMicrodollars >= record.budgetMicrodollars) {
+        return { valid: false, reason: "budget_exceeded", token: record };
+      }
     }
 
     return { valid: true, token: record };

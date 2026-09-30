@@ -102,6 +102,10 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         latency_ms,
         status_code,
         created_at,
+        cu,
+        usage_estimated,
+        borrowed,
+        lender_tenant_id,
       ] = this.boundParams as [
         string,
         string,
@@ -116,7 +120,11 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         number,
         number,
         number,
-        string
+        string,
+        number | undefined,
+        number | undefined,
+        number | undefined,
+        string | null | undefined
       ];
 
       this.db.ledgerRows.set(id, {
@@ -134,6 +142,10 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         latency_ms,
         status_code,
         created_at,
+        cu: cu !== undefined ? Number(cu) : undefined,
+        usage_estimated: usage_estimated !== undefined ? Number(usage_estimated) : 0,
+        borrowed: borrowed !== undefined ? Number(borrowed) : 0,
+        lender_tenant_id: lender_tenant_id ?? null,
       });
 
       return {
@@ -197,6 +209,58 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       };
     }
 
+    // 2b. INSERT INTO daily_cu_rollup ... ON CONFLICT
+    if (upper.startsWith("INSERT INTO DAILY_CU_ROLLUP")) {
+      const [
+        tenant_id,
+        day,
+        provider,
+        model_id,
+        requests_delta,
+        tokens_delta,
+        cu_delta,
+      ] = this.boundParams as [
+        string,
+        string,
+        string,
+        string,
+        number,
+        number,
+        number
+      ];
+
+      const key = `${tenant_id}:${day}:${provider}:${model_id}`;
+      const existing = this.db.cuRollupRows.get(key);
+
+      if (existing) {
+        if (upper.includes("DO UPDATE SET TOTAL_REQUESTS = EXCLUDED.TOTAL_REQUESTS")) {
+          existing.total_requests = requests_delta;
+          existing.total_tokens = tokens_delta;
+          existing.total_cu = cu_delta;
+        } else {
+          existing.total_requests += requests_delta;
+          existing.total_tokens += tokens_delta;
+          existing.total_cu += cu_delta;
+        }
+      } else {
+        this.db.cuRollupRows.set(key, {
+          tenant_id,
+          day,
+          provider,
+          model_id,
+          total_requests: requests_delta,
+          total_tokens: tokens_delta,
+          total_cu: cu_delta,
+        });
+      }
+
+      return {
+        success: true,
+        meta: createMeta(1),
+        results: [],
+      };
+    }
+
     // 3. DELETE FROM daily_spend_rollup WHERE tenant_id = ? AND day = ?
     if (upper.startsWith("DELETE FROM DAILY_SPEND_ROLLUP")) {
       const [tenant_id, day] = this.boundParams as [string, string];
@@ -204,6 +268,23 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       for (const [k, v] of this.db.rollupRows.entries()) {
         if (v.tenant_id === tenant_id && v.day === day) {
           this.db.rollupRows.delete(k);
+          changes++;
+        }
+      }
+      return {
+        success: true,
+        meta: createMeta(changes),
+        results: [],
+      };
+    }
+
+    // 3b. DELETE FROM daily_cu_rollup WHERE tenant_id = ? AND day = ?
+    if (upper.startsWith("DELETE FROM DAILY_CU_ROLLUP")) {
+      const [tenant_id, day] = this.boundParams as [string, string];
+      let changes = 0;
+      for (const [k, v] of this.db.cuRollupRows.entries()) {
+        if (v.tenant_id === tenant_id && v.day === day) {
+          this.db.cuRollupRows.delete(k);
           changes++;
         }
       }
@@ -281,6 +362,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           total_requests: number;
           total_tokens: number;
           total_cost_microdollars: number;
+          total_cu: number;
         }
       >();
 
@@ -288,10 +370,17 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         const gKey = `${r.provider}:${r.model_id}`;
         const existing = groups.get(gKey);
         const tokens = r.prompt_tokens + r.completion_tokens + r.reasoning_tokens;
+        const rowCu =
+          r.cu !== null && r.cu !== undefined
+            ? r.cu
+            : 10 +
+              Math.floor((r.prompt_tokens + 999) / 1000) +
+              Math.floor(((r.completion_tokens + r.reasoning_tokens) * 4 + 999) / 1000);
         if (existing) {
           existing.total_requests += 1;
           existing.total_tokens += tokens;
           existing.total_cost_microdollars += r.cost_microdollars;
+          existing.total_cu += rowCu;
         } else {
           groups.set(gKey, {
             provider: r.provider,
@@ -299,6 +388,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
             total_requests: 1,
             total_tokens: tokens,
             total_cost_microdollars: r.cost_microdollars,
+            total_cu: rowCu,
           });
         }
       }
@@ -364,18 +454,21 @@ class MockD1PreparedStatement implements D1PreparedStatement {
     }
 
     // 9. Spend summary aggregation from daily_spend_rollup
-    if (upper.includes("FROM DAILY_SPEND_ROLLUP WHERE TENANT_ID = ?") && upper.includes("SUM(TOTAL_COST_MICRODOLLARS)")) {
+    if (
+      upper.includes("FROM DAILY_SPEND_ROLLUP") &&
+      (upper.includes("SUM(TOTAL_COST_MICRODOLLARS)") || upper.includes("SUM(S.TOTAL_COST_MICRODOLLARS)"))
+    ) {
       const [tenant_id] = this.boundParams as [string];
       let rows = Array.from(this.db.rollupRows.values()).filter(
         (r) => r.tenant_id === tenant_id
       );
 
       let paramIndex = 1;
-      if (upper.includes("AND DAY >=")) {
+      if (upper.includes("DAY >=")) {
         const start = this.boundParams[paramIndex++] as string;
         rows = rows.filter((r) => r.day >= start);
       }
-      if (upper.includes("AND DAY <=")) {
+      if (upper.includes("DAY <=")) {
         const end = this.boundParams[paramIndex++] as string;
         rows = rows.filter((r) => r.day <= end);
       }
@@ -383,11 +476,15 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       let totalCost = 0;
       let totalRequests = 0;
       let totalTokens = 0;
+      let totalCu = 0;
 
       for (const r of rows) {
         totalCost += r.total_cost_microdollars;
         totalRequests += r.total_requests;
         totalTokens += r.total_tokens;
+        const cuKey = `${r.tenant_id}:${r.day}:${r.provider}:${r.model_id}`;
+        const cuRow = this.db.cuRollupRows.get(cuKey);
+        totalCu += cuRow?.total_cu ?? 0;
       }
 
       return {
@@ -398,37 +495,38 @@ class MockD1PreparedStatement implements D1PreparedStatement {
             total_cost: totalCost,
             total_requests: totalRequests,
             total_tokens: totalTokens,
+            total_cu: totalCu,
           },
         ] as unknown as T[],
       };
     }
 
     // 10. General list from daily_spend_rollup
-    if (upper.startsWith("SELECT * FROM DAILY_SPEND_ROLLUP WHERE TENANT_ID = ?")) {
+    if (upper.includes("FROM DAILY_SPEND_ROLLUP")) {
       const [tenant_id] = this.boundParams as [string];
       let rows = Array.from(this.db.rollupRows.values()).filter(
         (r) => r.tenant_id === tenant_id
       );
 
       let paramIndex = 1;
-      if (upper.includes("AND DAY >=")) {
+      if (upper.includes("DAY >=")) {
         const start = this.boundParams[paramIndex++] as string;
         rows = rows.filter((r) => r.day >= start);
       }
-      if (upper.includes("AND DAY <=")) {
+      if (upper.includes("DAY <=")) {
         const end = this.boundParams[paramIndex++] as string;
         rows = rows.filter((r) => r.day <= end);
       }
-      if (upper.includes("AND PROVIDER = ?")) {
+      if (upper.includes("PROVIDER = ?")) {
         const provider = this.boundParams[paramIndex++] as string;
         rows = rows.filter((r) => r.provider === provider);
       }
-      if (upper.includes("AND MODEL_ID = ?")) {
+      if (upper.includes("MODEL_ID = ?")) {
         const modelId = this.boundParams[paramIndex++] as string;
         rows = rows.filter((r) => r.model_id === modelId);
       }
 
-      const isAsc = upper.includes("ORDER BY DAY ASC");
+      const isAsc = upper.includes("ORDER BY S.DAY ASC") || upper.includes("ORDER BY DAY ASC");
       rows.sort((a, b) =>
         isAsc ? a.day.localeCompare(b.day) : b.day.localeCompare(a.day)
       );
@@ -443,10 +541,19 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         }
       }
 
+      const enrichedRows = rows.map((r) => {
+        const cuKey = `${r.tenant_id}:${r.day}:${r.provider}:${r.model_id}`;
+        const cuRow = this.db.cuRollupRows.get(cuKey);
+        return {
+          ...r,
+          total_cu: cuRow?.total_cu ?? 0,
+        };
+      });
+
       return {
         success: true,
         meta: createMeta(0),
-        results: rows as unknown as T[],
+        results: enrichedRows as unknown as T[],
       };
     }
 
@@ -475,6 +582,10 @@ class MockD1Database implements D1Database {
       latency_ms: number;
       status_code: number;
       created_at: string;
+      cu?: number | null;
+      usage_estimated?: number;
+      borrowed?: number;
+      lender_tenant_id?: string | null;
     }
   >();
 
@@ -488,6 +599,19 @@ class MockD1Database implements D1Database {
       total_requests: number;
       total_tokens: number;
       total_cost_microdollars: number;
+    }
+  >();
+
+  public cuRollupRows = new Map<
+    string,
+    {
+      tenant_id: string;
+      day: string;
+      provider: string;
+      model_id: string;
+      total_requests: number;
+      total_tokens: number;
+      total_cu: number;
     }
   >();
 
@@ -666,6 +790,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
           totalRequests: 5,
           totalTokens: 500,
           totalCostMicrodollars: 2500n,
+          totalCu: 2500n,
         };
 
         expect(isDailySpendRollup(validRollup)).toBe(true);
@@ -709,6 +834,33 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       // Verify row in database
       const dbRow = mockDb.ledgerRows.get("evt_explicit_1");
       expect(dbRow).toBeDefined();
+      expect(dbRow?.cost_microdollars).toBe(450);
+    });
+
+    it("non-streaming completion writes a cost_ledger row with cu and cost_microdollars populated", async () => {
+      const input: CostLedgerEventInput = {
+        requestId: "req_non_streaming_1",
+        tenantId: TENANT_A,
+        keyId: "key_openai_1",
+        provider: "openai",
+        modelId: "gpt-4o",
+        promptTokens: 1000,
+        completionTokens: 500,
+        reasoningTokens: 0,
+        costMicrodollars: 450n,
+        statusCode: 200,
+      };
+
+      const event = await repo.recordEvent(input);
+
+      // Expected CU: 10 + Math.floor((1000 + 999) / 1000) + Math.floor(((500 + 0) * 4 + 999) / 1000)
+      // = 10 + 1 + 2 = 13
+      expect(event.cu).toBe(13n);
+      expect(event.costMicrodollars).toBe(450n);
+
+      const dbRow = mockDb.ledgerRows.get(event.id);
+      expect(dbRow).toBeDefined();
+      expect(dbRow?.cu).toBe(13);
       expect(dbRow?.cost_microdollars).toBe(450);
     });
 
@@ -1291,4 +1443,62 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(await repo.countEvents(TENANT_B)).toBe(0);
     });
   });
+
+  describe("Credit Units (CU) Dual-Write & Fallbacks", () => {
+    it("reports a ledger row inserted with cu = NULL with the token-derived fallback CU by rollup and ledger readers", async () => {
+      const eventId = "evt_null_cu_row";
+      const promptTokens = 2000;
+      const completionTokens = 1000;
+      const reasoningTokens = 250;
+      const day = "2026-09-10";
+      const createdAt = `${day}T12:00:00.000Z`;
+
+      mockDb.ledgerRows.set(eventId, {
+        id: eventId,
+        request_id: "req_legacy_1",
+        tenant_id: TENANT_A,
+        key_id: "key_1",
+        provider: "openai",
+        model_id: "gpt-4o",
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        cached_tokens: 0,
+        reasoning_tokens: reasoningTokens,
+        cost_microdollars: 1000,
+        latency_ms: 150,
+        status_code: 200,
+        created_at: createdAt,
+        cu: null, // Legacy row before migration
+      });
+
+      // Expected CU fallback: 10 + Math.floor((2000 + 999) / 1000) + Math.floor(((1000 + 250) * 4 + 999) / 1000)
+      // = 10 + 2 + 5 = 17
+      const expectedCu = 17n;
+
+      // 1. Ledger reader: getEventById
+      const fetchedEvent = await repo.getEventById(TENANT_A, eventId);
+      expect(fetchedEvent).not.toBeNull();
+      expect(fetchedEvent?.cu).toBe(expectedCu);
+
+      // 2. Ledger reader: listEvents
+      const eventsList = await repo.listEvents(TENANT_A, { provider: "openai" });
+      const found = eventsList.find((e) => e.id === eventId);
+      expect(found).toBeDefined();
+      expect(found?.cu).toBe(expectedCu);
+
+      // 3. Rollup reader: reconcileDailyRollupFromLedger
+      const reconciled = await repo.reconcileDailyRollupFromLedger(TENANT_A, day);
+      expect(reconciled.length).toBeGreaterThan(0);
+      const rollup = reconciled.find((r) => r.provider === "openai" && r.modelId === "gpt-4o");
+      expect(rollup).toBeDefined();
+      expect(rollup?.totalCu).toBe(expectedCu);
+
+      // 4. Daily rollup reader: getDailyRollups
+      const dailyRollups = await repo.getDailyRollups(TENANT_A, { startDate: day, endDate: day });
+      const daily = dailyRollups.find((r) => r.provider === "openai" && r.modelId === "gpt-4o");
+      expect(daily).toBeDefined();
+      expect(daily?.totalCu).toBe(expectedCu);
+    });
+  });
 });
+
