@@ -487,6 +487,7 @@ RPC methods (native DO RPC, typed; the HTTP `fetch` surface is removed): `lease`
   `test/setup/apply-migrations.ts`: `await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)`.
 - Outbound HTTP (Gemini, Groq, Google JWKS, GitHub, Turnstile siteverify) is mocked with `fetchMock` from `cloudflare:test` — the only permitted mock in integration tests. A helper `mockUpstream({ provider, status, body, sse })` builds realistic provider responses, including Gemini's `google.rpc.ErrorInfo` bodies.
 - DOs are real (`runInDurableObject`, `runDurableObjectAlarm` for alarms).
+- **Test locations and commands.** Node tests (no Workers runtime) live under `test/unit/**` or beside the code in `src/**`, and run with `npx vitest run <file>`. Tests that need D1, a DO, `SELF` or `fetchMock` live under `test/integration/**` or `test/do/**` and always run with `npx vitest run -c vitest.workers.config.ts <file>`. A verify command that finds no test files is a failure, never a pass (both configs set `passWithNoTests: false`). New tests are never added under the legacy `tests/` tree or `test/` top level.
 - **Rule (enforced by lint script `scripts/check-no-sql-mocks.mjs` in the gate):** no test file under `test/` or `src/` may define an object with a `prepare` property typed as `D1Database`, except `test/unit/**` for pure functions that never touch SQL.
 - **Schema conformance test** (`test/integration/schema_conformance.test.ts`): calls every repository method and every handler that writes SQL against the migrated DB with valid inputs and asserts no exception and the expected row. This is the net that would have caught D1, D2, D4, D5.
 - **Security regression suite** (`test/integration/security/*.test.ts`): one named test per S-finding and N-01, each written against the old code first to demonstrate the exploit, then kept as a regression test.
@@ -1575,7 +1576,7 @@ After deletion, rerun the reachability script (kept as `scripts/reachability.mjs
 **Findings:** T-03, T-06.
 
 **Implementation**
-- Root `vitest.config.ts` (unit, node): `include: ["test/unit/**/*.test.ts", "src/**/*.test.ts", "src/**/*.spec.ts"]` — immediately brings the 17 excluded files (386 tests) under the gate; section 10.2 (Appendix B) then relocates or deletes each.
+- Root `vitest.config.ts` (unit, node): `include: ["test/**/*.test.ts", "tests/**/*.test.ts", "src/**/*.test.ts", "src/**/*.spec.ts"]`, `exclude: ["test/integration/**", "test/do/**", "ui/**", "node_modules/**"]`, `passWithNoTests: false` — brings the 17 excluded co-located files (386 tests) under the gate without dropping any existing suite; section 10.2 (Appendix B) then relocates or deletes each. Every `*.test.ts` outside `ui/` must be matched by exactly one of the two configs.
 - Delete `test/auth_middleware.test.ts` (a re-export that runs 43 tests twice) and one of the two identical OAuth suites (both go when `auth/oauth/*` is deleted).
 - UI tests join the gate (`test:ui`).
 
