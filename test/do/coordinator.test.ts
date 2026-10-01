@@ -322,4 +322,61 @@ describe("PoolCoordinatorDO (T-4.1.2)", () => {
       expect(res.status).toBe(404);
     }
   });
+
+  it("increments dispatched_today and dispatched_communal in settle() (not lease()): 5 borrowed + 5 own -> dispatched=10, communal=5 (T-5.5.2)", async () => {
+    const { KeyPoolDO } = await import("../../src/durable_objects/key_pool/key_pool_do");
+    expect("recordDispatch" in KeyPoolDO.prototype).toBe(false);
+
+    const stub = getCoordinatorStub("test-coord-dispatch-counters");
+    await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
+      const t0 = Date.UTC(2030, 0, 15, 10, 0, 0);
+      coord.setClockForTest(t0);
+
+      await coord.upsertKey({
+        keyId: "key_counter_1",
+        owner: "owner_counter",
+        provider: "google",
+        status: "ACTIVE",
+        rpmLimit: 100,
+        rpdLimit: 1000,
+      });
+
+      const borrowedLeases: string[] = [];
+      const ownLeases: string[] = [];
+
+      for (let i = 0; i < 5; i++) {
+        const b = await coord.lease({
+          tenant: `borrower_${i}`,
+          ownOnly: false,
+          estimateCu: 10,
+        });
+        expect(b).not.toBeNull();
+        borrowedLeases.push(b!.leaseId);
+
+        const o = await coord.lease({
+          tenant: "owner_counter",
+          ownOnly: true,
+          estimateCu: 10,
+        });
+        expect(o).not.toBeNull();
+        ownLeases.push(o!.leaseId);
+      }
+
+      // Before settle(), dispatch counters are 0
+      const statsBeforeSettle = await coord.stats();
+      expect(statsBeforeSettle.dispatchedToday).toBe(0);
+      expect(statsBeforeSettle.dispatchedCommunal).toBe(0);
+
+      for (const lid of borrowedLeases) {
+        await coord.settle(lid, "ok", 10);
+      }
+      for (const lid of ownLeases) {
+        await coord.settle(lid, "ok", 10);
+      }
+
+      const statsAfterSettle = await coord.stats();
+      expect(statsAfterSettle.dispatchedToday).toBe(10);
+      expect(statsAfterSettle.dispatchedCommunal).toBe(5);
+    });
+  });
 });

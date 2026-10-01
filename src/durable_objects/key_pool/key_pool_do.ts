@@ -97,8 +97,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
   private privateReconciled = false;
   private ownerHasCommunityPool = true;
 
-  private dispatchedToday!: Map<string, number>;
-  private dispatchedCommunal!: Map<string, number>;
   private keysMap!: Map<string, EncryptedKey>;
   private leasesMap!: Map<string, PrivateLeaseRecord>;
   private providerOverrides!: Map<string, { state: "TRIPPED" | "NORMAL"; until?: number }>;
@@ -130,8 +128,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     this.isLoaded = false;
     this.privateReconciled = false;
     this.ownerHasCommunityPool = true;
-    this.dispatchedToday = new Map<string, number>();
-    this.dispatchedCommunal = new Map<string, number>();
     this.keysMap = new Map<string, EncryptedKey>();
     this.leasesMap = new Map<string, PrivateLeaseRecord>();
     this.providerOverrides = new Map<string, { state: "TRIPPED" | "NORMAL"; until?: number }>();
@@ -351,8 +347,8 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
         if (result.results && result.results.length > 0) {
           const d1Keys: EncryptedKey[] = result.results.map((row) => {
             const isOwnKey = row.tenant_id === this.tenantId;
-            const totalDispatched = (row.dispatched_today ?? 0) + (this.dispatchedToday.get(row.id) ?? 0);
-            const communalDispatched = (row.dispatched_communal ?? 0) + (this.dispatchedCommunal.get(row.id) ?? 0);
+            const totalDispatched = row.dispatched_today ?? 0;
+            const communalDispatched = row.dispatched_communal ?? 0;
             const ratio = totalDispatched > 0 ? communalDispatched / totalDispatched : 0;
             const isParasite = totalDispatched > 0 && ratio < 0.1;
             const isHero = totalDispatched > 0 && ratio >= 0.8;
@@ -666,48 +662,15 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     return keys.length;
   }
 
-  public recordDispatch(keyId: string, isCommunal: boolean): void {
-    const today = (this.dispatchedToday.get(keyId) || 0) + 1;
-    this.dispatchedToday.set(keyId, today);
-
-    let communal = this.dispatchedCommunal.get(keyId) || 0;
-    if (isCommunal) {
-      communal += 1;
-      this.dispatchedCommunal.set(keyId, communal);
-    }
-
-    if (this.ctx.storage && typeof this.ctx.storage.put === "function") {
-      this.ctx.storage.put(`dispatch:today:${keyId}`, today).catch(() => {});
-      if (isCommunal) {
-        this.ctx.storage.put(`dispatch:communal:${keyId}`, communal).catch(() => {});
-      }
-    }
-  }
-
   public async alarm(): Promise<void> {
-    for (const keyId of this.dispatchedToday.keys()) {
-      const total = this.dispatchedToday.get(keyId) || 0;
-      const communal = this.dispatchedCommunal.get(keyId) || 0;
-
-      if (total > 0) {
-        const ratio = communal / total;
-        let classification = "NORMAL";
-        if (ratio >= 0.8) classification = "HERO";
-        else if (ratio < 0.1) classification = "PARASITE";
-
-        this.emitTelemetry("key_classification", keyId, 0n, {
-          classification,
-          ratio: String(ratio),
-        });
-      }
-    }
-
-    this.dispatchedToday.clear();
-    this.dispatchedCommunal.clear();
-
     const tomorrow = new Date(this.clock.now());
     tomorrow.setUTCHours(24, 0, 0, 0);
-    await (this.ctx.storage as any).setAlarm(tomorrow.getTime());
+    const storageWithAlarm = this.ctx.storage as unknown as {
+      setAlarm?: (time: number) => Promise<void>;
+    };
+    if (typeof storageWithAlarm?.setAlarm === "function") {
+      await storageWithAlarm.setAlarm(tomorrow.getTime());
+    }
   }
 
   /**

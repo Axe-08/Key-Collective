@@ -763,11 +763,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       `UPDATE keys
           SET minute_count = minute_count + 1,
               day_count = day_count + 1,
-              dispatched_today = dispatched_today + 1,
-              dispatched_communal = dispatched_communal + ?,
               updated_at = ?
         WHERE key_id = ?`,
-      borrowedInt,
       now,
       chosen.key_id
     );
@@ -853,6 +850,17 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
 
     if (keyId) {
+      const borrowedInt = borrowed ? 1 : 0;
+      sql.exec(
+        `UPDATE keys
+            SET dispatched_today = dispatched_today + 1,
+                dispatched_communal = dispatched_communal + ?,
+                updated_at = ?
+          WHERE key_id = ?`,
+        borrowedInt,
+        now,
+        keyId
+      );
       const norm = status.trim().toLowerCase();
       const db = this.env.DB;
       const hasDb = Boolean(db && typeof db.prepare === "function");

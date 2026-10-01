@@ -53,7 +53,6 @@ export interface FallbackExecutionContext {
   useLeases?: boolean;
   maxFallbacks: number;
   options: CascadeRouterOptions;
-  checkSelfKeyAvailable?: (provider: string, tenantId: string) => Promise<boolean>;
 }
 
 /**
@@ -91,21 +90,7 @@ export async function executeCascadeRouting(
   let upstreamAttempts = 0;
   const maxUpstreamAttempts = 1 + maxFallbacks;
 
-  // 1. Self-Key Priority Pre-check (legacy path only; unused on lease path per WP-4.1)
-  let selfKeyRouted = false;
-  if (
-    !useLeases &&
-    reqOptions.tenantId &&
-    candidatesToTry.length > 0 &&
-    context.checkSelfKeyAvailable
-  ) {
-    selfKeyRouted = await context.checkSelfKeyAvailable(
-      candidatesToTry[0].provider,
-      reqOptions.tenantId
-    );
-  }
-
-  // 2. Iterate through candidates with fallback escalation
+  // 1. Iterate through candidates with fallback escalation
   for (let i = 0; i < candidatesToTry.length; i++) {
     if (useLeases && upstreamAttempts >= maxUpstreamAttempts) {
       break;
@@ -279,13 +264,6 @@ export async function executeCascadeRouting(
         }
       } else if (context.keyPool && keyId) {
         // 7. Legacy: Record KeyPool usage (non-blocking hot path)
-        if (typeof context.keyPool.recordDispatch === "function") {
-          try {
-            context.keyPool.recordDispatch(keyId, !selfKeyRouted);
-          } catch (err) {
-            void err;
-          }
-        }
         if (costMicrodollars > 0n) {
           await context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
         }
@@ -301,9 +279,7 @@ export async function executeCascadeRouting(
         attempts,
         usage: chatRes.usage,
         response: chatRes.response,
-        isSelfKey: useLeases
-          ? activeLease?.source !== "borrowed"
-          : selfKeyRouted,
+        isSelfKey: activeLease ? activeLease.source !== "borrowed" : false,
         lease: activeLease,
         leaseContext: activeLeaseCtx,
         keyId: activeLease?.keyId ?? keyId,

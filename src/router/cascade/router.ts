@@ -201,8 +201,6 @@ export class CascadeRouter implements RouterContract {
       useLeases,
       maxFallbacks: this.maxFallbacks,
       options: this.options,
-      checkSelfKeyAvailable: (provider, tenantId) =>
-        this.checkSelfKeyAvailable(provider, tenantId),
     });
   }
 }
