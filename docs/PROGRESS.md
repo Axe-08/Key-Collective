@@ -112,7 +112,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.2
 - [x] T-5.2.1 Migration 0018_anti_cycling.sql (api_keys.anti_cycling_until)
-- [ ] T-5.2.2 Coordinator alarm promotes observation keys to D1 and notifies owner
+- [x] T-5.2.2 Coordinator alarm promotes observation keys to D1 and notifies owner
 - [ ] T-5.2.3 Anti-cycling tier (FR-18) on key submission with tombstoned project
 
 ### WP-5.3
