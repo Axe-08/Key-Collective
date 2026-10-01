@@ -12,6 +12,7 @@ import type {
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import { RouterError } from "../errors";
 import type { ChatHandlerDependencies } from "./types";
+import type { CostLedgerEventInput } from "../../../storage/repositories/cost_ledger/types";
 import { sanitize } from "../../error_normalizer";
 import { calculateCu } from "../../../router/registry/registry";
 import type { TokenUsage } from "../../../router/registry/types";
@@ -122,18 +123,21 @@ export function handleStreamingResponse(
     const statusCode = errorOccurred ? 500 : 200;
 
     // 3. Record key usage on tenant DO
-    if (costMicrodollars > 0n && cascadeRes.modelDef?.id) {
-      keyPool.recordUsage(cascadeRes.modelDef.id, costMicrodollars).catch(() => {});
+    const keyId = cascadeRes.modelDef?.id ?? cascadeRes.model;
+    if (costMicrodollars > 0n && keyId) {
+      keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
     }
 
     // 4. Record event to D1 Cost Ledger (Golden Test tc-02)
     const costLedgerRepo = deps.getCostLedgerRepo(env);
     if (costLedgerRepo) {
+      const isEstimated =
+        usage?.usage_estimated === 1 || usage?.usageEstimated === 1 ? 1 : 0;
       try {
-        await costLedgerRepo.recordEvent({
+        const eventInput: CostLedgerEventInput & { usage_estimated?: number } = {
           requestId: traceId,
           tenantId: authContext.tenantId,
-          keyId: cascadeRes.modelDef?.id ?? cascadeRes.model,
+          keyId,
           provider: cascadeRes.provider,
           modelId: cascadeRes.model,
           promptTokens: usage?.promptTokens ?? 0,
@@ -143,7 +147,10 @@ export function handleStreamingResponse(
           costMicrodollars,
           latencyMs: durationMs,
           statusCode,
-        });
+          usageEstimated: isEstimated,
+          usage_estimated: isEstimated,
+        };
+        await costLedgerRepo.recordEvent(eventInput);
       } catch {
         // Non-blocking telemetry & hot path invariant
       }
@@ -187,11 +194,12 @@ export function handleStreamingResponse(
     }
   };
 
-  const triggerFinalize = (errorOccurred: boolean = false) => {
+  const triggerFinalize = (errorOccurred: boolean = false): Promise<void> => {
     const bgWork = finalizeStream(errorOccurred);
     if (ctx && typeof ctx.waitUntil === "function") {
       ctx.waitUntil(bgWork);
     }
+    return bgWork;
   };
 
   const encodeOutput = (text: string): Uint8Array | string => {
@@ -328,6 +336,20 @@ export function handleStreamingResponse(
 
   const reader = (bodyStream as ReadableStream<Uint8Array | string>).getReader();
 
+  const monitorTransform = {
+    flush: async (): Promise<void> => {
+      await triggerFinalize(false);
+    },
+    cancel: async (reason?: unknown): Promise<void> => {
+      try {
+        await reader.cancel(reason);
+      } catch {
+        // Ignore cancel errors
+      }
+      await triggerFinalize(false);
+    },
+  };
+
   const transformedStream = new ReadableStream<Uint8Array | string>({
     async start(controller) {
       try {
@@ -351,6 +373,11 @@ export function handleStreamingResponse(
           }
         }
 
+        // If client aborted mid-stream and stream was finalized, skip flushing
+        if (finalized) {
+          return;
+        }
+
         // Flush any remaining text in buffer
         const remaining = textBuffer + decoder.decode();
         textBuffer = "";
@@ -363,9 +390,12 @@ export function handleStreamingResponse(
           emitKcUsageAndDone(controller);
         }
 
+        await monitorTransform.flush();
         controller.close();
-        triggerFinalize(false);
       } catch (err) {
+        if (finalized) {
+          return;
+        }
         // Catch mid-stream upstream error, sanitize it and emit as SSE error event
         const rawMessage = err instanceof Error ? err.message : String(err);
         const sanitizedMessage = sanitize(rawMessage);
@@ -379,20 +409,15 @@ export function handleStreamingResponse(
         const errorEvent = `event: error\ndata: ${errorPayload}\n\n`;
         controller.enqueue(encodeOutput(errorEvent));
         controller.close();
-        triggerFinalize(true);
+        await triggerFinalize(true);
       }
     },
     async cancel(reason) {
-      triggerFinalize(false);
-      try {
-        await reader.cancel(reason);
-      } catch {
-        // Ignore cancel errors
-      }
+      await monitorTransform.cancel(reason);
     },
   });
 
-  return new Response(transformedStream as unknown as BodyInit, {
+  const response = new Response(transformedStream as unknown as BodyInit, {
     status: 200,
     headers: {
       "content-type": "text/event-stream; charset=utf-8",
@@ -404,4 +429,6 @@ export function handleStreamingResponse(
       "x-kc-provider": cascadeRes.provider,
     },
   });
+  Object.assign(response, { monitorTransform });
+  return response;
 }
