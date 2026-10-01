@@ -53,6 +53,8 @@ export interface TenantQuotaData {
   readonly communityDebtCu?: string;
   readonly communityDebtMicroCu?: string;
   readonly dailyContributedCu?: string;
+  readonly contributedBuckets?: number[];
+  readonly lastBucketHour?: number;
   readonly trustedContributor?: boolean;
   readonly consecutiveDebtFreeDays?: number;
   readonly multiplierCeiling?: number;

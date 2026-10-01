@@ -499,7 +499,7 @@ describe('src/quota/tenant_do.ts', () => {
   });
 
   describe('Communal Debt Tracking, Scaled Integer Ratios & Integer Decay', () => {
-    it('accrues and decrements debt accurately as bigint', async () => {
+    it('credit first reduces debt then adds remainder to contribution (T-5.3.2)', async () => {
       const doInstance = new TenantQuotaDO(mockState, {}, {
         timeProvider: () => currentTime,
       });
@@ -507,12 +507,74 @@ describe('src/quota/tenant_do.ts', () => {
       await doInstance.accrueDebt(1000n);
       expect(doInstance.getCommunityDebtCu()).toBe(1000n);
 
-      await doInstance.decrementDebt(400n);
+      // First 400n credit reduces debt from 1000n to 600n, 0n remainder to contribution
+      await doInstance.credit(400n);
       expect(doInstance.getCommunityDebtCu()).toBe(600n);
+      expect(doInstance.getDebtState().dailyContributedCu).toBe('0');
+      expect(doInstance.getDebtState().contributedCu24h).toBe('0');
+
+      // Next 750n credit clears remaining 600n debt and adds 150n remainder to contribution
+      await doInstance.credit(750n);
+      expect(doInstance.getCommunityDebtCu()).toBe(0n);
 
       const state = doInstance.getDebtState();
-      expect(state.communityDebtCu).toBe('600');
-      expect(state.dailyContributedCu).toBe('400');
+      expect(state.communityDebtCu).toBe('0');
+      expect(state.dailyContributedCu).toBe('150');
+      expect(state.contributedCu24h).toBe('150');
+
+      const buckets = await mockStorage.get<number[]>('contributed_buckets');
+      expect(Array.isArray(buckets)).toBe(true);
+      expect(buckets?.length).toBe(24);
+      expect(buckets?.reduce((a, b) => a + b, 0)).toBe(150);
+    });
+
+    it('AC-02: 100 borrowed requests (1 CU each) -> borrower debt 100, lender contribution 100; then borrower serves 100 requests -> borrower debt 0', async () => {
+      const borrowerMock = createMockState('usr_borrower');
+      const lenderMock = createMockState('usr_lender');
+
+      const borrowerDo = new TenantQuotaDO(borrowerMock.state, {}, {
+        timeProvider: () => currentTime,
+      });
+      const lenderDo = new TenantQuotaDO(lenderMock.state, {}, {
+        timeProvider: () => currentTime,
+      });
+
+      for (let i = 0; i < 100; i++) {
+        await borrowerDo.accrueDebt(1n, `lease_b_${i}`);
+        await lenderDo.credit(1n, `lease_b_${i}`);
+      }
+
+      expect(borrowerDo.getCommunityDebtCu()).toBe(100n);
+      expect(lenderDo.getDebtState().contributedCu24h).toBe('100');
+
+      // Now borrower's own community key serves 100 requests (1 CU each) for others
+      for (let i = 0; i < 100; i++) {
+        await borrowerDo.credit(1n, `lease_serve_${i}`);
+      }
+
+      expect(borrowerDo.getCommunityDebtCu()).toBe(0n);
+      expect(borrowerDo.getDebtState().contributedCu24h).toBe('0');
+    });
+
+    it('evicts contribution from 25h ago from the 24h sliding window while retaining recent hours (D-12)', async () => {
+      const doInstance = new TenantQuotaDO(mockState, {}, {
+        timeProvider: () => currentTime,
+      });
+
+      // Hour 0: credit 100 CU
+      await doInstance.credit(100n);
+      expect(doInstance.getDebtState().contributedCu24h).toBe('100');
+
+      // Advance 10 hours: credit 50 CU
+      currentTime += 10 * 3_600_000;
+      await doInstance.credit(50n);
+      expect(doInstance.getDebtState().contributedCu24h).toBe('150');
+
+      // Advance 15 more hours (total 25h since first credit, 15h since second credit)
+      currentTime += 15 * 3_600_000;
+      const stateAfter25h = await doInstance.standing();
+      // First 100 CU (25h ago) is evicted; second 50 CU (15h ago) remains!
+      expect(stateAfter25h.contributedCu24h).toBe('50');
     });
 
     it('calculates multiplier ceiling using scaled integer ratios without floating point math', () => {
