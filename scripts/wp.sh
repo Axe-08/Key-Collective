@@ -16,8 +16,11 @@ run_tests() {
   for f in "$@"; do
     case "$f" in test/integration/*|test/do/*|tests/admin/*) workers+=("$f") ;; *) node+=("$f") ;; esac
   done
-  if ((${#node[@]})); then npx vitest run "${node[@]}"; fi
-  if ((${#workers[@]})); then npx vitest run -c vitest.workers.config.ts "${workers[@]}"; fi
+  local status=0
+  if ((${#node[@]})); then npx vitest run "${node[@]}" || status=$?; fi
+  if [[ $status -ne 0 ]]; then return $status; fi
+  if ((${#workers[@]})); then npx vitest run -c vitest.workers.config.ts "${workers[@]}" || status=$?; fi
+  return $status
 }
 
 # Forbid rules apply to lines added since the base branch (committed + working tree).

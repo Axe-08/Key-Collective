@@ -13,6 +13,7 @@ import { deriveTenantKey, decrypt, hashApiKey, timingSafeEqualStrings } from "..
 import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
 import { toEpochMs } from "../../utils/time";
 import { clearMaintenanceCache } from "./control";
+import { getWouldDenyStats } from "../../pool/enforcement";
 
 interface AdminActor {
   adminUserId: string | null;
@@ -427,6 +428,29 @@ export async function handleAdminRequest(
     const res = Response.json({
       status: "success",
       providers: providersList,
+      timestamp: new Date().toISOString(),
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 2.76 Admin Commons Would-Deny Surveillance (GET /api/admin/commons/would-deny)
+  if (method === "GET" && pathname === "/api/admin/commons/would-deny") {
+    const url = new URL(request.url);
+    const hoursParam = parseInt(url.searchParams.get("hours") || "24", 10);
+    const hours = isNaN(hoursParam) || hoursParam <= 0 ? 24 : hoursParam;
+
+    const stats = getWouldDenyStats(hours);
+
+    const res = Response.json({
+      status: "success",
+      period_hours: hours,
+      rules: stats.rules,
+      top_tenants: stats.topTenants.map((t) => ({
+        tenant_hash: t.tenantHash,
+        count: t.count,
+        rules: t.rules,
+      })),
+      total: stats.total,
       timestamp: new Date().toISOString(),
     });
     return options.cors !== false ? applyCors(res) : res;

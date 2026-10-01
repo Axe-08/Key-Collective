@@ -107,8 +107,8 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.1
-- [ ] T-5.1.1 Enforcement module (src/pool/enforcement.ts, COMMONS_ENFORCEMENT switch, recordWouldDeny, WorkerEnv types)
-- [ ] T-5.1.2 Admin would-deny endpoint (GET /api/admin/commons/would-deny)
+- [x] T-5.1.1 Enforcement module (src/pool/enforcement.ts, COMMONS_ENFORCEMENT switch, recordWouldDeny, WorkerEnv types)
+- [x] T-5.1.2 Admin would-deny endpoint (GET /api/admin/commons/would-deny)
 
 ### WP-5.2
 - [ ] T-5.2.1 Migration 0018_anti_cycling.sql (api_keys.anti_cycling_until)
