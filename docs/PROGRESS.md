@@ -33,7 +33,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.4.5 Migrate stage-0 security tests for console /api/* to createSession and CSRF
 
 ### WP-3.5
-- [ ] T-3.5.1 Implement POST /api/auth/claim-legacy and claimable accounts in GET /api/session
+- [x] T-3.5.1 Implement POST /api/auth/claim-legacy and claimable accounts in GET /api/session
 - [ ] T-3.5.2 Add Claim your old keys console UI card when session reports claimable accounts
 
 ### WP-3.6
