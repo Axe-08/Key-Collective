@@ -44,6 +44,7 @@ export interface LeaseAcquireContext {
   env: WorkerEnv;
   rights?: PoolRights;
   estimateCu?: number | bigint;
+  model?: string;
 }
 
 export interface LeaseSettleResult {
@@ -82,7 +83,8 @@ interface CoordinatorRpcStub {
     leaseId: string,
     status: string,
     cu?: number | bigint,
-    until?: number
+    until?: number,
+    model?: string
   ): Promise<CoordinatorSettleResult>;
   getProviderOverride?(): Promise<{ state: "TRIPPED" | "NORMAL"; until?: number | null } | null>;
 }
@@ -218,6 +220,7 @@ export class LeaseOrchestrator implements LeaseProvider {
       ownOnly: true,
       estimateCu: estCu,
       provider: canonProvider,
+      ...(ctx.model ? { model: ctx.model } : {}),
     });
     if (ownCommLease) {
       return {
@@ -240,6 +243,7 @@ export class LeaseOrchestrator implements LeaseProvider {
       ownOnly: false,
       estimateCu: estCu,
       provider: canonProvider,
+      ...(ctx.model ? { model: ctx.model } : {}),
     });
     if (borrowedLease) {
       return {
@@ -291,7 +295,8 @@ export class LeaseOrchestrator implements LeaseProvider {
       lease.leaseId,
       outcome,
       numericCu,
-      until
+      until,
+      ctx.model
     );
     if (coordRes.duplicate || !coordRes.settled) {
       return {

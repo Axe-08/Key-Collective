@@ -40,6 +40,7 @@ export interface CoordinatorLeaseRequest {
   ownOnly: boolean;
   estimateCu?: number | bigint;
   provider?: string;
+  model?: string;
 }
 
 export interface CoordinatorLease {
@@ -50,12 +51,43 @@ export interface CoordinatorLease {
   source: "own_community" | "borrowed";
 }
 
+export interface CoordinatorKeyClassificationResult {
+  kcSeenPct: number;
+  communalPct: number;
+  result: string;
+  effectiveRpd: number | null;
+  drainState: "OK" | "DRAINED";
+}
+
 export interface CoordinatorSettleResult {
   settled: boolean;
   duplicate: boolean;
   keyId?: string;
   ownerTenantId?: string;
   borrowed?: boolean;
+  classification?: CoordinatorKeyClassificationResult;
+}
+
+export interface CoordinatorKeyDiagnosticState {
+  keyId: string;
+  owner: string;
+  provider: string;
+  status: string;
+  rpdLimit: number;
+  dispatchedToday: number;
+  dispatchedCommunal: number;
+  classification: string | null;
+  drainState: "OK" | "DRAINED";
+  effectiveRpd: number | null;
+  consecutiveCleanDays: number;
+  modelStats?: {
+    model: string;
+    dispatchedToday: number;
+    dispatchedCommunal: number;
+    cuServed: number;
+    classification: string | null;
+    effectiveRpd: number | null;
+  };
 }
 
 export interface CoordinatorStats {
@@ -128,6 +160,10 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
   }
 
+  public clearMemoryCache(): void {
+    this.schemaInitialized = false;
+  }
+
   private sql(): SqlStorageLike {
     const storageWithSql = this.ctx.storage as unknown as { sql?: SqlStorageLike };
     if (!storageWithSql?.sql) {
@@ -159,6 +195,9 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         dispatched_today INTEGER NOT NULL DEFAULT 0,
         dispatched_communal INTEGER NOT NULL DEFAULT 0,
         classification TEXT,
+        drain_state TEXT NOT NULL DEFAULT 'OK',
+        effective_rpd INTEGER,
+        consecutive_clean_days INTEGER NOT NULL DEFAULT 0,
         priority_boost INTEGER NOT NULL DEFAULT 0,
         updated_at INTEGER NOT NULL
       );
@@ -168,6 +207,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         tenant TEXT,
         borrowed INTEGER,
         est_cu INTEGER,
+        model TEXT NOT NULL DEFAULT 'default',
         created_at INTEGER,
         settled_at INTEGER
       );
@@ -176,6 +216,23 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         status TEXT,
         cu INTEGER,
         settled_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS key_model_stats (
+        key_id TEXT NOT NULL,
+        model TEXT NOT NULL,
+        dispatched_today INTEGER NOT NULL DEFAULT 0,
+        dispatched_communal INTEGER NOT NULL DEFAULT 0,
+        cu_served INTEGER NOT NULL DEFAULT 0,
+        classification TEXT,
+        effective_rpd INTEGER,
+        PRIMARY KEY (key_id, model)
+      );
+      CREATE TABLE IF NOT EXISTS key_drain_history (
+        key_id TEXT NOT NULL,
+        day TEXT NOT NULL,
+        drained INTEGER NOT NULL DEFAULT 0,
+        exhaustion_dispatches INTEGER,
+        PRIMARY KEY (key_id, day)
       );
       CREATE TABLE IF NOT EXISTS borrower_window (
         tenant TEXT,
@@ -355,7 +412,16 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       currentMinute
     );
 
-    // Roll day buckets
+    // Roll day buckets and reset per-model daily counters for keys rolling to a new day
+    sql.exec(
+      `UPDATE key_model_stats
+          SET dispatched_today = 0,
+              dispatched_communal = 0,
+              cu_served = 0
+        WHERE key_id IN (SELECT key_id FROM keys WHERE day_bucket != ?)`,
+      currentDay
+    );
+
     sql.exec(
       `UPDATE keys
           SET day_bucket = ?, day_count = 0, dispatched_today = 0, dispatched_communal = 0
@@ -693,7 +759,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
               AND k.owner != ?
               AND (k.cooldown_until IS NULL OR k.cooldown_until <= ?)
               AND k.minute_count < k.rpm_limit
-              AND k.day_count < k.rpd_limit
+              AND k.day_count < MIN(k.rpd_limit, COALESCE(k.effective_rpd, k.rpd_limit))
               AND (? IS NULL OR k.provider = ?)
             ORDER BY k.key_id ASC`,
           req.tenant,
@@ -757,6 +823,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
 
     const borrowedInt = req.ownOnly ? 0 : 1;
     const estCu = req.estimateCu !== undefined ? toSafeInt(req.estimateCu) : 0;
+    const leaseModel = (req.model ?? "default").trim() || "default";
     const leaseId = `lease_${now.toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
 
     sql.exec(
@@ -770,13 +837,14 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     );
 
     sql.exec(
-      `INSERT INTO leases (lease_id, key_id, tenant, borrowed, est_cu, created_at, settled_at)
-       VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+      `INSERT INTO leases (lease_id, key_id, tenant, borrowed, est_cu, model, created_at, settled_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
       leaseId,
       chosen.key_id,
       req.tenant,
       borrowedInt,
       estCu,
+      leaseModel,
       now
     );
 
@@ -792,13 +860,15 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   /**
    * Settles a lease idempotently (`settled_leases` table).
    * Updates key status on `key_invalid`, `rpd_exhausted`, `rpm_limited`, or `COOLDOWN`,
+   * increments per-key and per-model dispatch counters, classifies on `rpd_exhausted`,
    * and records borrowed CU in `borrower_window`.
    */
   public async settle(
     leaseId: string,
     status: string,
     cu: number | bigint = 0,
-    until?: number
+    until?: number,
+    model?: string
   ): Promise<CoordinatorSettleResult> {
     const sql = this.ensureSchema();
     const now = this.clock.now();
@@ -811,12 +881,18 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
 
     const leaseRows = sql
-      .exec("SELECT key_id, tenant, borrowed FROM leases WHERE lease_id = ?", leaseId)
+      .exec("SELECT key_id, tenant, borrowed, model FROM leases WHERE lease_id = ?", leaseId)
       .toArray();
     const leaseRow = leaseRows[0];
     const keyId = leaseRow && typeof leaseRow.key_id === "string" ? leaseRow.key_id : undefined;
     const tenant = leaseRow && typeof leaseRow.tenant === "string" ? leaseRow.tenant : undefined;
     const borrowed = leaseRow ? Number(leaseRow.borrowed) === 1 : false;
+    const resolvedModel =
+      (
+        model ??
+        (leaseRow && typeof leaseRow.model === "string" ? leaseRow.model : undefined) ??
+        "default"
+      ).trim() || "default";
 
     let ownerTenantId: string | undefined;
     if (keyId) {
@@ -826,18 +902,18 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       }
     }
 
-    const numericCu = Math.max(0, Number(cu));
+    const numericUnits = Math.max(0, parseInt(String(cu), 10) || 0);
 
     sql.exec(
       "INSERT INTO settled_leases (lease_id, status, cu, settled_at) VALUES (?, ?, ?, ?)",
       leaseId,
       status,
-      numericCu,
+      numericUnits,
       now
     );
     sql.exec("UPDATE leases SET settled_at = ? WHERE lease_id = ?", now, leaseId);
 
-    if (borrowed && tenant && numericCu > 0) {
+    if (borrowed && tenant && numericUnits > 0) {
       const minute = Math.floor(now / 60_000);
       sql.exec(
         `INSERT INTO borrower_window (tenant, minute, cu)
@@ -845,9 +921,11 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
          ON CONFLICT(tenant, minute) DO UPDATE SET cu = borrower_window.cu + excluded.cu`,
         tenant,
         minute,
-        numericCu
+        numericUnits
       );
     }
+
+    let classificationResult: CoordinatorKeyClassificationResult | undefined;
 
     if (keyId) {
       const borrowedInt = borrowed ? 1 : 0;
@@ -861,6 +939,20 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         now,
         keyId
       );
+
+      sql.exec(
+        `INSERT INTO key_model_stats (key_id, model, dispatched_today, dispatched_communal, cu_served)
+         VALUES (?, ?, 1, ?, ?)
+         ON CONFLICT(key_id, model) DO UPDATE SET
+           dispatched_today = key_model_stats.dispatched_today + 1,
+           dispatched_communal = key_model_stats.dispatched_communal + excluded.dispatched_communal,
+           cu_served = key_model_stats.cu_served + excluded.cu_served`,
+        keyId,
+        resolvedModel,
+        borrowedInt,
+        numericUnits
+      );
+
       const norm = status.trim().toLowerCase();
       const db = this.env.DB;
       const hasDb = Boolean(db && typeof db.prepare === "function");
@@ -906,6 +998,14 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
             .bind(now, keyId)
             .run();
         }
+        if (norm === "rpd_exhausted") {
+          classificationResult = await this.evaluateKeyClassificationOnExhaustion(
+            keyId,
+            resolvedModel,
+            ownerTenantId,
+            now
+          );
+        }
       } else if (norm === "ok") {
         if (hasDb) {
           await db!
@@ -924,6 +1024,257 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       keyId,
       ownerTenantId,
       borrowed,
+      ...(classificationResult ? { classification: classificationResult } : {}),
+    };
+  }
+
+  /**
+   * Evaluates D-16 hero/parasite and external-drain classification when a key hits RPD exhaustion.
+   */
+  private async evaluateKeyClassificationOnExhaustion(
+    keyId: string,
+    model: string,
+    ownerTenantId: string | undefined,
+    now: number
+  ): Promise<CoordinatorKeyClassificationResult | undefined> {
+    const sql = this.ensureSchema();
+    const keyRows = sql
+      .exec(
+        "SELECT rpd_limit, drain_state, effective_rpd, consecutive_clean_days FROM keys WHERE key_id = ?",
+        keyId
+      )
+      .toArray();
+    if (keyRows.length === 0) return undefined;
+
+    const kRow = keyRows[0];
+    const dailyLimit = Math.max(1, Number(kRow.rpd_limit ?? 1500));
+    let drainState: "OK" | "DRAINED" =
+      String(kRow.drain_state ?? "OK") === "DRAINED" ? "DRAINED" : "OK";
+    let effectiveRpd: number | null =
+      typeof kRow.effective_rpd === "number" ? Number(kRow.effective_rpd) : null;
+    let consecutiveCleanDays = Number(kRow.consecutive_clean_days ?? 0);
+
+    const modelRows = sql
+      .exec(
+        "SELECT dispatched_today, dispatched_communal FROM key_model_stats WHERE key_id = ? AND model = ?",
+        keyId,
+        model
+      )
+      .toArray();
+    const mRow = modelRows[0] ?? {};
+    const modelDispatched = Math.max(1, Number(mRow.dispatched_today ?? 1));
+    const modelCommunal = Math.max(0, Number(mRow.dispatched_communal ?? 0));
+
+    const kcSeenPct = Math.floor((modelDispatched * 100) / dailyLimit);
+    const communalPct = Math.floor((modelCommunal * 100) / modelDispatched);
+    const currentDay = new Date(now).toISOString().slice(0, 10);
+
+    const db = this.env.DB;
+    const hasDb = Boolean(db && typeof db.prepare === "function");
+
+    let resultLabel: string;
+    if (kcSeenPct >= 50) {
+      resultLabel = communalPct >= 80 ? "HERO" : "NORMAL";
+      sql.exec(
+        `INSERT INTO key_drain_history (key_id, day, drained, exhaustion_dispatches)
+         VALUES (?, ?, 0, ?)
+         ON CONFLICT(key_id, day) DO UPDATE SET
+           drained = 0,
+           exhaustion_dispatches = excluded.exhaustion_dispatches`,
+        keyId,
+        currentDay,
+        modelDispatched
+      );
+      consecutiveCleanDays += 1;
+
+      if (drainState === "DRAINED" && consecutiveCleanDays >= 3) {
+        drainState = "OK";
+        if (hasDb) {
+          await db!
+            .prepare("UPDATE api_keys SET drain_state = 'OK' WHERE id = ?")
+            .bind(keyId)
+            .run()
+            .catch(() => {});
+          if (ownerTenantId) {
+            const notifId = `notif_${crypto.randomUUID()}`;
+            await db!
+              .prepare(
+                `INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at)
+                 VALUES (?, ?, 'key_recovered', ?, 'Your key recovered from external drain and returned to full pool standing', ?, NULL)`
+              )
+              .bind(notifId, ownerTenantId, keyId, now)
+              .run()
+              .catch(() => {});
+          }
+        }
+      }
+    } else {
+      resultLabel = "EXTERNALLY_DRAINED";
+      sql.exec(
+        `INSERT INTO key_drain_history (key_id, day, drained, exhaustion_dispatches)
+         VALUES (?, ?, 1, ?)
+         ON CONFLICT(key_id, day) DO UPDATE SET
+           drained = 1,
+           exhaustion_dispatches = excluded.exhaustion_dispatches`,
+        keyId,
+        currentDay,
+        modelDispatched
+      );
+      consecutiveCleanDays = 0;
+
+      const cutoffDay7 = new Date(now - 6 * 86_400_000).toISOString().slice(0, 10);
+      const recentDrainRows = sql
+        .exec(
+          `SELECT drained, exhaustion_dispatches
+             FROM key_drain_history
+            WHERE key_id = ? AND day >= ?
+            ORDER BY day DESC
+            LIMIT 7`,
+          keyId,
+          cutoffDay7
+        )
+        .toArray();
+
+      const exhaustionCounts = recentDrainRows
+        .filter((r) => Number(r.drained) === 1 && typeof r.exhaustion_dispatches === "number")
+        .map((r) => Number(r.exhaustion_dispatches))
+        .sort((a, b) => a - b);
+
+      if (exhaustionCounts.length > 0) {
+        effectiveRpd = exhaustionCounts[Math.floor(exhaustionCounts.length / 2)];
+      }
+
+      const drainedDaysIn7 = recentDrainRows.filter((r) => Number(r.drained) === 1).length;
+      if (drainedDaysIn7 >= 5 && drainState !== "DRAINED") {
+        drainState = "DRAINED";
+        if (hasDb) {
+          await db!
+            .prepare("UPDATE api_keys SET drain_state = 'DRAINED' WHERE id = ?")
+            .bind(keyId)
+            .run()
+            .catch(() => {});
+          if (ownerTenantId) {
+            const notifId = `notif_${crypto.randomUUID()}`;
+            await db!
+              .prepare(
+                `INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at)
+                 VALUES (?, ?, 'key_drained', ?, 'Your key was externally drained on 5 of the last 7 days', ?, NULL)`
+              )
+              .bind(notifId, ownerTenantId, keyId, now)
+              .run()
+              .catch(() => {});
+          }
+        }
+      }
+    }
+
+    sql.exec(
+      `UPDATE keys
+          SET classification = ?,
+              drain_state = ?,
+              effective_rpd = ?,
+              consecutive_clean_days = ?,
+              updated_at = ?
+        WHERE key_id = ?`,
+      resultLabel,
+      drainState,
+      effectiveRpd,
+      consecutiveCleanDays,
+      now,
+      keyId
+    );
+
+    sql.exec(
+      `UPDATE key_model_stats
+          SET classification = ?,
+              effective_rpd = ?
+        WHERE key_id = ? AND model = ?`,
+      resultLabel,
+      effectiveRpd,
+      keyId,
+      model
+    );
+
+    const tel = (this.env as unknown as { TELEMETRY?: { writeDataPoint?: (pt: unknown) => void } })
+      ?.TELEMETRY;
+    if (tel && typeof tel.writeDataPoint === "function") {
+      try {
+        tel.writeDataPoint({
+          blobs: ["key_classification", keyId, model, resultLabel, drainState],
+          doubles: [kcSeenPct, communalPct, effectiveRpd ?? -1],
+          indexes: [keyId],
+        });
+      } catch (err) {
+        void err;
+      }
+    }
+
+    return {
+      kcSeenPct,
+      communalPct,
+      result: resultLabel,
+      effectiveRpd,
+      drainState,
+    };
+  }
+
+  /**
+   * Returns diagnostic state for a single key (and optional model) from SQLite storage.
+   */
+  public async getKeyState(
+    keyId: string,
+    model?: string
+  ): Promise<CoordinatorKeyDiagnosticState | null> {
+    const sql = this.ensureSchema();
+    const rows = sql
+      .exec(
+        `SELECT key_id, owner, provider, status, rpd_limit, dispatched_today, dispatched_communal,
+                classification, drain_state, effective_rpd, consecutive_clean_days
+           FROM keys
+          WHERE key_id = ?`,
+        keyId
+      )
+      .toArray();
+    if (rows.length === 0) return null;
+    const r = rows[0];
+
+    let modelStats: CoordinatorKeyDiagnosticState["modelStats"];
+    if (model) {
+      const mRows = sql
+        .exec(
+          `SELECT model, dispatched_today, dispatched_communal, cu_served, classification, effective_rpd
+             FROM key_model_stats
+            WHERE key_id = ? AND model = ?`,
+          keyId,
+          model
+        )
+        .toArray();
+      if (mRows.length > 0) {
+        const mr = mRows[0];
+        modelStats = {
+          model: String(mr.model),
+          dispatchedToday: Number(mr.dispatched_today ?? 0),
+          dispatchedCommunal: Number(mr.dispatched_communal ?? 0),
+          cuServed: parseInt(String(mr.cu_served ?? 0), 10) || 0,
+          classification: typeof mr.classification === "string" ? mr.classification : null,
+          effectiveRpd: typeof mr.effective_rpd === "number" ? Number(mr.effective_rpd) : null,
+        };
+      }
+    }
+
+    return {
+      keyId: String(r.key_id),
+      owner: String(r.owner),
+      provider: String(r.provider),
+      status: String(r.status),
+      rpdLimit: Number(r.rpd_limit ?? 0),
+      dispatchedToday: Number(r.dispatched_today ?? 0),
+      dispatchedCommunal: Number(r.dispatched_communal ?? 0),
+      classification: typeof r.classification === "string" ? r.classification : null,
+      drainState: String(r.drain_state ?? "OK") === "DRAINED" ? "DRAINED" : "OK",
+      effectiveRpd: typeof r.effective_rpd === "number" ? Number(r.effective_rpd) : null,
+      consecutiveCleanDays: Number(r.consecutive_clean_days ?? 0),
+      ...(modelStats ? { modelStats } : {}),
     };
   }
 
