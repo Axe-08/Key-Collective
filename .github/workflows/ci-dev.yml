@@ -57,7 +57,7 @@ jobs:
       - name: Install Dependencies
         run: |
           npm ci
-          cd ui && npm ci && npm run build
+          cd ui && npm ci && npm run build -- --mode dev
 
       - name: Apply D1 Migrations (Dev)
         run: npx wrangler d1 migrations apply key-collective-d1-dev --remote
