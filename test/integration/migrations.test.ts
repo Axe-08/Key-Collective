@@ -421,4 +421,20 @@ describe("migrations integration", () => {
     const keysTable = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'keys'").first();
     expect(keysTable).not.toBeNull();
   });
+
+  it("0018 adds anti_cycling_until column to api_keys", async () => {
+    expect(names).toContain("0018_anti_cycling.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations.filter((m) => m.name < "0018_anti_cycling.sql"));
+
+    const colsBefore = await env.DB.prepare("SELECT name FROM pragma_table_info('api_keys')").all<{ name: string }>();
+    expect(colsBefore.results.map((c) => c.name)).not.toContain("anti_cycling_until");
+
+    await applyMigrations(env.DB, migrations.filter((m) => m.name === "0018_anti_cycling.sql"));
+
+    const colsAfter = await env.DB.prepare("SELECT name FROM pragma_table_info('api_keys')").all<{ name: string }>();
+    expect(colsAfter.results.map((c) => c.name)).toContain("anti_cycling_until");
+  });
 });
+

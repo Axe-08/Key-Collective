@@ -111,7 +111,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.1.2 Admin would-deny endpoint (GET /api/admin/commons/would-deny)
 
 ### WP-5.2
-- [ ] T-5.2.1 Migration 0018_anti_cycling.sql (api_keys.anti_cycling_until)
+- [x] T-5.2.1 Migration 0018_anti_cycling.sql (api_keys.anti_cycling_until)
 - [ ] T-5.2.2 Coordinator alarm promotes observation keys to D1 and notifies owner
 - [ ] T-5.2.3 Anti-cycling tier (FR-18) on key submission with tombstoned project
 

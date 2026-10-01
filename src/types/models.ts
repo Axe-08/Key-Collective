@@ -219,6 +219,8 @@ export interface APIKey {
   providerProjectHash?: string | null;
   /** HKDF per-tenant migration flag */
   hkdfMigrated?: number;
+  /** Timestamp until 60-min anti-cycling tier ends (FR-18) */
+  antiCyclingUntil?: string | number | null;
 }
 
 /**
