@@ -5,6 +5,7 @@
   import NewKeyModal from './modals/NewKeyModal.svelte';
   import ProjectSettingsModal from './modals/ProjectSettingsModal.svelte';
   import SwitchPoolModal from './modals/SwitchPoolModal.svelte';
+  import SecretRevealModal from './modals/SecretRevealModal.svelte';
 
   interface Props {
     // Verification proof modal
@@ -35,7 +36,12 @@
     onSaveProjectName: (projectId: string, name: string) => void;
     onSaveProjectRpm: (projectId: string, rpm: number) => void;
     onDeleteProject?: (projectId: string) => void;
+    projectSettingsError?: string | null;
     localKeys: any[];
+
+    // One-time secret display
+    revealedSecret?: string | null;
+    onCloseSecret?: () => void;
 
     // Switch pool modal
     switchPoolModalOpen: boolean;
@@ -68,7 +74,10 @@
     onSaveProjectName,
     onSaveProjectRpm,
     onDeleteProject,
+    projectSettingsError = null,
     localKeys,
+    revealedSecret = null,
+    onCloseSecret = () => {},
     switchPoolModalOpen,
     switchPoolTarget,
     switchPoolLoading,
@@ -110,7 +119,10 @@
   onSaveName={onSaveProjectName}
   onSaveRpm={onSaveProjectRpm}
   {onDeleteProject}
+  inlineError={projectSettingsError}
 />
+
+<SecretRevealModal secret={revealedSecret} onClose={onCloseSecret} />
 
 <SwitchPoolModal
   open={switchPoolModalOpen}

@@ -53,8 +53,8 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 
 ### WP-3.9
 - [x] T-3.9.1 Implement typed API client methods and contracts for project and token actions
-- [ ] T-3.9.2 Display real RPM sub-cap and render pessimistic project edits with inline error
-- [ ] T-3.9.3 Wire typed client actions, secret reveal modal, and reload persistence in Workbench
+- [x] T-3.9.2 Display real RPM sub-cap and render pessimistic project edits with inline error
+- [x] T-3.9.3 Wire typed client actions, secret reveal modal, and reload persistence in Workbench
 
 ### WP-3.10
 - [ ] T-3.10.1 Update Playground to use playground token, read CU header and SSE, and drop tenant ID

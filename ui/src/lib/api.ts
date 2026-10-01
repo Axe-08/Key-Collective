@@ -103,7 +103,7 @@ export const api = {
   },
 
   async setKeyPoolMode(id: string, poolType: 'COMMUNITY' | 'PRIVATE') {
-    return request(z.object({ pool_type: z.string(), community_routing_status: z.string().nullable(), observation_until: z.number().nullable() }).passthrough(),
+    return request(z.object({ pool_type: z.enum(['COMMUNITY', 'PRIVATE']), community_routing_status: z.string().nullable(), observation_until: z.number().nullable() }).passthrough(),
       `/api/keys/${encodeURIComponent(id)}/pool-mode`, { method: 'PATCH', body: JSON.stringify({ pool_type: poolType }) });
   },
 
