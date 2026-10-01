@@ -167,39 +167,41 @@ export async function handleNonStreamingResponse(
     reasoningTokens,
   };
 
-  let calculatedCu = 0n;
-  if (deps.modelRegistry) {
-    try {
-      const registry = deps.modelRegistry as unknown as {
-        calculateCu?: (model: string, usage: TokenUsage) => bigint;
-        calculateCost?: (model: string, usage: TokenUsage) => bigint;
-      };
-      if (typeof registry.calculateCu === "function") {
-        calculatedCu = registry.calculateCu(cascadeRes.model, effectiveUsage);
+  let calculatedCu = cu;
+  if (calculatedCu === 0n && (upstreamJson.usage || costMicrodollars > 0n)) {
+    if (deps.modelRegistry) {
+      try {
+        const registry = deps.modelRegistry as unknown as {
+          calculateCu?: (model: string, usage: TokenUsage) => bigint;
+          calculateCost?: (model: string, usage: TokenUsage) => bigint;
+        };
+        if (typeof registry.calculateCu === "function") {
+          calculatedCu = registry.calculateCu(cascadeRes.model, effectiveUsage);
+        }
+      } catch {
+        // Fall back below
       }
-    } catch {
-      // Fall back below
     }
-  }
 
-  if (calculatedCu === 0n && cascadeRes.modelDef) {
-    try {
-      calculatedCu = calculateCu(cascadeRes.modelDef, effectiveUsage);
-    } catch {
-      // Fall back below
+    if (calculatedCu === 0n && cascadeRes.modelDef) {
+      try {
+        calculatedCu = calculateCu(cascadeRes.modelDef, effectiveUsage);
+      } catch {
+        // Fall back below
+      }
     }
-  }
 
-  if (calculatedCu === 0n && deps.modelRegistry) {
-    try {
-      calculatedCu = deps.modelRegistry.calculateCost(cascadeRes.model, effectiveUsage);
-    } catch {
-      // Fall back below
+    if (calculatedCu === 0n && deps.modelRegistry) {
+      try {
+        calculatedCu = deps.modelRegistry.calculateCost(cascadeRes.model, effectiveUsage);
+      } catch {
+        // Fall back below
+      }
     }
-  }
 
-  if (calculatedCu === 0n && costMicrodollars > 0n) {
-    calculatedCu = costMicrodollars;
+    if (calculatedCu === 0n && costMicrodollars > 0n) {
+      calculatedCu = costMicrodollars;
+    }
   }
 
   // Base usage object
