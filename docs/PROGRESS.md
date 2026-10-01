@@ -10,7 +10,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 
 ### WP-3.1
 - [x] T-3.1.1 Create additive migration 0015 for user identities and sessions (498d9d3)
-- [ ] T-3.1.2 Implement session store with SHA-256 hashing and CSRF tokens
+- [x] T-3.1.2 Implement session store with SHA-256 hashing and CSRF tokens
 - [ ] T-3.1.3 Add createSession helper and identity options to world test helper
 - [ ] T-3.1.4 Accept kc_admin_session and ADMIN_EMAILS check in admin verifier
 - [ ] T-3.1.5 Support console sessions side by side with bearer tokens and CSRF check
