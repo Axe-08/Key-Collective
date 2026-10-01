@@ -123,14 +123,37 @@ export async function handlePostKeys(
   if (probe && "unavailable" in probe && body.pool_type === "COMMUNITY") {
     return fail(422, "project_unverifiable", `GCP project could not be verified (${probe.unavailable})`);
   }
+  const ANTI_CYCLING_MS = 60 * 60 * 1000;
+  let antiCyclingUntil: number | null = null;
   if (probe && "projectNumber" in probe) {
     projectHash = await sha256Hex(probe.projectNumber);
     const existing = await db
-      .prepare("SELECT state, tenant_id, rotating_until, tombstone_until FROM project_hash_registry WHERE project_hash = ?")
+      .prepare(
+        "SELECT state, tenant_id, rotating_until, tombstone_until, updated_at FROM project_hash_registry WHERE project_hash = ?"
+      )
       .bind(projectHash)
-      .first<{ state: string; tenant_id: string; rotating_until: number | null; tombstone_until: number | null }>();
+      .first<{
+        state: string;
+        tenant_id: string;
+        rotating_until: number | null;
+        tombstone_until: number | null;
+        updated_at?: number | null;
+      }>();
     if (existing?.state === "ACTIVE") return fail(409, "project_already_registered");
-    if (existing?.state === "TOMBSTONED" && (existing.tombstone_until ?? Infinity) > now) return fail(409, "project_tombstoned");
+    if (existing?.state === "TOMBSTONED") {
+      const isRecentOwnerRevocation =
+        existing.tenant_id === tenantId &&
+        existing.rotating_until === null &&
+        now - (existing.updated_at ?? 0) <= DAY_MS;
+
+      if (isRecentOwnerRevocation) {
+        antiCyclingUntil = now + ANTI_CYCLING_MS;
+      } else if ((existing.tombstone_until ?? Infinity) > now) {
+        return fail(409, "project_tombstoned");
+      } else if (now - (existing.tombstone_until ?? 0) <= DAY_MS) {
+        antiCyclingUntil = now + ANTI_CYCLING_MS;
+      }
+    }
     if (existing?.state === "ROTATING" && !(existing.tenant_id === tenantId && (existing.rotating_until ?? 0) + ROTATION_GRACE_MS > now)) {
       return fail(409, "project_already_registered");
     }
@@ -181,6 +204,7 @@ export async function handlePostKeys(
       keyHash,
       providerProjectHash: projectHash,
       createdAt: now,
+      antiCyclingUntil,
     }),
     ...(projectHash
       ? [

@@ -859,14 +859,15 @@ export class ApiKeyRepository {
     keyHash: string;
     providerProjectHash: string | null;
     createdAt: number;
+    antiCyclingUntil?: number | null;
   }): D1PreparedStatement {
     return this.db
       .prepare(
         `INSERT INTO api_keys (
            id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix,
            rpm_limit, rpd_limit, priority, status, pool_type, community_routing_status,
-           observation_until, key_hash, provider_project_hash, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HEALTHY', ?, ?, ?, ?, ?, ?)`
+           observation_until, key_hash, provider_project_hash, created_at, anti_cycling_until
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HEALTHY', ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         row.id,
@@ -885,7 +886,8 @@ export class ApiKeyRepository {
         row.observationUntil,
         row.keyHash,
         row.providerProjectHash,
-        row.createdAt
+        row.createdAt,
+        row.antiCyclingUntil ?? null
       );
   }
 

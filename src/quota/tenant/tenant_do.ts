@@ -70,6 +70,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private trustedContributor: boolean = false;
   private consecutiveDebtFreeDays: number = 0;
   private multiplierCeiling: number = 150;
+  private antiCyclingUntil: number = 0;
   private settledLeaseIds = new Set<string>();
 
   private rpmWindowMs!: number;
@@ -110,6 +111,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.trustedContributor = false;
     this.consecutiveDebtFreeDays = 0;
     this.multiplierCeiling = 150;
+    this.antiCyclingUntil = 0;
     this.settledLeaseIds = new Set<string>();
 
     this.clock = options?.clock ?? systemClock;
@@ -207,6 +209,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       trustedContributor: this.trustedContributor,
       consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
       multiplierCeiling: this.multiplierCeiling,
+      antiCyclingUntil: this.antiCyclingUntil,
       lastUpdated: this.now(),
     };
     await this.ctx.storage.put<TenantQuotaData>(this.getStorageKey(), data);
@@ -252,6 +255,9 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       if (typeof stored.multiplierCeiling === "number") {
         this.multiplierCeiling = stored.multiplierCeiling;
       }
+      if (typeof stored.antiCyclingUntil === "number") {
+        this.antiCyclingUntil = stored.antiCyclingUntil;
+      }
     }
 
     this.pruneEntries();
@@ -263,6 +269,41 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.totalCostMicrodollars = 0n;
     this.cuUsed24h = 0n;
     this.isLoaded = false;
+  }
+
+  private async checkAntiCycling(): Promise<boolean> {
+    const now = this.now();
+    if (this.antiCyclingUntil > now) {
+      return true;
+    }
+    const envWithDb = this.env as { DB?: D1Database } | undefined;
+    const db = envWithDb?.DB;
+    if (db && typeof db.prepare === "function" && this.tenantId) {
+      try {
+        const row = await db
+          .prepare(
+            "SELECT MAX(anti_cycling_until) as max_until FROM api_keys WHERE tenant_id = ? AND status != 'REVOKED'"
+          )
+          .bind(this.tenantId)
+          .first<{ max_until: number | null }>();
+        if (row?.max_until && row.max_until > now) {
+          this.antiCyclingUntil = row.max_until;
+          return true;
+        }
+      } catch (err) {
+        void err;
+      }
+    }
+    return false;
+  }
+
+  public async setAntiCyclingUntil(until: number): Promise<void> {
+    await this.ensureLoaded();
+    if (until > this.antiCyclingUntil) {
+      this.antiCyclingUntil = until;
+    }
+    this.updateMultiplierCeiling();
+    await this.persist();
   }
 
   public async accrueDebt(
@@ -287,6 +328,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       this.settledLeaseIds.add(storageKey);
       await this.ctx.storage.put(storageKey, true);
     }
+    await this.checkAntiCycling();
     const cu = toCu(cuWeight);
     this.communityDebtCu += cu;
     this.updateMultiplierCeiling();
@@ -315,7 +357,14 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       this.settledLeaseIds.add(storageKey);
       await this.ctx.storage.put(storageKey, true);
     }
+    const isAntiCycling = await this.checkAntiCycling();
     const cu = toCu(cuWeight);
+    if (isAntiCycling) {
+      // FR-18: while anti-cycling is active, owner's vesting cap is 100 (1.00x) and key earns no contribution credit
+      this.updateMultiplierCeiling();
+      await this.syncDebtState();
+      return;
+    }
     this.communityDebtCu = this.communityDebtCu > cu ? this.communityDebtCu - cu : 0n;
     this.dailyContributedCu += cu;
     this.updateMultiplierCeiling();
@@ -340,7 +389,18 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     };
   }
 
+  public async getDebtStateAsync() {
+    await this.ensureLoaded();
+    await this.checkAntiCycling();
+    this.updateMultiplierCeiling();
+    return this.getDebtState();
+  }
+
   public updateMultiplierCeiling(): void {
+    if (this.antiCyclingUntil > this.now()) {
+      this.multiplierCeiling = 100;
+      return;
+    }
     this.multiplierCeiling = calculateMultiplierCeiling(
       this.communityDebtCu,
       this.dailyContributedCu,
