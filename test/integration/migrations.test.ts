@@ -399,4 +399,26 @@ describe("migrations integration", () => {
       ).bind("usr_goog_sub123456").run(),
     ).rejects.toThrow();
   });
+
+  it("0016 adds project scoping columns and converts project timestamps to ms, keeping the keys stub for the running release", async () => {
+    expect(names).toContain("0016_projects.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations.filter((m) => m.name < "0016_projects.sql"));
+    await env.DB.prepare("INSERT INTO projects (id, name, tenant_id, created_at, updated_at) VALUES ('prj_s', 'secs', 't1', 1700000000, 1700000100)").run();
+    await env.DB.prepare("INSERT INTO projects (id, name, tenant_id, created_at, updated_at) VALUES ('prj_ms', 'ms', 't1', 1700000000000, 1700000100000)").run();
+
+    await applyMigrations(env.DB, migrations.filter((m) => m.name === "0016_projects.sql"));
+
+    const rows = await env.DB.prepare("SELECT id, created_at, updated_at, rpm_sub_cap, is_archived FROM projects ORDER BY id").all();
+    expect(rows.results).toEqual([
+      { id: "prj_ms", created_at: 1700000000000, updated_at: 1700000100000, rpm_sub_cap: null, is_archived: 0 },
+      { id: "prj_s", created_at: 1700000000000, updated_at: 1700000100000, rpm_sub_cap: null, is_archived: 0 },
+    ]);
+    const tokenCols = await env.DB.prepare("SELECT name FROM pragma_table_info('auth_tokens')").all<{ name: string }>();
+    expect(tokenCols.results.map((c) => c.name)).toContain("project_id");
+    // The running release still writes to the keys stub; it is dropped in a later contract migration (D-26).
+    const keysTable = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'keys'").first();
+    expect(keysTable).not.toBeNull();
+  });
 });

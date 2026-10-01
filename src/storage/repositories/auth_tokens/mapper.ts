@@ -39,5 +39,6 @@ export function mapRowToAuthTokenRecord(row: AuthTokenRow): AuthTokenRecord {
     rpmLimit: Number(row.rpm_limit ?? DEFAULT_RPM_LIMIT),
     expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    projectId: row.project_id ?? null,
   };
 }

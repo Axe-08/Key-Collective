@@ -43,10 +43,10 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.6.4 Rewrite post_key handler with validation, atomic batching, DO sync, and submit tests
 
 ### WP-3.7
-- [ ] T-3.7.1 Create migration 0016_projects.sql and update auth_token schema
-- [ ] T-3.7.2 Support project_id and rotation in token dashboard routes
-- [ ] T-3.7.3 Persist name, description, rpm_sub_cap, and is_archived in project patch route
-- [ ] T-3.7.4 Enforce project scoping, sub-cap, and archival rejection in auth middleware
+- [x] T-3.7.1 Create migration 0016_projects.sql and update auth_token schema
+- [x] T-3.7.2 Support project_id and rotation in token dashboard routes
+- [x] T-3.7.3 Persist name, description, rpm_sub_cap, and is_archived in project patch route
+- [x] T-3.7.4 Enforce project scoping, sub-cap, and archival rejection in auth middleware
 
 ### WP-3.8
 - [ ] T-3.8.1 Truthful key testing with proof-of-life probe and D1 status sync

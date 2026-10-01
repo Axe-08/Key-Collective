@@ -20,6 +20,8 @@ import { DomainError } from "../../errors/domain_error";
 import {
   QuotaExceededError,
   RateLimitExceededError,
+  ProjectArchivedError,
+  ProjectSubCapExceededError,
 } from "../../errors/key_errors";
 import {
   AuthTokensRepository,
@@ -309,6 +311,26 @@ export class AuthMiddleware implements AuthContract {
       }
     }
 
+    // 5b. Project scope comes from the token row (WP-3.7); x-project-id is never read.
+    const projectId = record.projectId ?? undefined;
+    let projectSubCap: number | undefined;
+    if (projectId) {
+      const db =
+        env && typeof (env as D1Database).prepare === "function"
+          ? (env as D1Database)
+          : ((env as WorkerEnv | undefined)?.DB as D1Database | undefined);
+      const project = db
+        ? await db
+            .prepare("SELECT is_archived, rpm_sub_cap FROM projects WHERE id = ?")
+            .bind(projectId)
+            .first<{ is_archived: number; rpm_sub_cap: number | null }>()
+        : null;
+      if (!project || project.is_archived) {
+        throw new ProjectArchivedError(projectId);
+      }
+      projectSubCap = project.rpm_sub_cap ?? undefined;
+    }
+
     // 6. Sliding-Window RPM Rate Limiting & Quota Consumption
     const effectiveRpm =
       mergedOptions.rpmLimitOverride ?? record.rpmLimit ?? DEFAULT_RPM_LIMIT;
@@ -341,11 +363,6 @@ export class AuthMiddleware implements AuthContract {
         }
       }
 
-      const projectId =
-        request.headers.get("x-project-id") ??
-        request.headers.get("kc-project-id") ??
-        undefined;
-
       let currentRpm: number;
       let remainingRpm: number;
       let effectiveRpmLimit: number = effectiveRpm;
@@ -359,14 +376,18 @@ export class AuthMiddleware implements AuthContract {
         if (projectId) {
           consumeReq.projectId = projectId;
         }
-        if (mergedOptions.rpmLimitOverride !== undefined) {
-          consumeReq.projectMaxSubCap = mergedOptions.rpmLimitOverride;
+        const subCap = projectSubCap ?? mergedOptions.rpmLimitOverride;
+        if (subCap !== undefined) {
+          consumeReq.projectMaxSubCap = subCap;
         }
 
         const quotaResult = await stub.consumeQuota(consumeReq);
 
         if (!quotaResult.allowed) {
           const errorCode = quotaResult.errorCode ?? quotaResult.error_code;
+          if (errorCode === "PROJECT_SUB_CAP_EXCEEDED" && projectId) {
+            throw new ProjectSubCapExceededError(projectId, quotaResult.retryAfterSeconds ?? 60);
+          }
           if (
             errorCode === "USER_DAILY_QUOTA_EXHAUSTED" ||
             quotaResult.reason === "rpd_limit_exceeded"
@@ -418,8 +439,8 @@ export class AuthMiddleware implements AuthContract {
             costMicrodollars: incomingCost.toString(),
             count: 1,
             ...(projectId ? { projectId } : {}),
-            ...(mergedOptions.rpmLimitOverride !== undefined
-              ? { projectMaxSubCap: mergedOptions.rpmLimitOverride }
+            ...((projectSubCap ?? mergedOptions.rpmLimitOverride) !== undefined
+              ? { projectMaxSubCap: projectSubCap ?? mergedOptions.rpmLimitOverride }
               : {}),
           }),
         });
@@ -435,6 +456,9 @@ export class AuthMiddleware implements AuthContract {
           }
 
           const errorCode = data.errorCode ?? data.error_code ?? data.code;
+          if (errorCode === "PROJECT_SUB_CAP_EXCEEDED" && projectId) {
+            throw new ProjectSubCapExceededError(projectId);
+          }
           if (
             errorCode === "USER_DAILY_QUOTA_EXHAUSTED" ||
             data.reason === "rpd_limit_exceeded"
@@ -513,6 +537,7 @@ export class AuthMiddleware implements AuthContract {
         budgetMicrodollars: budget,
         spentMicrodollars: spent,
         budgetRemainingMicrodollars,
+        ...(projectId ? { projectId } : {}),
       };
     }
 

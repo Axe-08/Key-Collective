@@ -21,6 +21,8 @@ export interface AuthTokenRow {
   rpm_limit: number;
   expires_at: string | null;
   created_at: string;
+  /** Project the token is scoped to (WP-3.7); null = tenant-wide. */
+  project_id?: string | null;
   budget_cu?: number | string | bigint | null;
   spent_cu?: number | string | bigint | null;
 }
@@ -51,6 +53,7 @@ export interface AuthTokenRecord {
   expiresAt: string | null;
   /** ISO-8601 creation timestamp */
   createdAt: string;
+  projectId?: string | null;
   /** Budget ceiling in Credit Units (null = unlimited) */
   budgetCu?: bigint | null;
   /** Total spent Credit Units */
@@ -83,6 +86,7 @@ export interface CreateAuthTokenParams {
   rpmLimit?: number;
   /** Optional expiration timestamp (ISO string, Date, or null). */
   expiresAt?: string | Date | null;
+  projectId?: string | null;
 }
 
 /**

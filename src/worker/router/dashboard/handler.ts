@@ -33,6 +33,7 @@ import {
   handleDeleteToken,
   handleGetTokens,
   handlePostTokens,
+  handleRotateToken,
 } from "./token_routes";
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
@@ -435,6 +436,9 @@ export class DashboardRouter {
       return handleGetTokens(request, env as unknown as AppWorkerEnv, tenantId);
     }
 
+    if (method === "POST" && /^\/api\/tokens\/[^/]+\/rotate\/?$/.test(pathname)) {
+      return handleRotateToken(pathname, env, tenantId);
+    }
     if (method === "POST" && (pathname === "/api/tokens" || pathname === "/api/tokens/")) {
       return handlePostTokens(request, env as unknown as AppWorkerEnv, tenantId);
     }
