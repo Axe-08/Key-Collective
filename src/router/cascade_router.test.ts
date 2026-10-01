@@ -515,7 +515,7 @@ describe("CascadeRouter", () => {
         "rpm_limited",
         expect.anything(),
         0n,
-        undefined
+        60000
       );
       expect(mockLeaseProvider.settle).toHaveBeenCalledWith(
         expect.objectContaining({ keyId: "key-for-openai" }),

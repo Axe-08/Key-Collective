@@ -121,7 +121,8 @@ describe("KeyPoolDO private lease API (T-4.1.3)", () => {
     const t0 = Date.UTC(2030, 0, 15, 13, 0, 0);
     await pool.setClockForTest(t0);
 
-    for (let i = 0; i < DEFAULT_CIRCUIT_BREAKER_THRESHOLD; i++) {
+    const breakerThreshold = 5;
+    for (let i = 0; i < breakerThreshold; i++) {
       const lease = await pool.leasePrivate("groq", 10, carol.id);
       expect(lease?.keyId).toBe(privKey.id);
       const firstSettle = await pool.settle(lease!.leaseId, "upstream_error", 10);

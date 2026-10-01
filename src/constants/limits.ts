@@ -13,7 +13,7 @@
  * Default number of consecutive failures before tripping a provider's circuit breaker to OPEN state.
  * As defined in LLD 1.3.
  */
-export const DEFAULT_CIRCUIT_BREAKER_THRESHOLD = 5 as const;
+export const DEFAULT_CIRCUIT_BREAKER_THRESHOLD = 3 as const;
 
 /**
  * Default tenant requests-per-minute (RPM) rate limit.
