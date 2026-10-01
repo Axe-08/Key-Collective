@@ -54,6 +54,8 @@ describe("PATCH /api/projects/:id", () => {
     expect(row).toMatchObject({ name: "new", description: "d", rpm_sub_cap: 2, is_archived: 1 });
     expect(row!.updated_at).toBeGreaterThanOrEqual(before);
     expect(await res.json()).toMatchObject({ name: "new", rpm_sub_cap: 2, is_archived: true });
+    const list = (await (await (await as(user))("/api/projects", "GET")).json()) as Array<{ id: string; rpm_sub_cap: number; is_archived: number }>;
+    expect(list.find((p) => p.id === id)).toMatchObject({ rpm_sub_cap: 2, is_archived: 1 });
   });
 
   it("refuses a sub-cap above the tier RPM limit with 400 and can clear it", async () => {

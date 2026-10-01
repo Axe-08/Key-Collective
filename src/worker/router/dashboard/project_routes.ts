@@ -22,6 +22,8 @@ export interface ProjectRecord {
   name: string;
   tenant_id: string;
   description: string | null;
+  rpm_sub_cap?: number | null;
+  is_archived?: number;
   created_at: number;
   updated_at: number;
 }
@@ -114,7 +116,7 @@ export async function handleGetProjects(
     if (isAdmin && !targetTenant) {
       const result = await db
         .prepare(
-          `SELECT id, name, tenant_id, description, created_at, updated_at
+          `SELECT id, name, tenant_id, description, rpm_sub_cap, is_archived, created_at, updated_at
            FROM projects
            ORDER BY created_at DESC`
         )
@@ -125,7 +127,7 @@ export async function handleGetProjects(
     const scopedTenant = isAdmin && targetTenant ? targetTenant : tenantId;
     const result = await db
       .prepare(
-        `SELECT id, name, tenant_id, description, created_at, updated_at
+        `SELECT id, name, tenant_id, description, rpm_sub_cap, is_archived, created_at, updated_at
          FROM projects
          WHERE tenant_id = ?
          ORDER BY created_at DESC`
