@@ -86,7 +86,7 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 - [x] T-4.2.1 Ledger and settle use lease.keyId; recordUsage calls removed; key_id must match ^key_
 
 ### WP-4.3
-- [ ] T-4.3.1 Upstream outcome classifier (classify.ts) with per-row tests
+- [x] T-4.3.1 Upstream outcome classifier (classify.ts) with per-row tests
 - [ ] T-4.3.2 Outcomes settle key state + D1 status; breaker timing; 400 without fallback; recordResult/recordStatusCode removed
 - [ ] T-4.3.3 Migration 0017 notifications; GET/POST notification routes; takedown and key_invalid notifications
 
