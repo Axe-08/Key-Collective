@@ -493,5 +493,41 @@ describe("migrations integration", () => {
       jail_status: "PRISTINE",
     });
   });
+
+  it("0021 creates key_daily_stats table and adds drain_state column to api_keys", async () => {
+    expect(names).toContain("0021_key_daily_stats.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations.filter((m) => m.name <= "0021_key_daily_stats.sql"));
+
+    const cols = await env.DB.prepare("SELECT name FROM pragma_table_info('api_keys')").all<{ name: string }>();
+    expect(cols.results.map((c) => c.name)).toContain("drain_state");
+
+    await env.DB.prepare(
+      "INSERT INTO key_daily_stats (key_id, day, model, dispatched, communal, cu_served, classification) VALUES ('k_daily_1', '2026-10-01', 'gemini-2.0-flash', 100, 85, 1700, 'HERO')",
+    ).run();
+
+    const row = await env.DB.prepare(
+      "SELECT key_id, day, model, dispatched, communal, cu_served, classification FROM key_daily_stats WHERE key_id = 'k_daily_1' AND day = '2026-10-01' AND model = 'gemini-2.0-flash'",
+    ).first<{
+      key_id: string;
+      day: string;
+      model: string;
+      dispatched: number;
+      communal: number;
+      cu_served: number;
+      classification: string | null;
+    }>();
+
+    expect(row).toEqual({
+      key_id: "k_daily_1",
+      day: "2026-10-01",
+      model: "gemini-2.0-flash",
+      dispatched: 100,
+      communal: 85,
+      cu_served: 1700,
+      classification: "HERO",
+    });
+  });
 });
 
