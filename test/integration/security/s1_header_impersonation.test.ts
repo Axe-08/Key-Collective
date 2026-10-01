@@ -108,7 +108,7 @@ describe("S1 Security: Header Impersonation & Auth Enforcement", () => {
   it("ignores x-tenant-id header when valid Bearer token for tenant A is provided", async () => {
     const userA = { id: "default" };
     await env.DB.prepare(
-      "INSERT OR IGNORE INTO users (id, email, tier, role, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)"
+      "INSERT OR IGNORE INTO users (id, email, tier, role, registration_status, created_at) VALUES (?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP)"
     )
       .bind(userA.id, "default@example.test", "free", "user")
       .run();
