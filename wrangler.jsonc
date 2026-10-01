@@ -105,7 +105,8 @@
     "CONSOLE_HOST": "console.key-col.axe08.tech",
     "ADMIN_HOST": "admin.key-col.axe08.tech",
     "APEX_HOST": "key-col.axe08.tech",
-    "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
+    "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT",
+    "ROUTING_ENGINE": "legacy"
   },
   "env": {
     "dev": {
@@ -115,7 +116,8 @@
         "CONSOLE_HOST": "console-dev.key-col.axe08.tech",
         "ADMIN_HOST": "admin-dev.key-col.axe08.tech",
         "APEX_HOST": "dev.key-col.axe08.tech",
-        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
+        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT",
+        "ROUTING_ENGINE": "leases"
       },
       "routes": [
         {
@@ -180,7 +182,8 @@
         "CONSOLE_HOST": "console.key-col.axe08.tech",
         "ADMIN_HOST": "admin.key-col.axe08.tech",
         "APEX_HOST": "key-col.axe08.tech",
-        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
+        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT",
+        "ROUTING_ENGINE": "legacy"
       },
       "routes": [
         {
@@ -239,6 +242,9 @@
       ]
     },
     "test": {
+      "vars": {
+        "ROUTING_ENGINE": "leases"
+      },
       "d1_databases": [
         {
           "binding": "DB",

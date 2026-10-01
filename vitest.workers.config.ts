@@ -47,6 +47,7 @@ export default defineWorkersConfig(async () => {
               CONSOLE_HOST: "console.test",
               ADMIN_HOST: "admin.test",
               APEX_HOST: "apex.test",
+              ROUTING_ENGINE: process.env.ROUTING_ENGINE ?? "leases",
             },
           },
         },
