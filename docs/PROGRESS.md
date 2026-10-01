@@ -61,6 +61,14 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [ ] T-3.10.2 Render API Docs dynamically from GET /v1/openapi.json and delete hand-written endpoints
 - [ ] T-3.10.3 Render CU weights in PricingTable strictly from /v1/models
 
+## Operator steps found during Phase 3
+
+- Secrets/vars per environment: `SESSION_SIGNING_KEY` (secret; signs kc_oauth), `GITHUB_CLIENT_ID` (var), `GITHUB_CLIENT_SECRET` (secret). Without them the GitHub link flow answers 503 `github_not_configured`.
+- GitHub OAuth app callback URL: `https://<console host>/api/auth/github/callback`.
+- UI build needs `VITE_TURNSTILE_SITE_KEY` (Turnstile widget); `TURNSTILE_SECRET` stays a worker secret.
+- Record a real GCP probe response in `docs/specs/gcp_probe.md` (plan WP-3.6 step 3); the probe was built against Google's documented error format.
+- `kc_pending` is signed with `KC_MASTER_KEY` (WP-3.1); consider moving it to `SESSION_SIGNING_KEY`.
+
 ## Phases 4–8
 
 Not carded. Each WP in the plan: list its tests from the plan, then the same loop.
