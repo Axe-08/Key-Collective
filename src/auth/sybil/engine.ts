@@ -252,6 +252,11 @@ export async function evaluateAntiSybil(
   };
 }
 
+/** Community-pool eligibility from an assessment: only a full builder pass qualifies. */
+export function communityEligible(assessment: AntiSybilAssessment): boolean {
+  return assessment.passed && assessment.tier === "builder";
+}
+
 /**
  * Converts an AntiSybilAssessment into a SybilScore object conforming to v3_types.
  */

@@ -29,15 +29,16 @@ import {
   SUBNET_VELOCITY_WINDOW_MS,
   SYBIL_SCORE_BUILDER_THRESHOLD,
   SYBIL_SCORE_PROBATIONARY_THRESHOLD,
+  communityEligible,
   evaluateAntiSybil,
   extractSubnet,
   isDatacenterAsn,
   isDisposableEmail,
   toSybilScore,
   verifyTurnstileToken,
-} from "../../src/auth/sybil/index";
-import { ConfigurationError } from "../../src/auth/sybil/errors";
-import { TIER_LIMITS_MAP } from "../../src/contracts/v3_types";
+} from "../../../src/auth/sybil/index";
+import { ConfigurationError } from "../../../src/auth/sybil/errors";
+import { TIER_LIMITS_MAP } from "../../../src/contracts/v3_types";
 
 // Local test token constants (production fixture short-circuits were removed;
 // verification now always goes through the Cloudflare siteverify stub below).
@@ -804,6 +805,57 @@ describe("Anti-Sybil 5-Layer Ingress Defense & Scoring Engine (auth-sybil-02)", 
       expect(sybilScore.riskLevel).toBe("critical");
       expect(sybilScore.score).toBe(85); // Risk score = 100 - assessment.score
       expect(sybilScore.passed).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // PRD bands used by the GitHub link flow (WP-3.3): refuse < 40, probationary 40–64, eligible >= 65
+  // ==========================================================================
+  describe("PRD score bands → link outcome", () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const mature = {
+      primaryEmail: "dev@example.com",
+      isEmailVerified: true,
+      createdAt: new Date(REF_NOW.getTime() - 400 * DAY),
+      publicRepos: 3,
+      contributionsCount: 40,
+    };
+    const run = (githubProfile: AntiSybilInput["githubProfile"], extra: Partial<AntiSybilInput> = {}) =>
+      evaluateAntiSybil(
+        { turnstileToken: TEST_TOKEN_VALID, clientIp: `198.51.${Math.floor(Math.random() * 250)}.9`, githubProfile, now: REF_NOW, ...extra },
+        { subnetTracker: tracker, turnstileSecret: TEST_SECRET, fetchFn: mockFetch as unknown as typeof fetch }
+      );
+
+    it("score 30 (unverified, new, empty account) → refused", async () => {
+      const a = await run({ ...mature, isEmailVerified: false, createdAt: REF_NOW, publicRepos: 0, contributionsCount: 0 });
+
+      expect(a.score).toBe(30);
+      expect(a.passed).toBe(false);
+      expect(communityEligible(a)).toBe(false);
+    });
+
+    it("score 50 (unverified email from a datacenter ASN) → linked, not community eligible", async () => {
+      const a = await run({ ...mature, isEmailVerified: false }, { asn: 16509 });
+
+      expect(a.score).toBe(50);
+      expect(a.passed).toBe(true);
+      expect(a.tier).toBe("probationary");
+      expect(communityEligible(a)).toBe(false);
+    });
+
+    it("score 75 and every maturity gate met → community eligible", async () => {
+      const a = await run(mature, { asn: 16509 });
+
+      expect(a.score).toBe(75);
+      expect(a.tier).toBe("builder");
+      expect(communityEligible(a)).toBe(true);
+    });
+
+    it("a high score that misses a maturity gate stays probationary", async () => {
+      const a = await run({ ...mature, contributionsCount: 1 });
+
+      expect(a.score).toBe(90);
+      expect(communityEligible(a)).toBe(false);
     });
   });
 });
