@@ -95,7 +95,7 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 - [x] T-4.4.2 Bulk HKDF migration script; AC-07 tests; key_resolver test migrated
 
 ### WP-4.5
-- [ ] T-4.5.1 Demo isolation: sys_operator / sys_demo, operator-only leases, excluded from economy
+- [x] T-4.5.1 Demo isolation: sys_operator / sys_demo, operator-only leases, excluded from economy
 
 ### WP-4.6
 - [ ] T-4.6.1 Provider override on coordinator and KeyPoolDO; /api/admin/providers

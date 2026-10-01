@@ -155,6 +155,28 @@ export class LeaseOrchestrator implements LeaseProvider {
     const canonProvider = canonicalCoordinatorProvider(provider);
     const estCu = ctx.estimateCu !== undefined ? Number(ctx.estimateCu) : 0;
 
+    // Demo isolation (WP-4.5): sys_demo leases only from KeyPoolDO("sys_operator") private keys; NEVER calls coordinator.
+    if (ctx.tenantId === "sys_demo") {
+      const operatorStub = this.getKeyPoolStub("sys_operator", ctx.env);
+      if (operatorStub && typeof operatorStub.leasePrivate === "function") {
+        const privateLease = await operatorStub.leasePrivate(
+          canonProvider,
+          estCu,
+          "sys_operator"
+        );
+        if (privateLease) {
+          return {
+            leaseId: privateLease.leaseId,
+            keyId: privateLease.keyId,
+            source: "private",
+            ownerTenantId: privateLease.ownerTenantId,
+            provider: privateLease.provider,
+          };
+        }
+      }
+      return null;
+    }
+
     // Step 2a: Own PRIVATE key from KeyPoolDO(t)
     const keyPoolStub = this.getKeyPoolStub(ctx.tenantId, ctx.env);
     if (keyPoolStub && typeof keyPoolStub.leasePrivate === "function") {
@@ -232,7 +254,8 @@ export class LeaseOrchestrator implements LeaseProvider {
     const bigintCu = BigInt(Math.trunc(numericCu));
 
     if (lease.source === "private") {
-      const keyPoolStub = this.getKeyPoolStub(ctx.tenantId, ctx.env);
+      const targetTenant = ctx.tenantId === "sys_demo" ? "sys_operator" : ctx.tenantId;
+      const keyPoolStub = this.getKeyPoolStub(targetTenant, ctx.env);
       if (keyPoolStub && typeof keyPoolStub.settle === "function") {
         const res = await keyPoolStub.settle(
           lease.leaseId,

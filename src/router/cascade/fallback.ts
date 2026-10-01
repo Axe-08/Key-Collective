@@ -23,6 +23,7 @@ import {
 import type { ModelDef } from "../../types/models";
 import {
   DomainError,
+  DemoUnavailableError,
   FallbackExhaustedError,
   ProviderRoutingError,
   type FallbackAttempt,
@@ -348,6 +349,9 @@ export async function executeCascadeRouting(
   }
 
   // 9. All candidate routes exhausted
+  if (reqOptions.tenantId === "sys_demo") {
+    throw new DemoUnavailableError();
+  }
   throw new FallbackExhaustedError(
     attempts,
     `Cascade routing exhausted all ${attempts.length} candidate route(s) without success`

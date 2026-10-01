@@ -220,12 +220,12 @@ export class AuthMiddleware implements AuthContract {
             });
           }
           return {
-            tenantId: "demo",
+            tenantId: "sys_demo",
             isAuthenticated: true,
             token: {
               id: `demo_${rawToken.slice(0, 16)}`,
               hashSha256: await hashToken(rawToken),
-              tenantId: "demo",
+              tenantId: "sys_demo",
               budgetMicrodollars: 1_000_000n, // $1 demo budget
               spentMicrodollars: 0n,
               allowedProviders: [],

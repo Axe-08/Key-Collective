@@ -21,7 +21,6 @@ import type {
   LeaseProvider,
 } from "../leases/orchestrator";
 import type { RoutingEngine } from "../leases/engine";
-import type { KeyInput } from "../../crypto/encryption/index";
 
 /**
  * Extended request options accepted by CascadeRouter.
@@ -139,14 +138,14 @@ export interface CascadeRouterOptions {
   defaultMaxTokens?: number;
   /** Default sampling temperature */
   defaultTemperature?: number;
+  /** Master CryptoKey for decrypting leased keys */
+  masterKey?: CryptoKey;
   /** Extra body parameters passed to all upstream calls */
   extraBodyParams?: Record<string, unknown>;
   /** Callback fired whenever a candidate fails and router escalates to the next model */
   onFallback?: (attempt: FallbackAttempt, nextModel?: ModelDef<bigint>) => void;
   /** Callback fired upon a successful route */
   onSuccess?: (response: CascadeRouteResponse) => void;
-  /** Master encryption key for key decryption */
-  masterKey?: KeyInput;
 }
 
 /**

@@ -445,3 +445,28 @@ export function isFallbackExhaustedError(value: unknown): value is FallbackExhau
       (value as Record<string, unknown>).name === "FallbackExhaustedError")
   );
 }
+
+/**
+ * DemoUnavailableError (HTTP 503)
+ * Thrown when operator keys in sys_operator are empty or unavailable to serve ephemeral demo traffic (WP-4.5).
+ */
+export class DemoUnavailableError extends DomainError {
+  public override readonly name = "DemoUnavailableError";
+
+  constructor(message = "Demo pool is temporarily unavailable") {
+    super(message, {
+      statusCode: 503,
+      code: "demo_unavailable",
+    });
+    Object.setPrototypeOf(this, DemoUnavailableError.prototype);
+  }
+}
+
+export function isDemoUnavailableError(value: unknown): value is DemoUnavailableError {
+  return (
+    value instanceof DemoUnavailableError ||
+    (typeof value === "object" &&
+      value !== null &&
+      (value as Record<string, unknown>).name === "DemoUnavailableError")
+  );
+}
