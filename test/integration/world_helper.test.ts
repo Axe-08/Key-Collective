@@ -4,7 +4,9 @@ import {
   createUser,
   createApiKey,
   addProviderKey,
+  createSession,
 } from "../helpers/world";
+import { lookupSession } from "../../src/auth/session/store";
 import {
   deriveTenantKey,
   decrypt,
@@ -210,5 +212,52 @@ describe("World Test Helper", () => {
 
       expect(row?.pool_type).toBe("PRIVATE");
     });
+  });
+});
+
+describe("World Test Helper: identities and sessions", () => {
+  it("creates an ACTIVE user with a google identity by default", async () => {
+    const user = await createUser();
+
+    const row = await env.DB.prepare("SELECT registration_status, community_eligible FROM users WHERE id = ?")
+      .bind(user.id)
+      .first<{ registration_status: string; community_eligible: number }>();
+    const ids = await env.DB.prepare("SELECT provider FROM user_identities WHERE user_id = ? ORDER BY provider")
+      .bind(user.id)
+      .all<{ provider: string }>();
+    expect(row).toEqual({ registration_status: "ACTIVE", community_eligible: 0 });
+    expect(ids.results.map((r) => r.provider)).toEqual(["google"]);
+  });
+
+  it("adds a github identity, eligibility, status and role on request", async () => {
+    const user = await createUser({ github: true, eligible: true, registrationStatus: "PENDING_CONSENT", role: "admin" });
+
+    const row = await env.DB.prepare("SELECT registration_status, community_eligible, role FROM users WHERE id = ?")
+      .bind(user.id)
+      .first<{ registration_status: string; community_eligible: number; role: string }>();
+    const ids = await env.DB.prepare("SELECT provider FROM user_identities WHERE user_id = ? ORDER BY provider")
+      .bind(user.id)
+      .all<{ provider: string }>();
+    expect(row).toEqual({ registration_status: "PENDING_CONSENT", community_eligible: 1, role: "admin" });
+    expect(ids.results.map((r) => r.provider)).toEqual(["github", "google"]);
+    expect(user.role).toBe("admin");
+  });
+
+  it("creates a user with no identities when google is false", async () => {
+    const user = await createUser({ google: false });
+
+    const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM user_identities WHERE user_id = ?")
+      .bind(user.id)
+      .first<{ n: number }>();
+    expect(n?.n).toBe(0);
+  });
+
+  it("createSession returns a cookie for a live session of the requested kind", async () => {
+    const user = await createUser();
+
+    const { token, csrfToken, cookie } = await createSession(user, { kind: "admin" });
+
+    expect(cookie).toBe(`kc_session=${token}`);
+    expect(await lookupSession(env.DB, token)).toMatchObject({ userId: user.id, kind: "admin", csrfToken });
   });
 });

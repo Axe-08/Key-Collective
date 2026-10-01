@@ -4,6 +4,7 @@ import {
   encrypt,
   generateNonceB64,
 } from "../../src/crypto/encryption";
+import { createSession as createStoredSession, type SessionKind } from "../../src/auth/session/store";
 
 declare module "cloudflare:test" {
   interface ProvidedEnv {
@@ -24,6 +25,19 @@ export interface TestUser {
 export interface CreateUserOptions {
   tier?: string;
   email?: string;
+  role?: string;
+  /** Adds a google identity (default true). */
+  google?: boolean;
+  /** Adds a github identity. */
+  github?: boolean;
+  /** Sets users.community_eligible. */
+  eligible?: boolean;
+  registrationStatus?: "PENDING_CONSENT" | "ACTIVE" | "SUSPENDED";
+}
+
+export interface CreateSessionOptions {
+  kind?: SessionKind;
+  ttlSeconds?: number;
 }
 
 export interface CreateApiKeyOptions {
@@ -47,15 +61,44 @@ export interface ProviderKeyRecord {
 export async function createUser({
   tier = "free",
   email,
+  role = "user",
+  google = true,
+  github = false,
+  eligible = false,
+  registrationStatus = "ACTIVE",
 }: CreateUserOptions = {}): Promise<TestUser> {
   const id = "usr_goog_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
   const userEmail = email || `${id}@example.test`;
-  await env.DB.prepare(
-    "INSERT INTO users (id, email, tier, role, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)"
-  )
-    .bind(id, userEmail, tier, "user")
-    .run();
-  return { id, email: userEmail, tier, role: "user" };
+  const statements = [
+    env.DB.prepare(
+      "INSERT INTO users (id, email, tier, role, registration_status, community_eligible, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+    ).bind(id, userEmail, tier, role, registrationStatus, eligible ? 1 : 0),
+  ];
+  if (google) {
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO user_identities (user_id, provider, subject, email) VALUES (?, 'google', ?, ?)"
+      ).bind(id, id.slice("usr_goog_".length), userEmail)
+    );
+  }
+  if (github) {
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO user_identities (user_id, provider, subject, username, email) VALUES (?, 'github', ?, ?, ?)"
+      ).bind(id, `gh_${crypto.randomUUID().slice(0, 8)}`, `gh-${id.slice(-6)}`, userEmail)
+    );
+  }
+  await env.DB.batch(statements);
+  return { id, email: userEmail, tier, role };
+}
+
+/** Creates a live session for the user; `cookie` is ready for a Cookie header. */
+export async function createSession(
+  user: { id: string },
+  { kind = "console", ttlSeconds }: CreateSessionOptions = {}
+): Promise<{ token: string; csrfToken: string; cookie: string }> {
+  const { token, csrfToken } = await createStoredSession(env.DB, user.id, kind, { ttlSeconds });
+  return { token, csrfToken, cookie: `kc_session=${token}` };
 }
 
 export async function createApiKey(

@@ -5,16 +5,15 @@
  * 1. POST /api/auth/sync-session is gone: returns 404 and mints no auth_tokens row.
  * 2. POST /api/auth/google rejects unsigned, wrong-audience, wrong-issuer, expired,
  *    and unverified-email JWTs with 401.
- * 3. A valid JWT mints a token for tenant `usr_goog_<sub>`; any `id` field in the
+ * 3. A valid JWT for an ACTIVE user mints a token for tenant `usr_goog_<sub>`; any `id` field in the
  *    request body is ignored.
  * 4. Signing in again as an existing user does not change their stored tier.
  */
 
 import { describe, expect, it, beforeAll } from "vitest";
-import { env, fetchMock } from "cloudflare:test";
-import { SignJWT, exportJWK, generateKeyPair, type JWK } from "jose";
+import { env } from "cloudflare:test";
 import { defaultMainWorker } from "../../../src/worker/index";
-import { GOOGLE_JWKS_URL } from "../../../src/auth/google/verify_id_token";
+import { installGoogleJwks, signGoogleIdToken } from "../../helpers/google_jwt";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
 
 declare module "cloudflare:test" {
@@ -31,7 +30,6 @@ const testEnv: WorkerEnv = {
 };
 
 const PROJECT_ID = "key-collective-568f8";
-const KID = "test-kid-1";
 
 interface AuthResponseBody {
   success: boolean;
@@ -43,31 +41,7 @@ interface ErrorBody {
   error: { message: string; code: string; statusCode: number };
 }
 
-let privateKey: CryptoKey;
-
-beforeAll(async () => {
-  fetchMock.activate();
-  fetchMock.disableNetConnect();
-
-  const { publicKey, privateKey: priv } = await generateKeyPair("RS256", {
-    extractable: true,
-  });
-  privateKey = priv;
-
-  const publicJwk = (await exportJWK(publicKey)) as JWK;
-  publicJwk.kid = KID;
-  publicJwk.alg = "RS256";
-  publicJwk.use = "sig";
-
-  const jwksUrl = new URL(GOOGLE_JWKS_URL);
-  fetchMock
-    .get(jwksUrl.origin)
-    .intercept({ path: jwksUrl.pathname, method: "GET" })
-    .reply(200, JSON.stringify({ keys: [publicJwk] }), {
-      headers: { "content-type": "application/json" },
-    })
-    .persist();
-});
+beforeAll(installGoogleJwks);
 
 async function signValidToken(
   overrides: Record<string, unknown> = {},
@@ -75,24 +49,28 @@ async function signValidToken(
 ): Promise<string> {
   const sub = claimOverrides.sub ?? `sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
   const email = claimOverrides.email ?? `${sub}@example.test`;
-  const emailVerified = claimOverrides.email_verified ?? true;
-
-  const builder = new SignJWT({
+  const { aud, ...claims } = overrides;
+  return signGoogleIdToken(
+    sub,
     email,
-    email_verified: emailVerified,
-    ...overrides,
-  })
-    .setProtectedHeader({ alg: "RS256", kid: KID })
-    .setIssuer(`https://securetoken.google.com/${PROJECT_ID}`)
-    .setSubject(sub)
-    .setIssuedAt()
-    .setExpirationTime("1h");
+    { email_verified: claimOverrides.email_verified ?? true, ...claims },
+    aud === undefined ? {} : { audience: String(aud) }
+  );
+}
 
-  if (!("aud" in overrides)) {
-    builder.setAudience(PROJECT_ID);
-  }
-
-  return builder.sign(privateKey);
+/** Google sign-in for a user who has already given registration consent. */
+async function activeSignIn(sub: string, email: string, body: Record<string, unknown> = {}): Promise<Response> {
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO users (id, email, tier, role, registration_status, created_at) VALUES (?, ?, 'builder', 'user', 'ACTIVE', CURRENT_TIMESTAMP)"
+  ).bind(`usr_goog_${sub}`, email).run();
+  return defaultMainWorker.fetch(
+    new Request("https://console.test/api/auth/google", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ idToken: await signValidToken({}, { sub, email }), ...body }),
+    }),
+    testEnv
+  );
 }
 
 describe("S2 Security: Verified Google Sign-In Token Minting", () => {
@@ -150,17 +128,9 @@ describe("S2 Security: Verified Google Sign-In Token Minting", () => {
   });
 
   it("rejects a JWT with the wrong issuer with 401", async () => {
-    const token = await new SignJWT({
-      email: "wrongiss@example.test",
-      email_verified: true,
-    })
-      .setProtectedHeader({ alg: "RS256", kid: KID })
-      .setIssuer("https://securetoken.google.com/some-other-project")
-      .setAudience(PROJECT_ID)
-      .setSubject("wrong_iss_sub")
-      .setIssuedAt()
-      .setExpirationTime("1h")
-      .sign(privateKey);
+    const token = await signGoogleIdToken("wrong_iss_sub", "wrongiss@example.test", { email_verified: true }, {
+      issuer: "https://securetoken.google.com/some-other-project",
+    });
 
     const req = new Request("https://console.test/api/auth/google", {
       method: "POST",
@@ -172,17 +142,9 @@ describe("S2 Security: Verified Google Sign-In Token Minting", () => {
   });
 
   it("rejects an expired JWT with 401", async () => {
-    const token = await new SignJWT({
-      email: "expired@example.test",
-      email_verified: true,
-    })
-      .setProtectedHeader({ alg: "RS256", kid: KID })
-      .setIssuer(`https://securetoken.google.com/${PROJECT_ID}`)
-      .setAudience(PROJECT_ID)
-      .setSubject("expired_sub")
-      .setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
-      .setExpirationTime(Math.floor(Date.now() / 1000) - 3600)
-      .sign(privateKey);
+    const token = await signGoogleIdToken("expired_sub", "expired@example.test", { email_verified: true }, {
+      expiresIn: Math.floor(Date.now() / 1000) - 3600,
+    });
 
     const req = new Request("https://console.test/api/auth/google", {
       method: "POST",
@@ -207,15 +169,8 @@ describe("S2 Security: Verified Google Sign-In Token Minting", () => {
   it("mints a token for tenant usr_goog_<sub> from a valid JWT, ignoring a spoofed id field", async () => {
     const sub = `valid_sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
     const email = `${sub}@example.test`;
-    const token = await signValidToken({}, { sub, email });
 
-    const req = new Request("https://console.test/api/auth/google", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ idToken: token, id: "admin" }),
-    });
-
-    const res = await defaultMainWorker.fetch(req, testEnv);
+    const res = await activeSignIn(sub, email, { id: "admin" });
     expect(res.status).toBe(200);
     const body = (await res.json()) as AuthResponseBody;
     expect(body.success).toBe(true);
@@ -237,14 +192,8 @@ describe("S2 Security: Verified Google Sign-In Token Minting", () => {
     const email = `${sub}@example.test`;
     const tenantId = `usr_goog_${sub}`;
 
-    // First sign-in creates the user with tier = 'builder'.
-    const firstToken = await signValidToken({}, { sub, email });
-    const firstReq = new Request("https://console.test/api/auth/google", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ idToken: firstToken }),
-    });
-    const firstRes = await defaultMainWorker.fetch(firstReq, testEnv);
+    // First sign-in as an ACTIVE user with tier = 'builder'.
+    const firstRes = await activeSignIn(sub, email);
     expect(firstRes.status).toBe(200);
 
     // Manually promote the user to a privileged tier, simulating an admin
@@ -255,13 +204,7 @@ describe("S2 Security: Verified Google Sign-In Token Minting", () => {
 
     // Second sign-in with a fresh, validly-signed token for the same subject
     // must not reset the tier back to 'builder'.
-    const secondToken = await signValidToken({}, { sub, email });
-    const secondReq = new Request("https://console.test/api/auth/google", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ idToken: secondToken }),
-    });
-    const secondRes = await defaultMainWorker.fetch(secondReq, testEnv);
+    const secondRes = await activeSignIn(sub, email);
     expect(secondRes.status).toBe(200);
     const secondBody = (await secondRes.json()) as AuthResponseBody;
     expect(secondBody.user.tier).toBe("admin");
