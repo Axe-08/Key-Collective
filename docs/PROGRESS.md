@@ -132,7 +132,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.5.4 Midnight stats flush from coordinator to key_daily_stats
 
 ### WP-5.6
-- [ ] T-5.6.1 Remove pre-dispatch brake and report-volume calls
+- [x] T-5.6.1 Remove pre-dispatch brake and report-volume calls
 - [ ] T-5.6.2 Surge brake in coordinator lease(ownOnly=false) with 5-minute window
 
 ### WP-5.7
