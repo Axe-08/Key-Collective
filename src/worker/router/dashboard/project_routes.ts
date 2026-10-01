@@ -11,6 +11,8 @@
  * - Strict TypeScript (zero `any`).
  */
 
+import { calculateProjectQuota } from "../../../quota/limits";
+import type { UserTier } from "../../../contracts/v3_types";
 import type { D1Database } from "@cloudflare/workers-types";
 import type { WorkerEnv } from "../../auth/types";
 import { toEpochMs } from "../../../utils/time";
@@ -184,7 +186,7 @@ export async function handlePostProjects(
       ? body.id.trim()
       : `proj_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 8)}`;
 
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
 
   try {
     await db
@@ -256,12 +258,8 @@ export async function handleDeleteProject(
       return errorResponse(`Project '${projectId}' not found`, "NOT_FOUND", 404);
     }
 
-    // Disassociate keys referencing this project if foreign keys exist
-    try {
-      await db.prepare("UPDATE keys SET project_id = NULL WHERE project_id = ?").bind(projectId).run();
-    } catch {
-      // keys table or column may not exist in all environments
-    }
+    // Tokens reference projects(id): unbind them first, or the delete fails on the foreign key.
+    await db.prepare("UPDATE auth_tokens SET project_id = NULL WHERE project_id = ?").bind(projectId).run();
 
     if (isAdmin) {
       await db.prepare("DELETE FROM projects WHERE id = ?").bind(projectId).run();
@@ -281,9 +279,9 @@ export async function handleDeleteProject(
 
 interface UpdateProjectBody {
   name?: string;
-  description?: string;
+  description?: string | null;
   is_archived?: boolean;
-  rpm_sub_cap?: number;
+  rpm_sub_cap?: number | null;
 }
 
 /**
@@ -338,27 +336,41 @@ export async function handleUpdateProject(
 
     const newName = typeof body.name === "string" && body.name.trim().length > 0 ? body.name.trim() : existing.name;
     const newDesc = body.description !== undefined ? (typeof body.description === "string" ? body.description.trim() : null) : existing.description;
-    const now = Math.floor(Date.now() / 1000);
 
-    try {
-      await db
-        .prepare(
-          "UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ?"
-        )
-        .bind(newName, newDesc, now, projectId)
-        .run();
-    } catch {
-      // ignore schema differences
+    // rpm_sub_cap: absent keeps the stored value, null clears it, a number is bounded by the
+    // owner's tier RPM limit.
+    let subCapSql = "rpm_sub_cap";
+    const subCapParams: unknown[] = [];
+    if (body.rpm_sub_cap === null) {
+      subCapSql = "NULL";
+    } else if (body.rpm_sub_cap !== undefined) {
+      if (typeof body.rpm_sub_cap !== "number" || !Number.isInteger(body.rpm_sub_cap) || body.rpm_sub_cap < 1) {
+        return errorResponse("rpm_sub_cap must be a positive integer", "BAD_REQUEST", 400);
+      }
+      const owner = await db.prepare("SELECT tier FROM users WHERE id = ?").bind(existing.tenant_id).first<{ tier: string }>();
+      subCapSql = "?";
+      subCapParams.push(calculateProjectQuota((owner?.tier ?? "builder") as UserTier, body.rpm_sub_cap));
     }
+    const archiveSql = body.is_archived === undefined ? "is_archived" : "?";
+    const archiveParams = body.is_archived === undefined ? [] : [body.is_archived ? 1 : 0];
+    const now = Date.now();
+
+    const row = await db
+      .prepare(
+        `UPDATE projects SET name = ?, description = ?, rpm_sub_cap = ${subCapSql}, is_archived = ${archiveSql}, updated_at = ?
+          WHERE id = ? RETURNING id, name, description, rpm_sub_cap, is_archived, updated_at`
+      )
+      .bind(newName, newDesc, ...subCapParams, ...archiveParams, now, projectId)
+      .first<{ id: string; name: string; description: string | null; rpm_sub_cap: number | null; is_archived: number; updated_at: number }>();
 
     return jsonResponse({
       success: true,
       id: projectId,
-      name: newName,
-      description: newDesc,
-      is_archived: body.is_archived,
-      rpm_sub_cap: body.rpm_sub_cap,
-      updated_at: now,
+      name: row?.name ?? newName,
+      description: row?.description ?? newDesc,
+      is_archived: row?.is_archived === 1,
+      rpm_sub_cap: row?.rpm_sub_cap ?? null,
+      updated_at: row?.updated_at ?? now,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Database error";
