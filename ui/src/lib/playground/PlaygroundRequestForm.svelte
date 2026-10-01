@@ -124,6 +124,7 @@
     type="button"
     class="w-full py-2.5 rounded-lg bg-primary text-on-primary font-semibold hover:bg-primary-fixed-dim transition-all shadow-[0_0_20px_rgba(192,193,255,0.25)] flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer disabled:opacity-60"
     disabled={isSending}
+    data-testid="playground-send"
     onclick={onSendRequest}
   >
     {#if isSending}

@@ -55,4 +55,24 @@ describe("PricingTable", () => {
     // Assert that no dollar sign ($) appears in the output
     expect(result.body).not.toContain("$");
   });
+
+  it("shows only models from /v1/models, as CU weights without dollar amounts", () => {
+    const { body } = render(PricingTable, { props: { modelsData: fixtureModels } });
+
+    for (const m of fixtureModels.filter((x) => !x.isDeprecated)) {
+      expect(body).toContain(m.id);
+    }
+    expect(body).not.toContain("gemini-3.5-flash-lite");
+    expect(body).not.toContain("qwen/qwen3.8-27b");
+    expect(body).toContain("(CU) Weights");
+    expect(body).not.toContain("$");
+  });
+
+  it("renders no model rows before /v1/models answers", () => {
+    const { body } = render(PricingTable, { props: { modelsData: null } });
+
+    for (const m of fixtureModels) {
+      expect(body).not.toContain(m.id);
+    }
+  });
 });

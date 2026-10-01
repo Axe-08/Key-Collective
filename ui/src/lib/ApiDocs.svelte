@@ -7,7 +7,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
-    CANONICAL_MODELS,
     type ProviderFilter,
     type ModelOption,
     type ModelPricingItem,
@@ -17,8 +16,8 @@
     generateCurlSnippet,
     generateTsSnippet,
     generatePySnippet,
-    generateOpenApiJson,
-    generateApiDocsMarkdown,
+    specToMarkdown,
+    type OpenApiDocument,
   } from './api_docs/generators';
 
   import PricingTable from './api_docs/PricingTable.svelte';
@@ -47,14 +46,21 @@
   let copiedSnippet = $state(false);
 
   // Documentation snippet parameters
-  let bearerToken = $state('kc_proj_live_9f83a00c82de19a');
-  let selectedModel = $state('gemini-3.8-flash');
+  let bearerToken = $state('YOUR_API_KEY');
+  let selectedModel = $state('gemini-2.5-flash');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
-  let availableModels = $state<ModelOption[]>(CANONICAL_MODELS);
+  // Filled from /v1/models only (WP-3.10).
+  let availableModels = $state<ModelOption[]>([]);
 
   onMount(() => {
     if (typeof window !== 'undefined') {
+      fetch(`${baseUrl}/openapi.json`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((doc: OpenApiDocument) => {
+          spec = doc;
+        })
+        .catch((err) => console.error('Failed to load the OpenAPI document', err));
       fetch(`${baseUrl}/models`)
         .then(r => r.json())
         .then(data => {
@@ -104,8 +110,10 @@
     }
   }
 
-  const apiDocsMarkdown = $derived(generateApiDocsMarkdown(baseUrl, curlSnippet, tsSnippet, pySnippet));
-  const openApiJson = $derived(generateOpenApiJson(baseUrl));
+  // The served OpenAPI document is the only source for endpoints and exports (WP-3.10).
+  let spec = $state<OpenApiDocument | null>(null);
+  const apiDocsMarkdown = $derived(spec ? specToMarkdown(spec, baseUrl) : '');
+  const openApiJson = $derived(spec ? JSON.stringify(spec, null, 2) : '');
 
   function downloadOpenAPI() {
     const blob = new Blob([openApiJson], { type: 'application/json' });
@@ -301,9 +309,5 @@
   />
 
   <!-- Core Gateway Endpoints -->
-  <EndpointsList
-    {baseUrl}
-    {bearerToken}
-    {activeProvider}
-  />
+  <EndpointsList {spec} {baseUrl} />
 </div>

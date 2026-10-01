@@ -183,7 +183,8 @@ export class MainWorker {
 
     // 3. Ephemeral token endpoints on console.*
     if (
-      (pathname === "/api/demo/token" || pathname === "/api/playground/token") &&
+      // The playground token needs a session and is minted by the dashboard router (WP-3.10).
+      pathname === "/api/demo/token" &&
       (method === "POST" || method === "GET")
     ) {
       return handleDemoTokenRequest(request, env);
