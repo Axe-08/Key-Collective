@@ -22,9 +22,12 @@ export const api = {
   },
 
   async createKey(payload: CreateKeyPayload): Promise<APIKey> {
+    // The server reads the Turnstile token from x-turnstile-token, never the body.
+    const { turnstile_token, ...body } = payload;
     return request(KeyResponseSchema, '/api/keys', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      headers: { 'x-turnstile-token': turnstile_token },
+      body: JSON.stringify(body),
     });
   },
 

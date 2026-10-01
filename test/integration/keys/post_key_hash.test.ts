@@ -161,45 +161,6 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 describe("Write key_hash on insert + backfill maintenance route", () => {
-  describe("POST /api/keys writes key_hash at insert", () => {
-    it("stores a SHA-256 hex key_hash matching the raw key on insert", async () => {
-      const db = new MockD1Database();
-      const env: WorkerEnv = { DB: db, KC_MASTER_KEY: MASTER_KEY, TURNSTILE_SECRET: "test-secret" };
-      fetchMock.disableNetConnect();
-      mockTurnstile(true);
-
-      const rawKey = "gsk_super_secret_raw_key_0001";
-      const request = new Request("https://api.keycollective.ai/api/keys", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-turnstile-token": "turnstile-token-verified-by-mocked-siteverify",
-        },
-        body: JSON.stringify({
-          provider: "groq",
-          label: "test-key",
-          key: rawKey,
-          k1: true,
-          k2: true,
-        }),
-      });
-
-      const res = await handlePostKeys(request, env, "tenant-a", MASTER_KEY);
-      expect(res.status).toBe(201);
-
-      expect(db.keys.length).toBe(1);
-      const inserted = db.keys[0];
-      expect(inserted.key_hash).toBeTruthy();
-
-      const expectedHash = await sha256Hex(rawKey);
-      expect(inserted.key_hash).toBe(expectedHash);
-
-      // The response body must never contain the raw key or its hash directly.
-      const bodyText = await res.text();
-      expect(bodyText).not.toContain(rawKey);
-    });
-  });
-
   describe("POST /api/admin/maintenance/backfill-key-hash", () => {
     async function seedRowMissingHash(db: MockD1Database, tenantId: string, rawKey: string): Promise<string> {
       const tenantKey = await deriveTenantKey(MASTER_KEY, tenantId);

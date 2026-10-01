@@ -29,6 +29,7 @@
 </script>
 
 <script lang="ts">
+  import LinkGithubButton from './lib/LinkGithubButton.svelte';
   import { onMount } from 'svelte';
   import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, ToastMessage, CU } from './lib/types';
   import type { UserAccount, Project, ProjectKey, UserTier } from '../../src/contracts/v3_types';
@@ -344,7 +345,7 @@
   {#each sessionNotices as notice}
     <div data-testid="session-notice" class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200 flex items-center justify-between gap-3">
       <span>{notice}</span>
-      <a href="/api/auth/github/start" class="font-semibold underline">Link GitHub</a>
+      <LinkGithubButton />
     </div>
   {/each}
 

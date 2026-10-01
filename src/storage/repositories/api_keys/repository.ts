@@ -726,6 +726,161 @@ export class ApiKeyRepository {
   ): Promise<number> {
     return this.countByTenant(tenantId, options);
   }
+
+  // ---------------------------------------------------------------------------
+  // Dashboard key routes (WP-3.6). `tenantId` scopes a statement to the key's
+  // owner; null means unscoped (the legacy admin path in keys/ops.ts).
+  // ---------------------------------------------------------------------------
+
+  private scoped(sql: string, tenantId: string | null): string {
+    return tenantId === null ? sql : `${sql} AND tenant_id = ?`;
+  }
+
+  private scopedBind(params: unknown[], tenantId: string | null): unknown[] {
+    return tenantId === null ? params : [...params, tenantId];
+  }
+
+  /** Deletes a key; false when no such key (for this owner). */
+  async deleteScoped(id: string, tenantId: string | null): Promise<boolean> {
+    const row = await this.db
+      .prepare(`${this.scoped("DELETE FROM api_keys WHERE id = ?", tenantId)} RETURNING id`)
+      .bind(...this.scopedBind([id], tenantId))
+      .first<{ id: string }>();
+    return row !== null;
+  }
+
+  /** Switches pool mode; false when no such key (for this owner). */
+  async setPoolMode(
+    id: string,
+    tenantId: string | null,
+    poolType: "COMMUNITY" | "PRIVATE",
+    communityRoutingStatus: string | null,
+    observationUntil: number | null
+  ): Promise<boolean> {
+    const row = await this.db
+      .prepare(
+        `${this.scoped(
+          "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ?",
+          tenantId
+        )} RETURNING id`
+      )
+      .bind(...this.scopedBind([poolType, communityRoutingStatus, observationUntil, id], tenantId))
+      .first<{ id: string }>();
+    return row !== null;
+  }
+
+  /** The encrypted secret of a key, or null when no such key (for this owner). */
+  async getSecret(
+    id: string,
+    tenantId: string | null
+  ): Promise<{ provider: string; encrypted_key_b64: string; nonce_b64: string; tenant_id: string } | null> {
+    return this.db
+      .prepare(this.scoped("SELECT provider, encrypted_key_b64, nonce_b64, tenant_id FROM api_keys WHERE id = ?", tenantId))
+      .bind(...this.scopedBind([id], tenantId))
+      .first();
+  }
+
+  /** Replaces a key's secret; false when no such key (for this owner). */
+  async replaceSecret(
+    id: string,
+    tenantId: string | null,
+    secret: { ciphertextB64: string; nonceB64: string; keyPrefix: string; keySuffix: string }
+  ): Promise<boolean> {
+    const row = await this.db
+      .prepare(
+        `${this.scoped(
+          "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ?",
+          tenantId
+        )} RETURNING id`
+      )
+      .bind(...this.scopedBind([secret.ciphertextB64, secret.nonceB64, secret.keyPrefix, secret.keySuffix, id], tenantId))
+      .first<{ id: string }>();
+    return row !== null;
+  }
+
+  /** Revokes the key with this hash (abuse report); null when none matches. */
+  async revokeByHash(
+    keyHash: string,
+    revokedAt: number
+  ): Promise<{ id: string; tenant_id: string; provider_project_hash: string | null } | null> {
+    return this.db
+      .prepare(
+        "UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ? WHERE key_hash = ? RETURNING id, tenant_id, provider_project_hash"
+      )
+      .bind(revokedAt, keyHash)
+      .first();
+  }
+
+  async existsByHash(keyHash: string): Promise<boolean> {
+    return (await this.db.prepare("SELECT 1 AS hit FROM api_keys WHERE key_hash = ?").bind(keyHash).first()) !== null;
+  }
+
+  /** Console key listing; tenantId null lists every key (admins). */
+  async listForDashboard<T>(tenantId: string | null): Promise<T[]> {
+    const columns =
+      "id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier";
+    const result =
+      tenantId === null
+        ? await this.db.prepare(`SELECT ${columns} FROM api_keys ORDER BY priority ASC, created_at DESC`).all<T>()
+        : await this.db
+            .prepare(`SELECT ${columns} FROM api_keys WHERE tenant_id = ? ORDER BY priority ASC, created_at DESC`)
+            .bind(tenantId)
+            .all<T>();
+    return result.results ?? [];
+  }
+
+  /** The INSERT for a newly submitted key, for use inside a D1 batch. */
+  buildInsertStatement(row: {
+    id: string;
+    tenantId: string;
+    label: string;
+    provider: string;
+    ciphertextB64: string;
+    nonceB64: string;
+    keyPrefix: string;
+    keySuffix: string;
+    rpmLimit: number;
+    rpdLimit: number;
+    priority: number;
+    poolType: "COMMUNITY" | "PRIVATE";
+    communityRoutingStatus: string | null;
+    observationUntil: number | null;
+    keyHash: string;
+    providerProjectHash: string | null;
+    createdAt: number;
+  }): D1PreparedStatement {
+    return this.db
+      .prepare(
+        `INSERT INTO api_keys (
+           id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix,
+           rpm_limit, rpd_limit, priority, status, pool_type, community_routing_status,
+           observation_until, key_hash, provider_project_hash, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HEALTHY', ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        row.id,
+        row.tenantId,
+        row.label,
+        row.provider,
+        row.ciphertextB64,
+        row.nonceB64,
+        row.keyPrefix,
+        row.keySuffix,
+        row.rpmLimit,
+        row.rpdLimit,
+        row.priority,
+        row.poolType,
+        row.communityRoutingStatus,
+        row.observationUntil,
+        row.keyHash,
+        row.providerProjectHash,
+        row.createdAt
+      );
+  }
+
+  async markSyncPending(id: string): Promise<void> {
+    await this.db.prepare("UPDATE api_keys SET sync_pending = 1 WHERE id = ?").bind(id).run();
+  }
 }
 
 /**

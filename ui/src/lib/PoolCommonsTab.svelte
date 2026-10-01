@@ -14,6 +14,7 @@
 </script>
 
 <script lang="ts">
+  import LinkGithubButton from './LinkGithubButton.svelte';
   import { onMount } from 'svelte';
   import DebtLedgerWidget from './DebtLedgerWidget.svelte';
 
@@ -70,7 +71,7 @@
       <span class="material-symbols-outlined text-3xl text-on-surface-variant">lock</span>
       <p class="font-semibold text-on-surface">Link GitHub to join the community pool</p>
       <p class="text-sm text-on-surface-variant">Your private keys keep working. Community pool health and contributions unlock once GitHub is linked and verified.</p>
-      <a href="/api/auth/github/start" class="inline-block rounded-lg bg-primary px-4 py-2 font-semibold text-on-primary">Link GitHub</a>
+      <LinkGithubButton />
     </div>
   {:else}
   <div class="flex space-x-2 border-b border-outline-variant/30">
