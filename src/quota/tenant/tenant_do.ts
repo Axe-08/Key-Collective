@@ -73,6 +73,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private consecutiveDebtFreeDays: number = 0;
   private multiplierCeiling: number = 150;
   private antiCyclingUntil: number = 0;
+  private standingDirty = false;
   private settledLeaseIds = new Set<string>();
 
   private rpmWindowMs!: number;
@@ -116,6 +117,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.consecutiveDebtFreeDays = 0;
     this.multiplierCeiling = 150;
     this.antiCyclingUntil = 0;
+    this.standingDirty = false;
     this.settledLeaseIds = new Set<string>();
 
     this.clock = options?.clock ?? systemClock;
@@ -250,6 +252,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
       multiplierCeiling: this.multiplierCeiling,
       antiCyclingUntil: this.antiCyclingUntil,
+      standingDirty: this.standingDirty,
       lastUpdated: now,
     };
     await this.ctx.storage.put<TenantQuotaData>(this.getStorageKey(), data);
@@ -315,6 +318,9 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       if (typeof stored.antiCyclingUntil === "number") {
         this.antiCyclingUntil = stored.antiCyclingUntil;
       }
+      if (typeof stored.standingDirty === "boolean") {
+        this.standingDirty = stored.standingDirty;
+      }
     }
 
     this.pruneEntries();
@@ -328,7 +334,12 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.cuUsed24h = 0n;
     this.contributedBuckets = new Array<bigint>(24).fill(0n);
     this.lastBucketHour = null;
+    this.standingDirty = false;
     this.isLoaded = false;
+  }
+
+  public isStandingDirty(): boolean {
+    return this.standingDirty;
   }
 
   private async checkAntiCycling(): Promise<boolean> {
@@ -392,6 +403,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.rollContributionBuckets(this.now());
     const cu = toCu(cuWeight);
     this.communityDebtCu += cu;
+    this.standingDirty = true;
     this.updateMultiplierCeiling();
     await this.syncDebtState();
   }
@@ -435,6 +447,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       this.contributedBuckets[23] += remainder;
     }
     this.getContributed24h();
+    this.standingDirty = true;
     this.updateMultiplierCeiling();
     await this.syncDebtState();
   }
@@ -516,9 +529,77 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     }
   }
 
+  private async syncStandingToD1(): Promise<void> {
+    if (!this.tenantId) {
+      return;
+    }
+    const envWithDb = this.env as { DB?: D1Database } | undefined;
+    const db = envWithDb?.DB;
+    if (!db || typeof db.prepare !== "function") {
+      return;
+    }
+    const contributed24h = this.getContributed24h();
+    const jailStatus = determineJailStatus(this.communityDebtCu, this.multiplierCeiling);
+    const nowIso = new Date(this.now()).toISOString();
+    try {
+      await db
+        .prepare(
+          `INSERT INTO contributor_standing (
+             tenant_id,
+             community_debt_cu,
+             community_debt_micro_cu,
+             contributed_cu_24h,
+             daily_contributed_cu,
+             multiplier_pct,
+             multiplier_ceiling,
+             current_multiplier,
+             jail_status,
+             trusted_contributor,
+             consecutive_debt_free_days,
+             updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(tenant_id) DO UPDATE SET
+             community_debt_cu = excluded.community_debt_cu,
+             community_debt_micro_cu = excluded.community_debt_micro_cu,
+             contributed_cu_24h = excluded.contributed_cu_24h,
+             daily_contributed_cu = excluded.daily_contributed_cu,
+             multiplier_pct = excluded.multiplier_pct,
+             multiplier_ceiling = excluded.multiplier_ceiling,
+             current_multiplier = excluded.current_multiplier,
+             jail_status = excluded.jail_status,
+             trusted_contributor = excluded.trusted_contributor,
+             consecutive_debt_free_days = excluded.consecutive_debt_free_days,
+             updated_at = excluded.updated_at`
+        )
+        .bind(
+          this.tenantId,
+          Number(this.communityDebtCu),
+          Number(this.communityDebtCu),
+          Number(contributed24h),
+          Number(contributed24h),
+          this.multiplierCeiling,
+          this.multiplierCeiling,
+          this.multiplierCeiling,
+          jailStatus,
+          this.trustedContributor ? 1 : 0,
+          this.consecutiveDebtFreeDays,
+          nowIso
+        )
+        .run();
+    } catch (err) {
+      void err;
+    }
+  }
+
   public async syncDebtState(): Promise<void> {
     await this.persist();
     await this.pushOwnerDebtToCoordinators();
+    if (this.standingDirty) {
+      const storage = this.ctx.storage as unknown as StorageWithAlarm;
+      if (typeof storage?.setAlarm === "function") {
+        await storage.setAlarm(this.now() + 60_000);
+      }
+    }
   }
 
   public async alarm(): Promise<void> {
@@ -537,9 +618,11 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.consecutiveDebtFreeDays = updated.consecutiveDebtFreeDays;
     this.updateMultiplierCeiling();
 
+    this.standingDirty = false;
     await this.syncDebtState();
+    await this.syncStandingToD1();
 
-    const tomorrow = new Date(this.clock.now());
+    const tomorrow = new Date(this.now());
     tomorrow.setUTCHours(24, 0, 0, 0);
     const storage = this.ctx.storage as unknown as StorageWithAlarm;
     if (typeof storage?.setAlarm === "function") {

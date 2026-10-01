@@ -59,6 +59,7 @@ export interface TenantQuotaData {
   readonly consecutiveDebtFreeDays?: number;
   readonly multiplierCeiling?: number;
   readonly antiCyclingUntil?: number;
+  readonly standingDirty?: boolean;
   readonly lastUpdated: number;
 }
 

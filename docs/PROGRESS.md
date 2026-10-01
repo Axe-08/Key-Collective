@@ -118,7 +118,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 ### WP-5.3
 - [x] T-5.3.1 Migration 0019_standing.sql (contributor_standing columns)
 - [x] T-5.3.2 TenantQuotaDO credit-first and sliding-window 24h contribution buckets
-- [ ] T-5.3.3 Standing mirror to D1 on TenantQuotaDO dirty alarm
+- [x] T-5.3.3 Standing mirror to D1 on TenantQuotaDO dirty alarm
 - [ ] T-5.3.4 Live standing and contribution endpoints (/api/pool/standing, /api/pool/contribution)
 
 ### WP-5.4
