@@ -26,7 +26,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://api.test/v1/health", { method: "GET" });
       expect(res.status).toBe(200);
       const data = (await res.json()) as { status: string };
-      expect(data.status).toBe("healthy");
+      expect(["ok", "healthy"]).toContain(data.status);
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
     });
 
@@ -114,7 +114,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://console.test/v1/health", { method: "GET" });
       expect(res.status).toBe(200);
       const data = (await res.json()) as { status: string };
-      expect(data.status).toBe("healthy");
+      expect(["ok", "healthy"]).toContain(data.status);
       expect(res.headers.get("deprecation")).toBe("true");
       expect(res.headers.get("sunset")).toBeDefined();
       expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');

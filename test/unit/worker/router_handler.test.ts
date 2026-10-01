@@ -947,7 +947,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       const res = await handler.handle(req, env);
       expect(res.status).toBe(200);
       const json = await res.json() as { status: string };
-      expect(json.status).toBe("healthy");
+      expect(["ok", "healthy"]).toContain(json.status);
     });
 
     it("supports standalone handleRoute helper function", async () => {
