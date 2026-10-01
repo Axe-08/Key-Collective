@@ -193,8 +193,9 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/json");
-    expect(res.headers.get("x-kc-trace-id")).toBeTruthy();
-    expect(res.headers.get("x-kc-model")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-trace-id")).toBeNull();
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model")).toBeNull();
 
     assertNoLeakedHeaders(res);
 
@@ -251,7 +252,9 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
-    expect(res.headers.get("x-kc-trace-id")).toBeTruthy();
+    expect(res.headers.get("x-kc-trace-id")).toBeNull();
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model")).toBeNull();
 
     assertNoLeakedHeaders(res);
 

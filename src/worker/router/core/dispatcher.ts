@@ -24,6 +24,7 @@ import type { ChatHandler } from "../chat_handler";
 import type { RouterHandlerOptions } from "../types";
 import type { RouterContextResolver } from "./resolver";
 import { handleDemoTokenRequest } from "../demo_routes";
+import { applyKcHeaders } from "../headers";
 
 export interface DispatchParams {
   request: Request;
@@ -56,42 +57,57 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
     now,
   } = params;
 
-  if (env.MIDNIGHT_FREEZE === "true" || env.MIDNIGHT_FREEZE === "1") {
-    return new Response(
-      JSON.stringify({
-        error: {
-          message:
-            "Service is temporarily unavailable due to a scheduled or emergency maintenance freeze (Midnight Freeze).",
-          type: "service_unavailable",
-          code: "MIDNIGHT_FREEZE",
-          statusCode: 503,
-        },
-      }),
-      {
-        status: 503,
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-        },
-      }
-    );
-  }
-
   const startTime = now();
   const url = new URL(request.url);
   const pathname = url.pathname.replace(/\/+$/, "") || "/";
   const method = request.method.toUpperCase();
 
+  // Resolve trace ID from request headers or generate fresh UUID
+  const traceId =
+    request.headers.get("x-kc-trace-id") ??
+    request.headers.get("x-trace-id") ??
+    crypto.randomUUID();
+
+  const wrapResponse = (res: Response): Response => {
+    if (pathname.startsWith("/api/")) {
+      return res;
+    }
+    return applyKcHeaders(res, { traceId, requestId: traceId });
+  };
+
+  if (env.MIDNIGHT_FREEZE === "true" || env.MIDNIGHT_FREEZE === "1") {
+    return wrapResponse(
+      new Response(
+        JSON.stringify({
+          error: {
+            message:
+              "Service is temporarily unavailable due to a scheduled or emergency maintenance freeze (Midnight Freeze).",
+            type: "service_unavailable",
+            code: "MIDNIGHT_FREEZE",
+            statusCode: 503,
+          },
+        }),
+        {
+          status: 503,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+          },
+        }
+      )
+    );
+  }
+
   // 1. Health check bypass
   if (pathname === "/health" || pathname === "/v1/health") {
-    return modelRoutes.handleHealth(startTime);
+    return wrapResponse(modelRoutes.handleHealth(startTime));
   }
 
   if (method === "POST" && (pathname === "/v1/report" || pathname === "/report")) {
-    return await modelRoutes.handleReport(request, env);
+    return wrapResponse(await modelRoutes.handleReport(request, env));
   }
 
   if (method === "GET" && (pathname === "/openapi.json" || pathname === "/v1/openapi.json")) {
-    return modelRoutes.handleOpenApiSpec();
+    return wrapResponse(modelRoutes.handleOpenApiSpec());
   }
 
   // 1.05 Ephemeral Demo Sandbox Token Issuance
@@ -99,12 +115,12 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
     (method === "POST" || method === "GET") &&
     (pathname === "/v1/demo/token" || pathname === "/demo/token" || pathname === "/api/demo/token")
   ) {
-    return await handleDemoTokenRequest(request, env);
+    return wrapResponse(await handleDemoTokenRequest(request, env));
   }
 
   // 1.1 Public Model Discovery
   if (method === "GET" && (pathname === "/v1/models" || pathname === "/models")) {
-    return modelRoutes.handleListModels(request, modelRegistry);
+    return wrapResponse(modelRoutes.handleListModels(request, modelRegistry));
   }
 
   if (
@@ -114,27 +130,22 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
     const parts = pathname.split("/");
     const modelId = parts[parts.length - 1];
     try {
-      return modelRoutes.handleGetModel(request, modelId, modelRegistry);
+      return wrapResponse(modelRoutes.handleGetModel(request, modelId, modelRegistry));
     } catch (err: unknown) {
       if (
         err instanceof ModelNotFoundError ||
         (err && typeof err === "object" && (err as { code?: string }).code === "MODEL_NOT_FOUND")
       ) {
         const res = formatRouterError(
-          err instanceof ModelNotFoundError ? err : new RouterError(`Model '${modelId}' not found`, { code: "MODEL_NOT_FOUND", statusCode: 404 })
+          err instanceof ModelNotFoundError ? err : new RouterError(`Model '${modelId}' not found`, { code: "MODEL_NOT_FOUND", statusCode: 404 }),
+          { traceId, requestId: traceId }
         );
         res.headers.set("access-control-allow-origin", "*");
-        return res;
+        return wrapResponse(res);
       }
       throw err;
     }
   }
-
-  // 2. Resolve trace ID from request headers or generate fresh UUID
-  const traceId =
-    request.headers.get("x-kc-trace-id") ??
-    request.headers.get("x-trace-id") ??
-    crypto.randomUUID();
 
   // 2.1 Dashboard API endpoints
   if (pathname.startsWith("/api/")) {
@@ -173,7 +184,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
 
     // 5. Route Dispatching
     if (method === "GET" && (pathname === "/v1/models" || pathname === "/models")) {
-      return modelRoutes.handleListModels(request, modelRegistry);
+      return wrapResponse(modelRoutes.handleListModels(request, modelRegistry));
     }
 
     if (
@@ -182,7 +193,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
     ) {
       const parts = pathname.split("/");
       const modelId = parts[parts.length - 1];
-      return modelRoutes.handleGetModel(request, modelId, modelRegistry);
+      return wrapResponse(modelRoutes.handleGetModel(request, modelId, modelRegistry));
     }
 
     if (
@@ -203,32 +214,35 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
         });
       }
 
-      return await chatHandler.handleChatCompletions(
-        request,
-        body,
-        authContext,
-        env,
-        ctx,
-        traceId,
-        startTime
+      return wrapResponse(
+        await chatHandler.handleChatCompletions(
+          request,
+          body,
+          authContext,
+          env,
+          ctx,
+          traceId,
+          startTime
+        )
       );
     }
 
-    return new Response(
-      JSON.stringify({
-        error: {
-          message: `Route '${method} ${pathname}' not found`,
-          code: "ROUTE_NOT_FOUND",
-          statusCode: 404,
-        },
-      }),
-      {
-        status: 404,
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-          "x-kc-trace-id": traceId,
-        },
-      }
+    return wrapResponse(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: `Route '${method} ${pathname}' not found`,
+            code: "ROUTE_NOT_FOUND",
+            statusCode: 404,
+          },
+        }),
+        {
+          status: 404,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+          },
+        }
+      )
     );
   } catch (err: unknown) {
     const telemetryEmitter = resolver.getTelemetryEmitter(env, ctx);
@@ -255,6 +269,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
       // Non-blocking telemetry invariant
     }
 
-    return formatRouterError(err);
+    const errorRes = formatRouterError(err, { traceId, requestId: traceId });
+    return wrapResponse(errorRes);
   }
 }
