@@ -299,4 +299,52 @@ describe("Standing mirror to D1 (WP-5.3 T-5.3.3)", () => {
 
     await coordStub.removeKey(keyId);
   });
+
+  it("inserts a standing_history row into D1 for each nightly reset day (T-5.4.2)", async () => {
+    const tenantId = `usr_hist_${Date.now()}`;
+    const storage = new InMemoryStorage();
+    let now = Date.UTC(2026, 9, 1, 20, 0, 0); // 2026-10-01
+
+    const quotaDo = new TenantQuotaDO(
+      {
+        id: { toString: () => tenantId, name: tenantId },
+        storage,
+        waitUntil: () => {},
+      },
+      { DB: env.DB },
+      {
+        tenantId,
+        timeProvider: () => now,
+      }
+    );
+
+    await quotaDo.credit(200n, "lease_h_1", tenantId);
+    await quotaDo.accrueDebt(100n, "lease_h_2", tenantId);
+
+    // Advance across midnight to 2026-10-02T00:05:00Z
+    now = Date.UTC(2026, 9, 2, 0, 5, 0);
+    await quotaDo.alarm();
+
+    const histRow = await env.DB.prepare(
+      "SELECT tenant_id, day, multiplier_pct, debt_cu, contributed_cu_24h, jail_status FROM standing_history WHERE tenant_id = ? AND day = '2026-10-02'"
+    )
+      .bind(tenantId)
+      .first<{
+        tenant_id: string;
+        day: string;
+        multiplier_pct: number;
+        debt_cu: number;
+        contributed_cu_24h: number;
+        jail_status: string;
+      }>();
+
+    expect(histRow).toEqual({
+      tenant_id: tenantId,
+      day: "2026-10-02",
+      multiplier_pct: 450,
+      debt_cu: 80,
+      contributed_cu_24h: 200,
+      jail_status: "PRISTINE",
+    });
+  });
 });

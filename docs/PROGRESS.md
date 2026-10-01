@@ -123,7 +123,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.4
 - [x] T-5.4.1 Migration 0020_standing_history.sql (standing_history table)
-- [ ] T-5.4.2 Rewrite processDailyDebtReset to nightlyReset (7-day trust, integer decay, catch-up)
+- [x] T-5.4.2 Rewrite processDailyDebtReset to nightlyReset (7-day trust, integer decay, catch-up)
 
 ### WP-5.5
 - [ ] T-5.5.1 Migration 0021_key_daily_stats.sql (key_daily_stats table, api_keys.drain_state)

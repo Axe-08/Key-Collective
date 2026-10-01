@@ -140,7 +140,7 @@ Key Collective/
 │   ├── quota/                     # Quota & Debt tracking
 │   │   └── tenant/
 │   │       ├── tenant_do.ts       # TenantQuotaDO: sliding-window RPM/RPD, int64 debt engine, decay alarm
-│   │       ├── debt.ts            # calculateMultiplierCeiling, determineJailStatus, processDailyDebtReset
+│   │       ├── debt.ts            # calculateMultiplierCeiling, determineJailStatus, nightlyReset
 │   │       ├── evaluator.ts       # RPM/RPD hierarchical quota evaluation
 │   │       └── types.ts           # Quota data models
 │   │
@@ -223,7 +223,7 @@ Floating-point arithmetic (IEEE 754) is strictly forbidden across the codebase t
   - $R > 1.0$ (Debt exceeded contribution): **Hard Jail** $\rightarrow$ multiplier locked to 1.0×, communal routing blocked.
   - $0.5 < R \le 1.0$: **Soft Warning** $\rightarrow$ multiplier capped at 1.5×.
   - $R \le 0.5$: **Pristine** $\rightarrow$ full multiplier ceiling up to 4.5×.
-  - **Trusted Contributor:** 30 consecutive debt-free days unlocks a 5.0× ceiling and 30%/day debt decay (vs 20%/day standard).
+  - **Trusted Contributor:** 7 consecutive debt-free days unlocks a 5.0× ceiling and 30%/day debt decay (vs 20%/day standard).
 
 ---
 

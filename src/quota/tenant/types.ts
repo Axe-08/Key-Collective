@@ -60,6 +60,7 @@ export interface TenantQuotaData {
   readonly multiplierCeiling?: number;
   readonly antiCyclingUntil?: number;
   readonly standingDirty?: boolean;
+  readonly lastResetDay?: string | null;
   readonly lastUpdated: number;
 }
 
