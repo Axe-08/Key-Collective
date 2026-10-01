@@ -12,8 +12,6 @@
  * - GEMINI.md Constitution: TypeScript strict mode (no `any`), no plaintext keys in logs,
  *   fixed-point microdollars (int64/bigint), non-blocking telemetry.
  */
-
-import { normalizeUpstreamResponse } from "../../worker/error_normalizer";
 import type { KeyPoolContract } from "../../contracts/key_pool";
 import {
   SSEStreamTransformer,
@@ -38,7 +36,6 @@ import {
 import { rewriteHeaders } from "./headers";
 import { buildProviderUrl } from "./urls";
 import { mapUpstreamHttpError } from "./errors";
-import { extractContentFromPayload } from "./payload";
 
 /**
  * UpstreamClient handles HTTP communication with upstream AI providers.
@@ -591,7 +588,14 @@ export class UpstreamClient {
     }
 
     const jsonPayload = await upstreamRes.json();
-    const content = extractContentFromPayload(jsonPayload);
+    let content = "";
+    if (jsonPayload && typeof jsonPayload === "object") {
+      const choices = (jsonPayload as { choices?: Array<{ message?: { content?: unknown } }> }).choices;
+      const rawContent = choices?.[0]?.message?.content;
+      if (typeof rawContent === "string") {
+        content = rawContent;
+      }
+    }
     const usage = await upstreamRes.getUsage();
     let costMicrodollars = 0n;
     if (usage && this.options.costCalculator) {
@@ -606,43 +610,5 @@ export class UpstreamClient {
       costMicrodollars,
       response: upstreamRes,
     };
-  }
-
-  /**
-   * Converts an UpstreamResponse into a clean client Response for Cloudflare Workers routing.
-   * Filters hop-by-hop headers and forwards status and stream body.
-   *
-   * @param upstreamResponse Result from send or chat
-   * @param extraHeaders Optional client headers to merge
-   * @returns Standard Response object
-   */
-  public toClientResponse(
-    upstreamResponse: UpstreamResponse,
-    extraHeaders?: HeadersInit
-  ): Response {
-    const extra = new Headers(extraHeaders);
-    const kcRequestId = extra.get('x-kc-trace-id') || extra.get('x-kc-request-id') || 'unknown';
-    const modelUsed = extra.get('x-kc-model') || extra.get('x-kc-model-used') || undefined;
-    const provider = extra.get('x-kc-provider') || undefined;
-
-    const baseResponse = new Response(
-      upstreamResponse.body ? (upstreamResponse.body as unknown as BodyInit) : null, 
-      {
-        status: upstreamResponse.status,
-        statusText: upstreamResponse.statusText,
-        headers: upstreamResponse.headers,
-      }
-    );
-    
-    const normalized = normalizeUpstreamResponse(baseResponse, kcRequestId, modelUsed, provider);
-    
-    // Merge any extra non-kc headers
-    for (const [key, value] of extra.entries()) {
-      if (!key.toLowerCase().startsWith('x-kc-')) {
-          normalized.headers.set(key, value);
-      }
-    }
-    
-    return normalized;
   }
 }

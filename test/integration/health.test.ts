@@ -6,6 +6,7 @@ describe("Health Integration", () => {
     const res = await SELF.fetch("https://api.test/v1/health");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string };
-    expect(["ok", "healthy"]).toContain(body.status);
+    expect(body.status).toBe("ok");
+    expect(body).toEqual({ status: "ok" });
   });
 });

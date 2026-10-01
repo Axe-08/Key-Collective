@@ -11,6 +11,7 @@ import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encr
 import { forceErrorGcpProbe } from "../../../../ingress/probe";
 import { PROVIDERS } from "../../../../providers/config";
 import type { WorkerEnv } from "../../../auth/index";
+import { ConsentAttestationSchema } from "../../../../contracts/v4_types";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
 
@@ -84,7 +85,7 @@ export async function handlePostKeys(
         throw new RouterError("Project hash tombstoned", { statusCode: 403 });
       }
     }
-    await env.DB.prepare("INSERT INTO project_hash_registry (project_hash, state, tenant_id, created_at) VALUES (?, 'ACTIVE', ?, ?)").bind(hashHex, tenantId, Date.now()).run();
+    await env.DB.prepare("INSERT INTO project_hash_registry (project_hash, provider, state, tenant_id, created_at) VALUES (?, ?, 'ACTIVE', ?, ?)").bind(hashHex, provider, tenantId, Date.now()).run();
   }
 
   const label = body.label?.trim() || `${body.provider}-key-${Date.now().toString(36)}`;
@@ -111,13 +112,14 @@ export async function handlePostKeys(
   const poolType = body.pool_type?.toUpperCase() === 'COMMUNITY' ? 'COMMUNITY' : 'PRIVATE';
   const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;
   const obsUntil = poolType === 'COMMUNITY' ? Date.now() + 24 * 60 * 60 * 1000 : null;
+  const now = Date.now();
 
   await env.DB.prepare(
     `INSERT INTO api_keys (
       id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
       key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-      pool_type, community_routing_status, observation_until, key_hash
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', ?, ?, ?, ?)`
+      pool_type, community_routing_status, observation_until, key_hash, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HEALTHY', ?, ?, ?, ?, ?)`
   ).bind(
     keyId,
     targetTenantId,
@@ -133,11 +135,64 @@ export async function handlePostKeys(
     poolType,
     commRoutingStatus,
     obsUntil,
-    keyHash
+    keyHash,
+    now
   ).run();
 
-  await env.DB.prepare("INSERT INTO consent_attestations (key_id, tenant_id, consent_type, consent_version, created_at) VALUES (?, ?, 'K1', 'v1.0', ?)").bind(keyId, targetTenantId, Date.now()).run();
-  await env.DB.prepare("INSERT INTO consent_attestations (key_id, tenant_id, consent_type, consent_version, created_at) VALUES (?, ?, 'K2', 'v1.0', ?)").bind(keyId, targetTenantId, Date.now()).run();
+  const ipAddress = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || null;
+  const userAgent = request.headers.get("user-agent") || null;
+
+  const k1Attestation = ConsentAttestationSchema.parse({
+    id: crypto.randomUUID(),
+    tenant_id: targetTenantId,
+    event_type: "KEY_SUBMISSION",
+    checkbox_id: "K1",
+    consent_version: "v1.0",
+    key_id: keyId,
+    attested_at: now,
+    ip_address: ipAddress,
+    user_agent: userAgent,
+  });
+
+  const k2Attestation = ConsentAttestationSchema.parse({
+    id: crypto.randomUUID(),
+    tenant_id: targetTenantId,
+    event_type: "KEY_SUBMISSION",
+    checkbox_id: "K2",
+    consent_version: "v1.0",
+    key_id: keyId,
+    attested_at: now,
+    ip_address: ipAddress,
+    user_agent: userAgent,
+  });
+
+  const insertConsentStmt = env.DB.prepare(
+    "INSERT INTO consent_attestations (id, tenant_id, event_type, checkbox_id, consent_version, key_id, attested_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  );
+
+  await insertConsentStmt.bind(
+    k1Attestation.id,
+    k1Attestation.tenant_id,
+    k1Attestation.event_type,
+    k1Attestation.checkbox_id,
+    k1Attestation.consent_version,
+    k1Attestation.key_id ?? null,
+    k1Attestation.attested_at ?? now,
+    k1Attestation.ip_address ?? null,
+    k1Attestation.user_agent ?? null
+  ).run();
+
+  await insertConsentStmt.bind(
+    k2Attestation.id,
+    k2Attestation.tenant_id,
+    k2Attestation.event_type,
+    k2Attestation.checkbox_id,
+    k2Attestation.consent_version,
+    k2Attestation.key_id ?? null,
+    k2Attestation.attested_at ?? now,
+    k2Attestation.ip_address ?? null,
+    k2Attestation.user_agent ?? null
+  ).run();
 
   try {
     const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;

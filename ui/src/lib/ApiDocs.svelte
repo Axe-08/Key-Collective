@@ -1,3 +1,9 @@
+<script module lang="ts">
+  export const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? 'http://api.localhost:8787/v1' : 'https://api.key-col.axe08.tech/v1');
+</script>
+
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
@@ -17,9 +23,10 @@
 
   import PricingTable from './api_docs/PricingTable.svelte';
   import EndpointsList from './api_docs/EndpointsList.svelte';
+  import CodePlayground from './api_docs/CodePlayground.svelte';
 
   let {
-    proxyEndpoint = 'https://key-col.axe08.tech/v1/chat/completions',
+    proxyEndpoint = `${API_BASE_URL}/chat/completions`,
   }: {
     proxyEndpoint?: string;
   } = $props();
@@ -52,7 +59,7 @@
       if (stored && stored.trim().length > 0) {
         bearerToken = stored.trim();
       }
-      fetch('/v1/models')
+      fetch(`${baseUrl}/models`)
         .then(r => r.json())
         .then(data => {
           if (data && Array.isArray(data.data) && data.data.length > 0) {
@@ -142,17 +149,11 @@
   $effect(() => {
     async function fetchModels() {
       try {
-        const res = await fetch('https://key-col.axe08.tech/v1/models');
+        const res = await fetch(`${baseUrl}/models`);
         if (res.ok) {
           const json = await res.json();
           if (json && Array.isArray(json.data) && json.data.length > 0) {
             modelsData = json.data.map((m: any) => {
-              const inputMicro = parseInt(m.pricing?.input_cost_per_mtok_micro || '0', 10);
-              const outputMicro = parseInt(m.pricing?.output_cost_per_mtok_micro || '0', 10);
-              const input1k = Math.round(inputMicro / 1000);
-              const output1k = Math.round(outputMicro / 1000);
-              const inputMUsd = (inputMicro / 1000000).toFixed(2);
-              const outputMUsd = (outputMicro / 1000000).toFixed(2);
               const isDeprecated = Boolean(m.deprecated || m.deprecated_at);
 
               let routingEngine = 'Edge Intelligent Routing';
@@ -179,12 +180,12 @@
 
               return {
                 id: m.id,
-                owned_by: m.owned_by,
+                owned_by: m.owned_by || 'custom',
                 routing_engine: routingEngine,
-                inputCost1kMicro: input1k,
-                outputCost1kMicro: output1k,
-                inputCostPerMUsd: inputMUsd,
-                outputCostPerMUsd: outputMUsd,
+                cu_base: Number(m.kc?.cu_base ?? 10),
+                cu_in_per_1k: Number(m.kc?.cu_in_per_1k ?? 1),
+                cu_cached_per_1k: Number(m.kc?.cu_cached_per_1k ?? 0),
+                cu_out_per_1k: Number(m.kc?.cu_out_per_1k ?? 4),
                 bulletClass,
                 isDeprecated,
                 sunsetAt: m.sunset_at,
@@ -223,6 +224,9 @@
 
       <!-- Export API Docs Button & Dropdown Action -->
       <div class="flex items-center gap-2">
+        <div class="px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-xs font-mono text-outline">
+          Base: <span class="text-primary font-semibold">{baseUrl}</span>
+        </div>
         <div class="relative inline-block text-left" id="exportDropdownContainer">
           <button
             type="button"
@@ -287,6 +291,17 @@
     {modelsData}
     {pricingFilter}
     onFilterChange={(f) => (pricingFilter = f)}
+  />
+
+  <!-- Interactive Live Request Playground & Snippets -->
+  <CodePlayground
+    {baseUrl}
+    {bearerToken}
+    {selectedModel}
+    {isStreaming}
+    {activeTab}
+    {activeSnippet}
+    {availableModels}
   />
 
   <!-- Core Gateway Endpoints -->

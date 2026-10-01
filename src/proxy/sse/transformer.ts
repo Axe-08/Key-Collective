@@ -9,7 +9,7 @@ import type {
   StreamUsage,
   SSEStreamTransformerOptions,
 } from "./types";
-import { extractUsageFromPayload } from "./usage_extractor";
+import { extractUsageFromPayload, extractDeltaContent } from "./usage_extractor";
 
 /**
  * Web TransformStream implementation for parsing upstream Server-Sent Events (SSE).
@@ -37,8 +37,11 @@ export class SSEStreamTransformer<
   private _totalTokens?: number;
   private _cachedTokens: number = 0;
   private _reasoningTokens: number = 0;
+  private _streamedChars: number = 0;
+  private _cu?: number;
   private _hasUsage: boolean = false;
   private _usage: StreamUsage | null = null;
+  private _isCompleted: boolean = false;
 
   private readonly _metadata: StreamMetadata;
   private readonly _events: SSEEvent[] = [];
@@ -59,12 +62,17 @@ export class SSEStreamTransformer<
       flush(controller: TransformStreamDefaultController<TChunk>) {
         instanceRef.handleFlush(controller);
       },
+      cancel(reason: unknown) {
+        instanceRef.handleCancel(reason);
+      },
     });
 
     instanceRef = this;
     this.options = options;
     this.decoder = new TextDecoder("utf-8", { fatal: false, ignoreBOM: false });
     this.encoder = new TextEncoder();
+
+    this._promptTokens = options.promptTokens ?? 0;
 
     const startTs = options.startedAt ?? Date.now();
     this._metadata = {
@@ -87,6 +95,13 @@ export class SSEStreamTransformer<
    */
   public get usage(): StreamUsage | null {
     return this._usage;
+  }
+
+  /**
+   * Synchronous getter for number of streamed content characters counted so far.
+   */
+  public get streamedChars(): number {
+    return this._streamedChars;
   }
 
   /**
@@ -181,6 +196,11 @@ export class SSEStreamTransformer<
    * Flushes remaining buffered bytes and completes metadata upon stream end.
    */
   private handleFlush(controller: TransformStreamDefaultController<TChunk>): void {
+    if (this._isCompleted) {
+      return;
+    }
+    this._isCompleted = true;
+
     const remainingText = this.decoder.decode();
     if (remainingText.length > 0) {
       this.buffer += remainingText;
@@ -205,11 +225,119 @@ export class SSEStreamTransformer<
       this.dispatchEvent(controller, mode === "events");
     }
 
+    // If no upstream usage was received, estimate completion tokens from streamed characters
+    if (!this._hasUsage) {
+      if (this._streamedChars === 0 && this._cu === undefined) {
+        this._usage = null;
+      } else {
+        const estimated = Math.ceil(this._streamedChars / 4);
+        const total = this._promptTokens + estimated;
+        this._usage = {
+          promptTokens: this._promptTokens,
+          completionTokens: estimated,
+          totalTokens: total,
+          prompt_tokens: this._promptTokens,
+          completion_tokens: estimated,
+          total_tokens: total,
+          usage_estimated: 1,
+          usageEstimated: 1,
+          streamedChars: this._streamedChars,
+          ...(this._cu !== undefined ? { cu: this._cu } : {}),
+        };
+        this.options.onUsage?.(this._usage);
+      }
+    } else if (this._usage) {
+      this._usage.usage_estimated = 0;
+      this._usage.usageEstimated = 0;
+      this._usage.streamedChars = this._streamedChars;
+      if (this._cu !== undefined && this._usage.cu === undefined) {
+        this._usage.cu = this._cu;
+      }
+    }
+
     const now = Date.now();
     this._metadata.completedAt = now;
     this._metadata.totalDurationMs = now - this._metadata.startedAt;
 
     // Resolve promises
+    this.usageResolve(this._usage);
+    this.metadataResolve(this._metadata);
+
+    // Fire callbacks
+    this.options.onMetadata?.(this._metadata);
+    this.options.onDone?.();
+  }
+
+  /**
+   * Handles stream cancellation (e.g. reader.cancel() or client abort),
+   * ensuring usage promise resolves with estimated usage for consumed tokens.
+   */
+  private handleCancel(reason?: unknown): void {
+    if (this._isCompleted) {
+      return;
+    }
+    this._isCompleted = true;
+
+    // Decode any remaining buffered text
+    const remainingText = this.decoder.decode();
+    if (remainingText.length > 0) {
+      this.buffer += remainingText;
+    }
+    if (this.buffer.length > 0) {
+      const lines = this.buffer.split(/\r?\n/);
+      for (const line of lines) {
+        if (line.startsWith("data:")) {
+          const val = line.slice(5).trim();
+          if (val.startsWith("{")) {
+            try {
+              const parsed = JSON.parse(val);
+              const delta = extractDeltaContent(parsed);
+              if (delta) {
+                this._streamedChars += delta.length;
+              }
+            } catch {
+              // Ignore malformed JSON during cancellation buffer drain
+            }
+          }
+        }
+      }
+      this.buffer = "";
+    }
+
+    if (!this._hasUsage) {
+      if (this._streamedChars === 0 && this._cu === undefined) {
+        this._usage = null;
+      } else {
+        const estimated = Math.ceil(this._streamedChars / 4);
+        const total = this._promptTokens + estimated;
+        this._usage = {
+          promptTokens: this._promptTokens,
+          completionTokens: estimated,
+          totalTokens: total,
+          prompt_tokens: this._promptTokens,
+          completion_tokens: estimated,
+          total_tokens: total,
+          usage_estimated: 1,
+          usageEstimated: 1,
+          streamedChars: this._streamedChars,
+          ...(this._cu !== undefined ? { cu: this._cu } : {}),
+        };
+        this.options.onUsage?.(this._usage);
+      }
+    } else if (this._usage) {
+      this._usage.usage_estimated = 0;
+      this._usage.usageEstimated = 0;
+      this._usage.streamedChars = this._streamedChars;
+      if (this._cu !== undefined && this._usage.cu === undefined) {
+        this._usage.cu = this._cu;
+      }
+    }
+
+    const now = Date.now();
+    this._metadata.completedAt = now;
+    this._metadata.totalDurationMs = now - this._metadata.startedAt;
+
+    // Resolve promises so downstream readers/aborts obtain usage
     this.usageResolve(this._usage);
     this.metadataResolve(this._metadata);
 
@@ -420,6 +548,12 @@ export class SSEStreamTransformer<
         }
       }
 
+      // Accumulate streamed characters from choices[0].delta.content
+      const deltaContent = extractDeltaContent(parsed);
+      if (deltaContent) {
+        this._streamedChars += deltaContent.length;
+      }
+
       // Extract usage blocks across providers
       const usageUpdate = extractUsageFromPayload(parsed);
       if (usageUpdate) {
@@ -437,7 +571,13 @@ export class SSEStreamTransformer<
     update: Partial<StreamUsage>,
     rawPayload?: Record<string, unknown>
   ): void {
-    this._hasUsage = true;
+    if (
+      update.promptTokens !== undefined ||
+      update.completionTokens !== undefined ||
+      update.totalTokens !== undefined
+    ) {
+      this._hasUsage = true;
+    }
 
     if (update.promptTokens !== undefined) {
       this._promptTokens = update.promptTokens;
@@ -451,6 +591,9 @@ export class SSEStreamTransformer<
     if (update.reasoningTokens !== undefined) {
       this._reasoningTokens = update.reasoningTokens;
     }
+    if (update.cu !== undefined) {
+      this._cu = update.cu;
+    }
 
     const total =
       update.totalTokens !== undefined
@@ -458,10 +601,21 @@ export class SSEStreamTransformer<
         : this._promptTokens + this._completionTokens;
     this._totalTokens = total;
 
+    const isEstimated =
+      update.usage_estimated !== undefined
+        ? update.usage_estimated
+        : update.usageEstimated !== undefined
+        ? update.usageEstimated
+        : 0;
+
     const compiledUsage: StreamUsage = {
       promptTokens: this._promptTokens,
       completionTokens: this._completionTokens,
       totalTokens: total,
+      usage_estimated: isEstimated,
+      usageEstimated: isEstimated,
+      streamedChars: this._streamedChars,
+      ...(this._cu !== undefined ? { cu: this._cu } : {}),
       ...(this._cachedTokens > 0 ? { cachedTokens: this._cachedTokens } : {}),
       ...(this._reasoningTokens > 0 ? { reasoningTokens: this._reasoningTokens } : {}),
 

@@ -101,6 +101,16 @@ export class ChatHandler {
     const temperature =
       typeof body.temperature === "number" ? body.temperature : undefined;
 
+    // Forward unknown client body fields omitting KC-only fields and client model
+    const extraBodyParams: Record<string, unknown> = { ...body };
+    delete extraBodyParams.model;
+    delete extraBodyParams.modelAlias;
+    delete extraBodyParams.estimatedPromptTokens;
+
+    if (stream && body.stream_options === undefined) {
+      extraBodyParams.stream_options = { include_usage: true };
+    }
+
     const cascadeReq: CascadeRouteRequest = {
       modelAlias,
       messages,
@@ -118,6 +128,7 @@ export class ChatHandler {
         "x-kc-trace-id": traceId,
         "x-kc-tenant-id": authContext.tenantId,
       },
+      extraBodyParams,
     };
 
     // Pre-dispatch emergency brake check via POOL_COORDINATOR DO (Fail-open design)

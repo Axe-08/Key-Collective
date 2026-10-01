@@ -8,10 +8,50 @@
  * - Per-Tenant Isolation: Explicit `tenant_id` boundaries on all models.
  */
 
-import type { CostLedgerEvent, ModelProvider } from "../../../types/models";
+import type { ModelProvider } from "../../../types/models";
 
-// Re-export CostLedgerEvent from models
-export type { CostLedgerEvent };
+/**
+ * CostLedgerEvent records the financial impact, Credit Units, and token telemetry of a request.
+ * Enforces zero floating-point math using fixed-point microdollars and bigints for CU.
+ */
+export interface CostLedgerEvent<TCost = bigint> {
+  /** Unique event identifier */
+  id: string;
+  /** Request correlation ID */
+  requestId: string;
+  /** Tenant owning the transaction */
+  tenantId: string;
+  /** API key used */
+  keyId: string;
+  /** Provider invoked */
+  provider: ModelProvider;
+  /** Model invoked */
+  modelId: string;
+  /** Prompt / input tokens consumed */
+  promptTokens: number;
+  /** Completion / output tokens consumed */
+  completionTokens: number;
+  /** Cached tokens read from prompt cache */
+  cachedTokens: number;
+  /** Reasoning / thought tokens consumed */
+  reasoningTokens: number;
+  /** Total transaction cost in int64 microdollars */
+  costMicrodollars: TCost;
+  /** Total upstream latency in milliseconds */
+  latencyMs: number;
+  /** HTTP status code returned by upstream */
+  statusCode: number;
+  /** Creation timestamp */
+  createdAt: string;
+  /** Credit Units consumed */
+  cu?: bigint;
+  /** Whether token usage was estimated */
+  usageEstimated?: number;
+  /** Whether tokens were borrowed from community */
+  borrowed?: number;
+  /** Lender tenant ID if borrowed */
+  lenderTenantId?: string | null;
+}
 
 /**
  * Input payload for recording a single transaction in the cost ledger.
@@ -45,11 +85,19 @@ export interface CostLedgerEventInput {
   statusCode: number;
   /** ISO-8601 creation timestamp or Date instance (defaults to current time) */
   createdAt?: string | Date;
+  /** Credit Units consumed (optional, calculated from tokens if omitted) */
+  cu?: bigint | number;
+  /** Whether usage was estimated (defaults to 0) */
+  usageEstimated?: number;
+  /** Whether request used borrowed community tokens (defaults to 0) */
+  borrowed?: number;
+  /** Lender tenant ID if borrowed */
+  lenderTenantId?: string | null;
 }
 
 /**
  * Aggregated daily spend metrics for a specific tenant, day, provider, and model.
- * Conforms to D1 daily_spend_rollup schema.
+ * Conforms to D1 daily_spend_rollup & daily_cu_rollup schema.
  */
 export interface DailySpendRollup<TCost = bigint> {
   /** Tenant ID owning the rollup */
@@ -66,6 +114,21 @@ export interface DailySpendRollup<TCost = bigint> {
   totalTokens: number;
   /** Total financial spend in int64 microdollars */
   totalCostMicrodollars: TCost;
+  /** Total Credit Units */
+  totalCu: bigint;
+}
+
+/**
+ * Dedicated interface for Daily Credit Units rollup.
+ */
+export interface DailyCuRollup {
+  tenantId: string;
+  day: string;
+  provider: ModelProvider | string;
+  modelId: string;
+  totalRequests: number;
+  totalTokens: number;
+  totalCu: bigint;
 }
 
 /**
@@ -82,6 +145,8 @@ export interface DailySpendRollupInput {
   tokensDelta?: number;
   /** Cost delta in int64 microdollars to increment (must be integer) */
   costMicrodollarsDelta: bigint | number;
+  /** CU delta to increment */
+  cuDelta?: bigint | number;
 }
 
 /**
@@ -134,6 +199,7 @@ export interface TenantSpendSummary {
   totalCostMicrodollars: bigint;
   totalRequests: number;
   totalTokens: number;
+  totalCu?: bigint;
   periodStart?: string;
   periodEnd?: string;
 }
@@ -156,6 +222,10 @@ export interface CostLedgerDbRow {
   latency_ms: number;
   status_code: number;
   created_at: string;
+  cu?: number | string | bigint | null;
+  usage_estimated?: number | null;
+  borrowed?: number | null;
+  lender_tenant_id?: string | null;
 }
 
 /**
@@ -169,20 +239,22 @@ export interface DailySpendRollupDbRow {
   total_requests: number;
   total_tokens: number;
   total_cost_microdollars: number | string | bigint;
+  total_cu?: number | string | bigint | null;
 }
 
 /**
- * Internal interface for count/sum aggregate query results.
+ * Internal interface representing SQL aggregation results.
  */
 export interface AggregateDbRow {
   total_cost?: number | string | bigint | null;
   total_requests?: number | string | null;
   total_tokens?: number | string | null;
+  total_cu?: number | string | bigint | null;
   count?: number | string | null;
 }
 
 /**
- * Internal interface for rollup reconciliation query results.
+ * Internal interface representing daily reconciliation grouping rows.
  */
 export interface ReconcileRollupDbRow {
   provider: string;
@@ -190,4 +262,5 @@ export interface ReconcileRollupDbRow {
   total_requests: number;
   total_tokens: number;
   total_cost_microdollars: number | string | bigint;
+  total_cu?: number | string | bigint | null;
 }

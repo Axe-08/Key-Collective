@@ -36,6 +36,7 @@ export interface QuotaEntry {
   readonly timestamp: number;
   readonly count: number;
   readonly costMicrodollars: string;
+  readonly cu?: string;
   readonly projectId?: string;
 }
 
@@ -48,6 +49,8 @@ export interface TenantQuotaData {
   readonly entries: QuotaEntry[];
   readonly totalCostMicrodollars: string;
 
+  readonly cuUsed24h?: string;
+  readonly communityDebtCu?: string;
   readonly communityDebtMicroCu?: string;
   readonly dailyContributedCu?: string;
   readonly trustedContributor?: boolean;
@@ -65,6 +68,7 @@ export interface ConsumeQuotaRequest {
   readonly tier?: UserTier;
   readonly projectMaxSubCap?: number | null;
   readonly costMicrodollars?: bigint | number | string;
+  readonly cu?: bigint | number | string;
   readonly count?: number;
   readonly checkOnly?: boolean;
 }
@@ -85,6 +89,8 @@ export interface ConsumeQuotaResult {
   readonly projectRpmLimit?: number;
   readonly totalCostMicrodollars: string;
 
+  readonly cuUsed24h?: string;
+  readonly communityDebtCu?: string;
   readonly communityDebtMicroCu?: string;
   readonly dailyContributedCu?: string;
   readonly trustedContributor?: boolean;
@@ -138,4 +144,12 @@ export function toMicrodollars(cost: unknown): bigint {
     }
   }
   return 0n;
+}
+
+/**
+ * Safely converts an unknown Credit Unit representation to a bigint.
+ * Guarantees zero floating-point math.
+ */
+export function toCu(cu: unknown): bigint {
+  return toMicrodollars(cu);
 }

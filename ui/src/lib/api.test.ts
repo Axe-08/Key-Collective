@@ -53,6 +53,8 @@ describe('api (typed client, no mock fallbacks)', () => {
       daily_quota_used: 1000,
       daily_quota_limit: 5000,
       proxy_status: 'healthy' as const,
+      cu_used_today: 0,
+      cu_allowance_today: 50000,
     };
     vi.stubGlobal('fetch', mockFetchOnce(200, serverStats));
 

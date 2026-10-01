@@ -2,6 +2,10 @@
   import { api } from './lib/api';
   import { ApiError } from './lib/api/client';
 
+  export const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? 'http://api.localhost:8787/v1' : 'https://api.key-col.axe08.tech/v1');
+
   /**
    * Pure, framework-independent network step of the optimistic delete flow,
    * exported so the rollback-on-error behaviour can be exercised in tests
@@ -26,7 +30,7 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, ToastMessage, Microdollars } from './lib/types';
+  import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, ToastMessage, CU } from './lib/types';
   import type { UserAccount, Project, ProjectKey, UserTier } from '../../src/contracts/v3_types';
 
   import TopNavBar from './lib/TopNavBar.svelte';
@@ -60,11 +64,13 @@
     daily_quota_used: 0,
     daily_quota_limit: 0,
     proxy_status: 'healthy',
+    cu_used_today: 0,
+    cu_allowance_today: 0,
   });
   let statsLoading = $state(true);
 
-  // Microdollar Accounting State (1 USD = 1,000,000 µ$)
-  let todaySpendMicrodollars = $state<Microdollars>(0);
+  // Credit Unit (CU) Accounting State
+  let cuUsedToday = $state<CU>(0);
 
   // User Account & Multi-Project Hierarchy (v3 State)
   let userAccount = $state<UserAccount>({
@@ -93,7 +99,7 @@
   let autoRefresh = $state(true);
   let isRefreshing = $state(false);
   let toasts = $state<ToastMessage[]>([]);
-  let proxyEndpoint = $state('https://key-col.axe08.tech/v1/chat/completions');
+  let proxyEndpoint = $state(`${API_BASE_URL}/chat/completions`);
   let isEndpointCopied = $state(false);
 
   function addToast(type: ToastMessage['type'], message: string) {
@@ -120,7 +126,7 @@
       logs = fetchedLogs;
       stats = await api.getStats();
       statsLoading = false;
-      todaySpendMicrodollars = (stats as any).total_spend_today_microdollars ?? (stats as any).todaySpendMicrodollars ?? (logs.reduce((acc, l) => acc + ((l as any).cost_microdollars || 0), 0)) ?? 0;
+      cuUsedToday = stats.cu_used_today ?? 0;
     } catch (err: any) {
       console.error('Failed to load dashboard data', err);
     } finally {
@@ -290,7 +296,7 @@
 
   onMount(() => {
     if (typeof window !== 'undefined') {
-      proxyEndpoint = `${window.location.origin}/v1/chat/completions`;
+      proxyEndpoint = `${API_BASE_URL}/chat/completions`;
       
       // Hydrate user session from localStorage if present
       const savedUserStr = localStorage.getItem('kc_user');
@@ -395,7 +401,8 @@
     }}
     onRefresh={loadData}
     isRefreshing={isRefreshing || statsLoading}
-    {todaySpendMicrodollars}
+    {cuUsedToday}
+    {proxyEndpoint}
   />
 
   <!-- Shared Component: SideNavBar (Fixed top 14, left 0, bottom 0, w-64, z-40) -->
@@ -407,7 +414,7 @@
     {userAccount}
     onOpenAddModal={() => (isAddModalOpen = true)}
     onOpenReportModal={() => (isReportModalOpen = true)}
-    {todaySpendMicrodollars}
+    {cuUsedToday}
   />
 
   <!-- Main Canvas Container with Left Sidebar Offset (Exact matching Stitch screen1_dashboard.html) -->
@@ -418,7 +425,7 @@
         {keys}
         {logs}
         {stats}
-        {todaySpendMicrodollars}
+        {cuUsedToday}
         isRefreshing={isRefreshing || statsLoading}
         {autoRefresh}
         {proxyEndpoint}

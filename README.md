@@ -127,8 +127,8 @@ cd ui && npm run dev
 
 ### 4. Sending an OpenAI-Compatible Chat Request
 ```bash
-curl -X POST http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer <your-token>" \
+curl -X POST https://api.key-col.axe08.tech/v1/chat/completions \
+  -H "Authorization: Bearer kc_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "model": "auto",
@@ -139,6 +139,8 @@ curl -X POST http://127.0.0.1:8787/v1/chat/completions \
     "stream": true
   }'
 ```
+
+> **Note on Legacy Endpoint Deprecation & Sunset:** Legacy API endpoint URLs on the apex domain (`https://key-col.axe08.tech/v1/*`), console domain (`https://console.key-col.axe08.tech/v1/*`), and unversioned path aliases (`/chat/completions`, etc.) are deprecated and return HTTP `Deprecation: true` and `Sunset: Thu, 01 Jan 2026 00:00:00 GMT` headers (30 days post-cutover per D-22). Legacy endpoints will be permanently decommissioned after the sunset date and 14 consecutive days of zero traffic. All integrations must target the canonical host: `https://api.key-col.axe08.tech/v1/chat/completions`.
 
 ---
 

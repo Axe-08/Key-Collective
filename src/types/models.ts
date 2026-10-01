@@ -102,11 +102,22 @@ export interface ModelCapabilities {
  */
 export interface ModelPricing<TCost = bigint> {
   /** Input token cost per 1M tokens in microdollars */
+  /** @deprecated Use Credit Units (cuInPer1k) instead */
   inputCostPerMTokMicro: TCost;
   /** Output token cost per 1M tokens in microdollars */
+  /** @deprecated Use Credit Units (cuOutPer1k) instead */
   outputCostPerMTokMicro: TCost;
   /** Cached token read cost per 1M tokens in microdollars */
+  /** @deprecated Use Credit Units (cuCachedPer1k) instead */
   cacheReadCostPerMTokMicro: TCost;
+  /** Base Credit Units per request */
+  cuBase?: bigint;
+  /** Input Credit Units per 1,000 tokens */
+  cuInPer1k?: bigint;
+  /** Cached token Credit Units per 1,000 tokens */
+  cuCachedPer1k?: bigint;
+  /** Output Credit Units per 1,000 tokens */
+  cuOutPer1k?: bigint;
 }
 
 /**
@@ -125,11 +136,22 @@ export interface ModelDef<TCost = bigint> {
   /** Maximum output tokens */
   maxOutputTokens: number;
   /** Input cost per 1,000,000 tokens in microdollars (int64) */
+  /** @deprecated Use Credit Units (cuInPer1k) instead */
   inputCostPerMTokMicro: TCost;
   /** Output cost per 1,000,000 tokens in microdollars (int64) */
+  /** @deprecated Use Credit Units (cuOutPer1k) instead */
   outputCostPerMTokMicro: TCost;
   /** Cache read cost per 1,000,000 tokens in microdollars (int64) */
+  /** @deprecated Use Credit Units (cuCachedPer1k) instead */
   cacheReadCostPerMTokMicro: TCost;
+  /** Base Credit Units per request */
+  cuBase?: bigint;
+  /** Input Credit Units per 1,000 tokens */
+  cuInPer1k?: bigint;
+  /** Cached token Credit Units per 1,000 tokens */
+  cuCachedPer1k?: bigint;
+  /** Output Credit Units per 1,000 tokens */
+  cuOutPer1k?: bigint;
   /** Whether the model supports function / tool calling */
   supportsTools: boolean;
   /** Whether the model supports multimodal vision */
@@ -254,13 +276,24 @@ export interface CostLedgerEvent<TCost = bigint> {
  * Factory helper for creating a ModelDef with defaults.
  */
 export function createModelDef<TCost = bigint>(
-  params: Omit<ModelDef<TCost>, "isActive" | "cacheReadCostPerMTokMicro"> & {
+  params: Omit<
+    ModelDef<TCost>,
+    "isActive" | "cacheReadCostPerMTokMicro" | "cuBase" | "cuInPer1k" | "cuCachedPer1k" | "cuOutPer1k"
+  > & {
     isActive?: boolean;
     cacheReadCostPerMTokMicro?: TCost;
+    cuBase?: bigint;
+    cuInPer1k?: bigint;
+    cuCachedPer1k?: bigint;
+    cuOutPer1k?: bigint;
   }
 ): ModelDef<TCost> {
   return {
     ...params,
+    cuBase: params.cuBase ?? 0n,
+    cuInPer1k: params.cuInPer1k ?? 0n,
+    cuCachedPer1k: params.cuCachedPer1k ?? 0n,
+    cuOutPer1k: params.cuOutPer1k ?? 0n,
     cacheReadCostPerMTokMicro:
       params.cacheReadCostPerMTokMicro ?? (0n as unknown as TCost),
     isActive: params.isActive ?? true,
@@ -322,6 +355,11 @@ export function isModelDef<TCost = bigint>(value: unknown): value is ModelDef<TC
   const hasValidCost =
     typeof candidate.inputCostPerMTokMicro === "bigint" ||
     typeof candidate.inputCostPerMTokMicro === "number";
+  const hasValidCu =
+    (candidate.cuBase === undefined || typeof candidate.cuBase === "bigint") &&
+    (candidate.cuInPer1k === undefined || typeof candidate.cuInPer1k === "bigint") &&
+    (candidate.cuCachedPer1k === undefined || typeof candidate.cuCachedPer1k === "bigint") &&
+    (candidate.cuOutPer1k === undefined || typeof candidate.cuOutPer1k === "bigint");
   return (
     typeof candidate.id === "string" &&
     isModelProvider(candidate.provider) &&
@@ -329,6 +367,7 @@ export function isModelDef<TCost = bigint>(value: unknown): value is ModelDef<TC
     typeof candidate.contextWindow === "number" &&
     typeof candidate.maxOutputTokens === "number" &&
     hasValidCost &&
+    hasValidCu &&
     typeof candidate.supportsTools === "boolean" &&
     typeof candidate.supportsVision === "boolean" &&
     typeof candidate.supportsJsonSchema === "boolean" &&

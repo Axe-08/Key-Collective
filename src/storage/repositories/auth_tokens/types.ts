@@ -6,7 +6,6 @@ import type { KeyInput } from "../../../crypto";
  */
 export type Microdollars = bigint;
 
-
 /**
  * Raw database row shape for the `auth_tokens` table in Cloudflare D1.
  */
@@ -22,6 +21,8 @@ export interface AuthTokenRow {
   rpm_limit: number;
   expires_at: string | null;
   created_at: string;
+  budget_cu?: number | string | bigint | null;
+  spent_cu?: number | string | bigint | null;
 }
 
 /**
@@ -50,6 +51,10 @@ export interface AuthTokenRecord {
   expiresAt: string | null;
   /** ISO-8601 creation timestamp */
   createdAt: string;
+  /** Budget ceiling in Credit Units (null = unlimited) */
+  budgetCu?: bigint | null;
+  /** Total spent Credit Units */
+  spentCu?: bigint;
 }
 
 /**
@@ -68,6 +73,10 @@ export interface CreateAuthTokenParams {
   budgetMicrodollars?: Microdollars | number;
   /** Initial spend in int64 microdollars (defaults to 0n). */
   spentMicrodollars?: Microdollars | number;
+  /** Spending budget ceiling in Credit Units (defaults to null = unlimited). */
+  budgetCu?: bigint | number | null;
+  /** Initial spend in Credit Units (defaults to 0n). */
+  spentCu?: bigint | number;
   /** List of allowed providers (e.g. ['google', 'openai']). Defaults to [] (all allowed). */
   allowedProviders?: string[];
   /** Requests-per-minute rate limit (defaults to DEFAULT_RPM_LIMIT = 60). */
@@ -101,6 +110,8 @@ export interface TokenValidationResult {
  */
 export interface UpdateAuthTokenParams {
   budgetMicrodollars?: bigint | number;
+  budgetCu?: bigint | number | null;
+  spentCu?: bigint | number;
   allowedProviders?: string[];
   rpmLimit?: number;
   expiresAt?: string | Date | null;

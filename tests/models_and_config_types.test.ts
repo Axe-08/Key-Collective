@@ -122,6 +122,10 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         inputCostPerMTokMicro: 100_000n, // $0.10 per 1M input tokens
         outputCostPerMTokMicro: 400_000n, // $0.40 per 1M output tokens
         cacheReadCostPerMTokMicro: 25_000n, // $0.025 per 1M cached tokens
+        cuBase: 10n,
+        cuInPer1k: 1n,
+        cuCachedPer1k: 0n,
+        cuOutPer1k: 4n,
         supportsTools: true,
         supportsVision: true,
         supportsJsonSchema: true,
@@ -134,6 +138,10 @@ describe("Model and Provider Types (LLD 2.2)", () => {
       expect(model.logicalAliases).toEqual(["fast-model", "smart-fast"]);
       expect(typeof model.inputCostPerMTokMicro).toBe("bigint");
       expect(model.inputCostPerMTokMicro).toBe(100_000n);
+      expect(model.cuBase).toBe(10n);
+      expect(model.cuInPer1k).toBe(1n);
+      expect(model.cuCachedPer1k).toBe(0n);
+      expect(model.cuOutPer1k).toBe(4n);
       expect(model.supportsTools).toBe(true);
       expect(model.isActive).toBe(true);
     });
@@ -154,6 +162,10 @@ describe("Model and Provider Types (LLD 2.2)", () => {
 
       expect(model.isActive).toBe(true);
       expect(model.cacheReadCostPerMTokMicro).toBe(0n);
+      expect(model.cuBase).toBe(0n);
+      expect(model.cuInPer1k).toBe(0n);
+      expect(model.cuCachedPer1k).toBe(0n);
+      expect(model.cuOutPer1k).toBe(0n);
       expect(model.id).toBe("gpt-4o");
     });
 
@@ -187,6 +199,10 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         inputCostPerMTokMicro: 200_000,
         outputCostPerMTokMicro: 600_000,
         cacheReadCostPerMTokMicro: 0,
+        cuBase: 5n,
+        cuInPer1k: 1n,
+        cuCachedPer1k: 0n,
+        cuOutPer1k: 1n,
         supportsTools: true,
         supportsVision: false,
         supportsJsonSchema: true,
@@ -194,6 +210,7 @@ describe("Model and Provider Types (LLD 2.2)", () => {
       };
 
       expect(numericModel.inputCostPerMTokMicro).toBe(200_000);
+      expect(numericModel.cuBase).toBe(5n);
       expect(isModelDef(numericModel)).toBe(true);
     });
   });

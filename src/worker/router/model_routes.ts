@@ -12,12 +12,9 @@ export class ModelRoutesHandler {
   /**
    * Public health check bypass endpoint.
    */
-  public handleHealth(startTime: number): Response {
+  public handleHealth(_startTime?: number): Response {
     return Response.json({
-      status: "healthy",
-      version: "0.2.0",
-      runtime: "cloudflare-workers",
-      timestamp: new Date(startTime).toISOString(),
+      status: "ok",
     });
   }
 
@@ -74,6 +71,12 @@ export class ModelRoutesHandler {
         output_cost_per_mtok_micro: m.outputCostPerMTokMicro.toString(),
         cache_read_cost_per_mtok_micro: m.cacheReadCostPerMTokMicro.toString(),
       },
+      kc: {
+        cu_base: Number(m.cuBase ?? 10),
+        cu_in_per_1k: Number(m.cuInPer1k ?? 1),
+        cu_cached_per_1k: Number(m.cuCachedPer1k ?? 0),
+        cu_out_per_1k: Number(m.cuOutPer1k ?? 4),
+      },
       deprecated: Boolean(m.deprecatedAt),
       deprecated_at: m.deprecatedAt,
       sunset_at: m.sunsetAt,
@@ -122,6 +125,12 @@ export class ModelRoutesHandler {
           input_cost_per_mtok_micro: model.inputCostPerMTokMicro.toString(),
           output_cost_per_mtok_micro: model.outputCostPerMTokMicro.toString(),
           cache_read_cost_per_mtok_micro: model.cacheReadCostPerMTokMicro.toString(),
+        },
+        kc: {
+          cu_base: Number(model.cuBase ?? 10),
+          cu_in_per_1k: Number(model.cuInPer1k ?? 1),
+          cu_cached_per_1k: Number(model.cuCachedPer1k ?? 0),
+          cu_out_per_1k: Number(model.cuOutPer1k ?? 4),
         },
         deprecated: Boolean(model.deprecatedAt),
         deprecated_at: model.deprecatedAt,

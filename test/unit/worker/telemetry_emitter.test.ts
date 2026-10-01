@@ -86,6 +86,18 @@ describe("TelemetryEmitter & Validation", () => {
       expect(validateTelemetryEvent({ ...validEvent, costMicrodollars: -1n }).valid).toBe(false);
     });
 
+    it("validates optional non-negative cu", () => {
+      expect(validateTelemetryEvent({ ...validEvent, cu: 100n }).valid).toBe(true);
+      expect(validateTelemetryEvent({ ...validEvent, cu: 0n }).valid).toBe(true);
+    });
+
+    it("rejects invalid cu (must be non-negative bigint)", () => {
+      // number instead of bigint
+      expect(validateTelemetryEvent({ ...validEvent, cu: 100 as unknown as bigint }).valid).toBe(false);
+      // negative bigint
+      expect(validateTelemetryEvent({ ...validEvent, cu: -1n }).valid).toBe(false);
+    });
+
     it("rejects invalid metadata", () => {
       expect(validateTelemetryEvent({ ...validEvent, metadata: null as unknown as Record<string, string> }).valid).toBe(false);
       expect(validateTelemetryEvent({ ...validEvent, metadata: [] as unknown as Record<string, string> }).valid).toBe(false);
@@ -113,12 +125,22 @@ describe("TelemetryEmitter & Validation", () => {
       expect(point.blobs?.[6]).toBe("200");
       expect(point.blobs?.[7]).toBe(JSON.stringify(validEvent.metadata));
 
-      expect(point.doubles?.[0]).toBe(145);
-      expect(point.doubles?.[1]).toBe(2500);
+      expect(point.doubles?.[0]).toBe(2500);
+      expect(point.doubles?.[1]).toBe(145);
       expect(point.doubles?.[2]).toBe(1726000000000);
       expect(point.doubles?.[3]).toBe(50);
       expect(point.doubles?.[4]).toBe(20);
       expect(point.doubles?.[5]).toBe(70);
+    });
+
+    it("writes event.cu into doubles[0] when present", () => {
+      const event: TelemetryEvent = {
+        ...validEvent,
+        cu: 350n,
+      };
+      const point = defaultDataPointMapper(event);
+      expect(point.doubles?.[0]).toBe(350);
+      expect(point.doubles?.[1]).toBe(145);
     });
 
     it("falls back to modelAlias if model is not specified", () => {
@@ -199,6 +221,7 @@ describe("TelemetryEmitter & Validation", () => {
         eventType: "rate_limit_exceeded",
         latencyMs: 12,
         costMicrodollars: 500n,
+        cu: 50n,
         metadata: { path: "/v1/chat/completions" },
       });
 
@@ -207,6 +230,7 @@ describe("TelemetryEmitter & Validation", () => {
       expect(event.timestamp).toBe(1000);
       expect(event.latencyMs).toBe(12);
       expect(event.costMicrodollars).toBe(500n);
+      expect(event.cu).toBe(50n);
       expect(event.metadata).toEqual({ path: "/v1/chat/completions" });
     });
 

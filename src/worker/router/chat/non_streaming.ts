@@ -4,6 +4,8 @@
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { CascadeRouteResponse } from "../../../router/cascade/index";
+import { calculateCu } from "../../../router/registry/index";
+import type { TokenUsage } from "../../../router/registry/types";
 import { createApiResponse } from "../../../types/api";
 import type {
   AuthenticatedContext,
@@ -11,6 +13,7 @@ import type {
 } from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { ChatHandlerDependencies } from "./types";
+import { applyKcHeaders } from "../headers";
 
 export async function handleNonStreamingResponse(
   deps: ChatHandlerDependencies,
@@ -24,6 +27,18 @@ export async function handleNonStreamingResponse(
 ): Promise<Response> {
   const durationMs = deps.timeProvider() - startTime;
   const costMicrodollars = cascadeRes.costMicrodollars;
+
+  // Calculate Credit Units (CU) from cascadeRes.usage
+  let cu = 0n;
+  if (cascadeRes.usage) {
+    const modelDef =
+      cascadeRes.modelDef ??
+      deps.modelRegistry?.getModel?.(cascadeRes.model) ??
+      deps.modelRegistry?.resolveModel?.(cascadeRes.model);
+    if (modelDef) {
+      cu = calculateCu(modelDef, cascadeRes.usage);
+    }
+  }
 
   // Asynchronous background task for D1 persistence and telemetry
   const postWork = async (): Promise<void> => {
@@ -99,14 +114,130 @@ export async function handleNonStreamingResponse(
     await postWork();
   }
 
-  // Format OpenAI-compatible completion response payload
-  const payload = {
-    id: `chatcmpl-${traceId}`,
-    object: "chat.completion",
-    created: Math.floor(startTime / 1000),
-    model: cascadeRes.model,
-    provider: cascadeRes.provider,
-    choices: [
+  // Obtain upstream JSON response if available
+  let upstreamJson: Record<string, unknown> = {};
+  if (cascadeRes.response && typeof cascadeRes.response.json === "function") {
+    try {
+      const parsed = await cascadeRes.response.json<Record<string, unknown>>();
+      if (parsed && typeof parsed === "object") {
+        upstreamJson = parsed;
+      }
+    } catch {
+      // Fall back if response is not valid JSON
+    }
+  }
+
+  // Safely resolve model id using optional chaining (Reviewer feedback point 1)
+  const resolvedModelDef =
+    deps.modelRegistry?.getModel?.(cascadeRes.model) ??
+    deps.modelRegistry?.resolveModel?.(cascadeRes.model) ??
+    cascadeRes.modelDef;
+  const resolvedModelId = resolvedModelDef?.id ?? cascadeRes.model;
+
+  // Extract usage for CU calculation
+  const usageObj = (upstreamJson.usage as Record<string, unknown> | undefined) ?? {};
+  const promptTokens =
+    cascadeRes.usage?.promptTokens ??
+    (typeof usageObj.prompt_tokens === "number" ? usageObj.prompt_tokens : 0);
+  const completionTokens =
+    cascadeRes.usage?.completionTokens ??
+    (typeof usageObj.completion_tokens === "number" ? usageObj.completion_tokens : 0);
+  const cachedTokens =
+    cascadeRes.usage?.cachedTokens ??
+    (typeof usageObj.prompt_tokens_details === "object" &&
+    usageObj.prompt_tokens_details !== null &&
+    "cached_tokens" in usageObj.prompt_tokens_details
+      ? Number((usageObj.prompt_tokens_details as { cached_tokens?: number }).cached_tokens)
+      : typeof usageObj.cached_tokens === "number"
+      ? usageObj.cached_tokens
+      : 0);
+  const reasoningTokens =
+    cascadeRes.usage?.reasoningTokens ??
+    (typeof usageObj.completion_tokens_details === "object" &&
+    usageObj.completion_tokens_details !== null &&
+    "reasoning_tokens" in usageObj.completion_tokens_details
+      ? Number((usageObj.completion_tokens_details as { reasoning_tokens?: number }).reasoning_tokens)
+      : typeof usageObj.reasoning_tokens === "number"
+      ? usageObj.reasoning_tokens
+      : 0);
+
+  const effectiveUsage: TokenUsage = {
+    promptTokens,
+    completionTokens,
+    cachedTokens,
+    reasoningTokens,
+  };
+
+  let calculatedCu = cu;
+  if (calculatedCu === 0n && (upstreamJson.usage || costMicrodollars > 0n)) {
+    if (deps.modelRegistry) {
+      try {
+        const registry = deps.modelRegistry as unknown as {
+          calculateCu?: (model: string, usage: TokenUsage) => bigint;
+          calculateCost?: (model: string, usage: TokenUsage) => bigint;
+        };
+        if (typeof registry.calculateCu === "function") {
+          calculatedCu = registry.calculateCu(cascadeRes.model, effectiveUsage);
+        }
+      } catch {
+        // Fall back below
+      }
+    }
+
+    if (calculatedCu === 0n && cascadeRes.modelDef) {
+      try {
+        calculatedCu = calculateCu(cascadeRes.modelDef, effectiveUsage);
+      } catch {
+        // Fall back below
+      }
+    }
+
+    if (calculatedCu === 0n && deps.modelRegistry) {
+      try {
+        calculatedCu = deps.modelRegistry.calculateCost(cascadeRes.model, effectiveUsage);
+      } catch {
+        // Fall back below
+      }
+    }
+
+    if (calculatedCu === 0n && costMicrodollars > 0n) {
+      calculatedCu = costMicrodollars;
+    }
+  }
+
+  // Base usage object
+  const baseUsage = (upstreamJson.usage as Record<string, unknown> | undefined) ?? (cascadeRes.usage
+    ? {
+        prompt_tokens: cascadeRes.usage.promptTokens,
+        completion_tokens: cascadeRes.usage.completionTokens,
+        total_tokens: cascadeRes.usage.totalTokens,
+      }
+    : {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+      });
+
+  const finalUsage = {
+    ...baseUsage,
+    kc_cu: Number(calculatedCu),
+  };
+
+  // Return upstream JSON with only edits to:
+  // id: prefixed with chatcmpl-
+  // model: resolved upstream model id
+  // usage.kc_cu added
+  // object: defaulted to 'chat.completion' (Reviewer feedback point 2)
+  // choices[].message.tool_calls, finish_reason, logprobs survive untouched
+  const formattedId = traceId.startsWith("chatcmpl-") ? traceId : `chatcmpl-${traceId}`;
+
+  const payload: Record<string, unknown> = {
+    ...upstreamJson,
+    id: formattedId,
+    object: (upstreamJson.object as string) ?? "chat.completion",
+    created: (upstreamJson.created as number) ?? Math.floor(startTime / 1000),
+    model: resolvedModelId,
+    choices: (upstreamJson.choices as unknown[]) ?? [
       {
         index: 0,
         message: {
@@ -116,52 +247,49 @@ export async function handleNonStreamingResponse(
         finish_reason: "stop",
       },
     ],
-    usage: cascadeRes.usage
-      ? {
-          prompt_tokens: cascadeRes.usage.promptTokens,
-          completion_tokens: cascadeRes.usage.completionTokens,
-          total_tokens: cascadeRes.usage.totalTokens,
-        }
-      : {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-        },
-    cost_microdollars: costMicrodollars.toString(),
+    usage: finalUsage,
+    cost_microdollars: (upstreamJson.cost_microdollars as string) ?? costMicrodollars.toString(),
   };
 
-  // Format response based on requested format
-  if (deps.options.responseFormat === "kc_api") {
-    const apiRes = createApiResponse(payload, {
-      latencyMs: durationMs,
-      costMicrodollars: costMicrodollars.toString(),
-      traceId,
-      requestId: traceId,
-      timestamp: startTime,
-      provider: cascadeRes.provider,
-      model: cascadeRes.model,
-    });
-    return new Response(JSON.stringify(apiRes), {
-      status: 200,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "x-kc-trace-id": traceId,
-        "x-kc-tenant-id": authContext.tenantId,
-        "x-kc-model": cascadeRes.model,
-        "x-kc-provider": cascadeRes.provider,
-        "x-kc-cost-microdollars": costMicrodollars.toString(),
-      },
-    });
-  }
+  const rawResponse =
+    deps.options.responseFormat === "kc_api"
+      ? new Response(
+          JSON.stringify(
+            createApiResponse(payload, {
+              latencyMs: durationMs,
+              costMicrodollars: costMicrodollars.toString(),
+              traceId,
+              requestId: traceId,
+              timestamp: startTime,
+              provider: cascadeRes.provider,
+              model: resolvedModelId,
+            })
+          ),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+            },
+          }
+        )
+      : Response.json(payload, {
+          status: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+          },
+        });
 
-  return Response.json(payload, {
-    status: 200,
-    headers: {
-      "x-kc-trace-id": traceId,
-      "x-kc-tenant-id": authContext.tenantId,
-      "x-kc-model": cascadeRes.model,
-      "x-kc-provider": cascadeRes.provider,
-      "x-kc-cost-microdollars": costMicrodollars.toString(),
-    },
+  return applyKcHeaders(rawResponse, {
+    requestId: traceId,
+    traceId,
+    modelUsed: resolvedModelId,
+    provider: cascadeRes.provider,
+    attempts: cascadeRes.attempts,
+    cu: calculatedCu.toString(),
+    costMicrodollars: costMicrodollars.toString(),
+    isStream: false,
   });
 }
+
+export const handleNonStreamingChat = handleNonStreamingResponse;
+

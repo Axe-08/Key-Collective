@@ -40,7 +40,16 @@ function installSiteverifyMock(original: typeof fetch): void {
         headers: { "content-type": "application/json" },
       });
     }
-    return (githubFetch ?? original)(input, init);
+    if (githubFetch) {
+      return githubFetch(input, init);
+    }
+    if (url.includes("api.github.com")) {
+      return new Response(JSON.stringify({}), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return original(input, init);
   }) as typeof fetch;
 }
 

@@ -28,6 +28,17 @@ export interface StreamUsage extends TokenUsage {
   cached_tokens?: number;
   reasoning_tokens?: number;
 
+  /** Compute units (CU) if emitted or calculated (e.g. by kc.usage) */
+  cu?: number;
+
+  /** Flag indicating whether usage tokens were estimated (1) or exact (0) */
+  usage_estimated?: number;
+  /** CamelCase alias for usage_estimated */
+  usageEstimated?: number;
+
+  /** Number of streamed characters accumulated across chunks */
+  streamedChars?: number;
+
   /** Raw unparsed usage payload as returned by upstream provider */
   raw?: Record<string, unknown>;
 }
@@ -97,6 +108,11 @@ export interface SSEStreamTransformerOptions {
    * Callback invoked when the stream has cleanly closed.
    */
   onDone?: () => void;
+
+  /**
+   * Initial prompt tokens count if known beforehand (e.g. from tokenizer).
+   */
+  promptTokens?: number;
 
   /**
    * Start timestamp (ms) for TTFT and total latency calculation.

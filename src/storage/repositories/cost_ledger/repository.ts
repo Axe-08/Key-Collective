@@ -2,14 +2,14 @@
  * Key Collective v2 — Cost Ledger Repository Implementation
  *
  * Encapsulates all persistent D1 SQL operations for:
- * 1. Immutable Cost Ledger transaction events.
- * 2. Pre-aggregated Daily Spend Rollups.
+ * 1. Immutable Cost Ledger transaction events (dual-writing microdollars and Credit Units).
+ * 2. Pre-aggregated Daily Spend Rollups and Daily CU Rollups.
  * 3. Daily reconciliation from raw immutable records.
  *
  * Invariant: Every method enforces strict per-tenant data boundaries.
  */
 
-import type { CostLedgerEvent, ModelProvider } from "../../../types/models";
+import type { ModelProvider } from "../../../types/models";
 import {
   CostLedgerError,
   InvalidCostLedgerEventError,
@@ -22,6 +22,7 @@ import {
 import type {
   AggregateDbRow,
   CostLedgerDbRow,
+  CostLedgerEvent,
   CostLedgerEventInput,
   DailySpendRollup,
   DailySpendRollupDbRow,
@@ -33,11 +34,28 @@ import type {
 } from "./types";
 
 /**
+ * Computes the token-derived CU fallback value:
+ * 10 + Math.floor((promptTokens + 999) / 1000) + Math.floor(((completionTokens + reasoningTokens) * 4 + 999) / 1000)
+ */
+export function computeFallbackCu(
+  promptTokens: number,
+  completionTokens: number,
+  reasoningTokens: number
+): bigint {
+  const p = Math.max(0, Math.trunc(promptTokens));
+  const c = Math.max(0, Math.trunc(completionTokens));
+  const r = Math.max(0, Math.trunc(reasoningTokens));
+  const promptPart = Math.floor((p + 999) / 1000);
+  const outPart = Math.floor(((c + r) * 4 + 999) / 1000);
+  return BigInt(10 + promptPart + outPart);
+}
+
+/**
  * CostLedgerRepository
  *
  * Encapsulates all persistent D1 SQL operations for:
  * 1. Immutable Cost Ledger transaction events.
- * 2. Pre-aggregated Daily Spend Rollups.
+ * 2. Pre-aggregated Daily Spend Rollups & Daily CU Rollups.
  * 3. Daily reconciliation from raw immutable records.
  *
  * Invariant: Every method enforces strict per-tenant data boundaries.
@@ -54,9 +72,10 @@ export class CostLedgerRepository {
 
   /**
    * Records a single cost transaction into the immutable cost_ledger table.
+   * Dual-writes both cost_microdollars and cu.
    *
-   * @param input CostLedgerEventInput containing request metrics and cost in microdollars.
-   * @returns Persisted CostLedgerEvent with int64 bigint microdollars.
+   * @param input CostLedgerEventInput containing request metrics, cost in microdollars, and optional CU.
+   * @returns Persisted CostLedgerEvent with int64 bigint microdollars and cu.
    */
   public async recordEvent(input: CostLedgerEventInput): Promise<CostLedgerEvent> {
     this.validateEventInput(input);
@@ -70,12 +89,20 @@ export class CostLedgerRepository {
     const reasoningTokens = Math.max(0, Math.trunc(input.reasoningTokens ?? 0));
     const latencyMs = Math.max(0, Math.trunc(input.latencyMs ?? 0));
 
+    const cuBigInt = input.cu !== undefined
+      ? validateMicrodollars(input.cu, "cu")
+      : computeFallbackCu(promptTokens, completionTokens, reasoningTokens);
+    const usageEstimated = input.usageEstimated ?? 0;
+    const borrowed = input.borrowed ?? 0;
+    const lenderTenantId = input.lenderTenantId ?? null;
+
     const query = `
       INSERT INTO cost_ledger (
         id, request_id, tenant_id, key_id, provider, model_id,
         prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-        cost_microdollars, latency_ms, status_code, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cost_microdollars, latency_ms, status_code, created_at,
+        cu, usage_estimated, borrowed, lender_tenant_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
@@ -95,7 +122,11 @@ export class CostLedgerRepository {
           this.toSqlInteger(costBigInt),
           latencyMs,
           input.statusCode,
-          createdAt
+          createdAt,
+          this.toSqlInteger(cuBigInt),
+          usageEstimated,
+          borrowed,
+          lenderTenantId
         )
         .run();
     } catch (err: unknown) {
@@ -120,6 +151,10 @@ export class CostLedgerRepository {
       latencyMs,
       statusCode: input.statusCode,
       createdAt,
+      cu: cuBigInt,
+      usageEstimated,
+      borrowed,
+      lenderTenantId,
     };
   }
 
@@ -141,8 +176,9 @@ export class CostLedgerRepository {
       INSERT INTO cost_ledger (
         id, request_id, tenant_id, key_id, provider, model_id,
         prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-        cost_microdollars, latency_ms, status_code, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cost_microdollars, latency_ms, status_code, created_at,
+        cu, usage_estimated, borrowed, lender_tenant_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     for (const input of inputs) {
@@ -156,6 +192,13 @@ export class CostLedgerRepository {
       const cachedTokens = Math.max(0, Math.trunc(input.cachedTokens ?? 0));
       const reasoningTokens = Math.max(0, Math.trunc(input.reasoningTokens ?? 0));
       const latencyMs = Math.max(0, Math.trunc(input.latencyMs ?? 0));
+
+      const cuBigInt = input.cu !== undefined
+        ? validateMicrodollars(input.cu, "cu")
+        : computeFallbackCu(promptTokens, completionTokens, reasoningTokens);
+      const usageEstimated = input.usageEstimated ?? 0;
+      const borrowed = input.borrowed ?? 0;
+      const lenderTenantId = input.lenderTenantId ?? null;
 
       const stmt = this.db.prepare(query).bind(
         id,
@@ -171,7 +214,11 @@ export class CostLedgerRepository {
         this.toSqlInteger(costBigInt),
         latencyMs,
         input.statusCode,
-        createdAt
+        createdAt,
+        this.toSqlInteger(cuBigInt),
+        usageEstimated,
+        borrowed,
+        lenderTenantId
       );
 
       statements.push(stmt);
@@ -190,6 +237,10 @@ export class CostLedgerRepository {
         latencyMs,
         statusCode: input.statusCode,
         createdAt,
+        cu: cuBigInt,
+        usageEstimated,
+        borrowed,
+        lenderTenantId,
       });
     }
 
@@ -209,7 +260,7 @@ export class CostLedgerRepository {
 
   /**
    * Atomically records a cost transaction into cost_ledger AND increments the corresponding
-   * daily_spend_rollup in a single D1 transaction.
+   * daily_spend_rollup AND daily_cu_rollup in a single D1 transaction.
    *
    * @param input CostLedgerEventInput
    * @returns Persisted CostLedgerEvent
@@ -228,15 +279,23 @@ export class CostLedgerRepository {
     const latencyMs = Math.max(0, Math.trunc(input.latencyMs ?? 0));
     const totalTokens = promptTokens + completionTokens + reasoningTokens;
 
+    const cuBigInt = input.cu !== undefined
+      ? validateMicrodollars(input.cu, "cu")
+      : computeFallbackCu(promptTokens, completionTokens, reasoningTokens);
+    const usageEstimated = input.usageEstimated ?? 0;
+    const borrowed = input.borrowed ?? 0;
+    const lenderTenantId = input.lenderTenantId ?? null;
+
     const ledgerQuery = `
       INSERT INTO cost_ledger (
         id, request_id, tenant_id, key_id, provider, model_id,
         prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-        cost_microdollars, latency_ms, status_code, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cost_microdollars, latency_ms, status_code, created_at,
+        cu, usage_estimated, borrowed, lender_tenant_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const rollupQuery = `
+    const spendRollupQuery = `
       INSERT INTO daily_spend_rollup (
         tenant_id, day, provider, model_id,
         total_requests, total_tokens, total_cost_microdollars
@@ -246,6 +305,18 @@ export class CostLedgerRepository {
         total_requests = total_requests + excluded.total_requests,
         total_tokens = total_tokens + excluded.total_tokens,
         total_cost_microdollars = total_cost_microdollars + excluded.total_cost_microdollars
+    `;
+
+    const cuRollupQuery = `
+      INSERT INTO daily_cu_rollup (
+        tenant_id, day, provider, model_id,
+        total_requests, total_tokens, total_cu
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (tenant_id, day, provider, model_id)
+      DO UPDATE SET
+        total_requests = total_requests + excluded.total_requests,
+        total_tokens = total_tokens + excluded.total_tokens,
+        total_cu = total_cu + excluded.total_cu
     `;
 
     const ledgerStmt = this.db.prepare(ledgerQuery).bind(
@@ -262,10 +333,14 @@ export class CostLedgerRepository {
       this.toSqlInteger(costBigInt),
       latencyMs,
       input.statusCode,
-      createdAt
+      createdAt,
+      this.toSqlInteger(cuBigInt),
+      usageEstimated,
+      borrowed,
+      lenderTenantId
     );
 
-    const rollupStmt = this.db.prepare(rollupQuery).bind(
+    const spendRollupStmt = this.db.prepare(spendRollupQuery).bind(
       input.tenantId.trim(),
       day,
       input.provider.trim(),
@@ -275,8 +350,18 @@ export class CostLedgerRepository {
       this.toSqlInteger(costBigInt)
     );
 
+    const cuRollupStmt = this.db.prepare(cuRollupQuery).bind(
+      input.tenantId.trim(),
+      day,
+      input.provider.trim(),
+      input.modelId.trim(),
+      1,
+      totalTokens,
+      this.toSqlInteger(cuBigInt)
+    );
+
     try {
-      await this.db.batch([ledgerStmt, rollupStmt]);
+      await this.db.batch([ledgerStmt, spendRollupStmt, cuRollupStmt]);
     } catch (err: unknown) {
       throw new CostLedgerError(
         `Failed to record cost ledger event with rollup: ${
@@ -301,6 +386,10 @@ export class CostLedgerRepository {
       latencyMs,
       statusCode: input.statusCode,
       createdAt,
+      cu: cuBigInt,
+      usageEstimated,
+      borrowed,
+      lenderTenantId,
     };
   }
 
@@ -454,7 +543,7 @@ export class CostLedgerRepository {
   }
 
   /**
-   * Upserts or increments metrics in daily_spend_rollup.
+   * Upserts or increments metrics in daily_spend_rollup AND daily_cu_rollup.
    *
    * @param input DailySpendRollupInput containing deltas to increment.
    */
@@ -471,8 +560,11 @@ export class CostLedgerRepository {
     const costBigInt = validateMicrodollars(input.costMicrodollarsDelta, "costMicrodollarsDelta");
     const requestsDelta = Math.max(0, Math.trunc(input.requestsDelta ?? 1));
     const tokensDelta = Math.max(0, Math.trunc(input.tokensDelta ?? 0));
+    const cuDelta = input.cuDelta !== undefined
+      ? validateMicrodollars(input.cuDelta, "cuDelta")
+      : BigInt(Math.max(0, Math.floor((tokensDelta + 999) / 1000)));
 
-    const query = `
+    const spendQuery = `
       INSERT INTO daily_spend_rollup (
         tenant_id, day, provider, model_id,
         total_requests, total_tokens, total_cost_microdollars
@@ -484,9 +576,21 @@ export class CostLedgerRepository {
         total_cost_microdollars = total_cost_microdollars + excluded.total_cost_microdollars
     `;
 
+    const cuQuery = `
+      INSERT INTO daily_cu_rollup (
+        tenant_id, day, provider, model_id,
+        total_requests, total_tokens, total_cu
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (tenant_id, day, provider, model_id)
+      DO UPDATE SET
+        total_requests = total_requests + excluded.total_requests,
+        total_tokens = total_tokens + excluded.total_tokens,
+        total_cu = total_cu + excluded.total_cu
+    `;
+
     try {
-      await this.db
-        .prepare(query)
+      const spendStmt = this.db
+        .prepare(spendQuery)
         .bind(
           input.tenantId.trim(),
           day,
@@ -495,8 +599,21 @@ export class CostLedgerRepository {
           requestsDelta,
           tokensDelta,
           this.toSqlInteger(costBigInt)
-        )
-        .run();
+        );
+
+      const cuStmt = this.db
+        .prepare(cuQuery)
+        .bind(
+          input.tenantId.trim(),
+          day,
+          input.provider.trim(),
+          input.modelId.trim(),
+          requestsDelta,
+          tokensDelta,
+          this.toSqlInteger(cuDelta)
+        );
+
+      await this.db.batch([spendStmt, cuStmt]);
     } catch (err: unknown) {
       throw new CostLedgerError(
         `Failed to upsert daily spend rollup: ${
@@ -508,7 +625,7 @@ export class CostLedgerRepository {
   }
 
   /**
-   * Retrieves aggregated daily spend rollups for a tenant with optional date and model filtering.
+   * Retrieves aggregated daily spend and CU rollups for a tenant with optional date and model filtering.
    *
    * @param tenantId Tenant ID boundary
    * @param options Filtering options (startDate, endDate, provider, modelId, limit, offset, order)
@@ -519,31 +636,45 @@ export class CostLedgerRepository {
   ): Promise<DailySpendRollup[]> {
     this.validateTenantId(tenantId);
 
-    let sql = "SELECT * FROM daily_spend_rollup WHERE tenant_id = ?";
+    let sql = `
+      SELECT
+        s.tenant_id,
+        s.day,
+        s.provider,
+        s.model_id,
+        s.total_requests,
+        s.total_tokens,
+        s.total_cost_microdollars,
+        COALESCE(c.total_cu, 0) as total_cu
+      FROM daily_spend_rollup s
+      LEFT JOIN daily_cu_rollup c
+        ON s.tenant_id = c.tenant_id AND s.day = c.day AND s.provider = c.provider AND s.model_id = c.model_id
+      WHERE s.tenant_id = ?
+    `;
     const bindings: unknown[] = [tenantId.trim()];
 
     if (options.startDate) {
-      sql += " AND day >= ?";
+      sql += " AND s.day >= ?";
       bindings.push(formatCalendarDay(options.startDate));
     }
 
     if (options.endDate) {
-      sql += " AND day <= ?";
+      sql += " AND s.day <= ?";
       bindings.push(formatCalendarDay(options.endDate));
     }
 
     if (options.provider) {
-      sql += " AND provider = ?";
+      sql += " AND s.provider = ?";
       bindings.push(options.provider.trim());
     }
 
     if (options.modelId) {
-      sql += " AND model_id = ?";
+      sql += " AND s.model_id = ?";
       bindings.push(options.modelId.trim());
     }
 
     const order = options.order?.toUpperCase() === "ASC" ? "ASC" : "DESC";
-    sql += ` ORDER BY day ${order}`;
+    sql += ` ORDER BY s.day ${order}`;
 
     if (options.limit && options.limit > 0) {
       sql += " LIMIT ?";
@@ -583,11 +714,14 @@ export class CostLedgerRepository {
 
     let sql = `
       SELECT
-        COALESCE(SUM(total_cost_microdollars), 0) as total_cost,
-        COALESCE(SUM(total_requests), 0) as total_requests,
-        COALESCE(SUM(total_tokens), 0) as total_tokens
-      FROM daily_spend_rollup
-      WHERE tenant_id = ?
+        COALESCE(SUM(s.total_cost_microdollars), 0) as total_cost,
+        COALESCE(SUM(s.total_requests), 0) as total_requests,
+        COALESCE(SUM(s.total_tokens), 0) as total_tokens,
+        COALESCE(SUM(c.total_cu), 0) as total_cu
+      FROM daily_spend_rollup s
+      LEFT JOIN daily_cu_rollup c
+        ON s.tenant_id = c.tenant_id AND s.day = c.day AND s.provider = c.provider AND s.model_id = c.model_id
+      WHERE s.tenant_id = ?
     `;
     const bindings: unknown[] = [tenantId.trim()];
 
@@ -596,13 +730,13 @@ export class CostLedgerRepository {
 
     if (options.startDate) {
       periodStart = formatCalendarDay(options.startDate);
-      sql += " AND day >= ?";
+      sql += " AND s.day >= ?";
       bindings.push(periodStart);
     }
 
     if (options.endDate) {
       periodEnd = formatCalendarDay(options.endDate);
-      sql += " AND day <= ?";
+      sql += " AND s.day <= ?";
       bindings.push(periodEnd);
     }
 
@@ -617,6 +751,7 @@ export class CostLedgerRepository {
         totalCostMicrodollars: BigInt(totalCostRaw),
         totalRequests: Number(totalRequestsRaw),
         totalTokens: Number(totalTokensRaw),
+        totalCu: BigInt(row?.total_cu ?? 0),
         ...(periodStart ? { periodStart } : {}),
         ...(periodEnd ? { periodEnd } : {}),
       };
@@ -642,8 +777,9 @@ export class CostLedgerRepository {
   }
 
   /**
-   * Reconciles and synchronizes daily_spend_rollup rows directly from the immutable cost_ledger table.
+   * Reconciles and synchronizes daily_spend_rollup AND daily_cu_rollup rows directly from the immutable cost_ledger table.
    * Ensures ledger auditability: if rollup records were desynchronized or missing, this rebuilds them.
+   * If a ledger row has cu IS NULL, the token-derived CU fallback is calculated.
    *
    * @param tenantId Tenant ID boundary
    * @param day Calendar date to reconcile (YYYY-MM-DD)
@@ -663,7 +799,8 @@ export class CostLedgerRepository {
         model_id,
         COUNT(*) as total_requests,
         SUM(prompt_tokens + completion_tokens + reasoning_tokens) as total_tokens,
-        SUM(cost_microdollars) as total_cost_microdollars
+        SUM(cost_microdollars) as total_cost_microdollars,
+        SUM(COALESCE(cu, 10 + ((prompt_tokens + 999) / 1000) + (((completion_tokens + reasoning_tokens) * 4 + 999) / 1000))) as total_cu
       FROM cost_ledger
       WHERE tenant_id = ? AND substr(created_at, 1, 10) = ?
       GROUP BY provider, model_id
@@ -678,32 +815,46 @@ export class CostLedgerRepository {
       const rows = aggResult.results ?? [];
 
       // Delete existing rollup rows for this tenant and day to overwrite cleanly
-      const deleteQuery = `
+      const deleteSpendQuery = `
         DELETE FROM daily_spend_rollup
         WHERE tenant_id = ? AND day = ?
       `;
 
+      const deleteCuQuery = `
+        DELETE FROM daily_cu_rollup
+        WHERE tenant_id = ? AND day = ?
+      `;
+
       const statements: D1PreparedStatement[] = [
-        this.db.prepare(deleteQuery).bind(tenantId.trim(), dayStr),
+        this.db.prepare(deleteSpendQuery).bind(tenantId.trim(), dayStr),
+        this.db.prepare(deleteCuQuery).bind(tenantId.trim(), dayStr),
       ];
 
       const reconciledRollups: DailySpendRollup[] = [];
 
-      const insertQuery = `
+      const insertSpendQuery = `
         INSERT INTO daily_spend_rollup (
           tenant_id, day, provider, model_id,
           total_requests, total_tokens, total_cost_microdollars
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
 
+      const insertCuQuery = `
+        INSERT INTO daily_cu_rollup (
+          tenant_id, day, provider, model_id,
+          total_requests, total_tokens, total_cu
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+
       for (const r of rows) {
         const costBigInt = BigInt(r.total_cost_microdollars ?? 0);
+        const cuBigInt = BigInt(r.total_cu ?? 0);
         const requests = Number(r.total_requests ?? 0);
         const tokens = Number(r.total_tokens ?? 0);
 
         statements.push(
           this.db
-            .prepare(insertQuery)
+            .prepare(insertSpendQuery)
             .bind(
               tenantId.trim(),
               dayStr,
@@ -712,6 +863,17 @@ export class CostLedgerRepository {
               requests,
               tokens,
               this.toSqlInteger(costBigInt)
+            ),
+          this.db
+            .prepare(insertCuQuery)
+            .bind(
+              tenantId.trim(),
+              dayStr,
+              r.provider,
+              r.model_id,
+              requests,
+              tokens,
+              this.toSqlInteger(cuBigInt)
             )
         );
 
@@ -723,6 +885,7 @@ export class CostLedgerRepository {
           totalRequests: requests,
           totalTokens: tokens,
           totalCostMicrodollars: costBigInt,
+          totalCu: cuBigInt,
         });
       }
 
@@ -839,7 +1002,7 @@ export class CostLedgerRepository {
   private toSqlInteger(value: bigint): number {
     if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {
       throw new InvalidCostLedgerEventError(
-        `Cost microdollar amount exceeds JavaScript safe integer bounds: ${value.toString()}`
+        `Cost microdollar or CU amount exceeds JavaScript safe integer bounds: ${value.toString()}`
       );
     }
     return Number(value);
@@ -847,8 +1010,21 @@ export class CostLedgerRepository {
 
   /**
    * Maps a database row from cost_ledger to a strongly typed CostLedgerEvent.
+   * If cu is NULL, fallback formula is computed.
    */
   private mapRowToEvent(row: CostLedgerDbRow): CostLedgerEvent {
+    const promptTokens = Number(row.prompt_tokens);
+    const completionTokens = Number(row.completion_tokens);
+    const cachedTokens = Number(row.cached_tokens);
+    const reasoningTokens = Number(row.reasoning_tokens);
+
+    let cu: bigint;
+    if (row.cu !== null && row.cu !== undefined) {
+      cu = BigInt(row.cu);
+    } else {
+      cu = computeFallbackCu(promptTokens, completionTokens, reasoningTokens);
+    }
+
     return {
       id: row.id,
       requestId: row.request_id,
@@ -856,14 +1032,18 @@ export class CostLedgerRepository {
       keyId: row.key_id,
       provider: row.provider as ModelProvider,
       modelId: row.model_id,
-      promptTokens: Number(row.prompt_tokens),
-      completionTokens: Number(row.completion_tokens),
-      cachedTokens: Number(row.cached_tokens),
-      reasoningTokens: Number(row.reasoning_tokens),
+      promptTokens,
+      completionTokens,
+      cachedTokens,
+      reasoningTokens,
       costMicrodollars: BigInt(row.cost_microdollars),
       latencyMs: Number(row.latency_ms),
       statusCode: Number(row.status_code),
       createdAt: row.created_at,
+      cu,
+      usageEstimated: row.usage_estimated !== null && row.usage_estimated !== undefined ? Number(row.usage_estimated) : 0,
+      borrowed: row.borrowed !== null && row.borrowed !== undefined ? Number(row.borrowed) : 0,
+      lenderTenantId: row.lender_tenant_id ?? null,
     };
   }
 
@@ -879,6 +1059,7 @@ export class CostLedgerRepository {
       totalRequests: Number(row.total_requests),
       totalTokens: Number(row.total_tokens),
       totalCostMicrodollars: BigInt(row.total_cost_microdollars),
+      totalCu: BigInt(row.total_cu ?? 0),
     };
   }
 }

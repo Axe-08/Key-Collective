@@ -1049,8 +1049,9 @@ Worker ──RPC call──► PoolCoordinatorDO
 |:---|:---|:---:|:---|:---|
 | `POST` | `/v1/chat/completions` | Bearer (User/Project) | OpenAI-compatible chat completions proxy | Supports streaming SSE; context token estimation; emergency brake pre-check; self-key priority cascade; upstream error normalization; injects `x-kc-request-id`, `x-kc-model-used`, `x-kc-provider` |
 | `GET` | `/v1/models` | Bearer | List available models in registry | Returns models filtered by tenant tier and capability registry |
-| `POST` | `/v1beta/models/:model:generateContent` | Bearer / Key Query | Google Gemini native SDK completions | Direct streaming/non-streaming passthrough with header sanitization |
-| `POST` | `/v1beta/models/:model:streamGenerateContent` | Bearer / Key Query | Google Gemini native SSE streaming | Passthrough with upstream header stripping |
+
+> **Note (Decision D-15):** Google-native Gemini endpoints (`/v1beta/models/:model:generateContent` and `/v1beta/models/:model:streamGenerateContent`) have been dropped from scope to maintain a unified, OpenAI-compatible proxy interface (`/v1/*`). If native Gemini endpoints are reintroduced in future releases, they will be mounted under `/v1/gemini/...` on the canonical API host (`api.key-col.axe08.tech`) in accordance with D-01.
+
 
 ### 10.2 Contributed Key Management (`/api/keys`)
 

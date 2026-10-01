@@ -1,3 +1,9 @@
+<script module lang="ts">
+  export const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? 'http://api.localhost:8787/v1' : 'https://api.key-col.axe08.tech/v1');
+</script>
+
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
@@ -8,7 +14,7 @@
   } from './playground';
 
   let {
-    proxyEndpoint = 'https://key-col.axe08.tech/v1/chat/completions',
+    proxyEndpoint = `${API_BASE_URL}/chat/completions`,
     onRefreshMetrics,
   }: {
     proxyEndpoint?: string;
@@ -26,7 +32,7 @@
 
   async function fetchDemoToken() {
     try {
-      const res = await fetch('/v1/demo/token', { method: 'POST' });
+      const res = await fetch(`${baseUrl}/demo/token`, { method: 'POST' });
       if (res.ok) {
         const data = (await res.json()) as { token?: string; expiresInSeconds?: number };
         if (data?.token) {
@@ -81,7 +87,7 @@
         }
       }, 1000);
 
-      fetch('/v1/models')
+      fetch(`${baseUrl}/models`)
         .then((r) => r.json())
         .then((data) => {
           if (data && Array.isArray(data.data) && data.data.length > 0) {
