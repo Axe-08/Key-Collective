@@ -141,7 +141,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.8
 - [x] T-5.8.1 Provider reset config in src/providers/config.ts (dailyResetTz, nextProviderReset) — used plan defaults (`America/Los_Angeles` for Google, `UTC` for Groq) since `docs/specs/provider_quotas.md` is not present
-- [ ] T-5.8.2 Jittered reactivate_at on RPD cooldown
+- [x] T-5.8.2 Jittered reactivate_at on RPD cooldown
 - [ ] T-5.8.3 Leaky-bucket retry near provider reset window in orchestrator
 
 ### WP-5.9
