@@ -387,7 +387,9 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
   }
 
-  private promoteAndResetBuckets(now: number): { currentMinute: number; currentDay: string } {
+  private async promoteAndResetBuckets(
+    now: number
+  ): Promise<{ currentMinute: number; currentDay: string }> {
     const sql = this.ensureSchema();
     const currentMinute = Math.floor(now / 60_000);
     const currentDay = new Date(now).toISOString().slice(0, 10);
@@ -411,6 +413,52 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       currentMinute,
       currentMinute
     );
+
+    // Flush per-key/per-model daily stats to D1 before zeroing counters for keys rolling to a new day
+    const db = this.env?.DB;
+    if (db && typeof db.prepare === "function") {
+      const flushRows = sql
+        .exec(
+          `SELECT kms.key_id,
+                  k.day_bucket AS day,
+                  kms.model,
+                  kms.dispatched_today,
+                  kms.dispatched_communal,
+                  kms.cu_served,
+                  COALESCE(kms.classification, k.classification) AS classification
+             FROM key_model_stats kms
+             JOIN keys k ON k.key_id = kms.key_id
+            WHERE k.day_bucket != ''
+              AND k.day_bucket != ?
+              AND kms.dispatched_today > 0`,
+          currentDay
+        )
+        .toArray();
+
+      for (const r of flushRows) {
+        const keyId = String(r.key_id ?? "");
+        const day = String(r.day ?? "");
+        const model = String(r.model ?? "default");
+        const dispatched = Number(r.dispatched_today ?? 0);
+        const communal = Number(r.dispatched_communal ?? 0);
+        const cuServed = parseInt(String(r.cu_served ?? 0), 10) || 0;
+        const classification = typeof r.classification === "string" ? r.classification : null;
+
+        await db
+          .prepare(
+            `INSERT INTO key_daily_stats (key_id, day, model, dispatched, communal, cu_served, classification)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(key_id, day, model) DO UPDATE SET
+               dispatched = excluded.dispatched,
+               communal = excluded.communal,
+               cu_served = excluded.cu_served,
+               classification = excluded.classification`
+          )
+          .bind(keyId, day, model, dispatched, communal, cuServed, classification)
+          .run()
+          .catch(() => {});
+      }
+    }
 
     // Roll day buckets and reset per-model daily counters for keys rolling to a new day
     sql.exec(
@@ -701,7 +749,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   public async lease(req: CoordinatorLeaseRequest): Promise<CoordinatorLease | null> {
     const sql = this.ensureSchema();
     const now = this.clock.now();
-    this.promoteAndResetBuckets(now);
+    await this.promoteAndResetBuckets(now);
 
     const override = await this.getProviderOverride();
     if (override && override.state === "TRIPPED") {
@@ -1500,7 +1548,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const now = this.clock.now();
 
     await this.promoteObservationKeys(false, now);
-    this.promoteAndResetBuckets(now);
+    await this.promoteAndResetBuckets(now);
 
     // Prune expired brakes and old borrower_window / settled_leases
     sql.exec("DELETE FROM brakes WHERE until <= ?", now);

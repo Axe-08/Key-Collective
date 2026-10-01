@@ -348,4 +348,90 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
       expect(proState?.effectiveRpd).toBe(1);
     });
   });
+
+  it("flushes per-key daily stats to D1 key_daily_stats and resets coordinator counters on midnight alarm (T-5.5.4)", async () => {
+    const owner = await createUser({ github: true, eligible: true });
+    const keyRow = await addProviderKey(owner, {
+      provider: "google",
+      pool: "COMMUNITY",
+      plaintext: "AIzaSyMidnightFlushTestKey00000000003",
+      rpmLimit: 500,
+      rpdLimit: 100,
+    });
+
+    const stub = getCoordinatorStub("test-coord-midnight-flush");
+    await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
+      // Day 1: 2030-04-10 23:50:00 UTC
+      const day1 = Date.UTC(2030, 3, 10, 23, 50, 0);
+      coord.setClockForTest(day1);
+
+      await coord.upsertKey({
+        keyId: keyRow.id,
+        owner: owner.id,
+        provider: "google",
+        status: "ACTIVE",
+        rpmLimit: 500,
+        rpdLimit: 100,
+      });
+
+      // 2 borrowed dispatches + 1 own dispatch on gemini-2.0-flash
+      for (let i = 0; i < 2; i++) {
+        const l = await coord.lease({
+          tenant: `borrower_flush_${i}`,
+          ownOnly: false,
+          model: "gemini-2.0-flash",
+        });
+        await coord.settle(l!.leaseId, "ok", 25, undefined, "gemini-2.0-flash");
+      }
+      const ownLease = await coord.lease({
+        tenant: owner.id,
+        ownOnly: true,
+        model: "gemini-2.0-flash",
+      });
+      await coord.settle(ownLease!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+
+      const beforeStats = await coord.stats();
+      expect(beforeStats.dispatchedToday).toBe(3);
+      expect(beforeStats.dispatchedCommunal).toBe(2);
+
+      // Advance clock past midnight UTC -> 2030-04-11 00:00:05 UTC and run alarm
+      const midnight = Date.UTC(2030, 3, 11, 0, 0, 5);
+      coord.setClockForTest(midnight);
+      await coord.alarm();
+
+      // Coordinator daily counters are reset to 0
+      const afterStats = await coord.stats();
+      expect(afterStats.dispatchedToday).toBe(0);
+      expect(afterStats.dispatchedCommunal).toBe(0);
+
+      const afterKeyState = await coord.getKeyState(keyRow.id, "gemini-2.0-flash");
+      expect(afterKeyState?.dispatchedToday).toBe(0);
+      expect(afterKeyState?.dispatchedCommunal).toBe(0);
+      expect(afterKeyState?.modelStats?.dispatchedToday).toBe(0);
+      expect(afterKeyState?.modelStats?.dispatchedCommunal).toBe(0);
+      expect(afterKeyState?.modelStats?.cuServed).toBe(0);
+    });
+
+    // Verify D1 key_daily_stats has the flushed row for 2030-04-10
+    const dailyRow = await env.DB.prepare(
+      `SELECT key_id, day, model, dispatched, communal, cu_served, classification
+         FROM key_daily_stats
+        WHERE key_id = ? AND day = '2030-04-10' AND model = 'gemini-2.0-flash'`
+    )
+      .bind(keyRow.id)
+      .first<{
+        key_id: string;
+        day: string;
+        model: string;
+        dispatched: number;
+        communal: number;
+        cu_served: number;
+        classification: string | null;
+      }>();
+
+    expect(dailyRow).not.toBeNull();
+    expect(dailyRow?.dispatched).toBe(3);
+    expect(dailyRow?.communal).toBe(2);
+    expect(dailyRow?.cu_served).toBe(60);
+  });
 });
