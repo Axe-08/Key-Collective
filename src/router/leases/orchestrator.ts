@@ -26,7 +26,7 @@ import {
   type CoordinatorLeaseRequest,
   type CoordinatorSettleResult,
 } from "../../pool/coordinator_do";
-import { ProviderUnavailableError } from "../../errors/routing_errors";
+import { EyeForEyeError, ProviderUnavailableError } from "../../errors/routing_errors";
 import type { WorkerEnv } from "../../worker/auth/types";
 
 export type LeaseSource = "private" | "own_community" | "borrowed";
@@ -87,6 +87,7 @@ interface CoordinatorRpcStub {
     model?: string
   ): Promise<CoordinatorSettleResult>;
   getProviderOverride?(): Promise<{ state: "TRIPPED" | "NORMAL"; until?: number | null } | null>;
+  getLastRefusalReason?(tenant: string): Promise<string | null>;
 }
 
 interface TenantQuotaRpcStub {
@@ -253,6 +254,13 @@ export class LeaseOrchestrator implements LeaseProvider {
         ownerTenantId: borrowedLease.ownerTenantId,
         provider: borrowedLease.provider,
       };
+    }
+
+    if (typeof coordStub.getLastRefusalReason === "function") {
+      const refusalReason = await coordStub.getLastRefusalReason(ctx.tenantId).catch(() => null);
+      if (refusalReason === "eye_for_eye") {
+        throw new EyeForEyeError(canonProvider);
+      }
     }
 
     return null;

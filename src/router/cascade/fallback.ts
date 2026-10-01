@@ -24,6 +24,8 @@ import type { ModelDef } from "../../types/models";
 import {
   DomainError,
   DemoUnavailableError,
+  EyeForEyeError,
+  isEyeForEyeError,
   ProviderUnavailableError,
   FallbackExhaustedError,
   ProviderRoutingError,
@@ -174,15 +176,21 @@ export async function executeCascadeRouting(
           (typeof leaseErr === "object" &&
             leaseErr !== null &&
             (leaseErr as Record<string, unknown>).name === "ProviderUnavailableError");
+        const isEyeForEye = isEyeForEyeError(leaseErr);
         const errMsg = isProvUnavailable
           ? "provider_unavailable"
+          : isEyeForEye
+          ? "eye_for_eye"
           : leaseErr instanceof Error
           ? leaseErr.message
           : String(leaseErr);
         const attempt: FallbackAttempt = {
           provider: candidate.provider,
           modelId: candidate.id,
-          error: isProvUnavailable ? "provider_unavailable" : `Lease acquisition failed: ${errMsg}`,
+          error:
+            isProvUnavailable || isEyeForEye
+              ? errMsg
+              : `Lease acquisition failed: ${errMsg}`,
         };
         attempts.push(attempt);
         context.options.onFallback?.(attempt, nextCandidate);
@@ -337,6 +345,20 @@ export async function executeCascadeRouting(
   // 9. All candidate routes exhausted
   if (reqOptions.tenantId === "sys_demo") {
     throw new DemoUnavailableError();
+  }
+  const eyeAttempt = attempts.find(
+    (a) => a.error === "eye_for_eye" || a.error.includes("eye_for_eye")
+  );
+  if (
+    eyeAttempt &&
+    attempts.every(
+      (a) =>
+        a.error === "eye_for_eye" ||
+        a.error.includes("eye_for_eye") ||
+        a.error.startsWith("No lease available")
+    )
+  ) {
+    throw new EyeForEyeError(eyeAttempt.provider);
   }
   const provUnavailableAttempt = attempts.find(
     (a) =>

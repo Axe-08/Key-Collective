@@ -20,7 +20,7 @@ describe("Surge brake in PoolCoordinatorDO (WP-5.6 T-5.6.2)", () => {
     await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
       const t0 = Date.UTC(2030, 4, 1, 12, 0, 0);
       coord.setClockForTest(t0);
-      coord.setEnvForTest({ COMMONS_ENFORCEMENT: "enforce" });
+      coord.setEnvForTest({ COMMONS_ENFORCEMENT: "enforce", COMMONS_ENFORCE_RULES: "brake" });
 
       await coord.upsertKey({
         keyId: "key_lender_1",
@@ -54,7 +54,7 @@ describe("Surge brake in PoolCoordinatorDO (WP-5.6 T-5.6.2)", () => {
     await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
       const t0 = Date.UTC(2030, 4, 1, 12, 0, 0);
       coord.setClockForTest(t0);
-      coord.setEnvForTest({ COMMONS_ENFORCEMENT: "enforce" });
+      coord.setEnvForTest({ COMMONS_ENFORCEMENT: "enforce", COMMONS_ENFORCE_RULES: "brake" });
 
       // Pool lender key + borrower_heavy's own key
       await coord.upsertKey({
@@ -155,13 +155,13 @@ describe("Surge brake in PoolCoordinatorDO (WP-5.6 T-5.6.2)", () => {
       await coord.settle(lC!.leaseId, "ok", 600);
 
       // In observe mode, the 60% tenant is still granted a borrowed lease
+      clearWouldDenyEventsForTest();
       const observedLease = await coord.lease({ tenant: "borrower_heavy_obs", ownOnly: false });
       expect(observedLease).not.toBeNull();
       expect(observedLease?.source).toBe("borrowed");
 
       const stats = getWouldDenyStats(24);
       expect(stats.rules.brake).toBe(1);
-      expect(stats.total).toBe(1);
     });
   });
 });

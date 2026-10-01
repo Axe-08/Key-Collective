@@ -17,6 +17,7 @@ import {
   BRAKE_MAX_TENANT_SHARE_PCT,
   BRAKE_MIN_ACTIVE_BORROWERS,
   BRAKE_MIN_POOL_CU,
+  computeOwnerShareCapPct,
 } from "../constants/commons";
 import { commonsEnforcement, recordWouldDeny } from "./enforcement";
 import { Clock, systemClock } from "../utils/clock";
@@ -262,6 +263,12 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         minute INTEGER,
         cu INTEGER,
         PRIMARY KEY (tenant, minute)
+      );
+      CREATE TABLE IF NOT EXISTS owner_service_window (
+        owner TEXT NOT NULL,
+        hour INTEGER NOT NULL,
+        cu INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (owner, hour)
       );
       CREATE TABLE IF NOT EXISTS brakes (
         tenant TEXT PRIMARY KEY,
@@ -763,6 +770,35 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
+   * Checks whether `tenant` owns at least one ACTIVE community key in this provider shard (WP-5.7 T-5.7.1).
+   */
+  public async isEyeForEyeAccessible(tenant: string, provider?: string): Promise<boolean> {
+    const sql = this.ensureSchema();
+    const providerFilter = provider ? canonicalCoordinatorProvider(provider) : null;
+    const rows = sql
+      .exec(
+        `SELECT 1 FROM keys
+          WHERE owner = ?
+            AND status = 'ACTIVE'
+            AND (? IS NULL OR provider = ?)
+          LIMIT 1`,
+        tenant,
+        providerFilter,
+        providerFilter
+      )
+      .toArray();
+    return rows.length > 0;
+  }
+
+  /**
+   * Returns the last refusal reason recorded for `tenant` during a borrowed lease attempt.
+   */
+  public async getLastRefusalReason(tenant: string): Promise<string | null> {
+    const val = this.getMeta(`refusal:${tenant}`);
+    return val && val.length > 0 ? val : null;
+  }
+
+  /**
    * Acquires a key lease from the coordinator.
    * - `ownOnly: true`: selects from the caller's own COMMUNITY keys (`ACTIVE` or `OBSERVATION`), no debt.
    * - `ownOnly: false`: selects from other contributors' `ACTIVE` COMMUNITY keys, scored by
@@ -819,7 +855,29 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         )
         .toArray();
     } else {
+      this.setMeta(`refusal:${req.tenant}`, "");
       const effectiveEnv = this.getEffectiveEnv();
+
+      // Eye-for-eye check (WP-5.7 T-5.7.1): borrower must own at least one ACTIVE community key in this provider shard
+      const eyeAccessible = await this.isEyeForEyeAccessible(
+        req.tenant,
+        providerFilter ?? undefined
+      );
+      if (!eyeAccessible) {
+        const eyeMode = commonsEnforcement("eye_for_eye", effectiveEnv);
+        if (eyeMode === "enforce") {
+          this.setMeta(`refusal:${req.tenant}`, "eye_for_eye");
+          return null;
+        } else {
+          await recordWouldDeny(
+            "eye_for_eye",
+            req.tenant,
+            `provider=${providerFilter ?? this.getMeta("provider") ?? "unknown"}`,
+            effectiveEnv
+          );
+        }
+      }
+
       const brakeMode = commonsEnforcement("brake", effectiveEnv);
 
       // Check existing active brake lock for this borrower
@@ -827,6 +885,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         .exec("SELECT until FROM brakes WHERE tenant = ? AND until > ?", req.tenant, now)
         .toArray();
       if (activeBrakeRows.length > 0 && brakeMode === "enforce") {
+        this.setMeta(`refusal:${req.tenant}`, "brake");
         return null;
       }
 
@@ -873,6 +932,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
             req.tenant,
             now + brakeDurationMs
           );
+          this.setMeta(`refusal:${req.tenant}`, "brake");
           return null;
         } else {
           await recordWouldDeny(
@@ -917,7 +977,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       return 0;
     };
 
-    const candidates: CandidateRow[] = rawRows.map((r) => ({
+    let candidates: CandidateRow[] = rawRows.map((r) => ({
       key_id: String(r.key_id),
       owner: String(r.owner),
       provider: String(r.provider),
@@ -930,6 +990,67 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       priority_boost: toSafeInt(r.priority_boost ?? 0),
       debt_cu: toSafeInt(r.debt_cu ?? 0),
     }));
+
+    const cappedOwners = new Set<string>();
+    let shareCapPct = 100;
+    let shareCapMode: "observe" | "enforce" = "observe";
+
+    if (!req.ownOnly) {
+      const effectiveEnv = this.getEffectiveEnv();
+      shareCapMode = commonsEnforcement("share_cap", effectiveEnv);
+
+      const ownerCountRows = sql
+        .exec(
+          `SELECT COUNT(DISTINCT owner) AS cnt
+             FROM keys
+            WHERE status = 'ACTIVE'
+              AND (? IS NULL OR provider = ?)`,
+          providerFilter,
+          providerFilter
+        )
+        .toArray();
+      const activeOwnersCount = toSafeInt(ownerCountRows[0]?.cnt ?? 0);
+      shareCapPct = computeOwnerShareCapPct(activeOwnersCount);
+
+      if (activeOwnersCount >= 2) {
+        const cutoffHour = Math.floor((now - 24 * 3_600_000) / 3_600_000);
+        const serviceRows = sql
+          .exec(
+            `SELECT owner, COALESCE(SUM(cu), 0) AS total_units
+               FROM owner_service_window
+              WHERE hour >= ?
+              GROUP BY owner`,
+            cutoffHour
+          )
+          .toArray();
+
+        let totalPoolServedUnits = 0;
+        const ownerServedMap = new Map<string, number>();
+        for (const sr of serviceRows) {
+          const units = toSafeInt(sr.total_units);
+          if (units > 0) {
+            totalPoolServedUnits += units;
+            ownerServedMap.set(String(sr.owner), units);
+          }
+        }
+
+        if (totalPoolServedUnits > 0) {
+          for (const [ownerId, ownerUnits] of ownerServedMap.entries()) {
+            if (ownerUnits * 100 >= shareCapPct * totalPoolServedUnits) {
+              cappedOwners.add(ownerId);
+            }
+          }
+        }
+      }
+
+      if (shareCapMode === "enforce" && cappedOwners.size > 0) {
+        candidates = candidates.filter((c) => !cappedOwners.has(c.owner));
+        if (candidates.length === 0) {
+          this.setMeta(`refusal:${req.tenant}`, "share_cap");
+          return null;
+        }
+      }
+    }
 
     const scoreOf = (c: CandidateRow): number => {
       const positiveDebt = BigInt(Math.max(0, c.debt_cu));
@@ -956,6 +1077,15 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const lastCursor = this.getMeta("rr_cursor") ?? "";
     let chosen = topCandidates.find((c) => c.key_id > lastCursor) ?? topCandidates[0];
     this.setMeta("rr_cursor", chosen.key_id);
+
+    if (!req.ownOnly && shareCapMode === "observe" && cappedOwners.has(chosen.owner)) {
+      await recordWouldDeny(
+        "share_cap",
+        chosen.owner,
+        `cap=${shareCapPct}%`,
+        this.getEffectiveEnv()
+      );
+    }
 
     const borrowedInt = req.ownOnly ? 0 : 1;
     const estCu = req.estimateCu !== undefined ? toSafeInt(req.estimateCu) : 0;
@@ -997,7 +1127,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
    * Settles a lease idempotently (`settled_leases` table).
    * Updates key status on `key_invalid`, `rpd_exhausted`, `rpm_limited`, or `COOLDOWN`,
    * increments per-key and per-model dispatch counters, classifies on `rpd_exhausted`,
-   * and records borrowed CU in `borrower_window`.
+   * and records borrowed CU in `borrower_window` and `owner_service_window`.
    */
   public async settle(
     leaseId: string,
@@ -1057,6 +1187,18 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
          ON CONFLICT(tenant, minute) DO UPDATE SET cu = borrower_window.cu + excluded.cu`,
         tenant,
         minute,
+        numericUnits
+      );
+    }
+
+    if (borrowed && ownerTenantId && numericUnits > 0) {
+      const hour = Math.floor(now / 3_600_000);
+      sql.exec(
+        `INSERT INTO owner_service_window (owner, hour, cu)
+         VALUES (?, ?, ?)
+         ON CONFLICT(owner, hour) DO UPDATE SET cu = owner_service_window.cu + excluded.cu`,
+        ownerTenantId,
+        hour,
         numericUnits
       );
     }
@@ -1638,10 +1780,12 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     await this.promoteObservationKeys(false, now);
     await this.promoteAndResetBuckets(now);
 
-    // Prune expired brakes and old borrower_window / settled_leases
+    // Prune expired brakes and old borrower_window / owner_service_window / settled_leases
     sql.exec("DELETE FROM brakes WHERE until <= ?", now);
     const cutoffMinute = Math.floor((now - BORROWER_WINDOW_MINUTES * 60_000) / 60_000);
     sql.exec("DELETE FROM borrower_window WHERE minute < ?", cutoffMinute);
+    const cutoffHour = Math.floor((now - 24 * 3_600_000) / 3_600_000);
+    sql.exec("DELETE FROM owner_service_window WHERE hour < ?", cutoffHour);
     sql.exec("DELETE FROM settled_leases WHERE settled_at <= ?", now - SETTLED_LEASE_TTL_MS);
 
     // Reconcile against D1 every 5 minutes when a D1 binding and provider are present
