@@ -100,3 +100,38 @@ export const PoolStatsSchema = z.object({
   cu_allowance_today: z.number(),
 });
 export type PoolStats = z.infer<typeof PoolStatsSchema>;
+
+// --- Projects and project-scoped API keys (WP-3.7 / WP-3.9) ---
+
+export const ProjectRecordSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    tenant_id: z.string().optional(),
+    description: z.string().nullable().optional(),
+    rpm_sub_cap: z.number().nullable().optional(),
+    is_archived: z.union([z.boolean(), z.number()]).optional(),
+    created_at: z.number().optional(),
+    updated_at: z.number().optional(),
+  })
+  .passthrough();
+export type ProjectRecord = z.infer<typeof ProjectRecordSchema>;
+export const ProjectsListResponseSchema = z.array(ProjectRecordSchema);
+
+export const TokenSummarySchema = z
+  .object({
+    id: z.string(),
+    tenant_id: z.string().optional(),
+    project_id: z.string().nullable().optional(),
+    rpm_limit: z.number().optional(),
+    created_at: z.string().optional(),
+    expires_at: z.string().nullable().optional(),
+    hash_masked: z.string().optional(),
+  })
+  .passthrough();
+export type TokenSummary = z.infer<typeof TokenSummarySchema>;
+export const TokensListResponseSchema = z.array(TokenSummarySchema);
+
+/** POST /api/tokens and POST /api/tokens/:id/rotate: the secret is shown once. */
+export const IssuedTokenSchema = TokenSummarySchema.extend({ token: z.string() });
+export type IssuedToken = z.infer<typeof IssuedTokenSchema>;

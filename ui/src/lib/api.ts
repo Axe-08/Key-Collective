@@ -7,6 +7,13 @@ import {
   KeyResponseSchema,
   KeyTestResponseSchema,
   PoolStatsSchema,
+  ProjectRecordSchema,
+  ProjectsListResponseSchema,
+  TokensListResponseSchema,
+  IssuedTokenSchema,
+  type ProjectRecord,
+  type TokenSummary,
+  type IssuedToken,
 } from '../../../src/contracts/api/responses';
 
 const DeleteKeyResponseSchema = z.unknown();
@@ -50,6 +57,59 @@ export const api = {
 
   async getStats(): Promise<PoolStats> {
     return request(PoolStatsSchema, '/api/stats');
+  },
+
+  // --- Projects and API keys (WP-3.9): cookie session + CSRF via request() ---
+
+  async getProjects(): Promise<ProjectRecord[]> {
+    return request(ProjectsListResponseSchema, '/api/projects');
+  },
+
+  async createProject(payload: { name: string; description?: string }): Promise<ProjectRecord> {
+    return request(ProjectRecordSchema, '/api/projects', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  /** Pessimistic: resolves only after the server stored the change (throws ApiError otherwise). */
+  async updateProject(
+    id: string,
+    payload: { name?: string; description?: string | null; is_archived?: boolean; rpm_sub_cap?: number | null }
+  ): Promise<ProjectRecord> {
+    return request(ProjectRecordSchema, `/api/projects/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteProject(id: string): Promise<boolean> {
+    await request(DeleteKeyResponseSchema, `/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return true;
+  },
+
+  async getTokens(): Promise<TokenSummary[]> {
+    return request(TokensListResponseSchema, '/api/tokens');
+  },
+
+  async createToken(payload: { project_id?: string; rpm_limit?: number }): Promise<IssuedToken> {
+    return request(IssuedTokenSchema, '/api/tokens', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  async rotateToken(id: string): Promise<IssuedToken> {
+    return request(IssuedTokenSchema, `/api/tokens/${encodeURIComponent(id)}/rotate`, { method: 'POST' });
+  },
+
+  async revokeToken(id: string): Promise<boolean> {
+    await request(DeleteKeyResponseSchema, `/api/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return true;
+  },
+
+  async setKeyPoolMode(id: string, poolType: 'COMMUNITY' | 'PRIVATE') {
+    return request(z.object({ pool_type: z.string(), community_routing_status: z.string().nullable(), observation_until: z.number().nullable() }).passthrough(),
+      `/api/keys/${encodeURIComponent(id)}/pool-mode`, { method: 'PATCH', body: JSON.stringify({ pool_type: poolType }) });
+  },
+
+  async rotateProviderKey(id: string, newKey: string) {
+    return request(z.object({ key_prefix: z.string(), key_suffix: z.string() }).passthrough(),
+      `/api/keys/${encodeURIComponent(id)}/rotate`, { method: 'POST', body: JSON.stringify({ new_key: newKey }) });
   },
 
   async getAdminTenants(): Promise<{ tenants: any[]; pool?: any }> {
