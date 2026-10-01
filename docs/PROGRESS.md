@@ -137,7 +137,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.7
 - [x] T-5.7.1 Eye-for-eye check requiring active community key in shard
-- [ ] T-5.7.2 Cold-start share cap (FR-12) based on owner trailing 24h CU
+- [x] T-5.7.2 Cold-start share cap (FR-12) based on owner trailing 24h CU
 
 ### WP-5.8
 - [ ] T-5.8.1 Provider reset config in src/providers/config.ts (dailyResetTz, nextProviderReset)

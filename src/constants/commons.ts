@@ -16,3 +16,17 @@ export const BRAKE_DURATION_MS = 60_000;
 
 /** Trailing borrower window in minutes for surge brake evaluation */
 export const BORROWER_WINDOW_MINUTES = 5;
+
+/**
+ * Computes the cold-start owner share cap percentage (FR-12, WP-5.7 T-5.7.2):
+ * - For N <= 1: 100%
+ * - For 2 <= N <= 5: 40%
+ * - For N > 5: max(20%, floor(200 / N)%)
+ */
+export function computeOwnerShareCapPct(activeOwnersCount: number): number {
+  const n = Math.trunc(activeOwnersCount);
+  if (n <= 1) return 100;
+  if (n <= 5) return 40;
+  return Math.max(20, Math.floor(200 / n));
+}
+
