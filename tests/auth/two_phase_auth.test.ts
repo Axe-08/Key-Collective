@@ -498,24 +498,31 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
         expect(text).toContain("<title>Key Collective Console</title>");
       });
 
-      it("redirects apex domain requests (key-col.axe08.tech) to console.* (302)", async () => {
+      it("redirects apex domain requests (key-col.axe08.tech) to console.* (301)", async () => {
         const req = new Request("https://key-col.axe08.tech/", {
           headers: { Host: "key-col.axe08.tech" },
         });
 
         const res = await worker.fetch(req, env);
-        expect(res.status).toBe(302);
+        expect(res.status).toBe(301);
         expect(res.headers.get("Location")).toBe("https://console.key-col.axe08.tech/");
       });
 
-      it("handles universal CORS preflight OPTIONS across all subdomains with 204", async () => {
-        const subdomains = [
-          "api.key-col.axe08.tech",
-          "console.key-col.axe08.tech",
-          "admin.key-col.axe08.tech",
-        ];
+      it("handles CORS preflight OPTIONS per WP-2.7 spec (api.* has CORS, console/admin do not)", async () => {
+        const apiReq = new Request("https://api.key-col.axe08.tech/v1/chat/completions", {
+          method: "OPTIONS",
+          headers: {
+            Host: "api.key-col.axe08.tech",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization, content-type",
+          },
+        });
+        const apiRes = await worker.fetch(apiReq, env);
+        expect(apiRes.status).toBe(204);
+        expect(apiRes.headers.get("access-control-allow-origin")).toBe("*");
+        expect(apiRes.headers.get("access-control-allow-methods")).toContain("POST");
 
-        for (const host of subdomains) {
+        for (const host of ["console.key-col.axe08.tech", "admin.key-col.axe08.tech"]) {
           const req = new Request(`https://${host}/v1/chat/completions`, {
             method: "OPTIONS",
             headers: {
@@ -524,11 +531,9 @@ describe("Two-Phase Auth, Anti-Sybil & Subdomain Routing (AUTH-04)", () => {
               "Access-Control-Request-Headers": "authorization, content-type",
             },
           });
-
           const res = await worker.fetch(req, env);
           expect(res.status).toBe(204);
-          expect(res.headers.get("access-control-allow-origin")).toBe("*");
-          expect(res.headers.get("access-control-allow-methods")).toContain("POST");
+          expect(res.headers.get("access-control-allow-origin")).toBeNull();
         }
       });
     });

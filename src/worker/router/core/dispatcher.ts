@@ -113,7 +113,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
   // 1.05 Ephemeral Demo Sandbox Token Issuance
   if (
     (method === "POST" || method === "GET") &&
-    (pathname === "/v1/demo/token" || pathname === "/demo/token" || pathname === "/api/demo/token")
+    pathname === "/v1/demo/token"
   ) {
     return wrapResponse(await handleDemoTokenRequest(request, env));
   }
@@ -125,7 +125,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
 
   if (
     method === "GET" &&
-    (pathname.startsWith("/v1/models/") || pathname.startsWith("/models/"))
+    pathname.startsWith("/v1/models/")
   ) {
     const parts = pathname.split("/");
     const modelId = parts[parts.length - 1];
@@ -189,7 +189,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
 
     if (
       method === "GET" &&
-      (pathname.startsWith("/v1/models/") || pathname.startsWith("/models/"))
+      pathname.startsWith("/v1/models/")
     ) {
       const parts = pathname.split("/");
       const modelId = parts[parts.length - 1];
@@ -198,11 +198,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
 
     if (
       method === "POST" &&
-      (pathname === "/v1/chat/completions" ||
-        pathname === "/chat/completions" ||
-        pathname === "/v1/route" ||
-        pathname === "/" ||
-        pathname === "")
+      pathname === "/v1/chat/completions"
     ) {
       let body: Record<string, unknown>;
       try {
