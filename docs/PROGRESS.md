@@ -69,6 +69,39 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - Record a real GCP probe response in `docs/specs/gcp_probe.md` (plan WP-3.6 step 3); the probe was built against Google's documented error format.
 - `kc_pending` is signed with `KC_MASTER_KEY` (WP-3.1); consider moving it to `SESSION_SIGNING_KEY`.
 
-## Phases 4–8
+## Phase 4 — Leases behind a switch
 
-Not carded. Each WP in the plan: list its tests from the plan, then the same loop.
+Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walkthrough and sign-off are still pending (human).
+
+### WP-4.1
+- [ ] T-4.1.1 ROUTING_ENGINE switch (legacy | leases) and both-engine test runs
+- [ ] T-4.1.2 Coordinator rewrite: SQLite registry, typed RPC, alarm, D1 reconcile, D-21 filter, HTTP endpoints removed
+- [ ] T-4.1.3 KeyPoolDO private lease API (leasePrivate, settle, reconcile)
+- [ ] T-4.1.4 Lease orchestrator (private → own community → borrowed, priority at lease time, owner debt push)
+- [ ] T-4.1.5 CascadeRouter on leases (LeaseProvider, Groq-only auto)
+- [ ] T-4.1.6 Lease integration tests (test/integration/commons/leases.test.ts)
+- [ ] T-4.1.7 Legacy tests migrated (Appendix B list)
+
+### WP-4.2
+- [ ] T-4.2.1 Ledger and settle use lease.keyId; recordUsage calls removed; key_id must match ^key_
+
+### WP-4.3
+- [ ] T-4.3.1 Upstream outcome classifier (classify.ts) with per-row tests
+- [ ] T-4.3.2 Outcomes settle key state + D1 status; breaker timing; 400 without fallback; recordResult/recordStatusCode removed
+- [ ] T-4.3.3 Migration 0017 notifications; GET/POST notification routes; takedown and key_invalid notifications
+
+### WP-4.4
+- [ ] T-4.4.1 resolveLeasedKey: strict tenant subkey, lazy HKDF migration, quarantine on failure, per-key cache
+- [ ] T-4.4.2 Bulk HKDF migration script; AC-07 tests; key_resolver test migrated
+
+### WP-4.5
+- [ ] T-4.5.1 Demo isolation: sys_operator / sys_demo, operator-only leases, excluded from economy
+
+### WP-4.6
+- [ ] T-4.6.1 Provider override on coordinator and KeyPoolDO; /api/admin/providers
+- [ ] T-4.6.2 Kill switch (control instance, 10 s cache, 503 maintenance); MIDNIGHT_FREEZE removed
+- [ ] T-4.6.3 Audit rows + stored-state responses; admin router echo tests replaced
+
+## Phases 5–8
+
+Not carded yet. Before each phase, write a plan like docs/PHASE4_PLAN.md, then the same loop.
