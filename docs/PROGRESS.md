@@ -59,7 +59,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 ### WP-3.10
 - [x] T-3.10.1 Update Playground to use playground token, read CU header and SSE, and drop tenant ID
 - [x] T-3.10.2 Render API Docs dynamically from GET /v1/openapi.json and delete hand-written endpoints
-- [ ] T-3.10.3 Render CU weights in PricingTable strictly from /v1/models
+- [x] T-3.10.3 Render CU weights in PricingTable strictly from /v1/models
 
 ## Operator steps found during Phase 3
 

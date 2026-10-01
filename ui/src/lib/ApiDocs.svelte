@@ -7,7 +7,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
-    CANONICAL_MODELS,
     type ProviderFilter,
     type ModelOption,
     type ModelPricingItem,
@@ -48,10 +47,11 @@
 
   // Documentation snippet parameters
   let bearerToken = $state('YOUR_API_KEY');
-  let selectedModel = $state('gemini-3.8-flash');
+  let selectedModel = $state('gemini-2.5-flash');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
-  let availableModels = $state<ModelOption[]>(CANONICAL_MODELS);
+  // Filled from /v1/models only (WP-3.10).
+  let availableModels = $state<ModelOption[]>([]);
 
   onMount(() => {
     if (typeof window !== 'undefined') {
