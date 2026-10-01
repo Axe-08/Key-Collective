@@ -27,6 +27,7 @@ export interface TokenSummary {
   expires_at: string | null;
   hash_sha256: string;
   hash_masked: string;
+  project_id: string | null;
 }
 
 export interface CreateTokenBody {
@@ -50,6 +51,7 @@ interface RawTokenRow {
   rpm_limit: number;
   expires_at: string | null;
   created_at: string;
+  project_id: string | null;
 }
 
 function getDatabase(env: WorkerEnv): D1Database | null {
@@ -204,7 +206,7 @@ export async function handleGetTokens(
     if (isAdmin && !targetTenant) {
       const result = await db
         .prepare(
-          `SELECT id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at
+          `SELECT id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at, project_id
            FROM auth_tokens
            ORDER BY created_at DESC`
         )
@@ -214,7 +216,7 @@ export async function handleGetTokens(
       const scopedTenant = isAdmin && targetTenant ? targetTenant : tenantId;
       const result = await db
         .prepare(
-          `SELECT id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at
+          `SELECT id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at, project_id
            FROM auth_tokens
            WHERE tenant_id = ?
            ORDER BY created_at DESC`
@@ -245,6 +247,7 @@ export async function handleGetTokens(
         expires_at: row.expires_at ?? null,
         hash_sha256: masked,
         hash_masked: masked,
+        project_id: row.project_id ?? null,
       };
     });
 

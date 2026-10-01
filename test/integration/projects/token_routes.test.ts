@@ -59,6 +59,8 @@ describe("project-scoped tokens", () => {
     expect(body.project_id).toBe(prj);
     const row = await env.DB.prepare("SELECT project_id FROM auth_tokens WHERE id = ?").bind(body.id).first<{ project_id: string }>();
     expect(row?.project_id).toBe(prj);
+    const list = (await (await call("/api/tokens")).json()) as Array<{ id: string; project_id: string | null }>;
+    expect(list.find((t) => t.id === body.id)?.project_id).toBe(prj);
   });
 
   it("refuses another tenant's project with 404", async () => {

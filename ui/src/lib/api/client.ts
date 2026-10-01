@@ -61,12 +61,19 @@ export async function request<T>(
   const res = await fetch(path, { ...init, headers, credentials: 'same-origin' });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({} as Record<string, unknown>));
+    const body = (await res.json().catch(() => ({}))) as {
+      code?: string;
+      message?: string;
+      error?: string | { message?: string; code?: string };
+    };
+    // Routes answer either { error: "code", message? } or { error: { message, code } }.
+    const nested = typeof body.error === 'object' && body.error !== null ? body.error : undefined;
     throw new ApiError(
       res.status,
-      (body as { code?: string }).code ?? 'unknown_error',
-      (body as { error?: string; message?: string }).error ??
-        (body as { error?: string; message?: string }).message ??
+      nested?.code ?? body.code ?? 'unknown_error',
+      nested?.message ??
+        (typeof body.error === 'string' ? body.error : undefined) ??
+        body.message ??
         `Request failed (HTTP ${res.status})`
     );
   }

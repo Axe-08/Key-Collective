@@ -9,6 +9,8 @@
     onSaveName: (projectId: string, name: string) => void;
     onSaveRpm: (projectId: string, rpm: number) => void;
     onDeleteProject?: (projectId: string) => void;
+    /** Server error from the last save (e.g. sub-cap above the tier maximum), shown inline. */
+    inlineError?: string | null;
   }
 
   let {
@@ -19,6 +21,7 @@
     onSaveName,
     onSaveRpm,
     onDeleteProject,
+    inlineError = null,
   }: Props = $props();
 
   let editingProjectName = $state(false);
@@ -28,7 +31,7 @@
   $effect(() => {
     if (project) {
       editProjectNameValue = project.name;
-      editProjectRpmValue = project.maxRpmSubCap || 20;
+      editProjectRpmValue = project.maxRpmSubCap ?? 0;
       editingProjectName = false;
     }
   });
@@ -124,24 +127,21 @@
             min="1"
             max="10000"
             bind:value={editProjectRpmValue}
-            oninput={(e) => {
-              const val = Number((e.target as HTMLInputElement).value);
-              editProjectRpmValue = val;
-              if (val > 0) {
-                onSaveRpm(modalProj.id, val);
-              }
-            }}
-            onblur={() => onSaveRpm(modalProj.id, Number(editProjectRpmValue))}
+            data-testid="project-rpm-input"
             onkeydown={(e) => {
-              if (e.key === 'Enter') {
-                onSaveRpm(modalProj.id, Number(editProjectRpmValue));
-                e.currentTarget.blur();
-              }
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+            onblur={() => {
+              const val = Number(editProjectRpmValue);
+              if (val > 0 && val !== modalProj.maxRpmSubCap) onSaveRpm(modalProj.id, val);
             }}
             class="w-24 px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded text-on-surface focus:outline-none focus:border-primary"
           />
           <span class="text-on-surface">RPM</span>
         </div>
+        {#if inlineError}
+          <p data-testid="project-settings-error" class="text-error text-[11px]" role="alert">{inlineError}</p>
+        {/if}
         <div>
           <span class="text-outline">Status:</span>
           <span class="ml-2 {modalProj.isArchived ? 'text-error' : 'text-secondary'} font-medium">
@@ -173,6 +173,7 @@
         <div class="flex items-center gap-2">
           <button
             type="button"
+            data-testid="project-archive-toggle"
             onclick={() => onArchiveToggle(modalProj.id)}
             class="px-3 py-1.5 rounded-lg border font-mono text-xs transition-colors cursor-pointer {modalProj.isArchived ? 'bg-secondary/10 border-secondary/30 text-secondary' : 'bg-surface-container border-outline-variant/30 text-on-surface-variant hover:text-on-surface'}"
           >

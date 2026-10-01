@@ -80,10 +80,11 @@
   <!-- Project Cards Grid -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     {#each projects as project (project.id)}
-      {@const maxCap = project.maxRpmSubCap || 20}
+      <!-- Real values only (WP-3.9): sub-cap from the server, live RPM when the server reports it. -->
+      {@const maxCap = project.maxRpmSubCap ?? null}
       {@const keyCount = getProjectKeyCount(project.id)}
-      {@const assignedRpm = project.assignedRpm !== undefined ? project.assignedRpm : (keyCount > 0 ? Math.min(maxCap, keyCount * 5) : 0)}
-      {@const rpmPercent = maxCap > 0 ? Math.min(100, Math.round((assignedRpm / maxCap) * 100)) : 0}
+      {@const assignedRpm = project.assignedRpm}
+      {@const rpmPercent = maxCap && assignedRpm !== undefined ? Math.min(100, Math.round((assignedRpm / maxCap) * 100)) : 0}
       <div class="specular-card rounded-xl bg-surface-container-low/80 backdrop-blur border border-outline-variant/20 p-5 space-y-4 shadow-sm">
         <div class="flex items-start justify-between">
           <div>
@@ -130,7 +131,7 @@
           <div class="flex justify-between items-center font-code-sm text-code-sm font-mono">
             <span class="text-on-surface-variant">Assigned RPM Sub-cap</span>
             <span class="text-on-surface font-medium">
-              {assignedRpm} / {maxCap} RPM
+              <span data-testid="project-rpm">{assignedRpm ?? '—'} / {maxCap ?? 'tier limit'} RPM</span>
               <span class="font-bold {rpmPercent >= 50 ? 'text-primary' : 'text-secondary'}">
                 ({rpmPercent}%)
               </span>
@@ -153,6 +154,7 @@
           <div class="flex items-center gap-2">
             <button
               type="button"
+              data-testid="project-settings-{project.id}"
               onclick={() => onOpenSettings(project)}
               class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm hover:bg-surface-container-high transition-colors cursor-pointer"
             >
@@ -160,6 +162,7 @@
             </button>
             <button
               type="button"
+              data-testid="project-rotate-{project.id}"
               onclick={() => onRotateKey(project.id)}
               class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm hover:bg-surface-container-high transition-colors flex items-center gap-1 cursor-pointer"
             >

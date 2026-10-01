@@ -3,7 +3,7 @@
  *
  * Invariants Tested:
  * 1. name, description, rpm_sub_cap and is_archived are stored (the handler used to echo them).
- * 2. rpm_sub_cap is bounded by the owner's tier RPM limit.
+ * 2. rpm_sub_cap above the owner's tier RPM limit → 400 SUB_CAP_ABOVE_TIER.
  * 3. Another tenant's project → 404.
  * 4. Deleting a project unbinds its tokens instead of failing on the foreign key.
  */
@@ -54,15 +54,22 @@ describe("PATCH /api/projects/:id", () => {
     expect(row).toMatchObject({ name: "new", description: "d", rpm_sub_cap: 2, is_archived: 1 });
     expect(row!.updated_at).toBeGreaterThanOrEqual(before);
     expect(await res.json()).toMatchObject({ name: "new", rpm_sub_cap: 2, is_archived: true });
+    const list = (await (await (await as(user))("/api/projects", "GET")).json()) as Array<{ id: string; rpm_sub_cap: number; is_archived: number }>;
+    expect(list.find((p) => p.id === id)).toMatchObject({ rpm_sub_cap: 2, is_archived: 1 });
   });
 
-  it("bounds rpm_sub_cap by the tier RPM limit and can clear it", async () => {
+  it("refuses a sub-cap above the tier RPM limit with 400 and can clear it", async () => {
     const user = await createUser({ tier: "builder" });
     const id = await project(user.id);
     const call = await as(user);
     const tierLimit = getTierLimits("builder").rpmLimit;
 
-    await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: tierLimit + 1000 });
+    const tooHigh = await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: tierLimit + 1 });
+    expect(tooHigh.status).toBe(400);
+    expect(await tooHigh.json()).toMatchObject({ error: { code: "SUB_CAP_ABOVE_TIER" } });
+    expect((await stored(id))?.rpm_sub_cap).toBeNull();
+
+    await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: tierLimit });
     expect((await stored(id))?.rpm_sub_cap).toBe(tierLimit);
 
     await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: null });
