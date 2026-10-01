@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { sessionAuthTransport } from './api/client';
   import { onMount } from 'svelte';
   import {
     PlaygroundHeader,
@@ -25,60 +26,53 @@
 
   let bearerToken = $state('');
   let tokenSecondsRemaining = $state(900);
-  let isSessionToken = $state(false);
-  let selectedModel = $state('gemini-3.8-flash');
+  const isSessionToken = true;
+  let selectedModel = $state('');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
 
-  async function fetchDemoToken() {
+  // Playground key (WP-3.10): minted for the signed-in user, 10 RPM, 15 minutes.
+  async function fetchPlaygroundToken() {
     try {
-      const res = await fetch(`${baseUrl}/demo/token`, { method: 'POST' });
+      const res = await fetch('/api/playground/token', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: sessionAuthTransport.getHeaders('POST'),
+      });
       if (res.ok) {
-        const data = (await res.json()) as { token?: string; expiresInSeconds?: number };
+        const data = (await res.json()) as { token?: string; expires_at?: string };
         if (data?.token) {
           bearerToken = data.token;
-          tokenSecondsRemaining = data.expiresInSeconds ?? 900;
+          tokenSecondsRemaining = data.expires_at
+            ? Math.max(0, Math.floor((new Date(data.expires_at).getTime() - Date.now()) / 1000))
+            : 900;
           return;
         }
       }
-    } catch {}
+      liveStatus = res.status === 401 ? 'Sign in to use the playground' : 'Playground key unavailable';
+    } catch {
+      liveStatus = 'Playground key unavailable — check your network';
+    }
     bearerToken = '';
-    liveStatus = 'Demo token unavailable — check network or sign in';
   }
 
   function handleRotateToken() {
-    if (!isSessionToken) {
-      fetchDemoToken();
-    }
+    void fetchPlaygroundToken();
   }
 
-  let availableModels = $state<{ id: string; provider: string }[]>([
-    { id: 'gemini-3.8-flash', provider: 'google' },
-    { id: 'gemini-3.5-flash', provider: 'google' },
-    { id: 'gemini-3.5-flash-lite', provider: 'google' },
-    { id: 'gemini-3.1-pro-preview', provider: 'google' },
-    { id: 'gemini-2.5-flash', provider: 'google' },
-    { id: 'qwen/qwen3.8-27b', provider: 'groq' },
-    { id: 'qwen/qwen3.6-27b', provider: 'groq' },
-    { id: 'openai/gpt-oss-120b', provider: 'groq' },
-    { id: 'openai/gpt-oss-20b', provider: 'groq' },
-    { id: 'deepseek/deepseek-r1-distill-llama-70b', provider: 'deepseek' },
-    { id: 'Meta-Llama-3.1-405B-Instruct', provider: 'sambanova' },
-    { id: 'llama3.1-70b', provider: 'cerebras' },
-  ]);
+  // Filled from /v1/models only (WP-3.10).
+  let availableModels = $state<{ id: string; provider: string }[]>([]);
 
   onMount(() => {
     let rotationInterval: ReturnType<typeof setInterval> | null = null;
     if (typeof window !== 'undefined') {
-      // The console no longer holds an API key in localStorage; WP-3.10 mints a playground token.
-      fetchDemoToken();
+      void fetchPlaygroundToken();
 
       rotationInterval = setInterval(() => {
-        if (!isSessionToken) {
-          tokenSecondsRemaining -= 1;
-          if (tokenSecondsRemaining <= 0) {
-            fetchDemoToken();
-          }
+        if (!bearerToken) return;
+        tokenSecondsRemaining -= 1;
+        if (tokenSecondsRemaining <= 0) {
+          void fetchPlaygroundToken();
         }
       }, 1000);
 
@@ -127,7 +121,7 @@
   let fallbackModelUsed = $state<string | null>(null);
   let liveLatency = $state<string>('0ms');
   let liveStatus = $state<string>('Ready');
-  let liveCostMicros = $state<number>(0);
+  let liveCostCu = $state<number>(0);
   let responseChunks = $state<Array<{ text: string; class: string }>>([]);
 
   const curlSnippet = $derived(`curl ${baseUrl}/chat/completions \\
@@ -216,10 +210,8 @@ stream = client.chat.completions.create(
         fallbackModelUsed = null;
       }
 
-      const costHeader = res.headers.get('x-request-cost-micros');
-      if (costHeader) {
-        liveCostMicros = parseInt(costHeader, 10) || 0;
-      }
+      const cuHeader = res.headers.get('x-kc-cu');
+      liveCostCu = cuHeader ? parseInt(cuHeader, 10) || 0 : 0;
 
       if (!res.ok) {
         const errText = await res.text();
@@ -241,16 +233,31 @@ stream = client.chat.completions.create(
       if (isStreaming && res.body) {
         responseChunks = [];
         const reader = res.body.getReader();
+        let pendingUsageEvent = false;
         const decoder = new TextDecoder();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const chunkStr = decoder.decode(value);
+          const chunkStr = decoder.decode(value, { stream: true });
           const lines = chunkStr.split('\n');
           for (const line of lines) {
-            if (line.trim()) {
-              responseChunks = [...responseChunks, { text: line, class: 'text-secondary font-mono text-xs' }];
+            if (!line.trim()) continue;
+            // The final kc.usage event carries the request's CU cost.
+            if (line.startsWith('event: kc.usage')) {
+              pendingUsageEvent = true;
+              continue;
             }
+            if (pendingUsageEvent && line.startsWith('data:')) {
+              pendingUsageEvent = false;
+              try {
+                const usage = JSON.parse(line.slice(5).trim()) as { cu?: number };
+                if (typeof usage.cu === 'number') liveCostCu = usage.cu;
+              } catch {
+                liveStatus = 'Malformed kc.usage event';
+              }
+              continue;
+            }
+            responseChunks = [...responseChunks, { text: line, class: 'text-secondary font-mono text-xs' }];
           }
         }
       } else {
@@ -329,7 +336,7 @@ stream = client.chat.completions.create(
       <PlaygroundResponseStream
         {liveStatus}
         {liveLatency}
-        {liveCostMicros}
+        {liveCostCu}
         {selectedModel}
         {fallbackModelUsed}
         {responseChunks}
