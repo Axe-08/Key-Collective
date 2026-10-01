@@ -8,4 +8,3 @@ export * from "./types";
 export * from "./utils";
 export * from "./turnstile";
 export * from "./engine";
-export * from "./scoring";

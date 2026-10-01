@@ -20,10 +20,10 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.2.1 Implement registration consent C1-C3 and enforce consent gate on console API
 
 ### WP-3.3
-- [ ] T-3.3.1 Update Sybil engine to PRD thresholds and migrate legacy tests
-- [ ] T-3.3.2 Implement GitHub link flow with state and PKCE in signed cookie
-- [ ] T-3.3.3 Add poolRights pure function and enforce on keys and pool routes
-- [ ] T-3.3.4 Exclude keys of owners without community rights from tenant lending
+- [x] T-3.3.1 Update Sybil engine to PRD thresholds and migrate legacy tests
+- [x] T-3.3.2 Implement GitHub link flow with state and PKCE in signed cookie
+- [x] T-3.3.3 Add poolRights pure function and enforce on keys and pool routes
+- [x] T-3.3.4 Exclude keys of owners without community rights from tenant lending
 
 ### WP-3.4
 - [ ] T-3.4.1 Switch typed API client auth transport to cookie session and CSRF

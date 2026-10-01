@@ -4,6 +4,7 @@
  *          GET /api/pool/contribution, GET /api/notifications
  */
 
+import { githubLinkRequired, loadPoolRights } from "../auth/rights";
 import type { WorkerEnv } from './auth/index';
 import { normaliseKeyStatus } from '../contracts/keys';
 
@@ -340,6 +341,10 @@ export async function handlePoolRoute(
   tenantId: string,
   ctx: ExecutionContextLike
 ): Promise<Response | null> {
+  if (method === 'GET' && (pathname === '/api/pool/telemetry' || pathname === '/api/pool/contribution')) {
+    const anonymous = !tenantId || tenantId === 'anonymous' || tenantId === 'guest';
+    if (anonymous || !env.DB || !(await loadPoolRights(env.DB, tenantId)).communityPool) return githubLinkRequired();
+  }
   if (method === 'GET' && pathname === '/api/pool/telemetry') return handlePoolTelemetry(env, tenantId, ctx);
   if (method === 'GET' && pathname === '/api/pool/standing') return handlePoolStanding(env, tenantId);
   if (method === 'GET' && pathname === '/api/pool/contribution') return handlePoolContribution(env, tenantId);

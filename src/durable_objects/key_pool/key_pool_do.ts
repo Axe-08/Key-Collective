@@ -245,7 +245,15 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
            FROM api_keys k
            LEFT JOIN contributor_standing cs ON cs.tenant_id = k.tenant_id
            WHERE upper(k.status) = 'HEALTHY'
-             AND (k.tenant_id = ? OR (k.pool_type = 'COMMUNITY' AND k.community_routing_status = 'ACTIVE'))`
+             AND (k.tenant_id = ? OR (k.pool_type = 'COMMUNITY' AND k.community_routing_status = 'ACTIVE'
+                  -- D-21: another tenant's key is lent only while its owner holds communityPool
+                  AND EXISTS (
+                    SELECT 1 FROM users u
+                     WHERE u.id = k.tenant_id AND u.registration_status = 'ACTIVE'
+                       AND COALESCE(u.is_quarantined, 0) = 0 AND u.community_eligible = 1
+                       AND EXISTS (SELECT 1 FROM user_identities i WHERE i.user_id = u.id AND i.provider = 'google')
+                       AND EXISTS (SELECT 1 FROM user_identities i WHERE i.user_id = u.id AND i.provider = 'github')
+                  )))`
         ).bind(this.tenantId);
         const result = await stmt.all<{
           id: string;

@@ -61,6 +61,13 @@ class MockD1PreparedStatement implements D1PreparedStatement {
   }
 
   private executeQuery<T>(): D1Result<T> {
+    // Pool-rights lookups (WP-3.3): an ACTIVE user with a google identity.
+    if (this.query.includes("SELECT registration_status, is_quarantined, community_eligible FROM users")) {
+      return { results: [{ registration_status: "ACTIVE", is_quarantined: 0, community_eligible: 0 }] as unknown as T[], success: true, meta: { duration: 1 } as D1Response["meta"] };
+    }
+    if (this.query.includes("SELECT provider FROM user_identities")) {
+      return { results: [{ provider: "google" }] as unknown as T[], success: true, meta: { duration: 1 } as D1Response["meta"] };
+    }
     const trimmed = this.query.trim();
     const upper = trimmed.toUpperCase().replace(/\s+/g, " ");
 

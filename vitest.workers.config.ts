@@ -40,6 +40,8 @@ export default defineWorkersConfig(async () => {
               KC_ENV: "test",
               KC_MASTER_KEY: "test-master-key-please-rotate",
               SESSION_SIGNING_KEY: "test-signing",
+              GITHUB_CLIENT_ID: "test-github-client",
+              GITHUB_CLIENT_SECRET: "test-github-secret",
               TURNSTILE_SECRET: "test-secret",
               API_HOST: "api.test",
               CONSOLE_HOST: "console.test",

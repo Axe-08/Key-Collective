@@ -180,9 +180,18 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
     const tenantId = "usr_gh_conformance_tester";
     let workerEnv: WorkerEnv;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       fetchMock.disableNetConnect();
       mockTurnstile(true);
+
+      // The key routes check pool rights: an ACTIVE, community-eligible Google+GitHub user.
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO users (id, email, tier, role, registration_status, community_eligible) VALUES (?, 'conf@example.test', 'builder', 'user', 'ACTIVE', 1)"
+        ).bind(tenantId),
+        env.DB.prepare("INSERT OR IGNORE INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'conf-google')").bind(tenantId),
+        env.DB.prepare("INSERT OR IGNORE INTO user_identities (user_id, provider, subject) VALUES (?, 'github', 'conf-github')").bind(tenantId),
+      ]);
 
       // DB-focused worker env without KEY_POOL stub to test direct SQL queries without DO side-effects
       workerEnv = {
