@@ -6,31 +6,81 @@
 import type { StreamUsage } from "./types";
 
 /**
+ * Safely extracts streamed delta content from an SSE chunk JSON payload.
+ * Supports OpenAI-compatible chunk schemas (choices[0].delta.content).
+ */
+export function extractDeltaContent(payload: unknown): string | null {
+  let obj: unknown = payload;
+  if (typeof payload === "string") {
+    try {
+      obj = JSON.parse(payload);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof obj !== "object" || obj === null) {
+    return null;
+  }
+
+  const record = obj as Record<string, unknown>;
+  if (Array.isArray(record.choices) && record.choices.length > 0) {
+    const firstChoice = record.choices[0];
+    if (typeof firstChoice === "object" && firstChoice !== null) {
+      const delta = (firstChoice as Record<string, unknown>).delta;
+      if (typeof delta === "object" && delta !== null) {
+        const content = (delta as Record<string, unknown>).content;
+        if (typeof content === "string") {
+          return content;
+        }
+      }
+      if (typeof (firstChoice as Record<string, unknown>).text === "string") {
+        return (firstChoice as Record<string, unknown>).text as string;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Helper to safely extract usage tokens from arbitrary provider JSON payloads.
- * Handles OpenAI, Gemini, Anthropic, Cohere, Bedrock, and Groq schemas.
+ * Handles OpenAI (standard and include_usage), Gemini, Anthropic, Cohere, Bedrock, Groq,
+ * and Key Collective kc.usage schemas.
  */
 export function extractUsageFromPayload(
   payload: unknown
 ): Partial<StreamUsage> | null {
-  if (typeof payload !== "object" || payload === null) {
+  let obj: unknown = payload;
+  if (typeof payload === "string") {
+    try {
+      obj = JSON.parse(payload);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof obj !== "object" || obj === null) {
     return null;
   }
 
-  const obj = payload as Record<string, unknown>;
+  const record = obj as Record<string, unknown>;
   const result: Partial<StreamUsage> = {};
   let found = false;
 
-  // 1. OpenAI, Groq, DeepSeek, Together, Mistral standard format: obj.usage
+  // 1. OpenAI, Groq, DeepSeek, Together, Mistral standard format: record.usage or record.tokens
   let usageObj: Record<string, unknown> | null = null;
-  if (typeof obj.usage === "object" && obj.usage !== null) {
-    usageObj = obj.usage as Record<string, unknown>;
+  if (typeof record.usage === "object" && record.usage !== null) {
+    usageObj = record.usage as Record<string, unknown>;
   } else if (
-    typeof obj.x_groq === "object" &&
-    obj.x_groq !== null &&
-    typeof (obj.x_groq as Record<string, unknown>).usage === "object" &&
-    (obj.x_groq as Record<string, unknown>).usage !== null
+    typeof record.x_groq === "object" &&
+    record.x_groq !== null &&
+    typeof (record.x_groq as Record<string, unknown>).usage === "object" &&
+    (record.x_groq as Record<string, unknown>).usage !== null
   ) {
-    usageObj = (obj.x_groq as Record<string, unknown>).usage as Record<string, unknown>;
+    usageObj = (record.x_groq as Record<string, unknown>).usage as Record<string, unknown>;
+  } else if (typeof record.tokens === "object" && record.tokens !== null) {
+    usageObj = record.tokens as Record<string, unknown>;
   }
 
   if (usageObj) {
@@ -91,9 +141,9 @@ export function extractUsageFromPayload(
     }
   }
 
-  // 2. Google / Gemini format: obj.usageMetadata
-  if (typeof obj.usageMetadata === "object" && obj.usageMetadata !== null) {
-    const meta = obj.usageMetadata as Record<string, unknown>;
+  // 2. Google / Gemini format: record.usageMetadata
+  if (typeof record.usageMetadata === "object" && record.usageMetadata !== null) {
+    const meta = record.usageMetadata as Record<string, unknown>;
     if (typeof meta.promptTokenCount === "number") {
       result.promptTokens = meta.promptTokenCount;
       found = true;
@@ -132,10 +182,10 @@ export function extractUsageFromPayload(
   }
 
   // 3. Anthropic format:
-  // message_start event: obj.message.usage = { input_tokens, output_tokens, cache_read_input_tokens }
-  // message_delta event: obj.usage = { output_tokens }
-  if (typeof obj.message === "object" && obj.message !== null) {
-    const msg = obj.message as Record<string, unknown>;
+  // message_start event: record.message.usage = { input_tokens, output_tokens, cache_read_input_tokens }
+  // message_delta event: record.usage = { output_tokens }
+  if (typeof record.message === "object" && record.message !== null) {
+    const msg = record.message as Record<string, unknown>;
     if (typeof msg.usage === "object" && msg.usage !== null) {
       const anthropicUsage = msg.usage as Record<string, unknown>;
       if (typeof anthropicUsage.input_tokens === "number") {
@@ -152,9 +202,9 @@ export function extractUsageFromPayload(
     }
   }
 
-  // 4. Cohere format: obj.meta.tokens or obj.response.meta.tokens
-  if (typeof obj.meta === "object" && obj.meta !== null) {
-    const meta = obj.meta as Record<string, unknown>;
+  // 4. Cohere format: record.meta.tokens or record.meta.billed_units
+  if (typeof record.meta === "object" && record.meta !== null) {
+    const meta = record.meta as Record<string, unknown>;
     if (typeof meta.tokens === "object" && meta.tokens !== null) {
       const tokens = meta.tokens as Record<string, unknown>;
       if (typeof tokens.input_tokens === "number") {
@@ -178,8 +228,8 @@ export function extractUsageFromPayload(
     }
   }
 
-  // 5. Amazon Bedrock invocation metrics: obj["amazon-bedrock-invocationMetrics"]
-  const bedrockMetrics = obj["amazon-bedrock-invocationMetrics"];
+  // 5. Amazon Bedrock invocation metrics: record["amazon-bedrock-invocationMetrics"]
+  const bedrockMetrics = record["amazon-bedrock-invocationMetrics"];
   if (typeof bedrockMetrics === "object" && bedrockMetrics !== null) {
     const metrics = bedrockMetrics as Record<string, unknown>;
     if (typeof metrics.inputTokenCount === "number") {
@@ -192,20 +242,79 @@ export function extractUsageFromPayload(
     }
   }
 
-  // 6. Direct root tokens (e.g. { prompt_tokens: 10, completion_tokens: 20 })
-  if (!found) {
-    if (typeof obj.prompt_tokens === "number") {
-      result.promptTokens = obj.prompt_tokens;
-      found = true;
-    }
-    if (typeof obj.completion_tokens === "number") {
-      result.completionTokens = obj.completion_tokens;
-      found = true;
-    }
-    if (typeof obj.total_tokens === "number") {
-      result.totalTokens = obj.total_tokens;
-      found = true;
-    }
+  // 6. Key Collective kc.usage metrics (e.g. { cu: number } or { kc: { cu: number } })
+  if (typeof record.cu === "number") {
+    result.cu = record.cu;
+    found = true;
+  } else if (
+    typeof record.kc === "object" &&
+    record.kc !== null &&
+    typeof (record.kc as Record<string, unknown>).cu === "number"
+  ) {
+    result.cu = (record.kc as Record<string, unknown>).cu as number;
+    found = true;
+  }
+
+  // 7. Direct root tokens (e.g. { prompt_tokens: 10, completion_tokens: 20 })
+  if (typeof record.prompt_tokens === "number") {
+    result.promptTokens = record.prompt_tokens;
+    found = true;
+  } else if (typeof record.promptTokens === "number") {
+    result.promptTokens = record.promptTokens;
+    found = true;
+  } else if (typeof record.input_tokens === "number") {
+    result.promptTokens = record.input_tokens;
+    found = true;
+  }
+
+  if (typeof record.completion_tokens === "number") {
+    result.completionTokens = record.completion_tokens;
+    found = true;
+  } else if (typeof record.completionTokens === "number") {
+    result.completionTokens = record.completionTokens;
+    found = true;
+  } else if (typeof record.output_tokens === "number") {
+    result.completionTokens = record.output_tokens;
+    found = true;
+  }
+
+  if (typeof record.total_tokens === "number") {
+    result.totalTokens = record.total_tokens;
+    found = true;
+  } else if (typeof record.totalTokens === "number") {
+    result.totalTokens = record.totalTokens;
+    found = true;
+  }
+
+  if (typeof record.cached_tokens === "number") {
+    result.cachedTokens = record.cached_tokens;
+  } else if (typeof record.cachedTokens === "number") {
+    result.cachedTokens = record.cachedTokens;
+  }
+
+  if (typeof record.reasoning_tokens === "number") {
+    result.reasoningTokens = record.reasoning_tokens;
+  } else if (typeof record.reasoningTokens === "number") {
+    result.reasoningTokens = record.reasoningTokens;
+  }
+
+  // 8. Estimation and streamed chars flags if present
+  if (typeof record.usage_estimated === "number") {
+    result.usage_estimated = record.usage_estimated;
+    result.usageEstimated = record.usage_estimated;
+    found = true;
+  } else if (typeof record.usageEstimated === "number") {
+    result.usage_estimated = record.usageEstimated;
+    result.usageEstimated = record.usageEstimated;
+    found = true;
+  }
+
+  if (typeof record.streamedChars === "number") {
+    result.streamedChars = record.streamedChars;
+    found = true;
+  } else if (typeof record.streamed_chars === "number") {
+    result.streamedChars = record.streamed_chars;
+    found = true;
   }
 
   if (!found) {
