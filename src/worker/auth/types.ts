@@ -36,6 +36,8 @@ export interface WorkerEnv {
 export interface AuthenticatedContext extends AuthContext {
   /** Tenant ID owning the authenticated token */
   tenantId: string;
+  /** Project the API key is scoped to (from auth_tokens.project_id, WP-3.7). */
+  projectId?: string;
   /** Boolean flag indicating successful authentication (always true here) */
   isAuthenticated: boolean;
   /** Full validated token domain record from D1 */

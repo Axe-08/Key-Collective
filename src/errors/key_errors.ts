@@ -388,3 +388,31 @@ export function isQuotaExceededError(value: unknown): value is QuotaExceededErro
       (value as Record<string, unknown>).name === "QuotaExceededError")
   );
 }
+
+/** 429 when a project-scoped API key exceeds its project's RPM sub-cap (WP-3.7). */
+export class ProjectSubCapExceededError extends DomainError {
+  public override readonly name = "ProjectSubCapExceededError";
+
+  constructor(projectId: string, retryAfterSeconds = 60) {
+    super("Project RPM sub-cap exceeded", {
+      statusCode: 429,
+      code: "project_sub_cap_exceeded",
+      details: { projectId, retryAfterSeconds },
+    });
+    Object.setPrototypeOf(this, ProjectSubCapExceededError.prototype);
+  }
+}
+
+/** 403 for API keys whose project is archived (or no longer exists) (WP-3.7). */
+export class ProjectArchivedError extends DomainError {
+  public override readonly name = "ProjectArchivedError";
+
+  constructor(projectId: string) {
+    super("This API key belongs to an archived project", {
+      statusCode: 403,
+      code: "project_archived",
+      details: { projectId },
+    });
+    Object.setPrototypeOf(this, ProjectArchivedError.prototype);
+  }
+}
