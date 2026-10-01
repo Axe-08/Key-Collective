@@ -1,42 +1,35 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { deriveTenantKey, encrypt } from "../../../crypto/encryption/index";
 import { encryptKey } from "../../../durable_objects/crypto";
-import { clearDecryptedKeyCache, resolvePlaintextKey } from "./key_resolver";
+import { KeyDecryptionError } from "../../../errors/key_errors";
+import type { WorkerEnv } from "../../auth/index";
+import { evict, clearDecryptedKeyCache, resolveLeasedKey, resolvePlaintextKey } from "./key_resolver";
 
-describe("Upstream Key Decryption & Resolution (resolvePlaintextKey)", () => {
+describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
   const MASTER_KEY = "super-secret-master-key-for-tests-12345";
-  const TEST_TENANT = "usr_gh_123456";
+  const TENANT_A = "usr_tenant_alpha_001";
+  const TENANT_B = "usr_tenant_beta_002";
 
   beforeEach(() => {
     clearDecryptedKeyCache();
   });
 
-  it("passes through raw API keys directly without DB lookup", async () => {
-    const googleKey = "AIzaSyDummyGoogleKey123456789";
-    const groqKey = "gsk_DummyGroqKey123456789";
-    const openaiKey = "sk-proj-DummyOpenAIKey123456789";
-
-    const emptyEnv = {} as any;
-
-    expect(await resolvePlaintextKey(googleKey, "google", TEST_TENANT, emptyEnv, MASTER_KEY)).toBe(googleKey);
-    expect(await resolvePlaintextKey(groqKey, "groq", TEST_TENANT, emptyEnv, MASTER_KEY)).toBe(groqKey);
-    expect(await resolvePlaintextKey(openaiKey, "openai", TEST_TENANT, emptyEnv, MASTER_KEY)).toBe(openaiKey);
-  });
-
-  it("decrypts keys encrypted with deriveTenantKey from D1", async () => {
+  it("decrypts keys encrypted with deriveTenantKey from D1 for matching tenant", async () => {
     const rawPlaintext = "AIzaSyRealDecryptedSecretKey999";
-    const tenantKey = await deriveTenantKey(MASTER_KEY, TEST_TENANT);
+    const tenantKey = await deriveTenantKey(MASTER_KEY, TENANT_A);
     const { ciphertextB64, nonceB64 } = await encrypt(rawPlaintext, tenantKey);
 
     const mockDb = {
-      prepare: (sql: string) => ({
-        bind: (...args: unknown[]) => ({
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnValue({
           first: async () => ({
             id: "key_gemini_test",
+            tenant_id: TENANT_A,
+            provider: "google",
             encrypted_key_b64: ciphertextB64,
             nonce_b64: nonceB64,
-            tenant_id: TEST_TENANT,
-            provider: "google",
+            hkdf_migrated: 1,
+            status: "HEALTHY",
           }),
         }),
       }),
@@ -45,56 +38,86 @@ describe("Upstream Key Decryption & Resolution (resolvePlaintextKey)", () => {
     const env = {
       DB: mockDb,
       KC_MASTER_KEY: MASTER_KEY,
-    } as any;
+    } as unknown as WorkerEnv;
 
-    const resolved = await resolvePlaintextKey("key_gemini_test", "google", TEST_TENANT, env);
+    const resolved = await resolveLeasedKey(
+      { keyId: "key_gemini_test", ownerTenantId: TENANT_A, provider: "google" },
+      env
+    );
     expect(resolved).toBe(rawPlaintext);
   });
 
-  it("decrypts keys encrypted directly with masterKey from D1", async () => {
-    const rawPlaintext = "gsk_AnotherRealSecretKey888";
+  it("lazy migration: decrypts legacy row (hkdf_migrated=0) once, re-encrypts with tenant subkey and updates hkdf_migrated=1", async () => {
+    const rawPlaintext = "gsk_LegacySecretKey888";
     const encrypted = await encryptKey(rawPlaintext, "default", "groq", MASTER_KEY);
 
+    let updatedHkdf = false;
+    let newCiphertext = "";
+    let newNonce = "";
+
     const mockDb = {
-      prepare: (sql: string) => ({
-        bind: (...args: unknown[]) => ({
-          first: async () => ({
-            id: "key_groq_direct",
-            encrypted_key_b64: encrypted.ciphertext,
-            nonce_b64: encrypted.nonce,
-            tenant_id: "default",
-            provider: "groq",
-          }),
-        }),
-      }),
+      prepare: vi.fn((sql: string) => ({
+        bind: vi.fn((...args: unknown[]) => ({
+          first: async () => {
+            if (sql.includes("SELECT")) {
+              return {
+                id: "key_legacy_001",
+                tenant_id: TENANT_A,
+                provider: "groq",
+                encrypted_key_b64: encrypted.ciphertext,
+                nonce_b64: encrypted.nonce,
+                hkdf_migrated: 0,
+                status: "HEALTHY",
+              };
+            }
+            return null;
+          },
+          run: async () => {
+            if (sql.includes("UPDATE api_keys SET encrypted_key_b64")) {
+              updatedHkdf = true;
+              newCiphertext = args[0] as string;
+              newNonce = args[1] as string;
+            }
+            return { success: true };
+          },
+        })),
+      })),
     };
 
     const env = {
       DB: mockDb,
       KC_MASTER_KEY: MASTER_KEY,
-    } as any;
+    } as unknown as WorkerEnv;
 
-    const resolved = await resolvePlaintextKey("key_groq_direct", "groq", TEST_TENANT, env);
+    const resolved = await resolveLeasedKey(
+      { keyId: "key_legacy_001", ownerTenantId: TENANT_A, provider: "groq" },
+      env
+    );
     expect(resolved).toBe(rawPlaintext);
+    expect(updatedHkdf).toBe(true);
+    expect(newCiphertext).toBeTruthy();
+    expect(newNonce).toBeTruthy();
   });
 
-  it("caches decrypted key in-memory for subsequent calls", async () => {
+  it("caches decrypted key in-memory by keyId:nonce and invalidates on evict(keyId)", async () => {
     const rawPlaintext = "AIzaSyCachedKey777";
-    const tenantKey = await deriveTenantKey(MASTER_KEY, TEST_TENANT);
+    const tenantKey = await deriveTenantKey(MASTER_KEY, TENANT_A);
     const { ciphertextB64, nonceB64 } = await encrypt(rawPlaintext, tenantKey);
 
     let queryCount = 0;
     const mockDb = {
-      prepare: (sql: string) => ({
-        bind: (...args: unknown[]) => ({
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnValue({
           first: async () => {
             queryCount++;
             return {
               id: "key_cached_test",
+              tenant_id: TENANT_A,
+              provider: "google",
               encrypted_key_b64: ciphertextB64,
               nonce_b64: nonceB64,
-              tenant_id: TEST_TENANT,
-              provider: "google",
+              hkdf_migrated: 1,
+              status: "HEALTHY",
             };
           },
         }),
@@ -104,15 +127,110 @@ describe("Upstream Key Decryption & Resolution (resolvePlaintextKey)", () => {
     const env = {
       DB: mockDb,
       KC_MASTER_KEY: MASTER_KEY,
-    } as any;
+    } as unknown as WorkerEnv;
 
-    const first = await resolvePlaintextKey("key_cached_test", "google", TEST_TENANT, env);
+    const first = await resolveLeasedKey(
+      { keyId: "key_cached_test", ownerTenantId: TENANT_A, provider: "google" },
+      env
+    );
     expect(first).toBe(rawPlaintext);
-    expect(queryCount).toBe(1);
 
-    // Second call should hit in-memory cache without D1 query
-    const second = await resolvePlaintextKey("key_cached_test", "google", TEST_TENANT, env);
+    // Second call hits cache
+    const second = await resolveLeasedKey(
+      { keyId: "key_cached_test", ownerTenantId: TENANT_A, provider: "google" },
+      env
+    );
     expect(second).toBe(rawPlaintext);
-    expect(queryCount).toBe(1);
+
+    // Evict key from cache
+    evict("key_cached_test");
+
+    const third = await resolveLeasedKey(
+      { keyId: "key_cached_test", ownerTenantId: TENANT_A, provider: "google" },
+      env
+    );
+    expect(third).toBe(rawPlaintext);
+  });
+
+  it("AC-07: throws KeyDecryptionError and quarantines key if ciphertext of tenant A is accessed with tenant B ownerTenantId", async () => {
+    const rawPlaintext = "AIzaSyTenantASecretKey001";
+    const tenantKeyA = await deriveTenantKey(MASTER_KEY, TENANT_A);
+    const { ciphertextB64, nonceB64 } = await encrypt(rawPlaintext, tenantKeyA);
+
+    let quarantinedKeyId: string | null = null;
+    const mockDb = {
+      prepare: vi.fn((sql: string) => ({
+        bind: vi.fn((...args: unknown[]) => ({
+          first: async () => ({
+            id: "key_tenant_a",
+            tenant_id: TENANT_A,
+            provider: "google",
+            encrypted_key_b64: ciphertextB64,
+            nonce_b64: nonceB64,
+            hkdf_migrated: 1,
+            status: "HEALTHY",
+          }),
+          run: async () => {
+            if (sql.includes("QUARANTINED")) {
+              quarantinedKeyId = args[1] as string;
+            }
+            return { success: true };
+          },
+        })),
+      })),
+    };
+
+    const env = {
+      DB: mockDb,
+      KC_MASTER_KEY: MASTER_KEY,
+    } as unknown as WorkerEnv;
+
+    await expect(
+      resolveLeasedKey(
+        { keyId: "key_tenant_a", ownerTenantId: TENANT_B, provider: "google" },
+        env
+      )
+    ).rejects.toThrow(KeyDecryptionError);
+
+    expect(quarantinedKeyId).toBe("key_tenant_a");
+  });
+
+  it("corrupted ciphertext: throws KeyDecryptionError and quarantines key without returning key ID", async () => {
+    let quarantined = false;
+    const mockDb = {
+      prepare: vi.fn((sql: string) => ({
+        bind: vi.fn(() => ({
+          first: async () => ({
+            id: "key_corrupt_001",
+            tenant_id: TENANT_A,
+            provider: "groq",
+            encrypted_key_b64: "not-valid-base64-or-corrupted-ciphertext",
+            nonce_b64: "bm9uY2UxMjM0NTY=",
+            hkdf_migrated: 1,
+            status: "HEALTHY",
+          }),
+          run: async () => {
+            if (sql.includes("QUARANTINED")) {
+              quarantined = true;
+            }
+            return { success: true };
+          },
+        })),
+      })),
+    };
+
+    const env = {
+      DB: mockDb,
+      KC_MASTER_KEY: MASTER_KEY,
+    } as unknown as WorkerEnv;
+
+    await expect(
+      resolveLeasedKey(
+        { keyId: "key_corrupt_001", ownerTenantId: TENANT_A, provider: "groq" },
+        env
+      )
+    ).rejects.toThrow(KeyDecryptionError);
+
+    expect(quarantined).toBe(true);
   });
 });

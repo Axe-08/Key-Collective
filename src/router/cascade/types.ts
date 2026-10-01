@@ -21,6 +21,7 @@ import type {
   LeaseProvider,
 } from "../leases/orchestrator";
 import type { RoutingEngine } from "../leases/engine";
+import type { KeyInput } from "../../crypto/encryption/index";
 
 /**
  * Extended request options accepted by CascadeRouter.
@@ -144,6 +145,8 @@ export interface CascadeRouterOptions {
   onFallback?: (attempt: FallbackAttempt, nextModel?: ModelDef<bigint>) => void;
   /** Callback fired upon a successful route */
   onSuccess?: (response: CascadeRouteResponse) => void;
+  /** Master encryption key for key decryption */
+  masterKey?: KeyInput;
 }
 
 /**

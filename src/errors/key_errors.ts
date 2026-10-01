@@ -29,7 +29,7 @@ export interface DecryptionErrorOptions
  * bad nonce, or corrupted ciphertext).
  */
 export class DecryptionError extends DomainError {
-  public override readonly name = "DecryptionError";
+  public override readonly name: string = "DecryptionError";
   public readonly keyId?: string;
   public readonly provider?: string;
   public readonly algorithm: string;
@@ -54,6 +54,23 @@ export class DecryptionError extends DomainError {
     this.provider = options.provider;
     this.algorithm = options.algorithm ?? "AES-GCM";
     Object.setPrototypeOf(this, DecryptionError.prototype);
+  }
+}
+
+/**
+ * KeyDecryptionError (HTTP 500)
+ * Thrown if strict tenant key decryption fails (AC-07 violation, corrupted ciphertext, bad tag).
+ * Causes key to be quarantined in D1 and never returned as credential.
+ */
+export class KeyDecryptionError extends DecryptionError {
+  public override readonly name = "KeyDecryptionError";
+
+  constructor(
+    message = "Key decryption failed",
+    options: DecryptionErrorOptions = {}
+  ) {
+    super(message, options);
+    Object.setPrototypeOf(this, KeyDecryptionError.prototype);
   }
 }
 
@@ -332,6 +349,15 @@ export function isDecryptionError(value: unknown): value is DecryptionError {
     (typeof value === "object" &&
       value !== null &&
       (value as Record<string, unknown>).name === "DecryptionError")
+  );
+}
+
+export function isKeyDecryptionError(value: unknown): value is KeyDecryptionError {
+  return (
+    value instanceof KeyDecryptionError ||
+    (typeof value === "object" &&
+      value !== null &&
+      (value as Record<string, unknown>).name === "KeyDecryptionError")
   );
 }
 
