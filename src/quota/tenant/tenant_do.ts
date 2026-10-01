@@ -52,7 +52,7 @@ interface StorageWithAlarm {
  * Enforces hierarchical RPM & RPD limits, sub-caps, and cost tracking with DO storage survival.
  */
 export class TenantQuotaDO extends DurableObject<unknown> {
-  public tenantId: string;
+  public tenantId!: string;
   /**
    * False when the tenant id is only the DO's hex id. In the Workers runtime `ctx.id.name` is not
    * available inside the object, so the DO binds to the tenant named by its first caller (the
@@ -70,11 +70,12 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private trustedContributor: boolean = false;
   private consecutiveDebtFreeDays: number = 0;
   private multiplierCeiling: number = 150;
+  private settledLeaseIds = new Set<string>();
 
-  private readonly rpmWindowMs: number;
-  private readonly rpdWindowMs: number;
-  private clock: Clock;
-  private readonly timeProvider: () => number;
+  private rpmWindowMs!: number;
+  private rpdWindowMs!: number;
+  private clock!: Clock;
+  private timeProvider!: () => number;
   private readonly storagePrefix = "quota:";
 
   constructor(
@@ -82,15 +83,39 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     env?: unknown,
     options?: TenantQuotaDOOptions
   ) {
-    super(ctx as DurableObjectState, env);
+    let instance: TenantQuotaDO;
+    try {
+      super(ctx as DurableObjectState, env);
+      instance = this;
+    } catch {
+      instance = Object.create(new.target.prototype) as TenantQuotaDO;
+      Object.assign(instance as unknown as Record<string, unknown>, {
+        ctx,
+        env: env ?? {},
+      });
+    }
+    instance.initTenantQuotaInstance(options);
+    return instance;
+  }
+
+  private initTenantQuotaInstance(options?: TenantQuotaDOOptions): void {
+    this.tenantBound = false;
+    this.tier = options?.initialTier ?? "builder";
+    this.entries = [];
+    this.totalCostMicrodollars = 0n;
+    this.cuUsed24h = 0n;
+    this.isLoaded = false;
+    this.communityDebtCu = 0n;
+    this.dailyContributedCu = 0n;
+    this.trustedContributor = false;
+    this.consecutiveDebtFreeDays = 0;
+    this.multiplierCeiling = 150;
+    this.settledLeaseIds = new Set<string>();
+
     this.clock = options?.clock ?? systemClock;
     this.timeProvider = options?.timeProvider ?? (() => this.clock.now());
     this.rpmWindowMs = options?.rpmWindowMs ?? 60_000;
     this.rpdWindowMs = options?.rpdWindowMs ?? 86_400_000;
-
-    if (options?.initialTier) {
-      this.tier = options.initialTier;
-    }
 
     const namedTenant = options?.tenantId ?? this.ctx.id.name;
     this.tenantBound = typeof namedTenant === "string" && namedTenant.trim().length > 0;
@@ -103,15 +128,21 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     }
     this.tenantId = resolvedTenant;
 
-    const storage = this.ctx.storage as unknown as StorageWithAlarm;
-    if (typeof storage?.getAlarm === "function") {
-      storage.getAlarm().then((alarm: number | null) => {
+    const bootstrapAlarm = async () => {
+      const storage = this.ctx.storage as unknown as StorageWithAlarm;
+      if (typeof storage?.getAlarm === "function") {
+        const alarm = await storage.getAlarm();
         if (!alarm && typeof storage?.setAlarm === "function") {
           const tomorrow = new Date(this.clock.now());
           tomorrow.setUTCHours(24, 0, 0, 0);
-          storage.setAlarm(tomorrow.getTime());
+          await storage.setAlarm(tomorrow.getTime());
         }
-      }).catch(() => {});
+      }
+    };
+    if (typeof this.ctx.blockConcurrencyWhile === "function") {
+      this.ctx.blockConcurrencyWhile(bootstrapAlarm);
+    } else {
+      void bootstrapAlarm();
     }
   }
 
@@ -234,19 +265,69 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.isLoaded = false;
   }
 
-  public async accrueDebt(cuWeight: bigint): Promise<void> {
+  public async accrueDebt(
+    cuWeight: bigint | number | string,
+    leaseId?: string,
+    tenantId?: string
+  ): Promise<void> {
     await this.ensureLoaded();
-    this.communityDebtCu += cuWeight;
+    if (tenantId) {
+      this.assertTenant(tenantId);
+    }
+    if (leaseId) {
+      const storageKey = `${this.storagePrefix}lease:${leaseId}:accrue`;
+      if (this.settledLeaseIds.has(storageKey)) {
+        return;
+      }
+      const persisted = await this.ctx.storage.get<boolean>(storageKey);
+      if (persisted) {
+        this.settledLeaseIds.add(storageKey);
+        return;
+      }
+      this.settledLeaseIds.add(storageKey);
+      await this.ctx.storage.put(storageKey, true);
+    }
+    const cu = toCu(cuWeight);
+    this.communityDebtCu += cu;
     this.updateMultiplierCeiling();
     await this.syncDebtState();
   }
 
-  public async decrementDebt(cuWeight: bigint): Promise<void> {
+  public async decrementDebt(
+    cuWeight: bigint | number | string,
+    leaseId?: string,
+    tenantId?: string
+  ): Promise<void> {
     await this.ensureLoaded();
-    this.communityDebtCu = this.communityDebtCu > cuWeight ? this.communityDebtCu - cuWeight : 0n;
-    this.dailyContributedCu += cuWeight;
+    if (tenantId) {
+      this.assertTenant(tenantId);
+    }
+    if (leaseId) {
+      const storageKey = `${this.storagePrefix}lease:${leaseId}:credit`;
+      if (this.settledLeaseIds.has(storageKey)) {
+        return;
+      }
+      const persisted = await this.ctx.storage.get<boolean>(storageKey);
+      if (persisted) {
+        this.settledLeaseIds.add(storageKey);
+        return;
+      }
+      this.settledLeaseIds.add(storageKey);
+      await this.ctx.storage.put(storageKey, true);
+    }
+    const cu = toCu(cuWeight);
+    this.communityDebtCu = this.communityDebtCu > cu ? this.communityDebtCu - cu : 0n;
+    this.dailyContributedCu += cu;
     this.updateMultiplierCeiling();
     await this.syncDebtState();
+  }
+
+  public async credit(
+    cuWeight: bigint | number | string,
+    leaseId?: string,
+    tenantId?: string
+  ): Promise<void> {
+    await this.decrementDebt(cuWeight, leaseId, tenantId);
   }
 
   public getDebtState() {
@@ -267,8 +348,35 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     );
   }
 
+  private async pushOwnerDebtToCoordinators(): Promise<void> {
+    if (!this.tenantBound || !this.tenantId) {
+      return;
+    }
+    const envWithCoord = this.env as
+      | { POOL_COORDINATOR?: DurableObjectNamespace }
+      | undefined;
+    const coordNs = envWithCoord?.POOL_COORDINATOR;
+    if (!coordNs || typeof coordNs.idFromName !== "function") {
+      return;
+    }
+    const debtNumber = Number(this.communityDebtCu);
+    for (const provider of ["google", "groq"]) {
+      try {
+        const stub = coordNs.get(coordNs.idFromName(`pool:${provider}`)) as unknown as {
+          setOwnerDebt?: (owner: string, cu: number) => Promise<void>;
+        };
+        if (typeof stub.setOwnerDebt === "function") {
+          await stub.setOwnerDebt(this.tenantId, debtNumber);
+        }
+      } catch (err) {
+        void err;
+      }
+    }
+  }
+
   public async syncDebtState(): Promise<void> {
     await this.persist();
+    await this.pushOwnerDebtToCoordinators();
   }
 
   public async alarm(): Promise<void> {
