@@ -20,6 +20,7 @@ import { env, fetchMock } from "cloudflare:test";
 import worker from "../../src/worker/index";
 import type { WorkerEnv } from "../../src/worker/auth/types";
 import { addProviderKey, createApiKey, createSession, createUser } from "../../test/helpers/world";
+import { recordWouldDeny, clearWouldDenyEventsForTest } from "../../src/pool/enforcement";
 
 const ADMIN_EMAIL = "ops-admin@keycollective.test";
 
@@ -441,4 +442,48 @@ describe("Admin Gateway & Governance (WP-4.6)", () => {
       expect(auditRow?.action).toBe("TENANT_QUARANTINE");
     });
   });
+
+  describe("Commons Would-Deny Surveillance (WP-5.1 T-5.1.2)", () => {
+    beforeEach(() => {
+      clearWouldDenyEventsForTest();
+    });
+
+    it("unauthorized request to /api/admin/commons/would-deny returns 404 (zero-knowledge denial)", async () => {
+      const res = await adminRequest("/api/admin/commons/would-deny");
+      expect(res.status).toBe(404);
+    });
+
+    it("authorized admin GET /api/admin/commons/would-deny returns aggregated counts and top tenants", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+
+      // Record some sample would-deny events
+      await recordWouldDeny("brake", "usr_goog_tenant_1", "exceeded 35% pool cu");
+      await recordWouldDeny("brake", "usr_goog_tenant_1", "exceeded 35% pool cu");
+      await recordWouldDeny("eye_for_eye", "usr_goog_tenant_2", "no active groq key");
+      await recordWouldDeny("jail", "usr_goog_tenant_1", "debt ratio > 100%");
+
+      const res = await adminRequest("/api/admin/commons/would-deny?hours=24", { method: "GET" }, cookie);
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as {
+        status: string;
+        period_hours: number;
+        rules: Record<string, number>;
+        top_tenants: Array<{ tenant_hash: string; count: number; rules: Record<string, number> }>;
+        total: number;
+      };
+
+      expect(body.status).toBe("success");
+      expect(body.period_hours).toBe(24);
+      expect(body.rules.brake).toBe(2);
+      expect(body.rules.eye_for_eye).toBe(1);
+      expect(body.rules.jail).toBe(1);
+      expect(body.rules.share_cap).toBe(0);
+      expect(body.total).toBe(4);
+      expect(body.top_tenants.length).toBeGreaterThanOrEqual(2);
+      expect(body.top_tenants[0].count).toBe(3);
+    });
+  });
 });
+
