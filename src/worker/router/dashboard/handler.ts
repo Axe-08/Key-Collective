@@ -9,7 +9,8 @@ import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
 import { handleConsent, registrationStatus } from "../../../auth/consent";
-import { handleOAuthGithubCallback, handleGoogleAuth, handleLogout } from "./auth_routes";
+import { handleGoogleAuth, handleLogout } from "./auth_routes";
+import { handleGithubLinkCallback, handleGithubLinkStart } from "../../../auth/github/link_flow";
 import { SESSION_COOKIE, lookupSession, readCookie, type SessionContext } from "../../../auth/session/store";
 import { timingSafeEqualStrings } from "../../../crypto/utils";
 import {
@@ -59,9 +60,12 @@ export class DashboardRouter {
 
     let tenantId = "anonymous";
 
-    // 0. OAuth GitHub Callback
+    // 0. GitHub link flow (WP-3.3)
+    if (method === "GET" && pathname === "/api/auth/github/start") {
+      return handleGithubLinkStart(request, env);
+    }
     if (method === "GET" && pathname === "/api/auth/github/callback") {
-      return handleOAuthGithubCallback(request, env);
+      return handleGithubLinkCallback(request, env);
     }
 
     // 0.1 Verified Google Sign-In

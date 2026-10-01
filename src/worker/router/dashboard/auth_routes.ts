@@ -20,25 +20,6 @@ interface GoogleAuthBody {
   idToken?: string;
 }
 
-export async function handleOAuthGithubCallback(
-  _request?: Request,
-  _env?: WorkerEnv
-): Promise<Response> {
-  return new Response(
-    JSON.stringify({
-      error: {
-        message: "GitHub authentication is disabled until link flow is implemented.",
-        code: "GONE",
-        statusCode: 410,
-      },
-    }),
-    {
-      status: 410,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    }
-  );
-}
-
 export async function handleGoogleAuth(
   request: Request,
   env: WorkerEnv
