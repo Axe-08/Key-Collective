@@ -25,6 +25,7 @@ export default defineWorkersConfig(async () => {
         "test/integration/**/*.test.ts",
         "test/do/**/*.test.ts",
         "tests/storage/repositories/apiKeys.test.ts",
+        "tests/admin/**/*.test.ts",
       ],
       setupFiles: ["./test/setup/apply-migrations.ts"],
       poolOptions: {
@@ -47,6 +48,7 @@ export default defineWorkersConfig(async () => {
               CONSOLE_HOST: "console.test",
               ADMIN_HOST: "admin.test",
               APEX_HOST: "apex.test",
+              ADMIN_EMAILS: "admin@keycollective.ai,root@keycollective.ai",
               ROUTING_ENGINE: process.env.ROUTING_ENGINE ?? "leases",
             },
           },

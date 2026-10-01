@@ -16,6 +16,7 @@ export default defineConfig({
       'ui/**',
       'node_modules/**',
       'tests/storage/repositories/apiKeys.test.ts',
+      'tests/admin/**',
     ],
     passWithNoTests: false,
     environment: 'node',

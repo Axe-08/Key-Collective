@@ -21,6 +21,7 @@ import { handleAdminRequest } from "./admin_handler";
 import { handleV1Route } from "../api/v1_router";
 import { handleLegacyRoute, matchLegacyRoute } from "../api/legacy_routes";
 import { handleDemoTokenRequest } from "../router/demo_routes";
+import { checkMaintenance } from "./control";
 
 const RAW_DO_PATHS = new Set([
   "/v1/keys",
@@ -113,6 +114,29 @@ export class MainWorker {
         status: 204,
         headers: CORS_HEADERS,
       });
+    }
+
+    // 1.5. Kill switch: check maintenance mode (T-4.6.2)
+    const maintenance = await checkMaintenance(env);
+    if (maintenance) {
+      const resp = new Response(
+        JSON.stringify({
+          error: {
+            code: "maintenance",
+            message:
+              maintenance.reason ??
+              "Service temporarily unavailable due to maintenance",
+          },
+        }),
+        {
+          status: 503,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "retry-after": "60",
+          },
+        }
+      );
+      return this.options.cors !== false ? applyCors(resp) : resp;
     }
 
     // 2. Canonical route resolution via v1_router

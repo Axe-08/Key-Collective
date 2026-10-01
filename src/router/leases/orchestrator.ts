@@ -26,6 +26,7 @@ import {
   type CoordinatorLeaseRequest,
   type CoordinatorSettleResult,
 } from "../../pool/coordinator_do";
+import { ProviderUnavailableError } from "../../errors/routing_errors";
 import type { WorkerEnv } from "../../worker/auth/types";
 
 export type LeaseSource = "private" | "own_community" | "borrowed";
@@ -83,6 +84,7 @@ interface CoordinatorRpcStub {
     cu?: number | bigint,
     until?: number
   ): Promise<CoordinatorSettleResult>;
+  getProviderOverride?(): Promise<{ state: "TRIPPED" | "NORMAL"; until?: number | null } | null>;
 }
 
 interface TenantQuotaRpcStub {
@@ -154,6 +156,15 @@ export class LeaseOrchestrator implements LeaseProvider {
   ): Promise<Lease | null> {
     const canonProvider = canonicalCoordinatorProvider(provider);
     const estCu = ctx.estimateCu !== undefined ? Number(ctx.estimateCu) : 0;
+
+    // Check coordinator provider circuit override (WP-4.6, T-4.6.1)
+    const coordStubCheck = this.getCoordinatorStub(canonProvider, ctx.env);
+    if (coordStubCheck && typeof coordStubCheck.getProviderOverride === "function") {
+      const override = await coordStubCheck.getProviderOverride().catch(() => null);
+      if (override && override.state === "TRIPPED") {
+        throw new ProviderUnavailableError(canonProvider);
+      }
+    }
 
     // Demo isolation (WP-4.5): sys_demo leases only from KeyPoolDO("sys_operator") private keys; NEVER calls coordinator.
     if (ctx.tenantId === "sys_demo") {

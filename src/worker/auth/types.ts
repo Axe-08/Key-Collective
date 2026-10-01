@@ -24,7 +24,6 @@ export interface WorkerEnv {
   KC_MASTER_KEY?: string;
   ASSETS?: { fetch(request: Request | string): Promise<Response> };
   REPORT_WEBHOOK_SECRET?: string;
-  MIDNIGHT_FREEZE?: string;
   FIREBASE_PROJECT_ID?: string;
   ROUTING_ENGINE?: "legacy" | "leases" | string;
   [key: string]: unknown;

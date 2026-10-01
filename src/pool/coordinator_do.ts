@@ -70,6 +70,21 @@ export interface CoordinatorStats {
   activeBrakes: number;
 }
 
+export interface ProviderOverrideInfo {
+  provider: string;
+  state: "TRIPPED" | "NORMAL";
+  until?: number | null;
+  reason?: string | null;
+  adminUserId?: string | null;
+  updatedAt: number;
+}
+
+export interface ControlMaintenanceState {
+  maintenance: boolean;
+  reason?: string;
+  since?: number;
+}
+
 interface SqlCursorLike {
   toArray(): Record<string, unknown>[];
 }
@@ -176,6 +191,18 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         owner TEXT PRIMARY KEY,
         debt_cu INTEGER NOT NULL DEFAULT 0,
         updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS provider_overrides (
+        provider TEXT PRIMARY KEY,
+        state TEXT NOT NULL,
+        until INTEGER,
+        reason TEXT,
+        admin_user_id TEXT,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS control_state (
+        k TEXT PRIMARY KEY,
+        v TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS meta (
         k TEXT PRIMARY KEY,
@@ -416,6 +443,122 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
+   * Sets administrative circuit override (WP-4.6, T-4.6.1).
+   * While TRIPPED, leases return no keys for this provider shard.
+   */
+  public async setProviderOverride(
+    state: "TRIPPED" | "NORMAL",
+    until?: number | null,
+    reason?: string | null,
+    adminUserId?: string | null
+  ): Promise<ProviderOverrideInfo> {
+    const sql = this.ensureSchema();
+    const now = this.clock.now();
+    const provider = this.getMeta("provider") || "unknown";
+    sql.exec(
+      `INSERT INTO provider_overrides (provider, state, until, reason, admin_user_id, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(provider) DO UPDATE SET
+         state = excluded.state,
+         until = excluded.until,
+         reason = excluded.reason,
+         admin_user_id = excluded.admin_user_id,
+         updated_at = excluded.updated_at`,
+      provider,
+      state,
+      until ?? null,
+      reason ?? null,
+      adminUserId ?? null,
+      now
+    );
+    return {
+      provider,
+      state,
+      until: until ?? null,
+      reason: reason ?? null,
+      adminUserId: adminUserId ?? null,
+      updatedAt: now,
+    };
+  }
+
+  /**
+   * Gets the active administrative circuit override for this provider shard (WP-4.6, T-4.6.1).
+   */
+  public async getProviderOverride(): Promise<ProviderOverrideInfo | null> {
+    const sql = this.ensureSchema();
+    const rows = sql
+      .exec("SELECT provider, state, until, reason, admin_user_id, updated_at FROM provider_overrides LIMIT 1")
+      .toArray();
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    const until = typeof r.until === "number" ? r.until : null;
+    let state = String(r.state) as "TRIPPED" | "NORMAL";
+    const now = this.clock.now();
+    if (state === "TRIPPED" && until !== null && now >= until) {
+      state = "NORMAL";
+    }
+    return {
+      provider: String(r.provider),
+      state,
+      until,
+      reason: typeof r.reason === "string" ? r.reason : null,
+      adminUserId: typeof r.admin_user_id === "string" ? r.admin_user_id : null,
+      updatedAt: Number(r.updated_at) || 0,
+    };
+  }
+
+  /**
+   * Sets global maintenance kill-switch on the 'control' coordinator instance (WP-4.6, T-4.6.2).
+   */
+  public async setMaintenance(
+    maintenance: boolean,
+    reason?: string
+  ): Promise<ControlMaintenanceState> {
+    const sql = this.ensureSchema();
+    const now = this.clock.now();
+    sql.exec(
+      "INSERT INTO control_state (k, v) VALUES ('maintenance', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+      maintenance ? "1" : "0"
+    );
+    if (reason) {
+      sql.exec(
+        "INSERT INTO control_state (k, v) VALUES ('maintenance_reason', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+        reason
+      );
+    } else {
+      sql.exec("DELETE FROM control_state WHERE k = 'maintenance_reason'");
+    }
+    sql.exec(
+      "INSERT INTO control_state (k, v) VALUES ('maintenance_since', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+      String(now)
+    );
+    return {
+      maintenance,
+      reason: reason ?? undefined,
+      since: now,
+    };
+  }
+
+  /**
+   * Gets global maintenance kill-switch state on the 'control' coordinator instance (WP-4.6, T-4.6.2).
+   */
+  public async getMaintenance(): Promise<ControlMaintenanceState> {
+    const sql = this.ensureSchema();
+    const rows = sql
+      .exec("SELECT k, v FROM control_state WHERE k IN ('maintenance', 'maintenance_reason', 'maintenance_since')")
+      .toArray();
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      map.set(String(r.k), String(r.v));
+    }
+    const maintenance = map.get("maintenance") === "1";
+    const reason = map.get("maintenance_reason") || undefined;
+    const sinceStr = map.get("maintenance_since");
+    const since = sinceStr ? parseInt(sinceStr, 10) : undefined;
+    return { maintenance, reason, since };
+  }
+
+  /**
    * Acquires a key lease from the coordinator.
    * - `ownOnly: true`: selects from the caller's own COMMUNITY keys (`ACTIVE` or `OBSERVATION`), no debt.
    * - `ownOnly: false`: selects from other contributors' `ACTIVE` COMMUNITY keys, scored by
@@ -426,6 +569,12 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const sql = this.ensureSchema();
     const now = this.clock.now();
     this.promoteAndResetBuckets(now);
+
+    const override = await this.getProviderOverride();
+    if (override && override.state === "TRIPPED") {
+      return null;
+    }
+
 
     const providerFilter = req.provider ? canonicalCoordinatorProvider(req.provider) : null;
 

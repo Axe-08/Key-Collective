@@ -1,199 +1,444 @@
-import { describe, it, expect } from "vitest";
-import { handleAdminRequest } from "../../src/worker/gateway/admin_handler";
-import { verifyAdminRequest } from "../../src/worker/gateway/admin_verifier";
+/**
+ * Key Collective — Admin Router & Circuit / Kill Switch Tests (WP-4.6)
+ *
+ * Replaces the legacy echo tests in tests/admin/admin_router.test.ts (T-04):
+ * - Admin authorization via session (kc_admin_session) with role="admin" and email in ADMIN_EMAILS.
+ * - Zero-knowledge denial: unauthorized admin requests return 404.
+ * - T-4.6.1 Provider override on coordinator & KeyPoolDO, visible in /api/admin/providers:
+ *   - Trip groq -> Groq request returns 503 provider_unavailable and upstream mock is not called.
+ *   - Reset override -> same request is served again (200).
+ * - T-4.6.2 Kill switch (control instance, 10 s cache, 503 maintenance):
+ *   - Engaging kill switch -> /v1/chat/completions returns 503 maintenance with Retry-After: 60.
+ *   - Console /api/* is unaffected.
+ *   - Disarming kill switch -> /v1/chat/completions served again.
+ * - T-4.6.3 Audit logs + stored state responses:
+ *   - Both write rows to admin_audit_logs and return stored state.
+ */
+
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { env, fetchMock } from "cloudflare:test";
+import worker from "../../src/worker/index";
 import type { WorkerEnv } from "../../src/worker/auth/types";
-import type { RouterHandler } from "../../src/worker/router/index";
+import { addProviderKey, createApiKey, createSession, createUser } from "../../test/helpers/world";
 
-function createMockEnv(overrides: Partial<WorkerEnv> = {}): WorkerEnv {
-  const users = new Map<string, any>();
-  const auditLogs: any[] = [];
-  const apiKeys = new Map<string, any>();
+const ADMIN_EMAIL = "ops-admin@keycollective.test";
 
-  const mockDb = {
-    prepare(query: string) {
+let upstreamGroqCalls = 0;
+
+beforeAll(() => {
+  fetchMock.activate();
+  fetchMock.disableNetConnect();
+
+  fetchMock
+    .get("https://challenges.cloudflare.com")
+    .intercept({ path: "/turnstile/v0/siteverify", method: "POST" })
+    .reply(200, JSON.stringify({ success: true }), {
+      headers: { "content-type": "application/json" },
+    })
+    .persist();
+
+  fetchMock
+    .get("https://api.groq.com")
+    .intercept({ path: /\/openai\/v1\/chat\/completions/, method: "POST" })
+    .reply(() => {
+      upstreamGroqCalls++;
       return {
-        bind(...args: any[]) {
-          return {
-            async run() {
-              if (query.includes("UPDATE users SET tier")) {
-                const [tier, id] = args;
-                const u = users.get(id) || { id };
-                u.tier = tier;
-                users.set(id, u);
-              } else if (query.includes("UPDATE users SET is_quarantined")) {
-                const [isQuar, reason, id] = args;
-                const u = users.get(id) || { id };
-                u.is_quarantined = isQuar;
-                u.quarantine_reason = reason;
-                users.set(id, u);
-              } else if (query.includes("INSERT INTO admin_audit_logs")) {
-                auditLogs.push(args);
-              } else if (query.includes("UPDATE api_keys SET community_routing_status")) {
-                const [targetId] = args.reverse();
-                const k = apiKeys.get(targetId) || { id: targetId };
-                k.community_routing_status = "ACTIVE";
-                apiKeys.set(targetId, k);
-              }
-              return { success: true, meta: { changes: 1 } };
+        statusCode: 200,
+        data: JSON.stringify({
+          id: "chatcmpl-groq-mock",
+          object: "chat.completion",
+          created: 1700000000,
+          model: "llama-3.3-70b-versatile",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "Groq response" },
+              finish_reason: "stop",
             },
-            async first() {
-              if (query.includes("SELECT id, email, tier, role, is_quarantined FROM users")) {
-                const [id] = args;
-                return users.get(id) || null;
-              }
-              return null;
-            },
-            async all() {
-              if (query.includes("FROM users")) {
-                return { results: Array.from(users.values()) };
-              }
-              if (query.includes("FROM api_keys")) {
-                return { results: Array.from(apiKeys.values()) };
-              }
-              return { results: [] };
-            },
-          };
-        },
+          ],
+          usage: {
+            prompt_tokens: 15,
+            completion_tokens: 10,
+            total_tokens: 25,
+          },
+        }),
       };
-    },
-  };
+    })
+    .persist();
+});
 
+beforeEach(async () => {
+  upstreamGroqCalls = 0;
+});
+
+function getAdminEnv(): WorkerEnv {
   return {
-    ADMIN_TOKEN: "admin-master-key-secret-12345",
-    DB: mockDb as any,
-    ...overrides,
-  } as unknown as WorkerEnv;
+    ...(env as unknown as WorkerEnv),
+    ADMIN_EMAILS: `someone@else.test, ${ADMIN_EMAIL}`,
+  };
 }
 
-const mockRouterHandler = {
-  handle: async () => new Response("OK"),
-} as unknown as RouterHandler;
+async function adminRequest(
+  path: string,
+  options: RequestInit = {},
+  cookie?: string
+): Promise<Response> {
+  const headers = new Headers(options.headers);
+  if (cookie) {
+    headers.set("cookie", cookie.replace("kc_session=", "kc_admin_session="));
+  }
+  const req = new Request(`https://admin.test${path}`, {
+    ...options,
+    headers,
+  });
+  return worker.fetch(req, getAdminEnv());
+}
 
-describe("Admin Gateway & Zero-Knowledge Verification (Production Invariants)", () => {
-  describe("verifyAdminRequest (Zero-Knowledge Denial)", () => {
-    it("returns false when no Authorization header or token is present", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance");
-      const env = createMockEnv();
-      const verified = await verifyAdminRequest(req, env);
-      expect(verified).toBe(false);
+describe("Admin Gateway & Governance (WP-4.6)", () => {
+  describe("Zero-Knowledge Denial", () => {
+    it("returns 404 when no session cookie or token is present", async () => {
+      const res = await adminRequest("/api/admin/surveillance");
+      expect(res.status).toBe(404);
     });
 
-    it("returns false for non-admin arbitrary token", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
-        headers: { Authorization: "Bearer bogus-token-12345" },
+    it("returns 404 for arbitrary bearer token", async () => {
+      const req = new Request("https://admin.test/api/admin/surveillance", {
+        headers: { authorization: "Bearer bogus-token-123" },
       });
-      const env = createMockEnv();
-      const verified = await verifyAdminRequest(req, env);
-      expect(verified).toBe(false);
+      const res = await worker.fetch(req, getAdminEnv());
+      expect(res.status).toBe(404);
     });
 
-    it("accepts ADMIN_TOKEN only via x-kc-admin-token without Origin (WP-0.3)", async () => {
-      const env = createMockEnv();
-      const bearer = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
-        headers: { Authorization: "Bearer admin-master-key-secret-12345" },
-      });
-      expect(await verifyAdminRequest(bearer, env)).toBe(false);
-
-      const header = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
-        headers: { "x-kc-admin-token": "admin-master-key-secret-12345" },
-      });
-      expect(await verifyAdminRequest(header, env)).toBe(true);
-
-      const fromBrowser = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
-        headers: { "x-kc-admin-token": "admin-master-key-secret-12345", origin: "https://admin.keycollective.ai" },
-      });
-      expect(await verifyAdminRequest(fromBrowser, env)).toBe(false);
+    it("returns 404 for non-admin user session", async () => {
+      const regularUser = await createUser({ role: "user" });
+      const { cookie } = await createSession(regularUser, { kind: "console" });
+      const res = await adminRequest("/api/admin/surveillance", {}, cookie);
+      expect(res.status).toBe(404);
     });
 
-    it("returns false when request matches KC_MASTER_KEY but not ADMIN_TOKEN", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance", {
-        headers: { Authorization: "Bearer kc-encryption-key-only" },
-      });
-      const env = createMockEnv({
-        ADMIN_TOKEN: "admin-secret-token",
-        KC_MASTER_KEY: "kc-encryption-key-only",
-      });
-      const verified = await verifyAdminRequest(req, env);
-      expect(verified).toBe(false);
-    });
-
-    it("rejects the token query param (WP-0.3)", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance?token=admin-master-key-secret-12345");
-      const env = createMockEnv();
-      const verified = await verifyAdminRequest(req, env);
-      expect(verified).toBe(false);
+    it("returns 404 for user with role='admin' but email not in ADMIN_EMAILS", async () => {
+      const unlistedAdmin = await createUser({ email: "unlisted@example.com", role: "admin" });
+      const { cookie } = await createSession(unlistedAdmin, { kind: "admin" });
+      const res = await adminRequest("/api/admin/surveillance", {}, cookie);
+      expect(res.status).toBe(404);
     });
   });
 
-  describe("handleAdminRequest (Live Endpoints)", () => {
-    it("GET /api/admin/surveillance returns tenant and pool aggregates", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/surveillance");
-      const env = createMockEnv();
-      const res = await handleAdminRequest(req, env, mockRouterHandler);
+  describe("T-4.6.1 Provider Override & /api/admin/providers", () => {
+    it("GET /api/admin/providers lists providers and their override status", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+
+      const res = await adminRequest("/api/admin/providers", { method: "GET" }, cookie);
       expect(res.status).toBe(200);
-      const data = (await res.json()) as any;
-      expect(data.status).toBe("success");
-      expect(data.pool).toBeDefined();
-      expect(data.pool.providers).toBeInstanceOf(Array);
+      const data = (await res.json()) as { providers: Array<{ provider: string; status: string }> };
+      expect(data.providers).toBeDefined();
+      const groqEntry = data.providers.find((p) => p.provider === "groq");
+      expect(groqEntry).toBeDefined();
     });
 
-    it("POST /api/admin/tenants/:id/tier overrides tenant tier in D1", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/tenants/usr_123/tier", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ new_tier: "ultra", reason: "Enterprise VIP" }),
+    it("Trip groq -> Groq request returns 503 provider_unavailable without calling upstream; Reset -> succeeds", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+
+      // Create a tenant with a Groq key
+      const tenant = await createUser({ github: true, eligible: true });
+      await addProviderKey(tenant, {
+        provider: "groq",
+        pool: "COMMUNITY",
+        plaintext: "gsk_groq_test_key_001",
       });
-      const env = createMockEnv();
-      const res = await handleAdminRequest(req, env, mockRouterHandler);
+      const clientApiKey = await createApiKey(tenant);
+
+      const groqCoordNs = getAdminEnv().POOL_COORDINATOR as unknown as DurableObjectNamespace;
+      const groqCoord = groqCoordNs.get(
+        groqCoordNs.idFromName("pool:groq")
+      ) as unknown as { reconcile(provider: string): Promise<unknown> };
+      await groqCoord.reconcile("groq");
+
+      // 1. Trip Groq circuit override via admin endpoint
+      const tripRes = await adminRequest(
+        "/api/admin/circuit-breaker",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            provider: "groq",
+            state: "TRIPPED",
+            reason: "Upstream 503 incident",
+          }),
+        },
+        cookie
+      );
+      expect(tripRes.status).toBe(200);
+      const tripBody = (await tripRes.json()) as {
+        success: boolean;
+        provider: string;
+        state: string;
+      };
+      expect(tripBody.success).toBe(true);
+      expect(tripBody.provider).toBe("groq");
+      expect(tripBody.state).toBe("TRIPPED");
+
+      // Verify audit log row created
+      const tripAudit = await env.DB.prepare(
+        "SELECT action, target, details_json FROM admin_audit_logs WHERE target = 'GROQ' ORDER BY created_at DESC LIMIT 1"
+      ).first<{ action: string; target: string; details_json: string }>();
+      expect(tripAudit?.action).toBe("CIRCUIT_TRIP_OVERRIDE");
+      expect(tripAudit?.target).toBe("GROQ");
+
+      // 2. A Groq-only request returns 503 provider_unavailable and upstream mock is NOT called
+      const chatReq = new Request("https://api.test/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${clientApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "open-groq",
+          messages: [{ role: "user", content: "Hello Groq" }],
+        }),
+      });
+
+      const chatRes = await worker.fetch(chatReq, getAdminEnv());
+      expect(chatRes.status).toBe(503);
+      const chatErr = (await chatRes.json()) as { error: { code: string } };
+      expect(chatErr.error.code).toBe("provider_unavailable");
+      expect(upstreamGroqCalls).toBe(0);
+
+      // 3. Reset Groq circuit override via admin endpoint
+      const resetRes = await adminRequest(
+        "/api/admin/circuit-breaker",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            provider: "groq",
+            state: "NORMAL",
+            reason: "Incident resolved",
+          }),
+        },
+        cookie
+      );
+      expect(resetRes.status).toBe(200);
+      const resetBody = (await resetRes.json()) as {
+        success: boolean;
+        provider: string;
+        state: string;
+      };
+      expect(resetBody.success).toBe(true);
+      expect(resetBody.state).toBe("NORMAL");
+
+      // Verify audit log row created
+      const resetAudit = await env.DB.prepare(
+        "SELECT action, target FROM admin_audit_logs WHERE target = 'GROQ' ORDER BY created_at DESC LIMIT 1"
+      ).first<{ action: string; target: string }>();
+      expect(resetAudit?.action).toBe("CIRCUIT_RESET_NORMAL");
+
+      // 4. The same request is served again (200) and upstream mock is called
+      const chatReq2 = new Request("https://api.test/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${clientApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "open-groq",
+          messages: [{ role: "user", content: "Hello Groq again" }],
+        }),
+      });
+      const chatRes2 = await worker.fetch(chatReq2, getAdminEnv());
+      expect(chatRes2.status).toBe(200);
+      expect(upstreamGroqCalls).toBe(1);
+    });
+  });
+
+  describe("T-4.6.2 Global Kill Switch (Control DO & Maintenance 503)", () => {
+    it("Engaging kill switch -> /v1 returns 503 maintenance with Retry-After: 60; console /api unaffected; Disarm restores", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+
+      const tenant = await createUser({ github: true, eligible: true });
+      await addProviderKey(tenant, {
+        provider: "groq",
+        pool: "COMMUNITY",
+        plaintext: "gsk_groq_kill_switch_key",
+      });
+      const clientApiKey = await createApiKey(tenant);
+
+      const groqCoordNs = getAdminEnv().POOL_COORDINATOR as unknown as DurableObjectNamespace;
+      const groqCoord = groqCoordNs.get(
+        groqCoordNs.idFromName("pool:groq")
+      ) as unknown as { reconcile(provider: string): Promise<unknown> };
+      await groqCoord.reconcile("groq");
+
+      // 1. Engage kill switch
+      const engageRes = await adminRequest(
+        "/api/admin/kill-switch",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ active: true, reason: "Security drill" }),
+        },
+        cookie
+      );
+      expect(engageRes.status).toBe(200);
+      const engageBody = (await engageRes.json()) as {
+        success: boolean;
+        active: boolean;
+        reason?: string;
+      };
+      expect(engageBody.success).toBe(true);
+      expect(engageBody.active).toBe(true);
+      expect(engageBody.reason).toBe("Security drill");
+
+      // Verify audit log row created
+      const engageAudit = await env.DB.prepare(
+        "SELECT action, target FROM admin_audit_logs WHERE action = 'GLOBAL_KILL_SWITCH_ENGAGED' ORDER BY created_at DESC LIMIT 1"
+      ).first<{ action: string; target: string }>();
+      expect(engageAudit?.action).toBe("GLOBAL_KILL_SWITCH_ENGAGED");
+
+      // 2. /v1/chat/completions on api.test returns 503 maintenance with Retry-After: 60
+      const apiReq = new Request("https://api.test/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${clientApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "open-groq",
+          messages: [{ role: "user", content: "ping" }],
+        }),
+      });
+
+      const apiRes = await worker.fetch(apiReq, getAdminEnv());
+      expect(apiRes.status).toBe(503);
+      expect(apiRes.headers.get("retry-after")).toBe("60");
+      const apiBody = (await apiRes.json()) as { error: { code: string } };
+      expect(apiBody.error.code).toBe("maintenance");
+
+      // 3. Console host /api/* is unaffected
+      const consoleSession = await createSession(tenant, { kind: "console" });
+      const consoleReq = new Request("https://console.test/api/session", {
+        headers: { cookie: consoleSession.cookie },
+      });
+      const consoleRes = await worker.fetch(consoleReq, getAdminEnv());
+      expect(consoleRes.status).toBe(200);
+
+      // 4. Disarm kill switch
+      const disarmRes = await adminRequest(
+        "/api/admin/kill-switch",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ active: false, reason: "Drill completed" }),
+        },
+        cookie
+      );
+      expect(disarmRes.status).toBe(200);
+      const disarmBody = (await disarmRes.json()) as {
+        success: boolean;
+        active: boolean;
+      };
+      expect(disarmBody.success).toBe(true);
+      expect(disarmBody.active).toBe(false);
+
+      // Verify audit log row created
+      const disarmAudit = await env.DB.prepare(
+        "SELECT action, target FROM admin_audit_logs WHERE action = 'GLOBAL_KILL_SWITCH_DISARMED' ORDER BY created_at DESC LIMIT 1"
+      ).first<{ action: string; target: string }>();
+      expect(disarmAudit?.action).toBe("GLOBAL_KILL_SWITCH_DISARMED");
+
+      // 5. /v1/chat/completions is served again
+      const apiReq2 = new Request("https://api.test/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${clientApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "open-groq",
+          messages: [{ role: "user", content: "ping again" }],
+        }),
+      });
+      const apiRes2 = await worker.fetch(apiReq2, getAdminEnv());
+      expect(apiRes2.status).toBe(200);
+    });
+  });
+
+  describe("T-4.6.3 Tenant Governance Mutations", () => {
+    it("POST /api/admin/tenants/:id/tier overrides tier and logs audit row", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+      const targetUser = await createUser({ role: "user", tier: "free" });
+
+      const res = await adminRequest(
+        `/api/admin/tenants/${targetUser.id}/tier`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ new_tier: "ultra", reason: "Enterprise VIP" }),
+        },
+        cookie
+      );
       expect(res.status).toBe(200);
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as {
+        success: boolean;
+        target_tenant_id: string;
+        target_tenant_tier: string;
+      };
       expect(data.success).toBe(true);
-      expect(data.target_tenant_id).toBe("usr_123");
+      expect(data.target_tenant_id).toBe(targetUser.id);
       expect(data.target_tenant_tier).toBe("ultra");
+
+      const userRow = await env.DB.prepare("SELECT tier FROM users WHERE id = ?")
+        .bind(targetUser.id)
+        .first<{ tier: string }>();
+      expect(userRow?.tier).toBe("ultra");
+
+      const auditRow = await env.DB.prepare(
+        "SELECT action, target FROM admin_audit_logs WHERE target = ? ORDER BY created_at DESC LIMIT 1"
+      )
+        .bind(targetUser.id)
+        .first<{ action: string; target: string }>();
+      expect(auditRow?.action).toBe("TIER_OVERRIDE");
     });
 
-    it("POST /api/admin/tenants/:id/quarantine toggles quarantine status", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/tenants/usr_bad/quarantine", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ is_quarantined: true, reason: "Sybil violation" }),
-      });
-      const env = createMockEnv();
-      const res = await handleAdminRequest(req, env, mockRouterHandler);
+    it("POST /api/admin/tenants/:id/quarantine toggles quarantine and logs audit row", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+      const targetUser = await createUser({ role: "user" });
+
+      const res = await adminRequest(
+        `/api/admin/tenants/${targetUser.id}/quarantine`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ is_quarantined: true, reason: "Sybil violation" }),
+        },
+        cookie
+      );
       expect(res.status).toBe(200);
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as {
+        success: boolean;
+        target_tenant_id: string;
+        is_quarantined: boolean;
+      };
       expect(data.success).toBe(true);
-      expect(data.target_tenant_id).toBe("usr_bad");
+      expect(data.target_tenant_id).toBe(targetUser.id);
       expect(data.is_quarantined).toBe(true);
-    });
 
-    it("POST /api/admin/circuit-breaker overrides provider circuit state", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/circuit-breaker", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ provider: "groq", state: "TRIPPED", reason: "Upstream 503 incident" }),
-      });
-      const env = createMockEnv();
-      const res = await handleAdminRequest(req, env, mockRouterHandler);
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as any;
-      expect(data.success).toBe(true);
-      expect(data.provider).toBe("groq");
-      expect(data.state).toBe("TRIPPED");
-    });
+      const userRow = await env.DB.prepare("SELECT is_quarantined FROM users WHERE id = ?")
+        .bind(targetUser.id)
+        .first<{ is_quarantined: number }>();
+      expect(userRow?.is_quarantined).toBe(1);
 
-    it("POST /api/admin/kill-switch disarms or engages edge freeze", async () => {
-      const req = new Request("https://admin.keycollective.ai/api/admin/kill-switch", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ active: true, reason: "Security drill" }),
-      });
-      const env = createMockEnv();
-      const res = await handleAdminRequest(req, env, mockRouterHandler);
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as any;
-      expect(data.success).toBe(true);
-      expect(data.active).toBe(true);
+      const auditRow = await env.DB.prepare(
+        "SELECT action, target FROM admin_audit_logs WHERE target = ? ORDER BY created_at DESC LIMIT 1"
+      )
+        .bind(targetUser.id)
+        .first<{ action: string; target: string }>();
+      expect(auditRow?.action).toBe("TENANT_QUARANTINE");
     });
   });
 });
