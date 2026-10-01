@@ -522,3 +522,36 @@ export async function handleRotateToken(pathname: string, env: WorkerEnv, tenant
     hash_masked: maskHash(tokenHash),
   });
 }
+
+const PLAYGROUND_TTL_MS = 15 * 60 * 1000;
+const PLAYGROUND_RPM = 10;
+
+/**
+ * POST /api/playground/token (WP-3.10, section 2.3 flow 6): a kc_live_ key for the signed-in
+ * user, 10 RPM, valid for 15 minutes, so the Playground calls /v1 like any client would.
+ */
+export async function handlePlaygroundToken(env: WorkerEnv, tenantId: string): Promise<Response> {
+  if (!tenantId || tenantId === "anonymous" || tenantId === "guest") {
+    return errorResponse("Authentication required", "UNAUTHORIZED", 401);
+  }
+  const db = getDatabase(env);
+  const masterKey = env.KC_MASTER_KEY as string | undefined;
+  if (!db || !masterKey) {
+    return errorResponse("Playground tokens are not configured", "UNAVAILABLE", 503);
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const token = `kc_live_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  const { ciphertextB64, nonceB64 } = await encryptToken(token, masterKey);
+  const id = `tok_play_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const createdAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + PLAYGROUND_TTL_MS).toISOString();
+  await db
+    .prepare(
+      `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, encrypted_token_b64, nonce_b64, budget_microdollars,
+         spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, 0, 0, '[]', ?, ?, ?)`
+    )
+    .bind(id, await computeSha256(token), tenantId, ciphertextB64, nonceB64, PLAYGROUND_RPM, expiresAt, createdAt)
+    .run();
+  return jsonResponse({ id, token, rpm_limit: PLAYGROUND_RPM, expires_at: expiresAt }, 201);
+}

@@ -34,6 +34,7 @@ import {
   handleGetTokens,
   handlePostTokens,
   handleRotateToken,
+  handlePlaygroundToken,
 } from "./token_routes";
 import { handleGetLogs, handleGetStats } from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
@@ -436,6 +437,9 @@ export class DashboardRouter {
       return handleGetTokens(request, env as unknown as AppWorkerEnv, tenantId);
     }
 
+    if (method === "POST" && pathname === "/api/playground/token") {
+      return handlePlaygroundToken(env, tenantId);
+    }
     if (method === "POST" && /^\/api\/tokens\/[^/]+\/rotate\/?$/.test(pathname)) {
       return handleRotateToken(pathname, env, tenantId);
     }
