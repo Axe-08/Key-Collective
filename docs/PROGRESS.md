@@ -17,7 +17,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.1.6 Rewrite auth middleware unit tests on real D1 and remove legacy cases
 
 ### WP-3.2
-- [ ] T-3.2.1 Implement registration consent C1-C3 and enforce consent gate on console API
+- [x] T-3.2.1 Implement registration consent C1-C3 and enforce consent gate on console API
 
 ### WP-3.3
 - [ ] T-3.3.1 Update Sybil engine to PRD thresholds and migrate legacy tests

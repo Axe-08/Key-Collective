@@ -8,6 +8,7 @@ import type { WorkerEnv as AppWorkerEnv } from "../../auth/types";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
+import { handleConsent, registrationStatus } from "../../../auth/consent";
 import { handleOAuthGithubCallback, handleGoogleAuth, handleLogout } from "./auth_routes";
 import { SESSION_COOKIE, lookupSession, readCookie, type SessionContext } from "../../../auth/session/store";
 import { timingSafeEqualStrings } from "../../../crypto/utils";
@@ -66,6 +67,10 @@ export class DashboardRouter {
     // 0.1 Verified Google Sign-In
     if (method === "POST" && pathname === "/api/auth/google") {
       return handleGoogleAuth(request, env);
+    }
+
+    if (method === "POST" && pathname === "/api/auth/consent") {
+      return handleConsent(request, env);
     }
 
     if (method === "POST" && pathname === "/api/auth/logout") {
@@ -163,6 +168,17 @@ export class DashboardRouter {
           headers: { "content-type": "application/json; charset=utf-8" },
         }
       );
+    }
+
+    // Until registration consent (WP-3.2) only the allow-listed routes answer.
+    if (!isAllowListed && tenantId !== "anonymous" && env.DB) {
+      const status = await registrationStatus(env.DB, tenantId);
+      if (status === "PENDING_CONSENT") {
+        return new Response(JSON.stringify({ error: "consent_required" }), {
+          status: 403,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        });
+      }
     }
 
     // 0.2 Real-Time Telemetry Stream (SSE)
