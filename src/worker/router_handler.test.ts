@@ -287,7 +287,9 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
               nonce_b64: encrypted.nonce,
               tenant_id: "default",
               provider: "google",
+              hkdf_migrated: 0,
             }),
+            run: async () => ({ success: true }),
           }),
         }),
       };
