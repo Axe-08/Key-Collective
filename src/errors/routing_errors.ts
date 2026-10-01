@@ -84,7 +84,8 @@ export interface ProviderRoutingErrorOptions
   modelId?: string;
   upstreamStatusCode?: number;
   upstreamResponseText?: string;
-  statusCode?: 502 | 504;
+  /** 400 = client request_error pass-through (no fallback); 502 = bad gateway; 504 = gateway timeout */
+  statusCode?: 400 | 502 | 504;
 }
 
 /**
@@ -111,7 +112,7 @@ export class ProviderRoutingError extends DomainError {
     super(msg, {
       ...options,
       statusCode: status,
-      code: status === 504 ? "GATEWAY_TIMEOUT" : "BAD_GATEWAY",
+      code: status === 504 ? "GATEWAY_TIMEOUT" : status === 400 ? "BAD_REQUEST" : "BAD_GATEWAY",
       details: {
         provider,
         ...(options.modelId ? { modelId: options.modelId } : {}),

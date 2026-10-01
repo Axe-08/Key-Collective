@@ -174,6 +174,8 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     this.circuitBreaker =
       options?.circuitBreaker ??
       new CircuitBreaker(this.ctx.storage, {
+        failureThreshold: 5,
+        cooldownSeconds: 60,
         timeProvider: this.timeProvider,
       });
 
@@ -839,52 +841,32 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     this.emitTelemetry("key_usage", keyId, costMicrodollars);
   }
 
-  public async recordResult(keyId: string, success: boolean): Promise<void> {
-    if (!keyId || keyId.trim().length === 0) {
-      throw new InvalidKeyError("Key ID cannot be empty");
-    }
-
-    await this.ensureLoaded();
-
-    const key = this.keysMap.get(keyId);
-    if (!key) {
-      throw new KeyNotFoundError(keyId, undefined, { tenantId: this.tenantId });
-    }
-
-    await this.circuitBreaker.recordResult(keyId, success);
-    this.emitTelemetry(
-      success ? "upstream_success" : "upstream_failure",
-      keyId,
-      0n,
-      { success: String(success) }
-    );
-  }
-
-  public async recordStatusCode(
-    keyId: string,
-    statusCode: number
-  ): Promise<void> {
-    if (!keyId || keyId.trim().length === 0) {
-      throw new InvalidKeyError("Key ID cannot be empty");
-    }
-
-    await this.ensureLoaded();
-
-    const key = this.keysMap.get(keyId);
-    if (!key) {
-      throw new KeyNotFoundError(keyId, undefined, { tenantId: this.tenantId });
-    }
-
-    await this.circuitBreaker.recordStatusCode(keyId, statusCode);
-
-    this.emitTelemetry("upstream_status_code", keyId, 0n, {
-      statusCode: String(statusCode),
-    });
-  }
-
   // =========================================================================
   // Private Lease API (WP-4.1, T-4.1.3)
   // =========================================================================
+  /**
+   * @deprecated Legacy API — superseded by settle(). No-op stub kept for backwards-compat
+   * with the legacy HTTP RPC path (upstream/client.ts). Remove in WP-7.x cleanup.
+   */
+  public async recordResult(
+    _keyId: string,
+    _success: boolean
+  ): Promise<void> {
+    // no-op: new path uses settle() with PrivateLeaseOutcome
+  }
+
+  /**
+   * @deprecated Legacy API — superseded by settle(). No-op stub kept for backwards-compat
+   * with the legacy HTTP RPC path (upstream/client.ts). Remove in WP-7.x cleanup.
+   */
+  public async recordStatusCode(
+    _keyId: string,
+    _statusCode: number
+  ): Promise<void> {
+    // no-op: new path uses settle() with PrivateLeaseOutcome
+  }
+
+
 
   /**
    * Leases one of this tenant's PRIVATE keys (or a D-21 stranded COMMUNITY key when the
@@ -1031,6 +1013,8 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     const key = this.keysMap.get(lease.keyId);
     const db = this.env.DB;
     const hasDb = Boolean(db && typeof db.prepare === "function");
+    const resolveUntil = (u: number | undefined, fallbackTargetMs: number): number =>
+      u === undefined ? fallbackTargetMs : u < 100_000_000_000 ? now + u : u;
 
     switch (outcome) {
       case "ok": {
@@ -1040,12 +1024,12 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
           key.cooldownUntil = null;
           this.keySelector.addKey(key);
           await this.persistKeys();
-          if (hasDb) {
-            await db!
-              .prepare("UPDATE api_keys SET status = 'HEALTHY', status_changed_at = ? WHERE id = ? AND status = 'COOLDOWN'")
-              .bind(now, lease.keyId)
-              .run();
-          }
+        }
+        if (hasDb) {
+          await db!
+            .prepare("UPDATE api_keys SET status = 'HEALTHY', status_changed_at = ? WHERE id = ? AND status = 'COOLDOWN'")
+            .bind(now, lease.keyId)
+            .run();
         }
         this.emitTelemetry("upstream_success", lease.keyId, 0n, { success: "true" });
         break;
@@ -1063,6 +1047,20 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
             .prepare("UPDATE api_keys SET status = 'QUARANTINED', status_changed_at = ? WHERE id = ? AND status != 'REVOKED'")
             .bind(now, lease.keyId)
             .run();
+
+          const notifId = "notif_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+          const normProv = (key?.provider || "unknown").toLowerCase();
+          const provDisplay = normProv === "google" || normProv === "gemini" ? "Gemini" : normProv === "groq" ? "Groq" : (key?.provider || "unknown");
+          const consoleDisplay = normProv === "google" || normProv === "gemini" ? "Google AI Studio" : normProv === "groq" ? "Groq Console" : `${provDisplay} dashboard`;
+          const msg = `⚠️ Key [${key?.label || lease.keyId}] (${provDisplay}) went unhealthy. Check your ${consoleDisplay} and re-submit if needed.`;
+
+          await db!
+            .prepare(
+              "INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at) VALUES (?, ?, 'key_invalid', ?, ?, ?, NULL)"
+            )
+            .bind(notifId, this.tenantId, lease.keyId, msg, now)
+            .run()
+            .catch(() => {});
         }
         this.emitTelemetry("upstream_failure", lease.keyId, 0n, {
           success: "false",
@@ -1072,7 +1070,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       }
 
       case "rpd_exhausted": {
-        const cooldownUntil = until ?? this.nextUtcMidnightMs(now);
+        const cooldownUntil = resolveUntil(until, this.nextUtcMidnightMs(now));
         if (key) {
           key.status = "COOLDOWN";
           key.cooldownUntil = cooldownUntil;
@@ -1093,7 +1091,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       }
 
       case "rpm_limited": {
-        const cooldownUntil = until ?? (now + 60_000);
+        const cooldownUntil = resolveUntil(until, now + 60_000);
         if (key) {
           key.status = "COOLDOWN";
           key.cooldownUntil = cooldownUntil;

@@ -81,11 +81,20 @@ export class ChatHandler {
     const temperature =
       typeof body.temperature === "number" ? body.temperature : undefined;
 
+    const maxFallbacks =
+      typeof body.max_fallbacks === "number"
+        ? body.max_fallbacks
+        : typeof body.maxFallbacks === "number"
+        ? body.maxFallbacks
+        : undefined;
+
     // Forward unknown client body fields omitting KC-only fields and client model
     const extraBodyParams: Record<string, unknown> = { ...body };
     delete extraBodyParams.model;
     delete extraBodyParams.modelAlias;
     delete extraBodyParams.estimatedPromptTokens;
+    delete extraBodyParams.max_fallbacks;
+    delete extraBodyParams.maxFallbacks;
 
     if (stream && body.stream_options === undefined) {
       extraBodyParams.stream_options = { include_usage: true };
@@ -97,6 +106,7 @@ export class ChatHandler {
       stream,
       temperature,
       maxTokens,
+      maxFallbacks,
       tools: Array.isArray(body.tools) ? body.tools : undefined,
       functions: Array.isArray(body.functions) ? body.functions : undefined,
       tool_choice: body.tool_choice,

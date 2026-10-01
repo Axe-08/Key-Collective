@@ -134,9 +134,16 @@ export async function addProviderKey(
     "test-master-key-please-rotate";
   const subkey = await deriveTenantKey(masterKey, user.id);
   const encrypted = await encrypt(plaintext, subkey);
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(plaintext)
+  );
+  const keyHash = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   const keyId = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
   await env.DB.prepare(
-    "INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, pool_type, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+    "INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_hash, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, pool_type, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
   )
     .bind(
       keyId,
@@ -145,6 +152,7 @@ export async function addProviderKey(
       provider,
       encrypted.ciphertextB64,
       encrypted.nonceB64,
+      keyHash,
       plaintext.slice(0, 4),
       plaintext.slice(-4),
       rpmLimit,

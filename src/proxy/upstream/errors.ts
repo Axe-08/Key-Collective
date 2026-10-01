@@ -38,6 +38,8 @@ export function truncateText(text: string, maxLength: number): string {
  * @param timeoutMs Request timeout threshold
  * @returns Mapped DomainError instance
  */
+import { classifyUpstreamResponse } from "./classify";
+
 export function mapUpstreamHttpError(
   provider: string,
   status: number,
@@ -50,16 +52,30 @@ export function mapUpstreamHttpError(
   // property for server-side logging; it must never appear in the public
   // error `message` (which flows to client responses via formatRouterError).
   const upstreamBody = truncateText(responseText, 1000);
+  const upstreamHeaders: Record<string, string> = {};
+  if (headers) {
+    for (const [k, v] of headers.entries()) {
+      upstreamHeaders[k.toLowerCase()] = v;
+    }
+  }
+  const classification = classifyUpstreamResponse({
+    status,
+    headers: upstreamHeaders,
+    body: responseText,
+    timedOut: status === 408 || status === 504,
+  });
 
   // 1. Rate Limits (HTTP 429) -> RateLimitExceededError
   if (status === 429) {
     const retryAfter = parseRetryAfter(headers?.get("retry-after") ?? null);
     return new RateLimitExceededError("Upstream rate limit", {
       provider,
-      retryAfterSeconds: retryAfter,
+      retryAfterSeconds: classification.retryAfterSeconds ?? retryAfter,
       details: {
         upstreamStatusCode: 429,
         upstreamBody,
+        upstreamHeaders,
+        classification,
       },
     });
   }
@@ -72,6 +88,8 @@ export function mapUpstreamHttpError(
       details: {
         upstreamStatusCode: status,
         upstreamBody,
+        upstreamHeaders,
+        classification,
       },
     });
   }
@@ -84,6 +102,8 @@ export function mapUpstreamHttpError(
       details: {
         upstreamStatusCode: status,
         upstreamBody,
+        upstreamHeaders,
+        classification,
       },
     });
   }
@@ -95,18 +115,23 @@ export function mapUpstreamHttpError(
       upstreamStatusCode: status,
       details: {
         upstreamBody,
+        upstreamHeaders,
+        classification,
       },
       statusCode: status === 504 ? 504 : 502,
     });
   }
 
-  // 5. Client Errors (HTTP 400, 404, 422) -> ProviderRoutingError
+  // 5. Client Errors (HTTP 400 -> statusCode 400 without fallback; 404, 422 -> 502)
   return new ProviderRoutingError(provider, "Upstream unavailable", {
     modelId,
     upstreamStatusCode: status,
     details: {
       upstreamBody,
+      upstreamHeaders,
+      classification,
     },
-    statusCode: 502,
+    statusCode: status === 400 ? 400 : 502,
   });
 }
+

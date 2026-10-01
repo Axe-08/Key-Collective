@@ -16,12 +16,15 @@ import type { RouteRequest } from "../../contracts/router";
 import type { KeyPoolContract } from "../../contracts/key_pool";
 import { calculateCu, type IModelRegistry } from "../registry/index";
 import {
+  classifyUpstreamError,
   type UpstreamClient,
   type UpstreamChatRequest,
 } from "../../proxy/upstream/index";
 import type { ModelDef } from "../../types/models";
 import {
+  DomainError,
   FallbackExhaustedError,
+  ProviderRoutingError,
   type FallbackAttempt,
 } from "../../errors";
 import type {
@@ -48,30 +51,6 @@ export interface FallbackExecutionContext {
   maxFallbacks: number;
   options: CascadeRouterOptions;
   checkSelfKeyAvailable?: (provider: string, tenantId: string) => Promise<boolean>;
-}
-
-function classifyErrorOutcome(err: unknown): { outcome: string; until?: number } {
-  const status =
-    err && typeof err === "object" && "upstreamStatusCode" in err
-      ? Number((err as { upstreamStatusCode?: unknown }).upstreamStatusCode)
-      : err && typeof err === "object" && "statusCode" in err
-      ? Number((err as { statusCode?: unknown }).statusCode)
-      : 0;
-  const msg = err instanceof Error ? err.message : String(err);
-
-  if (status === 401 || status === 403 || /API_KEY_INVALID|PERMISSION_DENIED/i.test(msg)) {
-    return { outcome: "key_invalid" };
-  }
-  if (status === 429) {
-    if (/PerDay|rpd/i.test(msg)) {
-      return { outcome: "rpd_exhausted" };
-    }
-    return { outcome: "rpm_limited" };
-  }
-  if (status === 400) {
-    return { outcome: "request_error" };
-  }
-  return { outcome: "upstream_error" };
 }
 
 /**
@@ -267,7 +246,7 @@ export async function executeCascadeRouting(
           await leaseProvider.settle(activeLease, "ok", activeLeaseCtx, actualCu);
         }
       } else if (context.keyPool && keyId) {
-        // 7. Legacy: Record KeyPool success and usage (non-blocking hot path)
+        // 7. Legacy: Record KeyPool usage (non-blocking hot path)
         if (typeof context.keyPool.recordDispatch === "function") {
           try {
             context.keyPool.recordDispatch(keyId, !selfKeyRouted);
@@ -275,7 +254,6 @@ export async function executeCascadeRouting(
             void err;
           }
         }
-        await context.keyPool.recordResult(keyId, true).catch(() => {});
         if (costMicrodollars > 0n) {
           await context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
         }
@@ -310,14 +288,27 @@ export async function executeCascadeRouting(
         throw upstreamErr;
       }
 
+      const classification = classifyUpstreamError(upstreamErr);
+
       if (useLeases && activeLease && activeLeaseCtx && leaseProvider) {
-        const { outcome, until } = classifyErrorOutcome(upstreamErr);
+        const relativeDurationMs =
+          classification.retryAfterSeconds !== undefined
+            ? classification.retryAfterSeconds * 1000
+            : undefined;
         await leaseProvider
-          .settle(activeLease, outcome, activeLeaseCtx, 0n, until)
+          .settle(activeLease, classification.outcome, activeLeaseCtx, 0n, relativeDurationMs)
           .catch(() => {});
-      } else if (context.keyPool && keyId) {
-        // Record failure against KeyPool (non-blocking)
-        await context.keyPool.recordResult(keyId, false).catch(() => {});
+      }
+
+      if (!classification.shouldFallback) {
+        if (upstreamErr instanceof DomainError && upstreamErr.statusCode === 400) {
+          throw upstreamErr;
+        }
+        throw new ProviderRoutingError(candidate.provider, "Upstream unavailable", {
+          modelId: candidate.id,
+          upstreamStatusCode: 400,
+          statusCode: 400,
+        });
       }
 
       const errMsg =
