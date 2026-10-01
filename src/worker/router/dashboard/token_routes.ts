@@ -36,6 +36,8 @@ export interface CreateTokenBody {
   allowed_providers?: string[];
   expires_at?: string | null;
   tenant_id?: string;
+  /** Project the token is scoped to; must belong to the caller (WP-3.7). */
+  project_id?: string;
 }
 
 interface RawTokenRow {
@@ -293,6 +295,18 @@ export async function handlePostTokens(
       ? body.tenant_id.trim()
       : tenantId;
 
+  // 0. Optional project scope: the project must belong to the token's tenant.
+  const projectId = typeof body.project_id === "string" && body.project_id.trim() ? body.project_id.trim() : null;
+  if (projectId) {
+    const owned = await db
+      .prepare("SELECT id FROM projects WHERE id = ? AND tenant_id = ?")
+      .bind(projectId, targetTenantId)
+      .first<{ id: string }>();
+    if (!owned) {
+      return errorResponse("Project not found", "PROJECT_NOT_FOUND", 404);
+    }
+  }
+
   // 1. Generate CSPRNG token: kc_proj_live_<hex>
   const plaintextToken = generateCsprngToken();
 
@@ -364,8 +378,9 @@ export async function handlePostTokens(
           allowed_providers,
           rpm_limit,
           expires_at,
-          created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
+          created_at,
+          project_id
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`
       )
       .bind(
         tokenId,
@@ -377,7 +392,8 @@ export async function handlePostTokens(
         allowedProviders,
         rpmLimit,
         expiresAtIso,
-        createdAtIso
+        createdAtIso,
+        projectId
       )
       .run();
 
@@ -393,6 +409,7 @@ export async function handlePostTokens(
         allowed_providers: Array.isArray(body.allowed_providers) ? body.allowed_providers : [],
         expires_at: expiresAtIso,
         created_at: createdAtIso,
+        project_id: projectId,
         hash_masked: maskHash(tokenHash),
       },
       201
@@ -462,4 +479,43 @@ export async function handleDeleteToken(
     const message = err instanceof Error ? err.message : "Database error";
     return errorResponse(message, "DATABASE_ERROR", 500);
   }
+}
+
+/**
+ * POST /api/tokens/:id/rotate (WP-3.7): a new secret for the same token id and project. The
+ * old hash is replaced, so the old secret stops authenticating; the new one is shown once.
+ */
+export async function handleRotateToken(pathname: string, env: WorkerEnv, tenantId: string): Promise<Response> {
+  if (!tenantId || tenantId === "anonymous" || tenantId === "guest") {
+    return errorResponse("Authentication required", "UNAUTHORIZED", 401);
+  }
+  const db = getDatabase(env);
+  if (!db) {
+    return errorResponse("D1 Database binding missing", "DATABASE_ERROR", 500);
+  }
+  const masterKey = env.KC_MASTER_KEY as string | undefined;
+  if (!masterKey || masterKey.trim().length === 0) {
+    return Response.json({ error: "Server misconfiguration: KC_MASTER_KEY not set" }, { status: 503 });
+  }
+  const tokenId = decodeURIComponent(pathname.replace(/^\/api\/tokens\//, "").replace(/\/rotate\/?$/, ""));
+
+  const plaintextToken = generateCsprngToken();
+  const tokenHash = await computeSha256(plaintextToken);
+  const { ciphertextB64, nonceB64 } = await encryptToken(plaintextToken, masterKey);
+  const sql =
+    "UPDATE auth_tokens SET hash_sha256 = ?, encrypted_token_b64 = ?, nonce_b64 = ? WHERE id = ?" +
+    (tenantId === "admin" ? "" : " AND tenant_id = ?") +
+    " RETURNING id, tenant_id, project_id";
+  const params = [tokenHash, ciphertextB64, nonceB64, tokenId, ...(tenantId === "admin" ? [] : [tenantId])];
+  const row = await db.prepare(sql).bind(...params).first<{ id: string; tenant_id: string; project_id: string | null }>();
+  if (!row) {
+    return errorResponse("Token not found", "NOT_FOUND", 404);
+  }
+  return jsonResponse({
+    id: row.id,
+    token: plaintextToken,
+    tenant_id: row.tenant_id,
+    project_id: row.project_id,
+    hash_masked: maskHash(tokenHash),
+  });
 }
