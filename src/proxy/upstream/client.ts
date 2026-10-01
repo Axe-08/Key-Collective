@@ -38,7 +38,6 @@ import {
 import { rewriteHeaders } from "./headers";
 import { buildProviderUrl } from "./urls";
 import { mapUpstreamHttpError } from "./errors";
-import { extractContentFromPayload } from "./payload";
 
 /**
  * UpstreamClient handles HTTP communication with upstream AI providers.
@@ -591,7 +590,14 @@ export class UpstreamClient {
     }
 
     const jsonPayload = await upstreamRes.json();
-    const content = extractContentFromPayload(jsonPayload);
+    let content = "";
+    if (jsonPayload && typeof jsonPayload === "object") {
+      const choices = (jsonPayload as { choices?: Array<{ message?: { content?: unknown } }> }).choices;
+      const rawContent = choices?.[0]?.message?.content;
+      if (typeof rawContent === "string") {
+        content = rawContent;
+      }
+    }
     const usage = await upstreamRes.getUsage();
     let costMicrodollars = 0n;
     if (usage && this.options.costCalculator) {
