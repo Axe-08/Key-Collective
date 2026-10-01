@@ -126,10 +126,10 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.4.2 Rewrite processDailyDebtReset to nightlyReset (7-day trust, integer decay, catch-up)
 
 ### WP-5.5
-- [ ] T-5.5.1 Migration 0021_key_daily_stats.sql (key_daily_stats table, api_keys.drain_state)
-- [ ] T-5.5.2 Coordinator dispatch counters in settle; delete dead dispatch stubs
-- [ ] T-5.5.3 Hero/parasite and drain classification (D-16) on RPD exhaustion
-- [ ] T-5.5.4 Midnight stats flush from coordinator to key_daily_stats
+- [x] T-5.5.1 Migration 0021_key_daily_stats.sql (key_daily_stats table, api_keys.drain_state)
+- [x] T-5.5.2 Coordinator dispatch counters in settle; delete dead dispatch stubs
+- [x] T-5.5.3 Hero/parasite and drain classification (D-16) on RPD exhaustion
+- [x] T-5.5.4 Midnight stats flush from coordinator to key_daily_stats
 
 ### WP-5.6
 - [ ] T-5.6.1 Remove pre-dispatch brake and report-volume calls
