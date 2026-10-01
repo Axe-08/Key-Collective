@@ -75,7 +75,8 @@ export async function handlePostKeys(
     throw new RouterError("Unsupported provider", { statusCode: 400 });
   }
 
-  const extractedProject = await forceErrorGcpProbe(rawKey, provider);
+  const probe = await forceErrorGcpProbe(rawKey, provider);
+  const extractedProject = probe && "projectNumber" in probe ? probe.projectNumber : null;
   if (extractedProject) {
     const projectHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(extractedProject));
     const hashHex = Array.from(new Uint8Array(projectHash)).map(b => b.toString(16).padStart(2, '0')).join('');
