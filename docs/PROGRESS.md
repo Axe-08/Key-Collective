@@ -30,7 +30,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.4.2 Purge localStorage auth and fetch identity from GET /api/session in App.svelte
 - [x] T-3.4.3 Render locked call-to-action on Pool tab for users without communityPool
 - [x] T-3.4.4 Refactor OAuthModal to Google SignIn, ConsentScreen C1-C3, and Settings Link GitHub card
-- [ ] T-3.4.5 Migrate stage-0 security tests for console /api/* to createSession and CSRF
+- [x] T-3.4.5 Migrate stage-0 security tests for console /api/* to createSession and CSRF
 
 ### WP-3.5
 - [ ] T-3.5.1 Implement POST /api/auth/claim-legacy and claimable accounts in GET /api/session

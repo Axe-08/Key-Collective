@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
 import { defaultMainWorker } from "../../../src/worker/index";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
-import { createUser, createApiKey, addProviderKey } from "../../helpers/world";
+import { createUser, createSession, addProviderKey } from "../../helpers/world";
 
 declare module "cloudflare:test" {
   interface ProvidedEnv {
@@ -113,7 +113,7 @@ describe("S1 Security: Header Impersonation & Auth Enforcement", () => {
       .bind(userA.id, "default@example.test", "free", "user")
       .run();
 
-    const tokenA = await createApiKey(userA);
+    const { cookie: cookieA, csrfToken: csrfA } = await createSession(userA);
     await addProviderKey(userA, {
       provider: "groq",
       pool: "PRIVATE",
@@ -130,7 +130,8 @@ describe("S1 Security: Header Impersonation & Auth Enforcement", () => {
     const req = new Request("https://console.test/api/keys", {
       method: "GET",
       headers: {
-        authorization: `Bearer ${tokenA}`,
+        cookie: cookieA,
+          "x-kc-csrf": csrfA,
         "x-tenant-id": userB.id,
       },
     });
@@ -148,7 +149,7 @@ describe("S1 Security: Header Impersonation & Auth Enforcement", () => {
 
   it("returns 404 when attempting to delete another tenant's key and preserves the key", async () => {
     const userA = await createUser();
-    const tokenA = await createApiKey(userA);
+    const { cookie: cookieA, csrfToken: csrfA } = await createSession(userA);
 
     const userB = await createUser();
     const keyB = await addProviderKey(userB, {
@@ -159,7 +160,8 @@ describe("S1 Security: Header Impersonation & Auth Enforcement", () => {
     const req = new Request(`https://console.test/api/keys/${keyB.id}`, {
       method: "DELETE",
       headers: {
-        authorization: `Bearer ${tokenA}`,
+        cookie: cookieA,
+          "x-kc-csrf": csrfA,
       },
     });
 
