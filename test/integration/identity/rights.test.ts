@@ -20,8 +20,8 @@ import type { WorkerEnv } from "../../../src/worker/auth/index";
 import { poolRights } from "../../../src/auth/rights";
 import { addProviderKey, createSession, createUser } from "../../helpers/world";
 
-// No KEY_POOL: a key write would wake the pool DO and break isolated storage.
-const workerEnv = { ...env, TENANT_QUOTA: undefined, KEY_POOL: undefined } as unknown as WorkerEnv;
+// No KEY_POOL / RATE_LIMITER: a key write would wake those DOs and break isolated storage.
+const workerEnv = { ...env, TENANT_QUOTA: undefined, KEY_POOL: undefined, RATE_LIMITER: undefined } as unknown as WorkerEnv;
 
 beforeAll(() => {
   fetchMock.activate();
@@ -30,6 +30,12 @@ beforeAll(() => {
     .get("https://challenges.cloudflare.com")
     .intercept({ path: "/turnstile/v0/siteverify", method: "POST" })
     .reply(200, JSON.stringify({ success: true, "error-codes": [] }), { headers: { "content-type": "application/json" } })
+    .persist();
+  // Proof of life for submitted Groq keys (WP-3.6).
+  fetchMock
+    .get("https://api.groq.com")
+    .intercept({ path: "/openai/v1/chat/completions", method: "POST" })
+    .reply(200, "{}")
     .persist();
 });
 

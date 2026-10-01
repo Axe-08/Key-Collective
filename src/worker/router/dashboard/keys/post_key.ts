@@ -1,20 +1,77 @@
 /**
- * Key Collective v2/v4 — Dashboard Create Key Route Handler
+ * Key Collective — POST /api/keys: key submission end to end (WP-3.6, v1 1.5)
+ *
+ * Gates, in order, each with its own error code:
+ *   1. caller + rights (privatePool; communityPool for COMMUNITY)   401 / 403 github_link_required
+ *   2. 10 submissions per user per day                                 429 rate_limited
+ *   3. Turnstile                                                       403 turnstile_failed
+ *   4. body (provider google|groq, key format, label, K1, K2)          400 invalid_request
+ *   5. duplicate plaintext (key_hash)                                  409 key_already_registered
+ *   6. GCP project (Google): registry ACTIVE / tombstoned              409 project_already_registered /
+ *      unverifiable project on a COMMUNITY key                         409 project_tombstoned / 422 project_unverifiable
+ *   7. proof of life                                                   400 key_no_quota / key_invalid, 503 provider_unavailable
+ * Then one D1 batch writes api_keys, project_hash_registry and the K1/K2 attestations, and the
+ * key is pushed to its owner's KeyPoolDO. A failed push marks the row sync_pending (the pool
+ * reconciles on its next load) and answers 201 with sync: "pending".
  *
  * Invariants (GEMINI.md Constitution):
  * - No Plaintext Keys: AES-256-GCM + 12-byte CSPRNG nonces stored in D1.
  * - Per-Tenant Isolation: Keys isolated by tenantId.
  */
 
+import { z } from "zod";
 import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
 import { verifyTurnstileToken } from "../../../../auth/sybil/index";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
-import { forceErrorGcpProbe } from "../../../../ingress/probe";
-import { PROVIDERS } from "../../../../providers/config";
+import { checkProofOfLife, forceErrorGcpProbe } from "../../../../ingress/probe";
+import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repository";
 import type { WorkerEnv } from "../../../auth/index";
-import { ConsentAttestationSchema } from "../../../../contracts/v4_types";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
+
+const SUBMISSIONS_PER_DAY = 10;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ROTATION_GRACE_MS = 30 * 60 * 1000;
+const KEY_CONSENT_VERSION = "v1.0";
+
+const KEY_FORMATS: Record<"google" | "groq", RegExp> = {
+  google: /^AIza[0-9A-Za-z_-]{35}$/,
+  groq: /^gsk_[A-Za-z0-9]{20,}$/,
+};
+
+const SubmitKeySchema = z
+  .object({
+    provider: z.preprocess((p) => (p === "gemini" ? "google" : p), z.enum(["google", "groq"])),
+    key: z.string().trim(),
+    label: z.string().trim().max(64).optional(),
+    k1: z.literal(true),
+    k2: z.literal(true),
+    pool_type: z.preprocess((p) => (typeof p === "string" ? p.toUpperCase() : p), z.enum(["PRIVATE", "COMMUNITY"])).default("PRIVATE"),
+    rpm_limit: z.number().int().positive().optional(),
+    rpd_limit: z.number().int().positive().optional(),
+    priority: z.number().int().optional(),
+  })
+  .refine((b) => KEY_FORMATS[b.provider].test(b.key), { message: "Key format does not match the provider", path: ["key"] });
+
+function fail(status: number, error: string, message?: string): Response {
+  return Response.json({ error, ...(message ? { message } : {}) }, { status });
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function withinDailyLimit(env: WorkerEnv, tenantId: string): Promise<boolean> {
+  const ns = env.RATE_LIMITER as unknown as DurableObjectNamespaceLike | undefined;
+  if (!ns || typeof ns.idFromName !== "function") return true;
+  const res = await ns.get(ns.idFromName(`key-submit:${tenantId}`)).fetch("http://rate-limiter/check-limit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ limit: SUBMISSIONS_PER_DAY, windowMs: DAY_MS }),
+  });
+  return res.status !== 429;
+}
 
 export async function handlePostKeys(
   request: Request,
@@ -28,219 +85,169 @@ export async function handlePostKeys(
   if (!masterKey) {
     throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
   }
-
+  const db = env.DB;
   if (!tenantId || tenantId === "anonymous" || tenantId === "guest") {
-    throw new RouterError("Authentication required to add API keys", { statusCode: 401 });
+    return fail(401, "authentication_required");
   }
 
-  const turnstileToken = request.headers.get("x-turnstile-token") || "";
-  const turnstileSecret = env.TURNSTILE_SECRET as string | undefined;
-  const tsResult = await verifyTurnstileToken(turnstileToken, { secretKey: turnstileSecret });
-  if (!tsResult.success) {
-    throw new RouterError("Turnstile validation failed", { statusCode: 403 });
+  // 1. Rights (session/bearer and CSRF were checked by the dashboard router).
+  const raw = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const rights = await loadPoolRights(db, tenantId);
+  if (!rights.privatePool) return fail(403, "forbidden", "Account may not add keys");
+  if (String(raw?.pool_type ?? "").toUpperCase() === "COMMUNITY" && !rights.communityPool) return githubLinkRequired();
+
+  // 2. Rate limit, 3. Turnstile.
+  if (!(await withinDailyLimit(env, tenantId))) return fail(429, "rate_limited", "At most 10 key submissions per day");
+  const turnstile = await verifyTurnstileToken(request.headers.get("x-turnstile-token") || "", {
+    secretKey: env.TURNSTILE_SECRET as string | undefined,
+  });
+  if (!turnstile.success) return fail(403, "turnstile_failed");
+
+  // 4. Body.
+  const parsed = SubmitKeySchema.safeParse(raw ?? {});
+  if (!parsed.success) {
+    return fail(400, "invalid_request", parsed.error.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; "));
   }
+  const body = parsed.data;
+  const rawKey = body.key;
 
-  const body = (await request.json()) as {
-    provider: string;
-    label: string;
-    key: string;
-    rpm_limit?: number;
-    rpd_limit?: number;
-    priority?: number;
-    k1?: boolean;
-    k2?: boolean;
-    pool_type?: string;
-  };
+  // 5. Duplicate plaintext.
+  const repo = new ApiKeyRepository(db);
+  const keyHash = await sha256Hex(rawKey);
+  if (await repo.existsByHash(keyHash)) return fail(409, "key_already_registered");
 
-  if (!body.k1 || !body.k2) {
-    throw new RouterError("K1 and K2 attestations are required", { statusCode: 400 });
+  // 6. GCP project (Google only).
+  const now = Date.now();
+  let projectHash: string | null = null;
+  const probe = await forceErrorGcpProbe(rawKey, body.provider);
+  if (probe && "unavailable" in probe && body.pool_type === "COMMUNITY") {
+    return fail(422, "project_unverifiable", `GCP project could not be verified (${probe.unavailable})`);
   }
-
-  if (!body.key || typeof body.key !== "string" || body.key.trim().length === 0) {
-    throw new RouterError("API key token is required", { statusCode: 400 });
-  }
-
-  const rights = await loadPoolRights(env.DB, tenantId);
-  if (!rights.privatePool) {
-    throw new RouterError("Account may not add keys", { statusCode: 403 });
-  }
-  if (body.pool_type?.toUpperCase() === "COMMUNITY" && !rights.communityPool) {
-    return githubLinkRequired();
-  }
-
-  const rawKey = body.key.trim();
-  const provider = body.provider === "gemini" ? "google" : body.provider;
-
-  if (!Object.prototype.hasOwnProperty.call(PROVIDERS, provider)) {
-    throw new RouterError("Unsupported provider", { statusCode: 400 });
-  }
-
-  const probe = await forceErrorGcpProbe(rawKey, provider);
-  const extractedProject = probe && "projectNumber" in probe ? probe.projectNumber : null;
-  if (extractedProject) {
-    const projectHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(extractedProject));
-    const hashHex = Array.from(new Uint8Array(projectHash)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-    const existingHash = await env.DB.prepare("SELECT state FROM project_hash_registry WHERE project_hash = ?").bind(hashHex).first<{state: string}>();
-    if (existingHash) {
-      if (existingHash.state === "ACTIVE") {
-        throw new RouterError("Project hash already active", { statusCode: 409 });
-      } else if (existingHash.state === "TOMBSTONED") {
-        throw new RouterError("Project hash tombstoned", { statusCode: 403 });
-      }
+  if (probe && "projectNumber" in probe) {
+    projectHash = await sha256Hex(probe.projectNumber);
+    const existing = await db
+      .prepare("SELECT state, tenant_id, rotating_until, tombstone_until FROM project_hash_registry WHERE project_hash = ?")
+      .bind(projectHash)
+      .first<{ state: string; tenant_id: string; rotating_until: number | null; tombstone_until: number | null }>();
+    if (existing?.state === "ACTIVE") return fail(409, "project_already_registered");
+    if (existing?.state === "TOMBSTONED" && (existing.tombstone_until ?? Infinity) > now) return fail(409, "project_tombstoned");
+    if (existing?.state === "ROTATING" && !(existing.tenant_id === tenantId && (existing.rotating_until ?? 0) + ROTATION_GRACE_MS > now)) {
+      return fail(409, "project_already_registered");
     }
-    await env.DB.prepare("INSERT INTO project_hash_registry (project_hash, provider, state, tenant_id, created_at) VALUES (?, ?, 'ACTIVE', ?, ?)").bind(hashHex, provider, tenantId, Date.now()).run();
   }
 
-  const label = body.label?.trim() || `${body.provider}-key-${Date.now().toString(36)}`;
-  const rpm_limit = Number(body.rpm_limit) || (body.provider === "groq" ? 30 : 15);
-  const rpd_limit = Number(body.rpd_limit) || (body.provider === "groq" ? 14400 : 1500);
-  const priority = Number(body.priority) || 0;
+  // 7. Proof of life.
+  const life = await checkProofOfLife(rawKey, body.provider);
+  if ("error" in life) return fail(life.error === "provider_unavailable" ? 503 : 400, life.error);
 
+  // 8. Encrypt under the tenant subkey.
+  const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, tenantId);
+  const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
+  const keyId = `key_${body.provider}_${now.toString(36)}_${crypto.randomUUID().slice(0, 6)}`;
+  const label = body.label || `${body.provider}-key-${now.toString(36)}`;
+  const rpmLimit = body.rpm_limit ?? (body.provider === "groq" ? 30 : 15);
+  const rpdLimit = body.rpd_limit ?? (body.provider === "groq" ? 14400 : 1500);
+  const priority = body.priority ?? 0;
+  const community = body.pool_type === "COMMUNITY";
   const keyPrefix = rawKey.slice(0, 8);
   const keySuffix = rawKey.slice(-4);
-  const randBytes = crypto.getRandomValues(new Uint8Array(3));
-  const randHex = Array.from(randBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-  const keyId = `key_${body.provider}_${Date.now().toString(36)}_${randHex}`;
 
-  const targetTenantId = tenantId;
+  // 9. One atomic batch.
+  const ip = request.headers.get("cf-connecting-ip");
+  const userAgent = request.headers.get("user-agent");
+  const consent = (checkbox: "K1" | "K2") =>
+    db
+      .prepare(
+        `INSERT INTO consent_attestations (id, tenant_id, event_type, checkbox_id, consent_version, key_id, attested_at, ip_address, user_agent)
+         VALUES (?, ?, 'KEY_SUBMISSION', ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(crypto.randomUUID(), tenantId, checkbox, KEY_CONSENT_VERSION, keyId, now, ip, userAgent);
+  await db.batch([
+    repo.buildInsertStatement({
+      id: keyId,
+      tenantId,
+      label,
+      provider: body.provider,
+      ciphertextB64,
+      nonceB64,
+      keyPrefix,
+      keySuffix,
+      rpmLimit,
+      rpdLimit,
+      priority,
+      poolType: body.pool_type,
+      communityRoutingStatus: community ? "OBSERVATION" : null,
+      observationUntil: community ? now + DAY_MS : null,
+      keyHash,
+      providerProjectHash: projectHash,
+      createdAt: now,
+    }),
+    ...(projectHash
+      ? [
+          db
+            .prepare(
+              `INSERT INTO project_hash_registry (project_hash, tenant_id, provider, state, created_at, updated_at)
+               VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+               ON CONFLICT(project_hash) DO UPDATE SET tenant_id = excluded.tenant_id, provider = excluded.provider,
+                 state = 'ACTIVE', rotating_until = NULL, tombstone_until = NULL, updated_at = excluded.updated_at`
+            )
+            .bind(projectHash, tenantId, body.provider, now, now),
+        ]
+      : []),
+    consent("K1"),
+    consent("K2"),
+  ]);
 
-  const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
-  const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
-
-  // Write-time key_hash: SHA-256 hex digest of the raw key, used for lookup/revocation
-  // without ever storing or logging the plaintext key (WP-1.5 finalises consumers).
-  const keyHashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawKey));
-  const keyHash = Array.from(new Uint8Array(keyHashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
-
-  const poolType = body.pool_type?.toUpperCase() === 'COMMUNITY' ? 'COMMUNITY' : 'PRIVATE';
-  const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;
-  const obsUntil = poolType === 'COMMUNITY' ? Date.now() + 24 * 60 * 60 * 1000 : null;
-  const now = Date.now();
-
-  await env.DB.prepare(
-    `INSERT INTO api_keys (
-      id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
-      key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-      pool_type, community_routing_status, observation_until, key_hash, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HEALTHY', ?, ?, ?, ?, ?)`
-  ).bind(
-    keyId,
-    targetTenantId,
-    label,
-    provider,
-    ciphertextB64,
-    nonceB64,
-    keyPrefix,
-    keySuffix,
-    rpm_limit,
-    rpd_limit,
-    priority,
-    poolType,
-    commRoutingStatus,
-    obsUntil,
-    keyHash,
-    now
-  ).run();
-
-  const ipAddress = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || null;
-  const userAgent = request.headers.get("user-agent") || null;
-
-  const k1Attestation = ConsentAttestationSchema.parse({
-    id: crypto.randomUUID(),
-    tenant_id: targetTenantId,
-    event_type: "KEY_SUBMISSION",
-    checkbox_id: "K1",
-    consent_version: "v1.0",
-    key_id: keyId,
-    attested_at: now,
-    ip_address: ipAddress,
-    user_agent: userAgent,
-  });
-
-  const k2Attestation = ConsentAttestationSchema.parse({
-    id: crypto.randomUUID(),
-    tenant_id: targetTenantId,
-    event_type: "KEY_SUBMISSION",
-    checkbox_id: "K2",
-    consent_version: "v1.0",
-    key_id: keyId,
-    attested_at: now,
-    ip_address: ipAddress,
-    user_agent: userAgent,
-  });
-
-  const insertConsentStmt = env.DB.prepare(
-    "INSERT INTO consent_attestations (id, tenant_id, event_type, checkbox_id, consent_version, key_id, attested_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  );
-
-  await insertConsentStmt.bind(
-    k1Attestation.id,
-    k1Attestation.tenant_id,
-    k1Attestation.event_type,
-    k1Attestation.checkbox_id,
-    k1Attestation.consent_version,
-    k1Attestation.key_id ?? null,
-    k1Attestation.attested_at ?? now,
-    k1Attestation.ip_address ?? null,
-    k1Attestation.user_agent ?? null
-  ).run();
-
-  await insertConsentStmt.bind(
-    k2Attestation.id,
-    k2Attestation.tenant_id,
-    k2Attestation.event_type,
-    k2Attestation.checkbox_id,
-    k2Attestation.consent_version,
-    k2Attestation.key_id ?? null,
-    k2Attestation.attested_at ?? now,
-    k2Attestation.ip_address ?? null,
-    k2Attestation.user_agent ?? null
-  ).run();
-
-  try {
-    const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
-    if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
-      const doId = keyPoolNamespace.idFromName(targetTenantId);
-      const stub = keyPoolNamespace.get(doId);
-      await stub.fetch("http://key-pool/keys", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          key: {
-            id: keyId,
-            tenantId: targetTenantId,
-            provider,
-            ciphertext: ciphertextB64,
-            nonce: nonceB64,
-            label,
-            priority,
-            rpmLimit: rpm_limit,
-            rpdLimit: rpd_limit,
-            status: "Healthy",
-          },
-        }),
-      });
-    }
-  } catch {
-    // DO sync fallback
-  }
-
-  const createdResponse = {
+  // 10. Owner's KeyPoolDO; on failure the row is marked for reconcile.
+  const synced = await pushToKeyPool(env, tenantId, {
     id: keyId,
-    key_prefix: keyPrefix,
-    key_suffix: keySuffix,
+    tenantId,
     provider: body.provider,
+    ciphertext: ciphertextB64,
+    nonce: nonceB64,
     label,
-    rpm_limit,
-    rpd_limit,
     priority,
-    status: "healthy",
-    requests_this_min: 0,
-    requests_today: 0,
-    total_requests: 0,
-    created_at: new Date().toISOString(),
-  };
+    rpmLimit,
+    rpdLimit,
+    status: "Healthy",
+    poolType: body.pool_type,
+  });
+  if (!synced) await repo.markSyncPending(keyId);
 
-  return Response.json(createdResponse, { status: 201 });
+  return Response.json(
+    {
+      id: keyId,
+      key_prefix: keyPrefix,
+      key_suffix: keySuffix,
+      provider: body.provider,
+      label,
+      rpm_limit: rpmLimit,
+      rpd_limit: rpdLimit,
+      priority,
+      status: "healthy",
+      pool_type: body.pool_type,
+      requests_this_min: 0,
+      requests_today: 0,
+      total_requests: 0,
+      created_at: new Date(now).toISOString(),
+      sync: synced ? "ok" : "pending",
+    },
+    { status: 201 }
+  );
+}
+
+async function pushToKeyPool(env: WorkerEnv, tenantId: string, key: Record<string, unknown>): Promise<boolean> {
+  const ns = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
+  if (!ns || typeof ns.idFromName !== "function") return false;
+  try {
+    const res = await ns.get(ns.idFromName(tenantId)).fetch("http://key-pool/keys", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+    return res.ok;
+  } catch (err: unknown) {
+    console.error("KeyPoolDO sync failed; key marked sync_pending:", err instanceof Error ? err.message : String(err));
+    return false;
+  }
 }

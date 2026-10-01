@@ -14,6 +14,7 @@ import { env, fetchMock } from "cloudflare:test";
 import { handlePostKeys } from "../../../src/worker/router/dashboard/keys/post_key";
 import { handleReportKeyAbuse } from "../../../src/worker/router/dashboard/abuse_routes";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
+import { createUser } from "../../helpers/world";
 
 declare module "cloudflare:test" {
   interface ProvidedEnv {
@@ -53,6 +54,7 @@ describe("Turnstile gate: POST /api/keys always verifies via siteverify", () => 
         { headers: { "content-type": "application/json" } }
       );
 
+    const user = await createUser();
     const request = new Request("https://api.keycollective.ai/api/keys", {
       method: "POST",
       headers: {
@@ -60,20 +62,20 @@ describe("Turnstile gate: POST /api/keys always verifies via siteverify", () => 
         "x-turnstile-token": "valid_turnstile_response",
       },
       body: JSON.stringify({
-        provider: "openai",
+        provider: "groq",
         label: "should-not-be-created",
-        key: "sk-should-not-be-inserted",
+        key: "gsk_shouldNotBeInserted0123456789",
         k1: true,
         k2: true,
       }),
     });
 
-    await expect(
-      handlePostKeys(request, makeTestEnv(), "tenant-turnstile-gate", MASTER_KEY)
-    ).rejects.toMatchObject({
-      statusCode: 403,
-      message: expect.stringContaining("Turnstile validation failed"),
-    });
+    const res = await handlePostKeys(request, makeTestEnv(), user.id, MASTER_KEY);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: "turnstile_failed" });
+    const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM api_keys WHERE tenant_id = ?").bind(user.id).first<{ n: number }>();
+    expect(n?.n).toBe(0);
   });
 });
 

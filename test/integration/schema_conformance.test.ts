@@ -269,7 +269,12 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
           },
         });
 
-      const rawKey = "AIzaSyConformanceTestKey987654321";
+      // Proof of life (WP-3.6): one minimal generateContent call answers 200.
+      fetchMock
+        .get("https://generativelanguage.googleapis.com")
+        .intercept({ path: /:generateContent$/, method: "POST" })
+        .reply(200, "{}");
+      const rawKey = "AIzaSyConformanceTestKey987654321abcdef";
       const request = new Request("https://api.test/api/keys", {
         method: "POST",
         headers: {

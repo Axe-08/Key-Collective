@@ -314,7 +314,58 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
       }
     }
 
+    await this.reconcileSyncPending();
     this.isLoaded = true;
+  }
+
+  /**
+   * Keys whose push from POST /api/keys failed are flagged sync_pending in D1 (WP-3.6).
+   * Pull this tenant's flagged keys into the pool and clear the flag.
+   */
+  private async reconcileSyncPending(): Promise<void> {
+    const db = this.env.DB;
+    if (!db || typeof db.prepare !== "function") return;
+    const pending = await db
+      .prepare(
+        `SELECT id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, rpm_limit, rpd_limit, priority, status, pool_type
+           FROM api_keys WHERE tenant_id = ? AND sync_pending = 1`
+      )
+      .bind(this.tenantId)
+      .all<{
+        id: string;
+        tenant_id: string;
+        label: string;
+        provider: string;
+        encrypted_key_b64: string;
+        nonce_b64: string;
+        rpm_limit: number;
+        rpd_limit: number;
+        priority: number;
+        status: string;
+        pool_type: string | null;
+      }>();
+    const rows = pending.results ?? [];
+    if (rows.length === 0) return;
+    for (const row of rows) {
+      this.keysMap.set(row.id, {
+        id: row.id,
+        tenantId: this.tenantId,
+        provider: row.provider,
+        ciphertext: row.encrypted_key_b64,
+        nonce: row.nonce_b64,
+        label: row.label,
+        priority: 10000 + row.priority,
+        rpmLimit: row.rpm_limit,
+        rpdLimit: row.rpd_limit,
+        status: normaliseKeyStatus(row.status),
+        poolType: normalisePoolType(row.pool_type ?? "PRIVATE"),
+      });
+    }
+    this.keySelector.setKeys(Array.from(this.keysMap.values()));
+    await this.ctx.storage.put<EncryptedKey[]>(this.getStorageKey(), Array.from(this.keysMap.values()));
+    for (const row of rows) {
+      await db.prepare("UPDATE api_keys SET sync_pending = 0 WHERE id = ?").bind(row.id).run();
+    }
   }
 
   public async loadFromStorage(): Promise<void> {
