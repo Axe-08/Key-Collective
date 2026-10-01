@@ -296,6 +296,7 @@ export async function executeCascadeRouting(
           : selfKeyRouted,
         lease: activeLease,
         leaseContext: activeLeaseCtx,
+        keyId: activeLease?.keyId ?? keyId,
       };
 
       context.options.onSuccess?.(successResponse);

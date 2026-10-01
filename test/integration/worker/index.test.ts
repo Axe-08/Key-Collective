@@ -84,9 +84,9 @@ class MockDurableObjectStub implements DurableObjectStubLike {
 
   constructor(tenantId: string) {
     this.tenantId = tenantId;
-    this.keys.set("google", "key-gemini-test-1");
-    this.keys.set("openai", "key-openai-test-1");
-    this.keys.set("anthropic", "key-claude-test-1");
+    this.keys.set("google", "key_gemini_test_1");
+    this.keys.set("openai", "key_openai_test_1");
+    this.keys.set("anthropic", "key_claude_test_1");
   }
 
   async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

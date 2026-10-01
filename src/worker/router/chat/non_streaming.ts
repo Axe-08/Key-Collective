@@ -46,6 +46,7 @@ export async function handleNonStreamingResponse(
   // Asynchronous background task for D1 persistence and telemetry
   const postWork = async (): Promise<void> => {
     const activeLease = cascadeRes.lease;
+    const keyId = activeLease?.keyId ?? cascadeRes.keyId ?? "";
     if (activeLease) {
       const leaseCtx = cascadeRes.leaseContext ?? {
         tenantId: authContext.tenantId,
@@ -54,10 +55,9 @@ export async function handleNonStreamingResponse(
       const settleCu = cu > 0n ? cu : (cascadeRes.modelDef?.cuBase ?? 10n);
       await defaultLeaseOrchestrator
         .settle(activeLease, "ok", leaseCtx, settleCu)
-        .catch(() => {});
-    } else if (costMicrodollars > 0n && cascadeRes.modelDef?.id) {
-      // 1. Legacy: Record key usage on tenant DO
-      await keyPool.recordUsage(cascadeRes.modelDef.id, costMicrodollars).catch(() => {});
+        .catch(() => {
+          // Non-blocking settlement
+        });
     }
 
     // 2. Record event to D1 Cost Ledger (Golden Test tc-01)
@@ -70,7 +70,7 @@ export async function handleNonStreamingResponse(
         await costLedgerRepo.recordEvent({
           requestId: traceId,
           tenantId: authContext.tenantId,
-          keyId: activeLease?.keyId ?? cascadeRes.modelDef?.id ?? cascadeRes.model,
+          keyId,
           provider: cascadeRes.provider,
           modelId: cascadeRes.model,
           promptTokens: cascadeRes.usage?.promptTokens ?? 0,

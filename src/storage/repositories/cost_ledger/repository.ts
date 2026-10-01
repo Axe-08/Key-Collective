@@ -948,8 +948,14 @@ export class CostLedgerRepository {
     if (!input.requestId || typeof input.requestId !== "string" || input.requestId.trim().length === 0) {
       throw new InvalidCostLedgerEventError("requestId must be a non-empty string");
     }
-    if (!input.keyId || typeof input.keyId !== "string" || input.keyId.trim().length === 0) {
-      throw new InvalidCostLedgerEventError("keyId must be a non-empty string");
+    if (
+      !input.keyId ||
+      typeof input.keyId !== "string" ||
+      !/^key_/.test(input.keyId.trim())
+    ) {
+      throw new InvalidCostLedgerEventError(
+        "keyId must be a non-empty string matching ^key_"
+      );
     }
     if (!input.provider || typeof input.provider !== "string" || input.provider.trim().length === 0) {
       throw new InvalidCostLedgerEventError("provider must be a non-empty string");
