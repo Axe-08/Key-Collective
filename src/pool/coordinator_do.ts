@@ -11,6 +11,14 @@
 
 import { DurableObject } from "cloudflare:workers";
 import { loadPoolRights } from "../auth/rights";
+import {
+  BORROWER_WINDOW_MINUTES,
+  BRAKE_DURATION_MS,
+  BRAKE_MAX_TENANT_SHARE_PCT,
+  BRAKE_MIN_ACTIVE_BORROWERS,
+  BRAKE_MIN_POOL_CU,
+} from "../constants/commons";
+import { commonsEnforcement, recordWouldDeny } from "./enforcement";
 import { Clock, systemClock } from "../utils/clock";
 import type { WorkerEnv } from "../worker/auth/index";
 
@@ -127,7 +135,6 @@ interface SqlStorageLike {
 
 const ALARM_INTERVAL_MS = 60_000;
 const RECONCILE_INTERVAL_MS = 5 * 60_000;
-const BORROWER_WINDOW_MINUTES = 5;
 const SETTLED_LEASE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function canonicalCoordinatorProvider(provider: string): "google" | "groq" | string {
@@ -139,6 +146,7 @@ export function canonicalCoordinatorProvider(provider: string): "google" | "groq
 export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   private clock: Clock = systemClock;
   private schemaInitialized = false;
+  private envOverrides: Record<string, unknown> = {};
 
   constructor(ctx: DurableObjectState, env: WorkerEnv = {}) {
     super(ctx, env);
@@ -162,6 +170,21 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
 
   public clearMemoryCache(): void {
     this.schemaInitialized = false;
+  }
+
+  private getEffectiveEnv(): Record<string, unknown> {
+    return {
+      ...(this.env as unknown as Record<string, unknown>),
+      ...this.envOverrides,
+    };
+  }
+
+  public setEnvForTest(overrides: Record<string, unknown>): void {
+    const envRecord = this.env as unknown as { KC_ENV?: string } | undefined;
+    if (envRecord?.KC_ENV !== "test") {
+      throw new Error("setEnvForTest is only available when KC_ENV=test");
+    }
+    this.envOverrides = { ...this.envOverrides, ...overrides };
   }
 
   private sql(): SqlStorageLike {
@@ -796,6 +819,71 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         )
         .toArray();
     } else {
+      const effectiveEnv = this.getEffectiveEnv();
+      const brakeMode = commonsEnforcement("brake", effectiveEnv);
+
+      // Check existing active brake lock for this borrower
+      const activeBrakeRows = sql
+        .exec("SELECT until FROM brakes WHERE tenant = ? AND until > ?", req.tenant, now)
+        .toArray();
+      if (activeBrakeRows.length > 0 && brakeMode === "enforce") {
+        return null;
+      }
+
+      // Evaluate 5-minute surge brake window from borrower_window
+      const cutoffMinute = Math.floor((now - BORROWER_WINDOW_MINUTES * 60_000) / 60_000);
+      const windowRows = sql
+        .exec(
+          "SELECT tenant, COALESCE(SUM(cu), 0) AS total_units FROM borrower_window WHERE minute >= ? GROUP BY tenant",
+          cutoffMinute
+        )
+        .toArray();
+
+      let poolUnits5min = 0;
+      let activeBorrowers = 0;
+      let tenantUnits5min = 0;
+      for (const wr of windowRows) {
+        const units = parseInt(String(wr.total_units ?? 0), 10) || 0;
+        if (units > 0) {
+          poolUnits5min += units;
+          activeBorrowers += 1;
+          if (String(wr.tenant) === req.tenant) {
+            tenantUnits5min = units;
+          }
+        }
+      }
+
+      const minPoolUnits = Number(effectiveEnv.BRAKE_MIN_POOL_CU ?? BRAKE_MIN_POOL_CU);
+      const minBorrowers = Number(
+        effectiveEnv.BRAKE_MIN_ACTIVE_BORROWERS ?? BRAKE_MIN_ACTIVE_BORROWERS
+      );
+      const maxSharePct = Number(
+        effectiveEnv.BRAKE_MAX_TENANT_SHARE_PCT ?? BRAKE_MAX_TENANT_SHARE_PCT
+      );
+      const brakeDurationMs = Number(effectiveEnv.BRAKE_DURATION_MS ?? BRAKE_DURATION_MS);
+
+      if (
+        poolUnits5min >= minPoolUnits &&
+        activeBorrowers >= minBorrowers &&
+        tenantUnits5min * 100 > maxSharePct * poolUnits5min
+      ) {
+        if (brakeMode === "enforce") {
+          sql.exec(
+            "INSERT INTO brakes (tenant, until) VALUES (?, ?) ON CONFLICT(tenant) DO UPDATE SET until = excluded.until",
+            req.tenant,
+            now + brakeDurationMs
+          );
+          return null;
+        } else {
+          await recordWouldDeny(
+            "brake",
+            req.tenant,
+            `share=${tenantUnits5min}/${poolUnits5min};borrowers=${activeBorrowers}`,
+            effectiveEnv
+          );
+        }
+      }
+
       rawRows = sql
         .exec(
           `SELECT k.key_id, k.owner, k.provider, k.status, k.rpm_limit, k.rpd_limit,

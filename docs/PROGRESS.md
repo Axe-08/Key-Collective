@@ -133,7 +133,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.6
 - [x] T-5.6.1 Remove pre-dispatch brake and report-volume calls
-- [ ] T-5.6.2 Surge brake in coordinator lease(ownOnly=false) with 5-minute window
+- [x] T-5.6.2 Surge brake in coordinator lease(ownOnly=false) with 5-minute window
 
 ### WP-5.7
 - [ ] T-5.7.1 Eye-for-eye check requiring active community key in shard
