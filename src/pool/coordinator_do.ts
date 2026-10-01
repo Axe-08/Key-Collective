@@ -1099,6 +1099,37 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
+   * Returns per-owner community key counts and dispatch counters in this shard (WP-5.3 T-5.3.4).
+   */
+  public async ownerStats(owner: string): Promise<{
+    totalCommunityKeys: number;
+    activeCommunityKeys: number;
+    dispatchedToday: number;
+    dispatchedCommunal: number;
+  }> {
+    const sql = this.ensureSchema();
+    const row =
+      sql
+        .exec(
+          `SELECT
+             COUNT(*) AS total_keys,
+             COALESCE(SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END), 0) AS active_keys,
+             COALESCE(SUM(dispatched_today), 0) AS dispatched_today,
+             COALESCE(SUM(dispatched_communal), 0) AS dispatched_communal
+           FROM keys
+           WHERE owner = ? AND status != 'REVOKED'`,
+          owner
+        )
+        .toArray()[0] ?? {};
+    return {
+      totalCommunityKeys: Number(row.total_keys ?? 0),
+      activeCommunityKeys: Number(row.active_keys ?? 0),
+      dispatchedToday: Number(row.dispatched_today ?? 0),
+      dispatchedCommunal: Number(row.dispatched_communal ?? 0),
+    };
+  }
+
+  /**
    * 60-second alarm:
    * - Promotes OBSERVATION keys past `observation_until`
    * - Reactivates COOLDOWN keys past `reactivate_at`

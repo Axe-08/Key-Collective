@@ -82,6 +82,21 @@ describe("Dashboard CU responses and microdollar purge", () => {
 
     return {
       DB: mockDb,
+      TENANT_QUOTA: {
+        idFromName: (name: string) => name,
+        get: () => ({
+          standing: async () => ({
+            communityDebtCu: "350",
+            contributedCu24h: "1000",
+            dailyContributedCu: "1000",
+            multiplierCeiling: 450,
+            multiplierPct: 200,
+            trustedContributor: true,
+            consecutiveDebtFreeDays: 5,
+            jailStatus: "PRISTINE",
+          }),
+        }),
+      } as unknown as DurableObjectNamespace,
     };
   }
 

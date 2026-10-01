@@ -436,5 +436,31 @@ describe("migrations integration", () => {
     const colsAfter = await env.DB.prepare("SELECT name FROM pragma_table_info('api_keys')").all<{ name: string }>();
     expect(colsAfter.results.map((c) => c.name)).toContain("anti_cycling_until");
   });
+
+  it("0019 adds contributed_cu_24h, multiplier_pct, jail_status, and last_reset_day to contributor_standing", async () => {
+    expect(names).toContain("0019_standing.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations.filter((m) => m.name < "0019_standing.sql"));
+
+    await env.DB.prepare("INSERT INTO contributor_standing (tenant_id) VALUES ('t_standing_test')").run();
+
+    await applyMigrations(env.DB, migrations.filter((m) => m.name === "0019_standing.sql"));
+
+    const row = await env.DB.prepare(
+      "SELECT contributed_cu_24h, multiplier_pct, jail_status, last_reset_day FROM contributor_standing WHERE tenant_id = 't_standing_test'",
+    ).first<{
+      contributed_cu_24h: number;
+      multiplier_pct: number;
+      jail_status: string;
+      last_reset_day: string | null;
+    }>();
+    expect(row).toEqual({
+      contributed_cu_24h: 0,
+      multiplier_pct: 100,
+      jail_status: "PRISTINE",
+      last_reset_day: null,
+    });
+  });
 });
 

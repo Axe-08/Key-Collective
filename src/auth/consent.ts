@@ -53,6 +53,7 @@ export async function handleConsent(request: Request, env: WorkerEnv): Promise<R
       ).bind(crypto.randomUUID(), userId, checkbox, REGISTRATION_CONSENT_VERSION, now, ip, userAgent)
     ),
     env.DB.prepare("UPDATE users SET registration_status = 'ACTIVE' WHERE id = ?").bind(userId),
+    env.DB.prepare("INSERT OR IGNORE INTO contributor_standing (tenant_id) VALUES (?)").bind(userId),
   ]);
 
   const session = await createSession(env.DB, userId, "console", {

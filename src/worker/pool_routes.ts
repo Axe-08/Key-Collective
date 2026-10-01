@@ -175,44 +175,63 @@ async function handlePoolTelemetry(
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
+interface LiveStandingState {
+  communityDebtCu: string;
+  contributedCu24h?: string;
+  dailyContributedCu: string;
+  multiplierCeiling: number;
+  multiplierPct?: number;
+  trustedContributor?: boolean;
+  consecutiveDebtFreeDays?: number;
+  jailStatus: 'PRISTINE' | 'SOFT_WARNING' | 'HARD_JAIL';
+}
+
+async function fetchLiveStandingFromDO(
+  env: WorkerEnv,
+  tenantId: string
+): Promise<LiveStandingState | null> {
+  const quotaNs = env.TENANT_QUOTA as
+    | {
+        idFromName?: (name: string) => unknown;
+        get?: (id: unknown) => {
+          standing?: (tenantId?: string) => Promise<LiveStandingState>;
+          getDebtStateAsync?: () => Promise<LiveStandingState>;
+          getDebtState?: () => Promise<LiveStandingState> | LiveStandingState;
+        };
+      }
+    | undefined;
+  if (
+    !quotaNs ||
+    typeof quotaNs.idFromName !== 'function' ||
+    typeof quotaNs.get !== 'function'
+  ) {
+    return null;
+  }
+  try {
+    const stub = quotaNs.get(quotaNs.idFromName(tenantId));
+    if (typeof stub.standing === 'function') {
+      return await stub.standing(tenantId);
+    }
+    if (typeof stub.getDebtStateAsync === 'function') {
+      return await stub.getDebtStateAsync();
+    }
+    if (typeof stub.getDebtState === 'function') {
+      return await stub.getDebtState();
+    }
+  } catch (err) {
+    void err;
+  }
+  return null;
+}
+
 async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Response> {
   if (!tenantId || tenantId === 'anonymous' || tenantId === 'default' || tenantId === 'guest') {
     return Response.json({
       multiplier: 1.0,
+      multiplier_pct: 100,
       multiplier_ceiling: 1.0,
       community_debt_cu: 0,
-      daily_contributed_cu: 0,
-      cu_contributed_today: 0,
-      cu_consumed_today: 0,
-      net_cu_balance: 0,
-      trusted_contributor: false,
-      jail_status: 'PRISTINE',
-      consecutive_debt_free_days: 0,
-    });
-  }
-  if (!env.DB || typeof (env.DB as { prepare?: unknown }).prepare !== 'function') {
-    return Response.json({ error: 'Database unavailable' }, { status: 503 });
-  }
-  const db = env.DB as D1Database;
-  const row = await db.prepare(`
-    SELECT community_debt_cu, community_debt_micro_cu, daily_contributed_cu, consecutive_debt_free_days,
-           trusted_contributor, multiplier_ceiling, current_multiplier
-    FROM contributor_standing WHERE tenant_id = ?
-  `).bind(tenantId).first<{
-    community_debt_cu?: number;
-    community_debt_micro_cu?: number;
-    daily_contributed_cu: number;
-    consecutive_debt_free_days: number;
-    trusted_contributor: number;
-    multiplier_ceiling: number;
-    current_multiplier: number;
-  }>();
-
-  if (!row) {
-    return Response.json({
-      multiplier: 1.5,
-      multiplier_ceiling: 4.5,
-      community_debt_cu: 0,
+      contributed_cu_24h: 0,
       daily_contributed_cu: 0,
       cu_contributed_today: 0,
       cu_consumed_today: 0,
@@ -223,29 +242,31 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
     });
   }
 
-  const multiplier = (row.current_multiplier ?? 150) / 100;
-  const ceiling = (row.multiplier_ceiling ?? 450) / 100;
-  const debt = row.community_debt_cu ?? row.community_debt_micro_cu ?? 0;
-  const contributed = row.daily_contributed_cu ?? 0;
-
-  let jailStatus: 'PRISTINE' | 'SOFT_WARNING' | 'HARD_JAIL' = 'PRISTINE';
-  if (contributed > 0) {
-    const ratio = debt / contributed;
-    if (ratio > 1.0) jailStatus = 'HARD_JAIL';
-    else if (ratio > 0.5) jailStatus = 'SOFT_WARNING';
+  const doState = await fetchLiveStandingFromDO(env, tenantId);
+  if (!doState) {
+    return Response.json({ error: 'Standing unavailable' }, { status: 500 });
   }
+
+  const debt = Number(doState.communityDebtCu ?? 0);
+  const contributed = Number(doState.contributedCu24h ?? doState.dailyContributedCu ?? 0);
+  const multiplierPct = doState.multiplierPct ?? doState.multiplierCeiling ?? 100;
+  const ceilingPct = doState.multiplierCeiling ?? multiplierPct;
+  const multiplier = multiplierPct / 100;
+  const ceiling = ceilingPct / 100;
 
   return Response.json({
     multiplier,
+    multiplier_pct: multiplierPct,
     multiplier_ceiling: ceiling,
     community_debt_cu: debt,
+    contributed_cu_24h: contributed,
     daily_contributed_cu: contributed,
     cu_contributed_today: contributed,
     cu_consumed_today: debt,
     net_cu_balance: contributed - debt,
-    trusted_contributor: Boolean(row.trusted_contributor),
-    jail_status: jailStatus,
-    consecutive_debt_free_days: row.consecutive_debt_free_days ?? 0,
+    trusted_contributor: Boolean(doState.trustedContributor),
+    jail_status: doState.jailStatus ?? 'PRISTINE',
+    consecutive_debt_free_days: doState.consecutiveDebtFreeDays ?? 0,
   });
 }
 
@@ -257,6 +278,9 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
       requests_served_for_community_today: 0,
       personal_requests_today: 0,
       community_debt_cu: 0,
+      cu_contributed_24h: 0,
+      cu_borrowed_24h: 0,
+      net_cu: 0,
       cu_contributed_today: 0,
       cu_consumed_today: 0,
       net_cu_balance: 0,
@@ -274,30 +298,93 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
       COALESCE(SUM(dispatched_communal), 0) as total_communal_served
     FROM api_keys WHERE tenant_id = ?
   `).bind(tenantId).first<{
-    total_keys: number; community_active_keys: number;
-    total_dispatched_today: number; total_communal_served: number;
+    total_keys: number;
+    community_active_keys: number;
+    total_dispatched_today: number;
+    total_communal_served: number;
   }>();
 
-  const standing = await db.prepare(
-    `SELECT community_debt_cu, community_debt_micro_cu, daily_contributed_cu FROM contributor_standing WHERE tenant_id = ?`
-  ).bind(tenantId).first<{
-    community_debt_cu?: number;
-    community_debt_micro_cu?: number;
-    daily_contributed_cu: number;
-  }>();
+  let coordActiveKeys = 0;
+  let coordDispatchedToday = 0;
+  let coordCommunalServed = 0;
+  let hasCoordinatorStats = false;
 
-  const debt = standing?.community_debt_cu ?? standing?.community_debt_micro_cu ?? 0;
-  const contributed = standing?.daily_contributed_cu ?? 0;
+  const coordinatorNs = env.POOL_COORDINATOR as
+    | {
+        idFromName?: (n: string) => unknown;
+        get?: (id: unknown) => {
+          ownerStats?: (owner: string) => Promise<{
+            totalCommunityKeys: number;
+            activeCommunityKeys: number;
+            dispatchedToday: number;
+            dispatchedCommunal: number;
+          }>;
+        };
+      }
+    | undefined;
+
+  if (
+    coordinatorNs &&
+    typeof coordinatorNs.idFromName === 'function' &&
+    typeof coordinatorNs.get === 'function'
+  ) {
+    for (const shard of ['google', 'groq']) {
+      try {
+        const stub = coordinatorNs.get(coordinatorNs.idFromName(`pool:${shard}`));
+        if (typeof stub.ownerStats === 'function') {
+          const st = await stub.ownerStats(tenantId);
+          coordActiveKeys += st.activeCommunityKeys ?? 0;
+          coordDispatchedToday += st.dispatchedToday ?? 0;
+          coordCommunalServed += st.dispatchedCommunal ?? 0;
+          hasCoordinatorStats = true;
+        }
+      } catch (err) {
+        void err;
+      }
+    }
+  }
+
+  const doState = await fetchLiveStandingFromDO(env, tenantId);
+  let debt = 0;
+  let contributed = 0;
+  if (doState) {
+    debt = Number(doState.communityDebtCu ?? 0);
+    contributed = Number(doState.contributedCu24h ?? doState.dailyContributedCu ?? 0);
+  } else {
+    const standing = await db.prepare(
+      `SELECT community_debt_cu, community_debt_micro_cu, daily_contributed_cu FROM contributor_standing WHERE tenant_id = ?`
+    ).bind(tenantId).first<{
+      community_debt_cu?: number;
+      community_debt_micro_cu?: number;
+      daily_contributed_cu: number;
+    }>();
+    debt = standing?.community_debt_cu ?? standing?.community_debt_micro_cu ?? 0;
+    contributed = standing?.daily_contributed_cu ?? 0;
+  }
+
+  const dispatchedToday = hasCoordinatorStats
+    ? coordDispatchedToday
+    : (result?.total_dispatched_today ?? 0);
+  const communalServed = hasCoordinatorStats
+    ? coordCommunalServed
+    : (result?.total_communal_served ?? 0);
+  const personalRequestsToday = Math.max(0, dispatchedToday - communalServed);
+  const netCu = contributed - debt;
 
   return Response.json({
     total_keys: result?.total_keys ?? 0,
-    community_active_keys: result?.community_active_keys ?? 0,
-    requests_served_for_community_today: result?.total_communal_served ?? 0,
-    personal_requests_today: (result?.total_dispatched_today ?? 0) - (result?.total_communal_served ?? 0),
+    community_active_keys: hasCoordinatorStats && coordActiveKeys > 0
+      ? coordActiveKeys
+      : (result?.community_active_keys ?? 0),
+    requests_served_for_community_today: communalServed,
+    personal_requests_today: personalRequestsToday,
     community_debt_cu: debt,
+    cu_contributed_24h: contributed,
+    cu_borrowed_24h: debt,
+    net_cu: netCu,
     cu_contributed_today: contributed,
     cu_consumed_today: debt,
-    net_cu_balance: contributed - debt,
+    net_cu_balance: netCu,
   });
 }
 

@@ -80,6 +80,9 @@ export async function handleGoogleAuth(
         `INSERT INTO user_identities (user_id, provider, subject, email) VALUES (?, 'google', ?, ?)
          ON CONFLICT(provider, subject) DO UPDATE SET email = excluded.email`
       ).bind(tenantId, uid, email).run();
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO contributor_standing (tenant_id) VALUES (?)`
+      ).bind(tenantId).run();
     } catch (err: unknown) {
       console.error("Failed to persist Google sign-in into D1:", err instanceof Error ? err.message : String(err));
     }
