@@ -176,6 +176,50 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
     });
   });
 
+  describe("ApiKeyRepository dashboard methods (WP-3.6)", () => {
+    const owner = "tenant-dashboard-repo";
+
+    it("insert, list, pool mode, secret, revoke, delete and sync flag run against the real schema", async () => {
+      const repo = new ApiKeyRepository(env.DB, MASTER_KEY);
+      const insert = (id: string, keyHash: string) =>
+        repo.buildInsertStatement({
+          id,
+          tenantId: owner,
+          label: "dash",
+          provider: "groq",
+          ciphertextB64: "c2VjcmV0",
+          nonceB64: "bm9uY2U=",
+          keyPrefix: "gsk_abcd",
+          keySuffix: "wxyz",
+          rpmLimit: 30,
+          rpdLimit: 14400,
+          priority: 0,
+          poolType: "PRIVATE",
+          communityRoutingStatus: null,
+          observationUntil: null,
+          keyHash,
+          providerProjectHash: "proj-hash-1",
+          createdAt: Date.now(),
+        });
+      await env.DB.batch([insert("key_dash_1", "hash-dash-1"), insert("key_dash_2", "hash-dash-2")]);
+
+      expect((await repo.listForDashboard<{ id: string }>(owner)).map((k) => k.id).sort()).toEqual(["key_dash_1", "key_dash_2"]);
+      expect(await repo.existsByHash("hash-dash-1")).toBe(true);
+      expect(await repo.setPoolMode("key_dash_1", owner, "COMMUNITY", "OBSERVATION", 123)).toBe(true);
+      expect(await repo.setPoolMode("key_dash_1", "someone-else", "PRIVATE", null, null)).toBe(false);
+      expect(await repo.getSecret("key_dash_1", owner)).toMatchObject({ provider: "groq", tenant_id: owner });
+      expect(await repo.getSecret("key_dash_1", "someone-else")).toBeNull();
+      expect(await repo.replaceSecret("key_dash_1", owner, { ciphertextB64: "bmV3", nonceB64: "bm9uY2Uy", keyPrefix: "gsk_new0", keySuffix: "0000" })).toBe(true);
+      await repo.markSyncPending("key_dash_2");
+      expect(await repo.revokeByHash("hash-dash-2", 999)).toMatchObject({ id: "key_dash_2", provider_project_hash: "proj-hash-1" });
+      expect(await repo.deleteScoped("key_dash_1", "someone-else")).toBe(false);
+      expect(await repo.deleteScoped("key_dash_1", owner)).toBe(true);
+
+      const remaining = await env.DB.prepare("SELECT id, status, sync_pending FROM api_keys WHERE tenant_id = ?").bind(owner).all();
+      expect(remaining.results).toEqual([{ id: "key_dash_2", status: "REVOKED", sync_pending: 1 }]);
+    });
+  });
+
   describe("SQL-Writing Handlers Conformance", () => {
     const tenantId = "usr_gh_conformance_tester";
     let workerEnv: WorkerEnv;

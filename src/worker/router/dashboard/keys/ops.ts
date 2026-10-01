@@ -8,12 +8,19 @@
  */
 
 import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
+import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repository";
 import { decryptKey } from "../../../../durable_objects/crypto";
 import { resolvePlaintextKey, clearDecryptedKeyCache } from "../../core/key_resolver";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
 import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
+
+
+/** Key statements are scoped to the caller; the legacy "admin" tenant acts unscoped. */
+function ownerScope(tenantId: string): string | null {
+  return tenantId === "admin" ? null : tenantId;
+}
 
 export async function handleDeleteKey(
   pathname: string,
@@ -30,20 +37,9 @@ export async function handleDeleteKey(
   }
 
   if (env.DB && typeof env.DB.prepare === "function") {
-    if (tenantId === "admin") {
-      await env.DB.prepare("DELETE FROM api_keys WHERE id = ?").bind(keyId).run();
-    } else {
-      const existing = await env.DB.prepare(
-        "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
-      ).bind(keyId, tenantId).first<{ id: string }>();
-
-      if (!existing) {
-        throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
-      }
-
-      await env.DB.prepare(
-        "DELETE FROM api_keys WHERE id = ? AND tenant_id = ?"
-      ).bind(keyId, tenantId).run();
+    const deleted = await new ApiKeyRepository(env.DB).deleteScoped(keyId, ownerScope(tenantId));
+    if (!deleted && tenantId !== "admin") {
+      throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
     }
   }
 
@@ -102,20 +98,9 @@ export async function handlePoolMode(
   const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;
   const obsUntil = poolType === 'COMMUNITY' ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
-  if (tenantId === "admin") {
-    await env.DB.prepare(
-      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ?"
-    ).bind(poolType, commRoutingStatus, obsUntil, keyId).run();
-  } else {
-    const existing = await env.DB.prepare(
-      "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
-    ).bind(keyId, tenantId).first<{ id: string }>();
-    if (!existing) {
-      throw new RouterError("Key not found or you do not have permission to modify it", { statusCode: 404 });
-    }
-    await env.DB.prepare(
-      "UPDATE api_keys SET pool_type = ?, community_routing_status = ?, observation_until = ? WHERE id = ? AND tenant_id = ?"
-    ).bind(poolType, commRoutingStatus, obsUntil, keyId, tenantId).run();
+  const updated = await new ApiKeyRepository(env.DB).setPoolMode(keyId, ownerScope(tenantId), poolType, commRoutingStatus, obsUntil);
+  if (!updated && tenantId !== "admin") {
+    throw new RouterError("Key not found or you do not have permission to modify it", { statusCode: 404 });
   }
 
   clearDecryptedKeyCache();
@@ -145,23 +130,7 @@ export async function handleTestKey(
     throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
   }
 
-  const row = tenantId === "admin"
-    ? await env.DB.prepare(
-        "SELECT provider, encrypted_key_b64, nonce_b64, tenant_id FROM api_keys WHERE id = ?"
-      ).bind(keyId).first<{
-        provider: string;
-        encrypted_key_b64: string;
-        nonce_b64: string;
-        tenant_id: string;
-      }>()
-    : await env.DB.prepare(
-        "SELECT provider, encrypted_key_b64, nonce_b64, tenant_id FROM api_keys WHERE id = ? AND tenant_id = ?"
-      ).bind(keyId, tenantId).first<{
-        provider: string;
-        encrypted_key_b64: string;
-        nonce_b64: string;
-        tenant_id: string;
-      }>();
+  const row = await new ApiKeyRepository(env.DB).getSecret(keyId, ownerScope(tenantId));
 
   if (!row) {
     throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
@@ -240,16 +209,6 @@ export async function handleRotateKeySecret(
     throw new RouterError("New key string is required", { statusCode: 400 });
   }
 
-  // Verify key exists and caller is owner
-  if (tenantId !== "admin") {
-    const existing = await env.DB.prepare(
-      "SELECT id FROM api_keys WHERE id = ? AND tenant_id = ?"
-    ).bind(keyId, tenantId).first<{ id: string }>();
-    if (!existing) {
-      throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
-    }
-  }
-
   const targetTenantId = tenantId;
   const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
   const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
@@ -257,14 +216,14 @@ export async function handleRotateKeySecret(
   const keyPrefix = rawKey.slice(0, 8);
   const keySuffix = rawKey.slice(-4);
 
-  if (tenantId === "admin") {
-    await env.DB.prepare(
-      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ?"
-    ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId).run();
-  } else {
-    await env.DB.prepare(
-      "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ? AND tenant_id = ?"
-    ).bind(ciphertextB64, nonceB64, keyPrefix, keySuffix, keyId, tenantId).run();
+  const rotated = await new ApiKeyRepository(env.DB).replaceSecret(keyId, ownerScope(tenantId), {
+    ciphertextB64,
+    nonceB64,
+    keyPrefix,
+    keySuffix,
+  });
+  if (!rotated) {
+    throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
   }
 
   clearDecryptedKeyCache();

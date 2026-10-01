@@ -7,6 +7,7 @@
  *   rate limited 5/IP/hour via RATE_LIMITER DO.
  */
 
+import { ApiKeyRepository } from "../../../storage/repositories/api_keys/repository";
 import { verifyTurnstileToken } from "../../../auth/sybil/index";
 import type { WorkerEnv } from "../../auth/index";
 import { RouterError } from "../errors";
@@ -106,11 +107,7 @@ export async function handleReportKeyAbuse(
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    const revoked = await env.DB.prepare(
-      `UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ? WHERE key_hash = ? RETURNING id, tenant_id, provider_project_hash`
-    )
-      .bind(Date.now(), keyHashHex)
-      .first<{ id: string; tenant_id: string; provider_project_hash: string | null }>();
+    const revoked = await new ApiKeyRepository(env.DB).revokeByHash(keyHashHex, Date.now());
 
     if (!revoked) {
       return;

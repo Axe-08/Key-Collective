@@ -6,6 +6,7 @@
  * - Strict TypeScript (zero `any`).
  */
 
+import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repository";
 import type { WorkerEnv } from "../../../auth/index";
 import { normaliseKeyStatus, normalisePoolType } from "../../../../contracts/keys";
 import { toEpochMs } from "../../../../utils/time";
@@ -88,21 +89,7 @@ export async function handleGetKeys(
     } catch {}
   }
 
-  let keysQuery = "";
-  if (isGlobal) {
-    keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
-       FROM api_keys
-       ORDER BY priority ASC, created_at DESC`;
-  } else {
-    keysQuery = `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier
-       FROM api_keys
-       WHERE tenant_id = ?
-       ORDER BY priority ASC, created_at DESC`;
-  }
-
-  const keysResult = isGlobal
-    ? await env.DB.prepare(keysQuery).all<ApiKeyRow>()
-    : await env.DB.prepare(keysQuery).bind(tenantId).all<ApiKeyRow>();
+  const keyRows = await new ApiKeyRepository(env.DB).listForDashboard<ApiKeyRow>(isGlobal ? null : tenantId);
 
   const metricsQuery = isGlobal
     ? `SELECT key_id, COUNT(*) as total_reqs, AVG(latency_ms) as avg_lat
@@ -135,7 +122,7 @@ export async function handleGetKeys(
     }
   }
 
-  const rows = keysResult.results || [];
+  const rows = keyRows || [];
   const formattedKeys: FormattedKeyItem[] = rows.map((row) => {
     const metric = metricsMap.get(row.id);
     const normStatus = normaliseKeyStatus(row.status, row.community_routing_status);
