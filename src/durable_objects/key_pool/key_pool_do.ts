@@ -276,6 +276,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
   }
 
   public async ensureLoaded(): Promise<void> {
+    await this.alarmBootstrapPromise.catch(() => {});
     if (this.isLoaded) {
       return;
     }
@@ -766,9 +767,12 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     }
   }
 
-  public async getKey(provider: string): Promise<string> {
+  public async getKey(provider: string, tenantId?: string): Promise<string> {
     if (!provider || provider.trim().length === 0) {
       throw new InvalidKeyError("Provider parameter cannot be empty");
+    }
+    if (tenantId) {
+      this.assertTenant(tenantId);
     }
 
     await this.ensureLoaded();

@@ -57,7 +57,7 @@ export async function handleNonStreamingResponse(
         .catch(() => {});
     } else if (costMicrodollars > 0n && cascadeRes.modelDef?.id) {
       // 1. Legacy: Record key usage on tenant DO
-      keyPool.recordUsage(cascadeRes.modelDef.id, costMicrodollars).catch(() => {});
+      await keyPool.recordUsage(cascadeRes.modelDef.id, costMicrodollars).catch(() => {});
     }
 
     // 2. Record event to D1 Cost Ledger (Golden Test tc-01)
@@ -127,11 +127,11 @@ export async function handleNonStreamingResponse(
     }
   };
 
+  const workPromise = postWork();
   if (ctx && typeof ctx.waitUntil === "function") {
-    ctx.waitUntil(postWork());
-  } else {
-    await postWork();
+    ctx.waitUntil(workPromise);
   }
+  await workPromise;
 
   // Obtain upstream JSON response if available
   let upstreamJson: Record<string, unknown> = {};

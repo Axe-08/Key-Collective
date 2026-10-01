@@ -79,7 +79,7 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 - [x] T-4.1.3 KeyPoolDO private lease API (leasePrivate, settle, reconcile)
 - [x] T-4.1.4 Lease orchestrator (private → own community → borrowed, priority at lease time, owner debt push)
 - [x] T-4.1.5 CascadeRouter on leases (LeaseProvider, Groq-only auto)
-- [ ] T-4.1.6 Lease integration tests (test/integration/commons/leases.test.ts)
+- [x] T-4.1.6 Lease integration tests (test/integration/commons/leases.test.ts)
 - [ ] T-4.1.7 Legacy tests migrated (Appendix B list)
 
 ### WP-4.2

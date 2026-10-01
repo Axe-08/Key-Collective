@@ -275,9 +275,9 @@ export async function executeCascadeRouting(
             void err;
           }
         }
-        context.keyPool.recordResult(keyId, true).catch(() => {});
+        await context.keyPool.recordResult(keyId, true).catch(() => {});
         if (costMicrodollars > 0n) {
-          context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
+          await context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
         }
       }
 
@@ -316,7 +316,7 @@ export async function executeCascadeRouting(
           .catch(() => {});
       } else if (context.keyPool && keyId) {
         // Record failure against KeyPool (non-blocking)
-        context.keyPool.recordResult(keyId, false).catch(() => {});
+        await context.keyPool.recordResult(keyId, false).catch(() => {});
       }
 
       const errMsg =

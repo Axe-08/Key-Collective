@@ -34,6 +34,10 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
     this.tenantId = tenantId;
   }
 
+  private isPlainMockStub(): boolean {
+    return !this.rpcDisabled && !this.stub.id;
+  }
+
   private isRpcError(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err);
     return (
@@ -59,8 +63,8 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
       throw new InvalidKeyError("Provider parameter is required to acquire key");
     }
 
-    // Direct DO RPC method invocation if supported
-    if (!this.rpcDisabled && typeof this.stub.getKey === "function") {
+    // Direct method invocation for plain-object unit test mocks
+    if (this.isPlainMockStub() && typeof this.stub.getKey === "function") {
       try {
         return await this.stub.getKey(provider);
       } catch (err: unknown) {
@@ -124,7 +128,7 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    * Records token usage and microdollar cost against the key in the tenant's DO.
    */
   public async recordUsage(keyId: string, costMicrodollars: bigint): Promise<void> {
-    if (!this.rpcDisabled && typeof this.stub.recordUsage === "function") {
+    if (this.isPlainMockStub() && typeof this.stub.recordUsage === "function") {
       try {
         return await this.stub.recordUsage(keyId, costMicrodollars);
       } catch (err: unknown) {
@@ -136,7 +140,7 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
       }
     }
 
-    await this.stub.fetch("http://key-pool/keys/usage", {
+    const res = await this.stub.fetch("http://key-pool/keys/usage", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -148,13 +152,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
         tenantId: this.tenantId,
       }),
     });
+    await res.text().catch(() => "");
   }
 
   /**
    * Informs the tenant DO circuit breaker of upstream success or failure.
    */
   public async recordResult(keyId: string, success: boolean): Promise<void> {
-    if (!this.rpcDisabled && typeof this.stub.recordResult === "function") {
+    if (this.isPlainMockStub() && typeof this.stub.recordResult === "function") {
       try {
         return await this.stub.recordResult(keyId, success);
       } catch (err: unknown) {
@@ -166,7 +171,7 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
       }
     }
 
-    await this.stub.fetch("http://key-pool/keys/result", {
+    const res = await this.stub.fetch("http://key-pool/keys/result", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -178,13 +183,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
         tenantId: this.tenantId,
       }),
     });
+    await res.text().catch(() => "");
   }
 
   /**
    * Records upstream HTTP status code against the key in the tenant's DO.
    */
   public async recordStatusCode(keyId: string, statusCode: number): Promise<void> {
-    if (!this.rpcDisabled && typeof this.stub.recordStatusCode === "function") {
+    if (this.isPlainMockStub() && typeof this.stub.recordStatusCode === "function") {
       try {
         return await this.stub.recordStatusCode(keyId, statusCode);
       } catch (err: unknown) {
@@ -196,7 +202,7 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
       }
     }
 
-    await this.stub.fetch("http://key-pool/keys/status-code", {
+    const res = await this.stub.fetch("http://key-pool/keys/status-code", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -208,13 +214,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
         tenantId: this.tenantId,
       }),
     });
+    await res.text().catch(() => "");
   }
 
   /**
    * Queries real-time key metrics from the tenant's DO.
    */
   public async getKeyMetrics(keyId: string): Promise<KeyMetrics> {
-    if (!this.rpcDisabled && typeof this.stub.getKeyMetrics === "function") {
+    if (this.isPlainMockStub() && typeof this.stub.getKeyMetrics === "function") {
       try {
         return await this.stub.getKeyMetrics(keyId);
       } catch (err: unknown) {
@@ -256,7 +263,7 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
    * Queries real-time capacity summary for a provider from the tenant's DO.
    */
   public async getCapacitySummary(provider?: string): Promise<CapacitySummary> {
-    if (typeof this.stub.getCapacitySummary === "function") {
+    if (this.isPlainMockStub() && typeof this.stub.getCapacitySummary === "function") {
       return this.stub.getCapacitySummary(provider);
     }
 

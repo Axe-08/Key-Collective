@@ -123,18 +123,30 @@ export async function handleReportKeyAbuse(
 
     try {
       const keyPoolNamespace = env.KEY_POOL as unknown as
-        | DurableObjectNamespaceLike
+        | {
+            idFromName?: (name: string) => DurableObjectId;
+            get?: (id: DurableObjectId) => {
+              reconcile?: (tenantId?: string) => Promise<unknown>;
+              removeKey?: (keyId: string) => Promise<void>;
+              fetch: (req: Request | string, init?: RequestInit) => Promise<Response>;
+            };
+          }
         | undefined;
-      if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
+      if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function" && typeof keyPoolNamespace.get === "function") {
         const doId = keyPoolNamespace.idFromName(revoked.tenant_id);
         const stub = keyPoolNamespace.get(doId);
-        await stub.fetch(`http://key-pool/keys/${encodeURIComponent(revoked.id)}`, {
-          method: "DELETE",
-          headers: { "x-tenant-id": revoked.tenant_id },
-        });
+        if (typeof stub.reconcile === "function") {
+          await stub.reconcile(revoked.tenant_id);
+        } else {
+          const res = await stub.fetch(`http://key-pool/keys/${encodeURIComponent(revoked.id)}`, {
+            method: "DELETE",
+            headers: { "x-tenant-id": revoked.tenant_id },
+          });
+          await res.text().catch(() => {});
+        }
       }
-    } catch {
-      // DO cleanup fallback — the D1 revocation already stands.
+    } catch (err) {
+      void err;
     }
 
     try {
@@ -151,8 +163,8 @@ export async function handleReportKeyAbuse(
           await coordStub.removeKey(revoked.id);
         }
       }
-    } catch {
-      // Coordinator cleanup fallback — D1 revocation stands.
+    } catch (err) {
+      void err;
     }
     // NOTE: Owner notification is added later by WP-4.3.
   };

@@ -285,7 +285,7 @@ export class UpstreamClient {
 
       // Record failure on KeyPool if configured
       if (this.keyPool && keyId && request.recordPoolUsage !== false) {
-        this.keyPool.recordResult(keyId, false).catch(() => {});
+        await this.keyPool.recordResult(keyId, false).catch(() => {});
       }
 
       if (isTimedOut) {
@@ -328,7 +328,7 @@ export class UpstreamClient {
 
       // Record failure on KeyPool if configured
       if (this.keyPool && keyId && request.recordPoolUsage !== false) {
-        this.keyPool.recordResult(keyId, false).catch(() => {});
+        await this.keyPool.recordResult(keyId, false).catch(() => {});
       }
 
       throw this.mapError(
@@ -429,7 +429,7 @@ export class UpstreamClient {
 
     // 8. Handle Non-Streaming Response
     if (this.keyPool && keyId && request.recordPoolUsage !== false) {
-      this.keyPool.recordResult(keyId, true).catch(() => {});
+      await this.keyPool.recordResult(keyId, true).catch(() => {});
     }
 
     let cachedText: string | null = null;
