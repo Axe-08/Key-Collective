@@ -252,21 +252,88 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     return rights.communityPool;
   }
 
+  /**
+   * Promotes OBSERVATION keys whose observation period has ended to ACTIVE.
+   * If DB is available, syncs status to D1 api_keys and creates an owner notification.
+   */
+  public async promoteObservationKeys(all: boolean = false, now?: number): Promise<number> {
+    const timestamp = now ?? this.clock.now();
+    const sql = this.ensureSchema();
+    const query = all
+      ? "SELECT key_id, owner FROM keys WHERE status = 'OBSERVATION'"
+      : "SELECT key_id, owner FROM keys WHERE status = 'OBSERVATION' AND observation_until IS NOT NULL AND observation_until <= ?";
+    const rawRows = all
+      ? sql.exec(query).toArray()
+      : sql.exec(query, timestamp).toArray();
+    const rows = rawRows.map((r) => ({
+      key_id: String(r.key_id ?? ""),
+      owner: String(r.owner ?? ""),
+    }));
+
+    if (rows.length === 0) {
+      return 0;
+    }
+
+    if (all) {
+      sql.exec(
+        "UPDATE keys SET status = 'ACTIVE', observation_until = NULL, updated_at = ? WHERE status = 'OBSERVATION'",
+        timestamp
+      );
+    } else {
+      sql.exec(
+        `UPDATE keys SET status = 'ACTIVE', observation_until = NULL, updated_at = ?
+          WHERE status = 'OBSERVATION' AND observation_until IS NOT NULL AND observation_until <= ?`,
+        timestamp,
+        timestamp
+      );
+    }
+
+    if (this.env?.DB) {
+      await this.syncPromotedKeysToD1(rows, timestamp);
+    }
+
+    return rows.length;
+  }
+
+  private async syncPromotedKeysToD1(
+    promotedKeys: Array<{ key_id: string; owner: string }>,
+    now: number
+  ): Promise<void> {
+    const db = this.env?.DB;
+    if (!db || typeof db.prepare !== "function") return;
+
+    for (const { key_id, owner } of promotedKeys) {
+      try {
+        await db
+          .prepare(
+            `UPDATE api_keys
+                SET community_routing_status = 'ACTIVE',
+                    status_changed_at = ?
+              WHERE id = ?
+                AND community_routing_status = 'OBSERVATION'`
+          )
+          .bind(now, key_id)
+          .run();
+
+        const notifId = `notif_${crypto.randomUUID()}`;
+        await db
+          .prepare(
+            `INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at)
+             VALUES (?, ?, 'pool_joined', ?, 'Your key joined the community pool', ?, NULL)`
+          )
+          .bind(notifId, owner, key_id, now)
+          .run();
+      } catch (err) {
+        // Non-blocking sync
+        void err;
+      }
+    }
+  }
+
   private promoteAndResetBuckets(now: number): { currentMinute: number; currentDay: string } {
     const sql = this.ensureSchema();
     const currentMinute = Math.floor(now / 60_000);
     const currentDay = new Date(now).toISOString().slice(0, 10);
-
-    // Promote OBSERVATION keys whose observation window has elapsed
-    sql.exec(
-      `UPDATE keys
-          SET status = 'ACTIVE', observation_until = NULL, updated_at = ?
-        WHERE status = 'OBSERVATION'
-          AND observation_until IS NOT NULL
-          AND observation_until <= ?`,
-      now,
-      now
-    );
 
     // Reactivate COOLDOWN keys whose cooldown/reactivate timestamp has elapsed
     sql.exec(
@@ -1042,6 +1109,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const sql = this.ensureSchema();
     const now = this.clock.now();
 
+    await this.promoteObservationKeys(false, now);
     this.promoteAndResetBuckets(now);
 
     // Prune expired brakes and old borrower_window / settled_leases

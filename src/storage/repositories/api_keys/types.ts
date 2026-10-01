@@ -35,6 +35,7 @@ export interface APIKeyRow {
   vesting_tier?: number;
   provider_project_hash?: string | null;
   hkdf_migrated?: number;
+  anti_cycling_until?: number | null;
 }
 
 /**
@@ -173,5 +174,6 @@ export function mapRowToAPIKey(row: APIKeyRow): APIKey {
     vestingTier: row.vesting_tier ?? 0,
     providerProjectHash: row.provider_project_hash ?? null,
     hkdfMigrated: row.hkdf_migrated ?? 0,
+    antiCyclingUntil: toEpochMs(row.anti_cycling_until ?? null),
   };
 }

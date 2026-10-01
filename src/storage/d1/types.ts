@@ -83,6 +83,7 @@ interface RawApiKeyRow {
   vesting_tier?: number;
   provider_project_hash?: string | null;
   hkdf_migrated?: number;
+  anti_cycling_until?: number | null;
 }
 
 export type { RawApiKeyRow };
