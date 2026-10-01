@@ -492,22 +492,32 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       return null;
     }
 
+    const toSafeInt = (v: unknown): number => {
+      if (typeof v === "number") return Math.trunc(v);
+      if (typeof v === "bigint") return parseInt(v.toString(10), 10);
+      if (typeof v === "string") return parseInt(v, 10) || 0;
+      return 0;
+    };
+
     const candidates: CandidateRow[] = rawRows.map((r) => ({
       key_id: String(r.key_id),
       owner: String(r.owner),
       provider: String(r.provider),
       status: String(r.status),
-      rpm_limit: Number(r.rpm_limit),
-      rpd_limit: Number(r.rpd_limit),
-      minute_count: Number(r.minute_count),
-      day_count: Number(r.day_count),
+      rpm_limit: toSafeInt(r.rpm_limit),
+      rpd_limit: toSafeInt(r.rpd_limit),
+      minute_count: toSafeInt(r.minute_count),
+      day_count: toSafeInt(r.day_count),
       classification: typeof r.classification === "string" ? r.classification : null,
-      priority_boost: Number(r.priority_boost ?? 0),
-      debt_cu: Number(r.debt_cu ?? 0),
+      priority_boost: toSafeInt(r.priority_boost ?? 0),
+      debt_cu: toSafeInt(r.debt_cu ?? 0),
     }));
 
     const scoreOf = (c: CandidateRow): number => {
-      const debtBoost = Math.min(5000, Math.floor(Math.max(0, c.debt_cu) / 10));
+      const positiveDebt = BigInt(Math.max(0, c.debt_cu));
+      const rawBoost = positiveDebt / 10n;
+      const cappedBoost = rawBoost > 5000n ? 5000n : rawBoost;
+      const debtBoost = parseInt(cappedBoost.toString(10), 10);
       const classBoost =
         c.classification === "PARASITE" ? 2000 : c.classification === "HERO" ? -1000 : 0;
       const headroom = c.rpd_limit - c.day_count;
@@ -530,7 +540,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     this.setMeta("rr_cursor", chosen.key_id);
 
     const borrowedInt = req.ownOnly ? 0 : 1;
-    const estCu = req.estimateCu !== undefined ? Number(req.estimateCu) : 0;
+    const estCu = req.estimateCu !== undefined ? toSafeInt(req.estimateCu) : 0;
     const leaseId = `lease_${now.toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
 
     sql.exec(
@@ -818,7 +828,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       revokedKeys: Number(keyAgg.revoked_keys ?? 0),
       dispatchedToday: Number(keyAgg.dispatched_today ?? 0),
       dispatchedCommunal: Number(keyAgg.dispatched_communal ?? 0),
-      borrowerCuInWindow: Number(winAgg.total_cu ?? 0),
+      borrowerCuInWindow: parseInt(String(winAgg.total_cu ?? 0), 10) || 0,
       activeBrakes: Number(brakeAgg.cnt ?? 0),
     };
   }

@@ -1,14 +1,14 @@
 /**
  * Key Collective v2 — Cloudflare-Native LLM Router
- * Unit Tests: KeySelector Logic for Triage & Capacity Filtering (T-03)
+ * Unit Tests: KeySelector Logic for Private Key Triage & Capacity Filtering (T-03)
  *
  * Invariants & Standards:
  * - Strict TypeScript: No `any`, strict mode.
- * - Conforms to LLD 3.3:
- *   - Logic: Filters out rate-limited or circuit-broken keys.
+ * - Conforms to LLD 3.3 & Phase 4 (WP-4.1):
+ *   - Logic: Filters out rate-limited or circuit-broken private keys (community priority lives in PoolCoordinatorDO).
  *   - Selection: Implements Round-Robin or Least-Used selection among healthy keys.
  *   - Multi-provider fallback support.
- * - Fixed-Point Microdollars: All costs in `bigint` microdollars.
+ * - Credit Units (CU): Integer `bigint` credit units (legacy microdollar budget fields preserved for compatibility until WP-7.3).
  * - DO Transactional Storage: Survives DO instance eviction.
  */
 

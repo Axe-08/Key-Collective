@@ -359,7 +359,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     if (!coordNs || typeof coordNs.idFromName !== "function") {
       return;
     }
-    const debtNumber = Number(this.communityDebtCu);
+    const debtNumber = parseInt(this.communityDebtCu.toString(10), 10);
     for (const provider of ["google", "groq"]) {
       try {
         const stub = coordNs.get(coordNs.idFromName(`pool:${provider}`)) as unknown as {

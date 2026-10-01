@@ -237,4 +237,52 @@ describe("KeyPoolDO private lease API (T-4.1.3)", () => {
     expect(delRes.status).toBe(200);
     expect(await pool.leasePrivate("groq", 10, dave.id)).toBeNull();
   });
+
+  it("enforces tenant isolation on bound KeyPoolDO and handles rpm_limited / rpd_exhausted cooldowns", async () => {
+    const eve = await createUser({ github: true, eligible: true });
+    const mallory = await createUser({ github: true, eligible: true });
+    const privKey = await addProviderKey(eve, {
+      provider: "groq",
+      pool: "PRIVATE",
+      plaintext: "gsk_priv_eve_cooldown_isolation_01",
+      rpmLimit: 10,
+      rpdLimit: 100,
+    });
+
+    const pool = getKeyPoolStub(eve.id);
+    const t0 = Date.UTC(2030, 0, 15, 14, 0, 0);
+    await pool.setClockForTest(t0);
+
+    const lease1 = await pool.leasePrivate("groq", 25, eve.id);
+    expect(lease1?.keyId).toBe(privKey.id);
+
+    // Cross-tenant access to eve's bound KeyPoolDO must return 403 TenantIsolationError
+    const crossRes = await pool.fetch(
+      new Request("https://do/key?provider=groq", {
+        headers: { "x-tenant-id": mallory.id },
+      })
+    );
+    expect(crossRes.status).toBe(403);
+    const crossBody = (await crossRes.json()) as { error?: string; message?: string };
+    expect(crossBody.message ?? crossBody.error).toMatch(/Tenant isolation violation/);
+
+    // Settle with rpm_limited cooldown for 30s
+    await pool.settle(lease1!.leaseId, "rpm_limited", 25, t0 + 30_000);
+    expect(await pool.leasePrivate("groq", 25, eve.id)).toBeNull();
+
+    // Advance clock past 30s cooldown -> key recovers to HEALTHY
+    await pool.setClockForTest(t0 + 31_000);
+    const lease2 = await pool.leasePrivate("groq", 25, eve.id);
+    expect(lease2?.keyId).toBe(privKey.id);
+
+    // Settle with rpd_exhausted -> cools down until next UTC midnight
+    await pool.settle(lease2!.leaseId, "rpd_exhausted", 25);
+    expect(await pool.leasePrivate("groq", 25, eve.id)).toBeNull();
+
+    const nextDay = Date.UTC(2030, 0, 16, 0, 0, 1);
+    await pool.setClockForTest(nextDay);
+    const lease3 = await pool.leasePrivate("groq", 25, eve.id);
+    expect(lease3?.keyId).toBe(privKey.id);
+  });
 });
+
