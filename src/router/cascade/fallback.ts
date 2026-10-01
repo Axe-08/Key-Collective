@@ -37,6 +37,7 @@ import type {
   CascadeRouteResponse,
   CascadeRouterOptions,
 } from "./types";
+import { resolveLeasedKey } from "../../worker/router/core/key_resolver";
 
 /**
  * Execution context required to run cascade routing with fallbacks.
@@ -160,6 +161,26 @@ export async function executeCascadeRouting(
         activeLease = lease;
         keyId = lease.keyId;
         apiKey = lease.keyId;
+
+        if (activeLeaseCtx?.env?.DB && lease.keyId.startsWith("key_")) {
+          try {
+            apiKey = await resolveLeasedKey(
+              lease,
+              activeLeaseCtx.env,
+              context.options.masterKey
+            );
+          } catch (decryptErr) {
+            await leaseProvider.settle(lease, "key_invalid", activeLeaseCtx);
+            const attempt: FallbackAttempt = {
+              provider: candidate.provider,
+              modelId: candidate.id,
+              error: `Key decryption failed: ${decryptErr instanceof Error ? decryptErr.message : String(decryptErr)}`,
+            };
+            attempts.push(attempt);
+            context.options.onFallback?.(attempt, nextCandidate);
+            continue;
+          }
+        }
       } catch (leaseErr) {
         const errMsg = leaseErr instanceof Error ? leaseErr.message : String(leaseErr);
         const attempt: FallbackAttempt = {

@@ -11,7 +11,7 @@ import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
 import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repository";
 import { checkProofOfLife } from "../../../../ingress/probe";
 import { decryptKey } from "../../../../durable_objects/crypto";
-import { resolvePlaintextKey, clearDecryptedKeyCache } from "../../core/key_resolver";
+import { resolvePlaintextKey, evict } from "../../core/key_resolver";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
 import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
@@ -214,7 +214,7 @@ export async function handlePoolMode(
     // Coordinator reconcile fallback
   }
 
-  clearDecryptedKeyCache();
+  evict(keyId);
   return Response.json({
     success: true,
     keyId,
@@ -273,7 +273,7 @@ export async function handleTestKey(
     )
       .bind(nextStatus, Date.now(), keyId, nextStatus)
       .run();
-    clearDecryptedKeyCache();
+    evict(keyId);
   }
 
   return Response.json({
@@ -329,7 +329,7 @@ export async function handleRotateKeySecret(
     throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
   }
 
-  clearDecryptedKeyCache();
+  evict(keyId);
   return Response.json({
     success: true,
     keyId,

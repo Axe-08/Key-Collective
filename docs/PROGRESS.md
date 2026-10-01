@@ -91,8 +91,8 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 - [x] T-4.3.3 Migration 0017 notifications; GET/POST notification routes; takedown and key_invalid notifications
 
 ### WP-4.4
-- [ ] T-4.4.1 resolveLeasedKey: strict tenant subkey, lazy HKDF migration, quarantine on failure, per-key cache
-- [ ] T-4.4.2 Bulk HKDF migration script; AC-07 tests; key_resolver test migrated
+- [x] T-4.4.1 resolveLeasedKey: strict tenant subkey, lazy HKDF migration, quarantine on failure, per-key cache
+- [x] T-4.4.2 Bulk HKDF migration script; AC-07 tests; key_resolver test migrated
 
 ### WP-4.5
 - [ ] T-4.5.1 Demo isolation: sys_operator / sys_demo, operator-only leases, excluded from economy
