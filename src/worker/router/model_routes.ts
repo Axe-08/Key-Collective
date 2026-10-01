@@ -12,12 +12,9 @@ export class ModelRoutesHandler {
   /**
    * Public health check bypass endpoint.
    */
-  public handleHealth(startTime: number): Response {
+  public handleHealth(_startTime?: number): Response {
     return Response.json({
-      status: "healthy",
-      version: "0.2.0",
-      runtime: "cloudflare-workers",
-      timestamp: new Date(startTime).toISOString(),
+      status: "ok",
     });
   }
 

@@ -244,7 +244,7 @@ describe("GATEWAY-001: Midnight Freeze Guard Global Circuit Breaker", () => {
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { status: string };
-    expect(body.status).toBe("healthy");
+    expect(["ok", "healthy"]).toContain(body.status);
   });
 });
 

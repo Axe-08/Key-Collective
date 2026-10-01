@@ -24,12 +24,8 @@ export const OPENAPI_SPEC = {
   },
   servers: [
     {
-      url: "https://key-col.axe08.tech",
-      description: "Primary Edge Gateway (Cloudflare Global Anycast)",
-    },
-    {
-      url: "https://console.key-col.axe08.tech",
-      description: "Developer Console Gateway",
+      url: "https://api.key-col.axe08.tech/v1",
+      description: "Canonical API Gateway",
     },
   ],
   tags: [
@@ -55,7 +51,7 @@ export const OPENAPI_SPEC = {
     },
   ],
   paths: {
-    "/v1/chat/completions": {
+    "/chat/completions": {
       post: {
         tags: ["Chat"],
         summary: "Create chat completion",
@@ -151,7 +147,7 @@ export const OPENAPI_SPEC = {
         },
       },
     },
-    "/v1/models": {
+    "/models": {
       get: {
         tags: ["Models"],
         summary: "List registered models",
@@ -178,13 +174,13 @@ export const OPENAPI_SPEC = {
         },
       },
     },
-    "/v1/models/{id}": {
+    "/models/{model_id}": {
       get: {
         tags: ["Models"],
         summary: "Retrieve model detail",
         parameters: [
           {
-            name: "id",
+            name: "model_id",
             in: "path",
             required: true,
             description: "Target model ID or alias (e.g. 'gemini-2.5-flash')",

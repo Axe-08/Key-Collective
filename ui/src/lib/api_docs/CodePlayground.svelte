@@ -1,47 +1,55 @@
+<script module lang="ts">
+  import { generateCurlSnippet, generateTsSnippet, generatePySnippet } from './generators';
+
+  export const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? 'http://api.localhost:8787/v1' : 'https://api.key-col.axe08.tech/v1');
+</script>
+
 <script lang="ts">
   import type { ModelOption, ResponseChunk } from './types';
 
   interface Props {
-    baseUrl: string;
-    bearerToken: string;
-    isSessionToken: boolean;
-    selectedModel: string;
-    isStreaming: boolean;
-    activeTab: 'curl' | 'ts' | 'py';
-    availableModels: ModelOption[];
-    payloadJson: string;
-    isSending: boolean;
-    simulatedLatency: string;
-    simulatedStatus: string;
-    responseChunks: ResponseChunk[];
-    fallbackModelUsed: string | null;
-    activeSnippet: string;
-    copiedSnippet: boolean;
-    onBearerTokenChange: (val: string) => void;
-    onSelectedModelChange: (val: string) => void;
-    onStreamingToggle: (val: boolean) => void;
-    onActiveTabChange: (tab: 'curl' | 'ts' | 'py') => void;
-    onPayloadJsonChange: (val: string) => void;
-    onSendRequest: () => void;
-    onCopySnippet: () => void;
+    baseUrl?: string;
+    bearerToken?: string;
+    isSessionToken?: boolean;
+    selectedModel?: string;
+    isStreaming?: boolean;
+    activeTab?: 'curl' | 'ts' | 'py';
+    availableModels?: ModelOption[];
+    payloadJson?: string;
+    isSending?: boolean;
+    simulatedLatency?: string;
+    simulatedStatus?: string;
+    responseChunks?: ResponseChunk[];
+    fallbackModelUsed?: string | null;
+    activeSnippet?: string;
+    copiedSnippet?: boolean;
+    onBearerTokenChange?: (val: string) => void;
+    onSelectedModelChange?: (val: string) => void;
+    onStreamingToggle?: (val: boolean) => void;
+    onActiveTabChange?: (tab: 'curl' | 'ts' | 'py') => void;
+    onPayloadJsonChange?: (val: string) => void;
+    onSendRequest?: () => void;
+    onCopySnippet?: () => void;
   }
 
   let {
-    baseUrl,
-    bearerToken,
-    isSessionToken,
-    selectedModel,
-    isStreaming,
-    activeTab,
-    availableModels,
+    baseUrl = API_BASE_URL,
+    bearerToken = 'kc_proj_live_demo',
+    isSessionToken = false,
+    selectedModel = 'gemini-3.8-flash',
+    isStreaming = true,
+    activeTab = 'curl',
+    availableModels = [],
     payloadJson = $bindable(''),
-    isSending,
-    simulatedLatency,
-    simulatedStatus,
-    responseChunks,
-    fallbackModelUsed,
+    isSending = false,
+    simulatedLatency = '0ms',
+    simulatedStatus = 'Ready',
+    responseChunks = [],
+    fallbackModelUsed = null,
     activeSnippet,
-    copiedSnippet,
+    copiedSnippet = false,
     onBearerTokenChange,
     onSelectedModelChange,
     onStreamingToggle,
@@ -49,6 +57,16 @@
     onSendRequest,
     onCopySnippet,
   }: Props = $props();
+
+  const generatedSnippet = $derived(
+    activeTab === 'curl'
+      ? generateCurlSnippet(baseUrl, bearerToken, selectedModel, isStreaming)
+      : activeTab === 'ts'
+      ? generateTsSnippet(baseUrl, bearerToken, selectedModel, isStreaming)
+      : generatePySnippet(baseUrl, bearerToken, selectedModel, isStreaming)
+  );
+
+  const effectiveSnippet = $derived(activeSnippet ?? generatedSnippet);
 </script>
 
 <div class="rounded-xl bg-surface-container-low/80 backdrop-blur-xl border border-white/[0.08] p-5 specular-top shadow-xl space-y-4">
@@ -156,7 +174,10 @@
 
           <button
             type="button"
-            onclick={onCopySnippet}
+            onclick={() => {
+              if (onCopySnippet) onCopySnippet();
+              else navigator?.clipboard?.writeText(effectiveSnippet);
+            }}
             class="px-2 py-1 text-[11px] font-mono rounded bg-surface-container-high border border-outline-variant/30 text-outline hover:text-on-surface flex items-center gap-1 cursor-pointer transition-colors"
           >
             {#if copiedSnippet}
@@ -169,7 +190,7 @@
           </button>
         </div>
 
-        <pre class="p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/30 text-on-surface font-mono text-xs overflow-x-auto custom-scrollbar max-h-40">{activeSnippet}</pre>
+        <pre class="p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/30 text-on-surface font-mono text-xs overflow-x-auto custom-scrollbar max-h-40">{effectiveSnippet}</pre>
       </div>
     </div>
 

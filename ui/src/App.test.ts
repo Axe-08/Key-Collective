@@ -110,3 +110,69 @@ describe('optimistic delete rollback on 500 (App.svelte handleDeleteKey)', () =>
     expect(caughtViaApi).toBeInstanceOf(ApiError);
   });
 });
+
+describe('API_BASE_URL unification across UI components', () => {
+  it('exports API_BASE_URL configured to use API host', async () => {
+    const { API_BASE_URL } = await import('./App.svelte');
+    expect(API_BASE_URL).toBeDefined();
+    expect(typeof API_BASE_URL).toBe('string');
+    expect(API_BASE_URL).toMatch(/api\./);
+    expect(API_BASE_URL).not.toBe('https://key-col.axe08.tech/v1');
+  });
+
+  it('renders API_BASE_URL in Playground snippets and base URL indicator', async () => {
+    const { render } = await import('svelte/server');
+    const { default: Playground, API_BASE_URL } = await import('./lib/Playground.svelte');
+    const rendered = render(Playground);
+    expect(rendered.html).toContain(API_BASE_URL);
+    expect(rendered.html).toContain(`Base: <span class="text-primary font-semibold">${API_BASE_URL}</span>`);
+    expect(rendered.html).toContain(`curl ${API_BASE_URL}/chat/completions`);
+    expect(rendered.html).not.toContain('https://key-col.axe08.tech/v1');
+  });
+
+  it('renders API_BASE_URL in ApiDocs endpoints and snippets', async () => {
+    const { render } = await import('svelte/server');
+    const { default: ApiDocs, API_BASE_URL } = await import('./lib/ApiDocs.svelte');
+    const rendered = render(ApiDocs);
+    expect(rendered.html).toContain(API_BASE_URL);
+    expect(rendered.html).not.toContain('https://key-col.axe08.tech/v1');
+  });
+
+  it('renders API_BASE_URL in CodePlayground snippets', async () => {
+    const { render } = await import('svelte/server');
+    const { default: CodePlayground, API_BASE_URL } = await import('./lib/api_docs/CodePlayground.svelte');
+    const rendered = render(CodePlayground);
+    expect(rendered.html).toContain(API_BASE_URL);
+    expect(rendered.html).toContain(`curl ${API_BASE_URL}/chat/completions`);
+    expect(rendered.html).not.toContain('https://key-col.axe08.tech/v1');
+  });
+
+  it('renders API_BASE_URL in TopNavBar copy-endpoint button and copies it', async () => {
+    const { vi } = await import('vitest');
+    const { render } = await import('svelte/server');
+    const { default: TopNavBar, API_BASE_URL } = await import('./lib/TopNavBar.svelte');
+    const rendered = render(TopNavBar, { props: { isSettingsOpen: true } });
+    expect(rendered.html).toContain(`${API_BASE_URL}/chat/completions`);
+    expect(rendered.html).not.toContain('https://key-col.axe08.tech/v1/chat/completions');
+
+    let copiedText = '';
+    const originalClipboard = (globalThis as any).navigator?.clipboard;
+    if (!(globalThis as any).navigator) {
+      (globalThis as any).navigator = {};
+    }
+    (globalThis as any).navigator.clipboard = {
+      writeText: vi.fn(async (text: string) => {
+        copiedText = text;
+      }),
+    };
+
+    const expectedEndpoint = `${API_BASE_URL}/chat/completions`;
+    await (globalThis as any).navigator.clipboard.writeText(expectedEndpoint);
+    expect(copiedText).toBe(expectedEndpoint);
+
+    if (originalClipboard) {
+      (globalThis as any).navigator.clipboard = originalClipboard;
+    }
+  });
+});
+

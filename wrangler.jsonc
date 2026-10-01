@@ -100,16 +100,38 @@
     "run_worker_first": true
   },
   "vars": {
-    "FIREBASE_PROJECT_ID": "key-collective-568f8"
+    "FIREBASE_PROJECT_ID": "key-collective-568f8",
+    "API_HOST": "api.key-col.axe08.tech",
+    "CONSOLE_HOST": "console.key-col.axe08.tech",
+    "ADMIN_HOST": "admin.key-col.axe08.tech",
+    "APEX_HOST": "key-col.axe08.tech",
+    "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
   },
   "env": {
     "dev": {
       "vars": {
-        "FIREBASE_PROJECT_ID": "key-collective-568f8"
+        "FIREBASE_PROJECT_ID": "key-collective-568f8",
+        "API_HOST": "api-dev.key-col.axe08.tech",
+        "CONSOLE_HOST": "console-dev.key-col.axe08.tech",
+        "ADMIN_HOST": "admin-dev.key-col.axe08.tech",
+        "APEX_HOST": "dev.key-col.axe08.tech",
+        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
       },
       "routes": [
         {
           "pattern": "dev.key-col.axe08.tech",
+          "custom_domain": true
+        },
+        {
+          "pattern": "api-dev.key-col.axe08.tech",
+          "custom_domain": true
+        },
+        {
+          "pattern": "console-dev.key-col.axe08.tech",
+          "custom_domain": true
+        },
+        {
+          "pattern": "admin-dev.key-col.axe08.tech",
           "custom_domain": true
         }
       ],
@@ -152,6 +174,14 @@
       ]
     },
     "production": {
+      "vars": {
+        "FIREBASE_PROJECT_ID": "key-collective-568f8",
+        "API_HOST": "api.key-col.axe08.tech",
+        "CONSOLE_HOST": "console.key-col.axe08.tech",
+        "ADMIN_HOST": "admin.key-col.axe08.tech",
+        "APEX_HOST": "key-col.axe08.tech",
+        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
+      },
       "routes": [
         {
           "pattern": "key-col.axe08.tech",
@@ -186,6 +216,10 @@
           {
             "name": "DEMO_POOL",
             "class_name": "DemoDO"
+          },
+          {
+            "name": "POOL_COORDINATOR",
+            "class_name": "PoolCoordinatorDO"
           },
           {
             "name": "TENANT_QUOTA",

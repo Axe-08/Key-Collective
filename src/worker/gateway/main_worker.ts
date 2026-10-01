@@ -1,23 +1,33 @@
 /**
  * @file main_worker.ts
  * MainWorker: Primary API Gateway & Subdomain Router class for Key Collective Cloudflare Worker.
+ *
+ * Implements WP-2.7 per-host routing:
+ * - ApiHost: canonical v1 router, legacy aliases, OPTIONS with CORS
+ * - ConsoleHost: SPA static delivery, /api/* dashboard API (no CORS), legacy routes
+ * - AdminHost: admin surveillance router with zero-knowledge denial (no CORS)
+ * - ApexHost: redirects non-API paths to console (301 for GET/HEAD, 308 for others), legacy routes
  */
 
-import {
-  AuthMiddleware,
-  WorkerEnv,
-} from "../auth/index";
-import {
-  formatRouterError,
-  RouterHandler,
-} from "../router/index";
+import { AuthMiddleware, WorkerEnv } from "../auth/index";
+import { formatRouterError, RouterHandler } from "../router/index";
 import type { ExecutionContextLike } from "../telemetry_emitter";
-import type { HealthResponse, WorkerOptions } from "./types";
-import { applyCors, resolveHostRoute } from "./subdomain";
+import type { WorkerOptions } from "./types";
+import { applyCors, resolveHost } from "./subdomain";
 import { CORS_HEADERS } from "./types";
 import { verifyAdminRequest } from "./admin_verifier";
 import { handleConsoleRequest } from "./console_handler";
 import { handleAdminRequest } from "./admin_handler";
+import { handleV1Route } from "../api/v1_router";
+import { handleLegacyRoute, matchLegacyRoute } from "../api/legacy_routes";
+import { handleDemoTokenRequest } from "../router/demo_routes";
+
+const RAW_DO_PATHS = new Set([
+  "/v1/keys",
+  "/v1/keys/usage",
+  "/v1/metrics",
+  "/v1/capacity",
+]);
 
 /**
  * MainWorker: Primary API Gateway & Subdomain Router class for Key Collective Cloudflare Worker.
@@ -86,6 +96,214 @@ export class MainWorker {
   }
 
   /**
+   * Handles ApiHost requests (api.*).
+   */
+  private async handleApiHost(
+    request: Request,
+    env: WorkerEnv,
+    ctx?: ExecutionContextLike
+  ): Promise<Response> {
+    const url = new URL(request.url);
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+    const method = request.method.toUpperCase();
+
+    // 1. CORS Preflight (only ApiHost returns CORS headers)
+    if (method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: CORS_HEADERS,
+      });
+    }
+
+    // 2. Canonical route resolution via v1_router
+    const v1Res = await handleV1Route({
+      request,
+      env,
+      ctx,
+      routerHandler: this.routerHandler,
+      startTime: Date.now(),
+    });
+    if (v1Res) {
+      return this.options.cors !== false ? applyCors(v1Res) : v1Res;
+    }
+
+    // 3. Legacy route resolution on api.*
+    const legacyMatch = matchLegacyRoute("api", method, pathname);
+    if (legacyMatch) {
+      const legacyRes = await handleLegacyRoute(
+        request,
+        legacyMatch,
+        env,
+        ctx,
+        this.routerHandler
+      );
+      return this.options.cors !== false ? applyCors(legacyRes) : legacyRes;
+    }
+
+    // 4. Default 404 for unrouted paths on api.*
+    const notFoundRes = new Response(
+      JSON.stringify({
+        error: {
+          message: `Route '${method} ${pathname}' not found`,
+          code: "ROUTE_NOT_FOUND",
+          statusCode: 404,
+        },
+      }),
+      {
+        status: 404,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+        },
+      }
+    );
+    return this.options.cors !== false ? applyCors(notFoundRes) : notFoundRes;
+  }
+
+  /**
+   * Handles ConsoleHost requests (console.*).
+   */
+  private async handleConsoleHost(
+    request: Request,
+    env: WorkerEnv,
+    ctx?: ExecutionContextLike
+  ): Promise<Response> {
+    const url = new URL(request.url);
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+    const method = request.method.toUpperCase();
+
+    // 1. OPTIONS on console.* returns 204 with NO CORS headers
+    if (method === "OPTIONS") {
+      return new Response(null, { status: 204 });
+    }
+
+    // 2. Raw DO routes stay 404 everywhere (N-01)
+    if (RAW_DO_PATHS.has(pathname) || pathname.startsWith("/v1/keys/")) {
+      return new Response("Not Found", { status: 404 });
+    }
+
+    // 3. Ephemeral token endpoints on console.*
+    if (
+      (pathname === "/api/demo/token" || pathname === "/api/playground/token") &&
+      (method === "POST" || method === "GET")
+    ) {
+      return handleDemoTokenRequest(request, env);
+    }
+
+    // 4. Dashboard API endpoints (/api/*)
+    if (pathname.startsWith("/api/")) {
+      try {
+        const traceId =
+          request.headers.get("x-kc-trace-id") ?? crypto.randomUUID();
+        return await this.routerHandler.handleDashboardApi(
+          request,
+          pathname,
+          method,
+          env,
+          ctx,
+          traceId
+        );
+      } catch (err: unknown) {
+        return formatRouterError(err);
+      }
+    }
+
+    // 5. Legacy routes on console.*
+    const legacyMatch = matchLegacyRoute("console", method, pathname);
+    if (legacyMatch) {
+      return await handleLegacyRoute(
+        request,
+        legacyMatch,
+        env,
+        ctx,
+        this.routerHandler
+      );
+    }
+
+    // 6. SPA static assets delivery
+    return this.handleConsole(request, env);
+  }
+
+  /**
+   * Handles AdminHost requests (admin.*).
+   */
+  private async handleAdminHost(
+    request: Request,
+    env: WorkerEnv,
+    ctx?: ExecutionContextLike
+  ): Promise<Response> {
+    const method = request.method.toUpperCase();
+
+    // 1. OPTIONS on admin.* returns 204 with NO CORS headers
+    if (method === "OPTIONS") {
+      return new Response(null, { status: 204 });
+    }
+
+    const url = new URL(request.url);
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+
+    // 2. Raw DO routes stay 404 everywhere (N-01)
+    if (RAW_DO_PATHS.has(pathname) || pathname.startsWith("/v1/keys/")) {
+      return new Response("Not Found", { status: 404 });
+    }
+
+    // 3. Admin zero-knowledge authentication check
+    const isAdmin = await this.verifyAdmin(request, env);
+    if (!isAdmin) {
+      return new Response("Not Found", {
+        status: 404,
+        statusText: "Not Found",
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+        },
+      });
+    }
+
+    return this.handleAdmin(request, env, ctx);
+  }
+
+  /**
+   * Handles ApexHost requests (apex).
+   */
+  private async handleApexHost(
+    request: Request,
+    env: WorkerEnv,
+    ctx?: ExecutionContextLike
+  ): Promise<Response> {
+    const url = new URL(request.url);
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+    const method = request.method.toUpperCase();
+
+    // 1. OPTIONS on apex returns 204 with NO CORS headers
+    if (method === "OPTIONS") {
+      return new Response(null, { status: 204 });
+    }
+
+    // 2. Raw DO routes stay 404 everywhere (N-01)
+    if (RAW_DO_PATHS.has(pathname) || pathname.startsWith("/v1/keys/")) {
+      return new Response("Not Found", { status: 404 });
+    }
+
+    // 3. Legacy routes on apex
+    const legacyMatch = matchLegacyRoute("apex", method, pathname);
+    if (legacyMatch) {
+      return await handleLegacyRoute(
+        request,
+        legacyMatch,
+        env,
+        ctx,
+        this.routerHandler
+      );
+    }
+
+    // 4. Apex non-API paths redirect to console (301 for GET/HEAD, 308 for others)
+    const consoleHost =
+      (env.CONSOLE_HOST as string | undefined) ?? "console.key-col.axe08.tech";
+    const targetUrl = `https://${consoleHost}${url.pathname}${url.search}`;
+    const redirectStatus = method === "GET" || method === "HEAD" ? 301 : 308;
+    return Response.redirect(targetUrl, redirectStatus);
+  }
+
+  /**
    * Primary entrypoint: handles incoming HTTP request to the Cloudflare Worker.
    *
    * @param request Inbound HTTP Request
@@ -98,115 +316,20 @@ export class MainWorker {
     ctx?: ExecutionContextLike
   ): Promise<Response> {
     const url = new URL(request.url);
-    const pathname = url.pathname.replace(/\/+$/, "") || "/";
-    const method = request.method.toUpperCase();
-
-    // 1. CORS Preflight Request Handling (universal across all subdomains)
-    if (method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: CORS_HEADERS,
-      });
-    }
-
-    // 2. Resolve Subdomain Route based on Host header
     const hostHeader = request.headers.get("host") || url.host || "";
-    const route = resolveHostRoute(hostHeader);
+    const host = resolveHost(hostHeader, env);
 
-    // 3. Admin Surveillance Subdomain Routing (admin.*)
-    if (route.subdomain === "admin") {
-      const isAdmin = await this.verifyAdmin(request, env);
-      if (!isAdmin) {
-        // Zero-Knowledge Denial: Absolute 404 Not Found
-        return new Response("Not Found", {
-          status: 404,
-          statusText: "Not Found",
-          headers: {
-            "content-type": "text/plain; charset=utf-8",
-          },
-        });
-      }
-      return this.handleAdmin(request, env, ctx);
-    }
-
-    // 4. Developer Console SPA Static Delivery & API Handling (console.*)
-    if (route.subdomain === "console") {
-      if (
-        pathname.startsWith("/api/") ||
-        pathname.startsWith("/v1/") ||
-        pathname === "/openapi.json"
-      ) {
-        try {
-          const res = await this.routerHandler.handle(request, env, ctx);
-          return this.options.cors !== false ? applyCors(res) : res;
-        } catch (err: unknown) {
-          const errorRes = formatRouterError(err);
-          return this.options.cors !== false ? applyCors(errorRes) : errorRes;
-        }
-      }
-      return this.handleConsole(request, env);
-    }
-
-    // 5. Apex Redirect (key-col.axe08.tech -> console.key-col.axe08.tech)
-    const normalizedHost = hostHeader.split(":")[0].toLowerCase().trim();
-    if (normalizedHost === "key-col.axe08.tech" && (pathname === "/" || pathname === "")) {
-      return Response.redirect("https://console.key-col.axe08.tech/", 302);
-    }
-
-    // 6. Health & Liveness Probes (Public, zero auth required on api.* and apex)
-    if (
-      method === "GET" &&
-      (pathname === "/health" || pathname === "/v1/health")
-    ) {
-      const payload: HealthResponse = {
-        status: "healthy",
-        version: "0.2.0",
-        runtime: "cloudflare-workers",
-        timestamp: new Date().toISOString(),
-      };
-      const res = Response.json(payload, { status: 200 });
-      return this.options.cors !== false ? applyCors(res) : res;
-    }
-
-    // 7. Static Assets & Dashboard SPA Serving on apex (when ASSETS binding is present)
-    if (route.subdomain === "apex" && env.ASSETS && method === "GET") {
-      if (
-        pathname.startsWith("/assets/") ||
-        pathname === "/favicon.ico" ||
-        pathname === "/favicon.svg"
-      ) {
-        return env.ASSETS.fetch(request);
-      }
-      if (pathname === "/dashboard") {
-        const indexUrl = new URL("/", request.url);
-        return env.ASSETS.fetch(new Request(indexUrl.toString(), request));
-      }
-      if (
-        (pathname === "/" || pathname === "") &&
-        request.headers.get("accept")?.includes("text/html")
-      ) {
-        return env.ASSETS.fetch(request);
-      }
-    }
-
-    // 8. Root Endpoint Status Probe (Public, backward compatible with smoke tests)
-    if (method === "GET" && (pathname === "/" || pathname === "")) {
-      const res = new Response("Key Collective v2 Edge Proxy Ready", {
-        status: 200,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-        },
-      });
-      return this.options.cors !== false ? applyCors(res) : res;
-    }
-
-    // 9. Delegate to RouterHandler for OpenAI-compatible routing and DO forwarding (Hot Path)
-    try {
-      const res = await this.routerHandler.handle(request, env, ctx);
-      return this.options.cors !== false ? applyCors(res) : res;
-    } catch (err: unknown) {
-      const errorRes = formatRouterError(err);
-      return this.options.cors !== false ? applyCors(errorRes) : errorRes;
+    switch (host) {
+      case "api":
+        return this.handleApiHost(request, env, ctx);
+      case "console":
+        return this.handleConsoleHost(request, env, ctx);
+      case "admin":
+        return this.handleAdminHost(request, env, ctx);
+      case "apex":
+        return this.handleApexHost(request, env, ctx);
+      default:
+        return new Response("Not Found", { status: 404 });
     }
   }
 }

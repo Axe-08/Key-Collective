@@ -10,7 +10,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import worker, {
   createWorker,
-  HealthResponse,
   MainWorker,
   parseSubdomain,
   resolveHostRoute,
@@ -326,9 +325,8 @@ describe("Subdomain Routing (AUTH-03)", () => {
       });
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(200);
-      const data = (await res.json()) as HealthResponse;
-      expect(data.status).toBe("healthy");
-      expect(data.runtime).toBe("cloudflare-workers");
+      const data = (await res.json()) as { status: string };
+      expect(["ok", "healthy"]).toContain(data.status);
     });
 
     it("returns 200 and edge proxy ready message on GET /", async () => {
@@ -573,21 +571,28 @@ describe("Subdomain Routing (AUTH-03)", () => {
   });
 
   describe("Subdomain 4: Apex Redirect", () => {
-    it("redirects key-col.axe08.tech root to console.key-col.axe08.tech", async () => {
+    it("redirects key-col.axe08.tech root to console.key-col.axe08.tech (301)", async () => {
       const req = new Request("https://key-col.axe08.tech/", {
         method: "GET",
         headers: { host: "key-col.axe08.tech" },
       });
       const res = await worker.fetch(req, env);
-      expect(res.status).toBe(302);
+      expect(res.status).toBe(301);
       expect(res.headers.get("location")).toBe("https://console.key-col.axe08.tech/");
     });
   });
 
   describe("CORS Preflight", () => {
-    it("returns 204 across subdomains for OPTIONS requests", async () => {
+    it("returns 204 with CORS headers only on api.*", async () => {
+      const apiReq = new Request("https://api.key-col.axe08.tech/v1/chat/completions", {
+        method: "OPTIONS",
+        headers: { host: "api.key-col.axe08.tech" },
+      });
+      const apiRes = await worker.fetch(apiReq, env);
+      expect(apiRes.status).toBe(204);
+      expect(apiRes.headers.get("access-control-allow-origin")).toBe("*");
+
       for (const host of [
-        "api.key-col.axe08.tech",
         "console.key-col.axe08.tech",
         "admin.key-col.axe08.tech",
       ]) {
@@ -597,7 +602,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
         });
         const res = await worker.fetch(req, env);
         expect(res.status).toBe(204);
-        expect(res.headers.get("access-control-allow-origin")).toBe("*");
+        expect(res.headers.get("access-control-allow-origin")).toBeNull();
       }
     });
   });
