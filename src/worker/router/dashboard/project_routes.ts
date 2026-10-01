@@ -337,8 +337,8 @@ export async function handleUpdateProject(
     const newName = typeof body.name === "string" && body.name.trim().length > 0 ? body.name.trim() : existing.name;
     const newDesc = body.description !== undefined ? (typeof body.description === "string" ? body.description.trim() : null) : existing.description;
 
-    // rpm_sub_cap: absent keeps the stored value, null clears it, a number is bounded by the
-    // owner's tier RPM limit.
+    // rpm_sub_cap: absent keeps the stored value, null clears it, a number must not exceed the
+    // owner's tier RPM limit (400 SUB_CAP_ABOVE_TIER, shown inline by the Workbench).
     let subCapSql = "rpm_sub_cap";
     const subCapParams: unknown[] = [];
     if (body.rpm_sub_cap === null) {
@@ -348,8 +348,12 @@ export async function handleUpdateProject(
         return errorResponse("rpm_sub_cap must be a positive integer", "BAD_REQUEST", 400);
       }
       const owner = await db.prepare("SELECT tier FROM users WHERE id = ?").bind(existing.tenant_id).first<{ tier: string }>();
+      const tierMax = calculateProjectQuota((owner?.tier ?? "builder") as UserTier);
+      if (body.rpm_sub_cap > tierMax) {
+        return errorResponse(`RPM sub-cap exceeds your tier maximum of ${tierMax}`, "SUB_CAP_ABOVE_TIER", 400);
+      }
       subCapSql = "?";
-      subCapParams.push(calculateProjectQuota((owner?.tier ?? "builder") as UserTier, body.rpm_sub_cap));
+      subCapParams.push(body.rpm_sub_cap);
     }
     const archiveSql = body.is_archived === undefined ? "is_archived" : "?";
     const archiveParams = body.is_archived === undefined ? [] : [body.is_archived ? 1 : 0];
