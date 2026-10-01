@@ -4,6 +4,7 @@
 
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import Turnstile from './Turnstile.svelte';
   import type { Provider, CreateKeyPayload, PoolType } from './types';
   import {
     closeModal,
@@ -49,6 +50,22 @@
     }
   });
   let turnstileToken = $state<string>('');
+  let turnstile: Turnstile | undefined = $state();
+
+  // Server error codes from POST /api/keys (WP-3.6) → what the user should do.
+  const ERROR_MESSAGES: Record<string, string> = {
+    invalid_request: 'Check the key format and tick both attestations.',
+    turnstile_failed: 'The bot check failed. Please complete it again.',
+    github_link_required: 'Link GitHub in Settings before adding keys to the community pool.',
+    rate_limited: 'You can add at most 10 keys per day. Try again tomorrow.',
+    key_already_registered: 'This key is already registered.',
+    project_already_registered: 'A key from this Google Cloud project is already registered.',
+    project_tombstoned: 'Keys from this Google Cloud project are blocked after an abuse report.',
+    project_unverifiable: 'We could not verify the Google Cloud project, so this key can only be added as a private key.',
+    key_no_quota: 'This key has no quota left. Try again after it resets.',
+    key_invalid: 'The provider rejected this key.',
+    provider_unavailable: 'The provider is not answering right now. Please retry in a minute.',
+  };
 
   let isSubmitting = $state(false);
   let errorMessage = $state<string | null>(null);
@@ -65,22 +82,14 @@
       }
     });
 
-    window.addEventListener('message', handleTurnstileMessage);
   });
 
   onDestroy(() => {
     if (unsubscribe) unsubscribe();
-    window.removeEventListener('message', handleTurnstileMessage);
   });
 
-  function handleTurnstileMessage(event: MessageEvent) {
-    if (event.data && event.data.type === 'turnstile_token') {
-      turnstileToken = event.data.token;
-    }
-  }
-
   let visible = $derived(isOpen || moduleIsOpen);
-  let canSubmit = $derived(!isSubmitting && apiKey.trim().length > 0 && label.trim().length > 0 && attestK1 && attestK2);
+  let canSubmit = $derived(!isSubmitting && apiKey.trim().length > 0 && label.trim().length > 0 && attestK1 && attestK2 && turnstileToken.length > 0);
 
   // When provider changes, update default RPM/RPD limits
   function handleProviderSelect(selected: Provider) {
@@ -165,13 +174,15 @@
       priority = 0;
       attestK1 = false;
       attestK2 = false;
-      turnstileToken = '';
       handleProviderSelect('gemini');
       handleClose();
     } catch (err: any) {
-      errorMessage = err?.message || 'Failed to register API key with proxy backend.';
+      const code = err?.message as string | undefined;
+      errorMessage = (code && ERROR_MESSAGES[code]) || code || 'Failed to register API key with proxy backend.';
     } finally {
       isSubmitting = false;
+      // Turnstile tokens are single-use.
+      turnstile?.reset();
     }
   }
 </script>
@@ -296,6 +307,8 @@
 
         <!-- Legal Attestations -->
         <LegalAttestations bind:attestK1 bind:attestK2 />
+
+        <Turnstile bind:this={turnstile} bind:token={turnstileToken} />
 
         <!-- Modal Actions -->
         <div class="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2.5 mt-4">

@@ -73,7 +73,7 @@ describe("PoolCommonsTab", () => {
 
     expect(rendered.html).toContain('data-testid="pool-locked"');
     expect(rendered.html).toContain("Link GitHub to join the community pool");
-    expect(rendered.html).toContain('href="/api/auth/github/start"');
+    expect(rendered.html).toContain('data-testid="link-github"');
     expect(rendered.html).not.toContain("Community Pool</button>");
   });
 

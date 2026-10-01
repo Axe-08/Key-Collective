@@ -37,7 +37,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.5.2 Add Claim your old keys console UI card when session reports claimable accounts
 
 ### WP-3.6
-- [ ] T-3.6.1 Implement Turnstile widget and wire into AddKeyModal and ReportKeyModal
+- [x] T-3.6.1 Implement Turnstile widget and wire into AddKeyModal and ReportKeyModal
 - [x] T-3.6.2 Implement GCP error probe extraction and proof-of-life checks
 - [x] T-3.6.3 Route all api_keys table SQL queries through ApiKeyRepository
 - [x] T-3.6.4 Rewrite post_key handler with validation, atomic batching, DO sync, and submit tests

@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import LinkGithubButton from './LinkGithubButton.svelte';
   import type { PoolStats, CU } from './types';
   import type { UserAccount, UserTier } from '../../../src/contracts/v3_types';
 
@@ -412,7 +413,7 @@
               <p class="text-[11px] text-on-surface-variant">
                 {userAccount?.sybilScore ? `Last Sybil check: ${userAccount.sybilScore}/100. ` : ''}Link a GitHub account to contribute keys to and borrow from the community pool.
               </p>
-              <a href="/api/auth/github/start" class="inline-block px-3 py-1.5 bg-primary text-on-primary rounded-lg font-mono text-xs font-semibold">Link GitHub</a>
+              <LinkGithubButton />
             {/if}
           </div>
         {/if}
