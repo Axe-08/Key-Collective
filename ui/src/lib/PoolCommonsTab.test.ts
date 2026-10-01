@@ -67,4 +67,20 @@ describe("PoolCommonsTab", () => {
     expect(data.total).toBe(80);
     expect(data.available).toBe(40);
   });
+
+  it("shows the locked call-to-action for a Google-only session (no communityPool)", () => {
+    const rendered = render(PoolCommonsTab, { props: { communityPool: false } });
+
+    expect(rendered.html).toContain('data-testid="pool-locked"');
+    expect(rendered.html).toContain("Link GitHub to join the community pool");
+    expect(rendered.html).toContain('href="/api/auth/github/start"');
+    expect(rendered.html).not.toContain("Community Pool</button>");
+  });
+
+  it("shows the community views when the session has communityPool", () => {
+    const rendered = render(PoolCommonsTab, { props: { communityPool: true } });
+
+    expect(rendered.html).not.toContain('data-testid="pool-locked"');
+    expect(rendered.html).toContain("Community Pool");
+  });
 });

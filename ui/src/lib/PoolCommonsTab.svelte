@@ -17,7 +17,8 @@
   import { onMount } from 'svelte';
   import DebtLedgerWidget from './DebtLedgerWidget.svelte';
 
-  let { initialMetrics, authToken, tenantId = '' }: { initialMetrics?: PoolMetrics, authToken?: string, tenantId?: string } = $props();
+  // communityPool comes from GET /api/session rights (WP-3.3); without it the tab is locked (D-05).
+  let { initialMetrics, communityPool = false, tenantId = '' }: { initialMetrics?: PoolMetrics, communityPool?: boolean, tenantId?: string } = $props();
 
   let activeSubTab = $state<'community' | 'providers' | 'contribution'>('community');
   
@@ -26,11 +27,14 @@
   let loading = $state(true);
 
   onMount(async () => {
+    if (!communityPool) {
+      loading = false;
+      return;
+    }
     try {
-      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
       const [telemetryRes, standingRes] = await Promise.all([
-        fetch('/api/pool/telemetry', { headers }).catch(() => null),
-        fetch('/api/pool/standing', { headers }).catch(() => null)
+        fetch('/api/pool/telemetry', { credentials: 'same-origin' }).catch(() => null),
+        fetch('/api/pool/standing', { credentials: 'same-origin' }).catch(() => null)
       ]);
       
       if (telemetryRes && telemetryRes.ok) {
@@ -61,6 +65,14 @@
     </div>
   {/if}
 
+  {#if !communityPool}
+    <div data-testid="pool-locked" class="rounded-xl border border-outline-variant/30 p-6 text-center space-y-3">
+      <span class="material-symbols-outlined text-3xl text-on-surface-variant">lock</span>
+      <p class="font-semibold text-on-surface">Link GitHub to join the community pool</p>
+      <p class="text-sm text-on-surface-variant">Your private keys keep working. Community pool health and contributions unlock once GitHub is linked and verified.</p>
+      <a href="/api/auth/github/start" class="inline-block rounded-lg bg-primary px-4 py-2 font-semibold text-on-primary">Link GitHub</a>
+    </div>
+  {:else}
   <div class="flex space-x-2 border-b border-outline-variant/30">
     <button
       class="px-4 py-2 {activeSubTab === 'community' ? 'bg-primary/10 text-primary border-b-2 border-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'}"
@@ -191,4 +203,5 @@
       {/if}
     {/if}
   </div>
+  {/if}
 </div>
