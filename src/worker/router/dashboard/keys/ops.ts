@@ -7,6 +7,7 @@
  * - Strict TypeScript.
  */
 
+import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
 import { decryptKey } from "../../../../durable_objects/crypto";
 import { resolvePlaintextKey, clearDecryptedKeyCache } from "../../core/key_resolver";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
@@ -90,12 +91,12 @@ export async function handlePoolMode(
     throw new RouterError("Invalid pool_type. Must be COMMUNITY or PRIVATE", { statusCode: 400 });
   }
 
-  if (poolType === 'COMMUNITY' && !(tenantId.startsWith('usr_gh_') || tenantId === 'admin')) {
-    throw new RouterError("Only GitHub authenticated accounts may contribute keys to the Community Pool.", { statusCode: 403 });
-  }
-
   if (!env.DB || typeof env.DB.prepare !== "function") {
     throw new RouterError("D1 Database binding missing", { statusCode: 500 });
+  }
+
+  if (poolType === 'COMMUNITY' && !(await loadPoolRights(env.DB, tenantId)).communityPool) {
+    return githubLinkRequired();
   }
 
   const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;

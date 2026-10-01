@@ -41,11 +41,6 @@ async function sha256Hex(input: string): Promise<string> {
   return bytesToHex(new Uint8Array(digest));
 }
 
-/** SQLite `datetime()` format, so `expires_at > datetime('now')` compares correctly. */
-function sqliteDate(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 19).replace("T", " ");
-}
-
 export function generateSessionToken(): string {
   return uint8ArrayToBase64Url(secureRandomBytes(32));
 }
@@ -65,13 +60,22 @@ export async function createSession(
   meta: { ip?: string; userAgent?: string; ttlSeconds?: number } = {}
 ): Promise<{ token: string; csrfToken: string; expiresAt: string }> {
   const token = generateSessionToken();
-  const expiresAt = sqliteDate(Date.now() + (meta.ttlSeconds ?? SESSION_TTL_SECONDS) * 1000);
-  await db
+  // Expiry comes from SQLite's clock, the same clock lookupSession compares against.
+  const row = await db
     .prepare(
-      "INSERT INTO sessions (id_hash, user_id, kind, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)"
+      `INSERT INTO sessions (id_hash, user_id, kind, expires_at, ip_address, user_agent)
+       VALUES (?, ?, ?, datetime('now', ?), ?, ?) RETURNING expires_at`
     )
-    .bind(await hashSessionToken(token), userId, kind, expiresAt, meta.ip ?? null, meta.userAgent ?? null)
-    .run();
+    .bind(
+      await hashSessionToken(token),
+      userId,
+      kind,
+      `${meta.ttlSeconds ?? SESSION_TTL_SECONDS} seconds`,
+      meta.ip ?? null,
+      meta.userAgent ?? null
+    )
+    .first<{ expires_at: string }>();
+  const expiresAt = row?.expires_at ?? "";
   return { token, csrfToken: await generateCsrfToken(token), expiresAt };
 }
 

@@ -6,6 +6,7 @@
  * - Per-Tenant Isolation: Keys isolated by tenantId.
  */
 
+import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
 import { verifyTurnstileToken } from "../../../../auth/sybil/index";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
 import { forceErrorGcpProbe } from "../../../../ingress/probe";
@@ -59,10 +60,12 @@ export async function handlePostKeys(
     throw new RouterError("API key token is required", { statusCode: 400 });
   }
 
-  if (body.pool_type === 'COMMUNITY') {
-    if (!(tenantId.startsWith('usr_gh_') || tenantId === 'admin')) {
-      throw new RouterError("Only GitHub authenticated accounts may contribute keys to the Community Pool.", { statusCode: 403 });
-    }
+  const rights = await loadPoolRights(env.DB, tenantId);
+  if (!rights.privatePool) {
+    throw new RouterError("Account may not add keys", { statusCode: 403 });
+  }
+  if (body.pool_type?.toUpperCase() === "COMMUNITY" && !rights.communityPool) {
+    return githubLinkRequired();
   }
 
   const rawKey = body.key.trim();

@@ -11,6 +11,9 @@ describe("Dashboard CU responses and microdollar purge", () => {
       prepare(query: string) {
         const createStatement = () => ({
           first: async <T>(): Promise<T | null> => {
+            if (query.includes("SELECT registration_status, is_quarantined, community_eligible FROM users")) {
+              return { registration_status: "ACTIVE", is_quarantined: 0, community_eligible: 1 } as unknown as T;
+            }
             if (query.includes("dispatched_communal") && query.includes("FROM api_keys")) {
               return {
                 total_keys: 4,
@@ -55,6 +58,9 @@ describe("Dashboard CU responses and microdollar purge", () => {
             return null;
           },
           all: async <T>(): Promise<D1Result<T>> => {
+            if (query.includes("SELECT provider FROM user_identities")) {
+              return { results: [{ provider: "google" }, { provider: "github" }] as unknown as T[], success: true, meta: {} as D1Response["meta"] };
+            }
             return { results: [], success: true, meta: {} } as unknown as D1Result<T>;
           },
           run: async (): Promise<D1Response> => {
@@ -184,7 +190,7 @@ describe("Dashboard CU responses and microdollar purge", () => {
       expect(Object.keys(json).filter((k) => k.toLowerCase().includes("microdollar"))).toEqual([]);
     });
 
-    it("reports zero CU defaults for unauthenticated users", async () => {
+    it("reports zero CU standing for unauthenticated users and refuses their contribution view", async () => {
       const env = createMockEnv();
       const req = new Request("http://localhost/api/pool/standing");
       const ctx = { waitUntil: () => {} };
@@ -213,13 +219,10 @@ describe("Dashboard CU responses and microdollar purge", () => {
         "anonymous",
         ctx
       );
+      // Community contribution needs communityPool (WP-3.3), which an anonymous caller lacks.
       expect(contribRes).not.toBeNull();
-      const contribJson = (await contribRes!.json()) as Record<string, unknown>;
-      expect(contribJson.community_debt_cu).toBe(0);
-      expect(contribJson.cu_contributed_today).toBe(0);
-      expect(contribJson.cu_consumed_today).toBe(0);
-      expect(contribJson.net_cu_balance).toBe(0);
-      expect("community_debt_micro_cu" in contribJson).toBe(false);
+      expect(contribRes!.status).toBe(403);
+      expect(await contribRes!.json()).toEqual({ error: "github_link_required" });
     });
   });
 });

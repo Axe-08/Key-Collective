@@ -153,7 +153,7 @@ export async function handleGoogleAuth(
   await env.DB.prepare(
     `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at)
      VALUES (?, ?, ?, ?, 0, '[]', ?, null, CURRENT_TIMESTAMP)`
-  ).bind(`tok_${tenantId.slice(0, 12)}_${Date.now().toString(36)}`, tokenHash, tenantId, 50_000_000, 20).run();
+  ).bind(`tok_${crypto.randomUUID().replace(/-/g, "")}`, tokenHash, tenantId, 50_000_000, 20).run();
 
   const headers = new Headers({ "content-type": "application/json; charset=utf-8" });
   headers.append("Set-Cookie", buildSessionCookie(session.token));

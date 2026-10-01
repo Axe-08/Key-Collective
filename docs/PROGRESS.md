@@ -22,7 +22,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 ### WP-3.3
 - [x] T-3.3.1 Update Sybil engine to PRD thresholds and migrate legacy tests
 - [ ] T-3.3.2 Implement GitHub link flow with state and PKCE in signed cookie
-- [ ] T-3.3.3 Add poolRights pure function and enforce on keys and pool routes
+- [x] T-3.3.3 Add poolRights pure function and enforce on keys and pool routes
 - [ ] T-3.3.4 Exclude keys of owners without community rights from tenant lending
 
 ### WP-3.4
