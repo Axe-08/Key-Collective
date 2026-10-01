@@ -3,7 +3,7 @@ import worker from "../src/index";
 
 describe("Key Collective Smoke Gate", () => {
   it("returns 200 and healthy payload on /health", async () => {
-    const request = new Request("https://proxy.keycollective.internal/health");
+    const request = new Request("https://api.key-col.axe08.tech/health");
     const mockEnv = {} as any;
     const mockCtx = {
       waitUntil: () => {},
@@ -18,7 +18,7 @@ describe("Key Collective Smoke Gate", () => {
   });
 
   it("returns ready message on root endpoint", async () => {
-    const request = new Request("https://proxy.keycollective.internal/");
+    const request = new Request("https://api.key-col.axe08.tech/");
     const mockEnv = {} as any;
     const mockCtx = {
       waitUntil: () => {},
