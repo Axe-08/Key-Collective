@@ -70,13 +70,8 @@
   onMount(() => {
     let rotationInterval: ReturnType<typeof setInterval> | null = null;
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('kc_auth_token');
-      if (stored && stored.trim().length > 0 && !stored.startsWith('kc_play_') && !stored.startsWith('kc_demo_')) {
-        bearerToken = stored.trim();
-        isSessionToken = true;
-      } else {
-        fetchDemoToken();
-      }
+      // The console no longer holds an API key in localStorage; WP-3.10 mints a playground token.
+      fetchDemoToken();
 
       rotationInterval = setInterval(() => {
         if (!isSessionToken) {

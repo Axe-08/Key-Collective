@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { sessionAuthTransport } from "./api/client";
   import type { PoolStats, APIKey } from './types';
   import { type CU, formatCu } from './types';
 
@@ -14,15 +15,9 @@
 
   let liveStats = $state<PoolStats | null>(null);
 
+  // Session cookie travels by default (same-origin); mutations need the CSRF header (WP-3.4).
   function getAuthHeaders(): Record<string, string> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (typeof window !== 'undefined') {
-      try {
-        const token = localStorage.getItem('kc_auth_token');
-        if (token) headers['Authorization'] = `Bearer ${token.trim()}`;
-      } catch {}
-    }
-    return headers;
+    return sessionAuthTransport.getHeaders('POST');
   }
 
   async function fetchStats() {

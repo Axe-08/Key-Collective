@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { sessionAuthTransport } from "./api/client";
   import type { UserTier, TierLimits, Project, ProjectKey } from '../../../src/contracts/v3_types';
   import { TIER_LIMITS_MAP } from '../../../src/contracts/v3_types';
   import type { APIKey } from './types';
@@ -56,17 +57,9 @@
   let switchPoolError = $state<string | null>(null);
 
   // Helper for auth headers
+  // Session cookie travels by default (same-origin); mutations need the CSRF header (WP-3.4).
   function getRequestHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('kc_auth_token');
-      if (token && token.trim().length > 0) {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
-      }
-    }
-    return headers;
+    return sessionAuthTransport.getHeaders('POST');
   }
 
   $effect(() => {
