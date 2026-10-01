@@ -17,6 +17,7 @@ export interface SessionInfo {
   csrfToken?: string;
   notices?: string[];
   rights?: { privatePool: boolean; communityPool: boolean };
+  claimable_legacy_accounts?: string[];
 }
 
 /** Keys earlier console versions stored; deleted on every load. */

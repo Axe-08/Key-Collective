@@ -10,6 +10,7 @@ import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
 import { handleConsent, registrationStatus } from "../../../auth/consent";
 import { loadPoolRights } from "../../../auth/rights";
+import { getClaimableLegacyAccounts, handleClaimLegacy } from "../../../auth/legacy_claim";
 import { handleGoogleAuth, handleLogout } from "./auth_routes";
 import { handleGithubLinkCallback, handleGithubLinkStart } from "../../../auth/github/link_flow";
 import { SESSION_COOKIE, lookupSession, readCookie, type SessionContext } from "../../../auth/session/store";
@@ -175,6 +176,14 @@ export class DashboardRouter {
       );
     }
 
+    // Legacy GitHub-only account claim (WP-3.5): needs a signed-in caller.
+    if (method === "POST" && pathname === "/api/auth/claim-legacy") {
+      if (tenantId === "anonymous") {
+        return Response.json({ error: "session_required" }, { status: 401 });
+      }
+      return handleClaimLegacy(env, tenantId, masterKey as string | Uint8Array | undefined);
+    }
+
     // Until registration consent (WP-3.2) only the allow-listed routes answer.
     if (!isAllowListed && tenantId !== "anonymous" && env.DB) {
       const status = await registrationStatus(env.DB, tenantId);
@@ -333,7 +342,9 @@ export class DashboardRouter {
       // Shown on every session read until WP-4.3 adds the notifications table.
       const notices: string[] = [];
       let rights: { privatePool: boolean; communityPool: boolean } | undefined;
+      let claimable: string[] = [];
       if (user && env.DB && tenantId !== "anonymous") {
+        claimable = await getClaimableLegacyAccounts(env.DB, tenantId);
         const { privatePool, communityPool } = await loadPoolRights(env.DB, tenantId);
         rights = { privatePool, communityPool };
         const owned = await env.DB.prepare("SELECT 1 FROM api_keys WHERE tenant_id = ? AND pool_type = 'COMMUNITY' LIMIT 1")
@@ -351,6 +362,7 @@ export class DashboardRouter {
           ...(session ? { csrfToken: session.csrfToken } : {}),
           ...(notices.length > 0 ? { notices } : {}),
           ...(rights ? { rights } : {}),
+          ...(claimable.length > 0 ? { claimable_legacy_accounts: claimable } : {}),
         }),
         {
           status: 200,

@@ -42,6 +42,7 @@
   import AdminView from './lib/admin/AdminView.svelte';
   import Playground from './lib/Playground.svelte';
   import OAuthModal from './lib/OAuthModal.svelte';
+  import ClaimLegacyCard from './lib/ClaimLegacyCard.svelte';
   import { fetchSession, logout, purgeLegacyStorage } from './lib/auth/session';
   import Toast from './lib/Toast.svelte';
   import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
@@ -98,6 +99,7 @@
   let isOAuthModalOpen = $state(false);
   let sessionRights = $state({ privatePool: false, communityPool: false });
   let sessionNotices = $state<string[]>([]);
+  let claimableLegacy = $state<string[]>([]);
   let oauthMode = $state<'login' | 'register'>('login');
   let autoRefresh = $state(true);
   let isRefreshing = $state(false);
@@ -199,6 +201,7 @@
       const info = await fetchSession();
       sessionRights = info.rights ?? { privatePool: false, communityPool: false };
       sessionNotices = info.notices ?? [];
+      claimableLegacy = info.claimable_legacy_accounts ?? [];
       if (info.user) {
         const u = info.user;
         userAccount = {
@@ -333,6 +336,10 @@
     {cuUsedToday}
     {proxyEndpoint}
   />
+
+  {#if claimableLegacy.length > 0}
+    <ClaimLegacyCard accounts={claimableLegacy} onClaimed={() => void refreshSession()} />
+  {/if}
 
   {#each sessionNotices as notice}
     <div data-testid="session-notice" class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200 flex items-center justify-between gap-3">
