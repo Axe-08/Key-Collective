@@ -71,7 +71,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private lastBucketHour: number | null = null;
   private trustedContributor: boolean = false;
   private consecutiveDebtFreeDays: number = 0;
-  private multiplierCeiling: number = 150;
+  private multiplierCeiling: number = 100;
   private antiCyclingUntil: number = 0;
   private standingDirty = false;
   private settledLeaseIds = new Set<string>();
@@ -115,7 +115,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.lastBucketHour = null;
     this.trustedContributor = false;
     this.consecutiveDebtFreeDays = 0;
-    this.multiplierCeiling = 150;
+    this.multiplierCeiling = 100;
     this.antiCyclingUntil = 0;
     this.standingDirty = false;
     this.settledLeaseIds = new Set<string>();
@@ -496,6 +496,10 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       this.multiplierCeiling = 100;
       return;
     }
+    if (contributed24h === 0n && this.communityDebtCu === 0n && !this.trustedContributor) {
+      this.multiplierCeiling = 100;
+      return;
+    }
     this.multiplierCeiling = calculateMultiplierCeiling(
       this.communityDebtCu,
       contributed24h,
@@ -573,10 +577,10 @@ export class TenantQuotaDO extends DurableObject<unknown> {
         )
         .bind(
           this.tenantId,
-          Number(this.communityDebtCu),
-          Number(this.communityDebtCu),
-          Number(contributed24h),
-          Number(contributed24h),
+          parseInt(this.communityDebtCu.toString(), 10),
+          parseInt(this.communityDebtCu.toString(), 10),
+          parseInt(contributed24h.toString(), 10),
+          parseInt(contributed24h.toString(), 10),
           this.multiplierCeiling,
           this.multiplierCeiling,
           this.multiplierCeiling,

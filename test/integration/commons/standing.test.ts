@@ -140,4 +140,163 @@ describe("Standing mirror to D1 (WP-5.3 T-5.3.3)", () => {
       jail_status: "PRISTINE",
     });
   });
+
+  it("GET /api/pool/standing for a brand-new user returns debt 0 and multiplier 1.00x from TenantQuotaDO, and 500 when DO is missing (T-5.3.4)", async () => {
+    const { handlePoolRoute } = await import("../../../src/worker/pool_routes");
+    const brandNewTenant = `usr_brand_new_${Date.now()}`;
+    const storage = new InMemoryStorage();
+    const quotaDo = new TenantQuotaDO(
+      {
+        id: { toString: () => brandNewTenant, name: brandNewTenant },
+        storage,
+        waitUntil: () => {},
+      },
+      { DB: env.DB },
+      { tenantId: brandNewTenant }
+    );
+
+    const envWithQuota = {
+      DB: env.DB,
+      TENANT_QUOTA: {
+        idFromName: (name: string) => name,
+        get: () => quotaDo,
+      },
+    } as unknown as Parameters<typeof handlePoolRoute>[3];
+
+    const req = new Request("https://console.test/api/pool/standing");
+    const res = await handlePoolRoute(
+      "/api/pool/standing",
+      "GET",
+      req,
+      envWithQuota,
+      brandNewTenant,
+      { waitUntil: () => {} }
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(200);
+    const body = (await res!.json()) as {
+      multiplier: number;
+      multiplier_pct: number;
+      community_debt_cu: number;
+      contributed_cu_24h: number;
+      jail_status: string;
+    };
+    expect(body.community_debt_cu).toBe(0);
+    expect(body.contributed_cu_24h).toBe(0);
+    expect(body.multiplier).toBe(1.0);
+    expect(body.multiplier_pct).toBe(100);
+    expect(body.jail_status).toBe("PRISTINE");
+
+    // Missing TenantQuotaDO -> 500, not hard-coded PRISTINE
+    const envWithoutQuota = {
+      DB: env.DB,
+    } as unknown as Parameters<typeof handlePoolRoute>[3];
+    const resMissing = await handlePoolRoute(
+      "/api/pool/standing",
+      "GET",
+      req,
+      envWithoutQuota,
+      brandNewTenant,
+      { waitUntil: () => {} }
+    );
+    expect(resMissing).not.toBeNull();
+    expect(resMissing!.status).toBe(500);
+  });
+
+  it("GET /api/pool/contribution computes requests_served_for_community_today, personal_requests_today, cu_contributed_24h, cu_borrowed_24h, net_cu from coordinator and TenantQuotaDO (T-5.3.4)", async () => {
+    const { handlePoolRoute } = await import("../../../src/worker/pool_routes");
+    const { createUser } = await import("../../helpers/world");
+    const owner = await createUser({ github: true, eligible: true });
+    const borrower = await createUser({ github: true, eligible: true });
+
+    const coordStub = env.POOL_COORDINATOR.get(
+      env.POOL_COORDINATOR.idFromName("pool:groq")
+    ) as unknown as {
+      upsertKey(input: {
+        keyId: string;
+        owner: string;
+        provider: string;
+        status: "ACTIVE";
+        rpmLimit: number;
+        rpdLimit: number;
+      }): Promise<{ registered: boolean }>;
+      lease(req: { tenant: string; ownOnly: boolean; estimateCu?: number }): Promise<{ leaseId: string } | null>;
+      settle(leaseId: string, status: string, cu: number): Promise<unknown>;
+      ownerStats(owner: string): Promise<{
+        totalCommunityKeys: number;
+        activeCommunityKeys: number;
+        dispatchedToday: number;
+        dispatchedCommunal: number;
+      }>;
+      removeKey(keyId: string): Promise<boolean>;
+    };
+
+    const keyId = `key_contrib_${Date.now()}`;
+    await coordStub.upsertKey({
+      keyId,
+      owner: owner.id,
+      provider: "groq",
+      status: "ACTIVE",
+      rpmLimit: 50,
+      rpdLimit: 1000,
+    });
+
+    // 2 personal leases (ownOnly: true) and 3 borrowed leases (ownOnly: false)
+    for (let i = 0; i < 2; i++) {
+      const l = await coordStub.lease({ tenant: owner.id, ownOnly: true, estimateCu: 10 });
+      await coordStub.settle(l!.leaseId, "ok", 10);
+    }
+    for (let i = 0; i < 3; i++) {
+      const l = await coordStub.lease({ tenant: borrower.id, ownOnly: false, estimateCu: 20 });
+      await coordStub.settle(l!.leaseId, "ok", 20);
+    }
+
+    const storage = new InMemoryStorage();
+    const quotaDo = new TenantQuotaDO(
+      {
+        id: { toString: () => owner.id, name: owner.id },
+        storage,
+        waitUntil: () => {},
+      },
+      { DB: env.DB },
+      { tenantId: owner.id }
+    );
+    await quotaDo.credit(60n, "lease_c_1", owner.id);
+    await quotaDo.accrueDebt(15n, "lease_d_1", owner.id);
+
+    const testEnv = {
+      ...env,
+      TENANT_QUOTA: {
+        idFromName: (name: string) => name,
+        get: () => quotaDo,
+      },
+    } as unknown as Parameters<typeof handlePoolRoute>[3];
+
+    const req = new Request("https://console.test/api/pool/contribution");
+    const res = await handlePoolRoute(
+      "/api/pool/contribution",
+      "GET",
+      req,
+      testEnv,
+      owner.id,
+      { waitUntil: () => {} }
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(200);
+    const body = (await res!.json()) as {
+      requests_served_for_community_today: number;
+      personal_requests_today: number;
+      cu_contributed_24h: number;
+      cu_borrowed_24h: number;
+      net_cu: number;
+    };
+
+    expect(body.requests_served_for_community_today).toBe(3);
+    expect(body.personal_requests_today).toBe(2);
+    expect(body.cu_contributed_24h).toBe(60);
+    expect(body.cu_borrowed_24h).toBe(15);
+    expect(body.net_cu).toBe(45);
+
+    await coordStub.removeKey(keyId);
+  });
 });
