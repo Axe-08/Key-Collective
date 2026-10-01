@@ -472,9 +472,11 @@ describe("RouterHandler Unit Tests (T3)", () => {
       // Golden assertions for tc-01
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toContain("application/json");
-      expect(res.headers.get("x-kc-trace-id")).toBe("trace-tc01");
-      expect(res.headers.get("x-kc-tenant-id")).toBe("tenant-alpha");
-      expect(res.headers.get("x-kc-model")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-trace-id")).toBeNull();
+      expect(res.headers.get("x-kc-tenant-id")).toBeNull();
+      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-model")).toBeNull();
+      expect(res.headers.get("x-kc-request-id")).toMatch(/^kc_req_/);
       expect(res.headers.get("x-kc-provider")).toBe("google");
 
       const body = await res.json() as Record<string, unknown>;
@@ -672,7 +674,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(200);
-      expect(res.headers.get("x-kc-model")).toBe("gemini-2.5-flash");
+      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.5-flash");
+      expect(res.headers.get("x-kc-model")).toBeNull();
       expect(res.headers.get("x-kc-provider")).toBe("google");
       expect(forwardedUrl).toContain("googleapis.com");
     });

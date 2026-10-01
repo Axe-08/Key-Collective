@@ -13,6 +13,7 @@ import type {
 } from "../../auth/index";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { ChatHandlerDependencies } from "./types";
+import { applyKcHeaders } from "../headers";
 
 export async function handleNonStreamingResponse(
   deps: ChatHandlerDependencies,
@@ -250,36 +251,43 @@ export async function handleNonStreamingResponse(
     cost_microdollars: (upstreamJson.cost_microdollars as string) ?? costMicrodollars.toString(),
   };
 
-  const responseHeaders = {
-    "content-type": "application/json; charset=utf-8",
-    "x-kc-trace-id": traceId,
-    "x-kc-tenant-id": authContext.tenantId,
-    "x-kc-model": resolvedModelId,
-    "x-kc-provider": cascadeRes.provider,
-    "x-kc-cost-microdollars": costMicrodollars.toString(),
-    "x-kc-cu": calculatedCu.toString(),
-  };
+  const rawResponse =
+    deps.options.responseFormat === "kc_api"
+      ? new Response(
+          JSON.stringify(
+            createApiResponse(payload, {
+              latencyMs: durationMs,
+              costMicrodollars: costMicrodollars.toString(),
+              traceId,
+              requestId: traceId,
+              timestamp: startTime,
+              provider: cascadeRes.provider,
+              model: resolvedModelId,
+            })
+          ),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+            },
+          }
+        )
+      : Response.json(payload, {
+          status: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+          },
+        });
 
-  // Format response based on requested format
-  if (deps.options.responseFormat === "kc_api") {
-    const apiRes = createApiResponse(payload, {
-      latencyMs: durationMs,
-      costMicrodollars: costMicrodollars.toString(),
-      traceId,
-      requestId: traceId,
-      timestamp: startTime,
-      provider: cascadeRes.provider,
-      model: resolvedModelId,
-    });
-    return new Response(JSON.stringify(apiRes), {
-      status: 200,
-      headers: responseHeaders,
-    });
-  }
-
-  return Response.json(payload, {
-    status: 200,
-    headers: responseHeaders,
+  return applyKcHeaders(rawResponse, {
+    requestId: traceId,
+    traceId,
+    modelUsed: resolvedModelId,
+    provider: cascadeRes.provider,
+    attempts: cascadeRes.attempts,
+    cu: calculatedCu.toString(),
+    costMicrodollars: costMicrodollars.toString(),
+    isStream: false,
   });
 }
 

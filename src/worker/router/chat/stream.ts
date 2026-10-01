@@ -17,6 +17,7 @@ import { sanitize } from "../../error_normalizer";
 import { calculateCu } from "../../../router/registry/registry";
 import type { TokenUsage } from "../../../router/registry/types";
 import { extractUsageFromPayload } from "../../../proxy/sse/usage_extractor";
+import { applyKcHeaders } from "../headers";
 
 export function handleStreamingResponse(
   deps: ChatHandlerDependencies,
@@ -417,18 +418,22 @@ export function handleStreamingResponse(
     },
   });
 
-  const response = new Response(transformedStream as unknown as BodyInit, {
+  const rawResponse = new Response(transformedStream as unknown as BodyInit, {
     status: 200,
     headers: {
       "content-type": "text/event-stream; charset=utf-8",
       "cache-control": "no-cache, no-transform",
       "x-accel-buffering": "no",
-      "x-kc-trace-id": traceId,
-      "x-kc-tenant-id": authContext.tenantId,
-      "x-kc-model": cascadeRes.model,
-      "x-kc-provider": cascadeRes.provider,
     },
   });
-  Object.assign(response, { monitorTransform });
-  return response;
+  Object.assign(rawResponse, { monitorTransform });
+
+  return applyKcHeaders(rawResponse, {
+    requestId: traceId,
+    traceId,
+    modelUsed: cascadeRes.model,
+    provider: cascadeRes.provider,
+    attempts: cascadeRes.attempts,
+    isStream: true,
+  });
 }

@@ -772,9 +772,11 @@ describe("Worker Integration Tests (T4)", () => {
       // Verify response status and headers
       expect(res.status).toBe(200);
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
-      expect(res.headers.get("x-kc-trace-id")).toBe("trace-integration-tc01");
-      expect(res.headers.get("x-kc-tenant-id")).toBe("tenant-alpha");
-      expect(res.headers.get("x-kc-model")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-trace-id")).toBeNull();
+      expect(res.headers.get("x-kc-tenant-id")).toBeNull();
+      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-model")).toBeNull();
+      expect(res.headers.get("x-kc-request-id")).toMatch(/^kc_req_/);
       expect(res.headers.get("x-kc-provider")).toBe("google");
 
       const body = (await res.json()) as {
@@ -962,7 +964,8 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await testWorker.fetch(req, env);
       expect(res.status).toBe(200);
-      expect(res.headers.get("x-kc-model")).toBe("gemini-2.5-flash");
+      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.5-flash");
+      expect(res.headers.get("x-kc-model")).toBeNull();
       expect(res.headers.get("x-kc-provider")).toBe("google");
     });
 

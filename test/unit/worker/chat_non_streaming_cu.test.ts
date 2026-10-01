@@ -115,7 +115,8 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
     expect(response.headers.get("x-kc-cu")).toBe(expectedCu.toString());
     expect(response.headers.get("x-kc-cu")).toBe("13");
     expect(response.headers.get("x-kc-cost-microdollars")).toBe("5000");
-    expect(response.headers.get("x-kc-model")).toBe(modelDef.id);
+    expect(response.headers.get("x-kc-model-used")).toBe(modelDef.id);
+    expect(response.headers.get("x-kc-model")).toBeNull();
     expect(response.headers.get("x-kc-provider")).toBe(modelDef.provider);
 
     // Verify response body
