@@ -41,7 +41,7 @@ export interface KeyPoolContract {
  * Implements KeyPoolContract and sets up this.ctx.storage access.
  */
 export class KeyPool extends KeyPoolDO implements KeyPoolContract {
-  public override readonly ctx: DurableObjectStateLike;
+  public override readonly ctx: DurableObjectState<Record<string, never>>;
 
   constructor(
     ctx: DurableObjectState | DurableObjectStateLike,
@@ -49,14 +49,14 @@ export class KeyPool extends KeyPoolDO implements KeyPoolContract {
     options?: KeyPoolDOOptions
   ) {
     super(ctx, env, options);
-    this.ctx = ctx as DurableObjectStateLike;
+    this.ctx = ctx as DurableObjectState<Record<string, never>>;
   }
 
   /**
    * Direct accessor for Durable Object transactional storage (this.ctx.storage).
    */
   public get storage(): DurableObjectStorageLike {
-    return this.ctx.storage;
+    return this.ctx.storage as unknown as DurableObjectStorageLike;
   }
 }
 

@@ -780,6 +780,17 @@ export class ApiKeyRepository {
       .first();
   }
 
+  /** Metadata needed to sync a key with PoolCoordinatorDO and KeyPoolDO. */
+  async getCoordinatorMeta(
+    id: string,
+    tenantId: string | null
+  ): Promise<{ id: string; tenant_id: string; provider: string; rpm_limit: number; rpd_limit: number } | null> {
+    return this.db
+      .prepare(this.scoped("SELECT id, tenant_id, provider, rpm_limit, rpd_limit FROM api_keys WHERE id = ?", tenantId))
+      .bind(...this.scopedBind([id], tenantId))
+      .first();
+  }
+
   /** Replaces a key's secret; false when no such key (for this owner). */
   async replaceSecret(
     id: string,

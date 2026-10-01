@@ -3,6 +3,7 @@
  * KeyPoolDO — Per-Tenant Stateful Durable Object Pool
  */
 
+import { DurableObject } from "cloudflare:workers";
 import {
   EncryptedKey,
   KeyMetrics,
@@ -34,6 +35,37 @@ import {
   KeyPoolDOOptions,
 } from "./types";
 
+export type PrivateLeaseOutcome =
+  | "ok"
+  | "key_invalid"
+  | "rpd_exhausted"
+  | "rpm_limited"
+  | "upstream_error"
+  | "request_error";
+
+export interface PrivateKeyLease {
+  leaseId: string;
+  keyId: string;
+  provider: string;
+  ownerTenantId: string;
+  source: "private";
+}
+
+export interface PrivateSettleResult {
+  settled: boolean;
+  duplicate: boolean;
+}
+
+interface PrivateLeaseRecord {
+  leaseId: string;
+  keyId: string;
+  provider: string;
+  estimateCu: number;
+  createdAt: number;
+  settled: boolean;
+  settledAt?: number;
+}
+
 declare module "./types" {
   interface KeyPoolDOOptions {
     statusCacheTtlMs?: number;
@@ -46,43 +78,71 @@ declare module "./types" {
  * KeyPoolDO — Stateful Per-Tenant Durable Object.
  * Single source of truth for key health, rate limits, and selection within a tenant.
  */
-export class KeyPoolDO implements DurableObject, KeyPoolContract {
-  protected readonly ctx: DurableObjectStateLike;
-  protected readonly env: KeyPoolDOEnv;
-  public tenantId: string;
-  public statusCacheTtlMs: number;
-  private readonly statusCache = new Map<string, { status: string; cachedAt: number }>();
-  private readonly storageKeyPrefix = "pool:";
-  private clock: Clock;
-  private readonly timeProvider: () => number;
-  private alarmBootstrapPromise: Promise<void>;
+export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolContract {
+  public tenantId!: string;
+  private tenantBound = false;
+  public statusCacheTtlMs!: number;
+  private statusCache!: Map<string, { status: string; cachedAt: number }>;
+  private storageKeyPrefix!: string;
+  private clock!: Clock;
+  private timeProvider!: () => number;
+  private alarmBootstrapPromise!: Promise<void>;
 
-  private circuitBreaker: CircuitBreaker;
-  private rateLimiter: RateLimiter;
-  private keySelector: KeySelector<EncryptedKey>;
+  private circuitBreaker!: CircuitBreaker;
+  private rateLimiter!: RateLimiter;
+  private keySelector!: KeySelector<EncryptedKey>;
   private telemetryEmitter?: TelemetryContract;
 
   private isLoaded = false;
+  private privateReconciled = false;
+  private ownerHasCommunityPool = true;
 
-  private dispatchedToday = new Map<string, number>();
-  private dispatchedCommunal = new Map<string, number>();
-  private readonly keysMap = new Map<string, EncryptedKey>();
+  private dispatchedToday!: Map<string, number>;
+  private dispatchedCommunal!: Map<string, number>;
+  private keysMap!: Map<string, EncryptedKey>;
+  private leasesMap!: Map<string, PrivateLeaseRecord>;
 
   constructor(
     ctx: DurableObjectState | DurableObjectStateLike,
     env?: KeyPoolDOEnv,
     options?: KeyPoolDOOptions
   ) {
-    this.ctx = ctx as DurableObjectStateLike;
-    this.env = env ?? {};
+    let instance: KeyPoolDO;
+    try {
+      super(ctx as DurableObjectState, (env ?? {}) as KeyPoolDOEnv);
+      instance = this;
+    } catch {
+      instance = Object.create(new.target.prototype) as KeyPoolDO;
+      Object.assign(instance as unknown as Record<string, unknown>, {
+        ctx,
+        env: env ?? {},
+      });
+    }
+    instance.initKeyPoolInstance(options);
+    return instance;
+  }
+
+  private initKeyPoolInstance(options?: KeyPoolDOOptions): void {
+    this.tenantBound = false;
+    this.statusCache = new Map<string, { status: string; cachedAt: number }>();
+    this.storageKeyPrefix = "pool:";
+    this.isLoaded = false;
+    this.privateReconciled = false;
+    this.ownerHasCommunityPool = true;
+    this.dispatchedToday = new Map<string, number>();
+    this.dispatchedCommunal = new Map<string, number>();
+    this.keysMap = new Map<string, EncryptedKey>();
+    this.leasesMap = new Map<string, PrivateLeaseRecord>();
+
     this.clock = options?.clock ?? systemClock;
     this.timeProvider = options?.timeProvider ?? (() => this.clock.now());
     this.statusCacheTtlMs = options?.statusCacheTtlMs ?? 60_000;
 
     // Resolve tenant ID strictly:
+    const namedTenant = options?.tenantId ?? this.ctx.id.name;
+    this.tenantBound = typeof namedTenant === "string" && namedTenant.trim().length > 0;
     const resolvedTenant =
-      options?.tenantId ??
-      this.ctx.id.name ??
+      namedTenant ??
       (this.ctx.id.toString ? this.ctx.id.toString() : "default");
 
     if (!resolvedTenant || resolvedTenant.trim().length === 0) {
@@ -152,6 +212,7 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
       }
       this.keySelector.setKeys(Array.from(this.keysMap.values()));
       this.isLoaded = true;
+      this.privateReconciled = true;
     }
   }
 
@@ -170,8 +231,9 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     if (!targetTenantId) {
       return;
     }
-    if (this.tenantId === this.ctx.id.toString()) {
+    if (!this.tenantBound || this.tenantId === this.ctx.id.toString()) {
       this.tenantId = targetTenantId;
+      this.tenantBound = true;
       return;
     }
     if (targetTenantId !== this.tenantId) {
@@ -204,14 +266,24 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     await this.ctx.storage.put<string>(this.getTenantStorageKey(), this.tenantId);
   }
 
+  private getLeaseStorageKey(leaseId: string): string {
+    return `${this.storageKeyPrefix}lease:${leaseId}`;
+  }
+
+  private nextUtcMidnightMs(nowMs: number): number {
+    const d = new Date(nowMs);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0);
+  }
+
   public async ensureLoaded(): Promise<void> {
     if (this.isLoaded) {
       return;
     }
 
     const savedTenant = await this.ctx.storage.get<string>(this.getTenantStorageKey());
-    if (savedTenant && this.tenantId === this.ctx.id.toString()) {
+    if (savedTenant && (!this.tenantBound || this.tenantId === this.ctx.id.toString())) {
       this.tenantId = savedTenant;
+      this.tenantBound = true;
     }
 
     const storedKeys = await this.ctx.storage.get<EncryptedKey[]>(
@@ -319,6 +391,118 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   }
 
   /**
+   * Reconciles this tenant's keys and communityPool rights from D1 (WP-4.1, T-4.1.3).
+   * Called on first leasePrivate access and after key add/delete/pool-mode mutations.
+   */
+  public async reconcile(tenantId?: string): Promise<number> {
+    await this.alarmBootstrapPromise.catch(() => {});
+    if (tenantId) {
+      this.assertTenant(tenantId);
+    }
+    if (!this.isLoaded) {
+      await this.ensureLoaded();
+    }
+
+    const db = this.env.DB;
+    if (!db || typeof db.prepare !== "function") {
+      this.privateReconciled = true;
+      return this.keysMap.size;
+    }
+
+    const rightsRow = await db
+      .prepare(
+        `SELECT
+           EXISTS (SELECT 1 FROM users WHERE id = ?) AS has_user,
+           EXISTS (
+             SELECT 1 FROM users u
+              WHERE u.id = ? AND u.registration_status = 'ACTIVE'
+                AND COALESCE(u.is_quarantined, 0) = 0 AND u.community_eligible = 1
+                AND EXISTS (SELECT 1 FROM user_identities i WHERE i.user_id = u.id AND i.provider = 'google')
+                AND EXISTS (SELECT 1 FROM user_identities i WHERE i.user_id = u.id AND i.provider = 'github')
+           ) AS has_community_pool`
+      )
+      .bind(this.tenantId, this.tenantId)
+      .first<{ has_user: number; has_community_pool: number }>();
+
+    if (rightsRow && Number(rightsRow.has_user) > 0) {
+      this.ownerHasCommunityPool = Number(rightsRow.has_community_pool) > 0;
+    } else {
+      this.ownerHasCommunityPool = true;
+    }
+
+    const res = await db
+      .prepare(
+        `SELECT id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
+                rpm_limit, rpd_limit, priority, status, pool_type
+           FROM api_keys
+          WHERE tenant_id = ? AND upper(status) != 'REVOKED'`
+      )
+      .bind(this.tenantId)
+      .all<{
+        id: string;
+        tenant_id: string;
+        label: string;
+        provider: string;
+        encrypted_key_b64: string;
+        nonce_b64: string;
+        rpm_limit: number;
+        rpd_limit: number;
+        priority: number;
+        status: string;
+        pool_type: string | null;
+      }>();
+
+    const rows = res.results ?? [];
+    const seenIds = new Set<string>();
+
+    for (const row of rows) {
+      seenIds.add(row.id);
+      const existing = this.keysMap.get(row.id);
+      const normStatus = normaliseKeyStatus(row.status);
+      const preserveCooldown =
+        existing?.status === "COOLDOWN" &&
+        existing.cooldownUntil &&
+        existing.cooldownUntil > this.now() &&
+        normStatus !== "QUARANTINED";
+
+      const updated: EncryptedKey = {
+        id: row.id,
+        tenantId: this.tenantId,
+        provider: row.provider,
+        ciphertext: row.encrypted_key_b64,
+        nonce: row.nonce_b64,
+        label: row.label,
+        priority: 10000 + (row.priority ?? 0),
+        rpmLimit: row.rpm_limit,
+        rpdLimit: row.rpd_limit,
+        status: preserveCooldown ? "COOLDOWN" : normStatus,
+        cooldownUntil: preserveCooldown ? existing?.cooldownUntil : null,
+        poolType: normalisePoolType(row.pool_type ?? "PRIVATE"),
+      };
+      this.keysMap.set(row.id, updated);
+    }
+
+    // Remove keys owned by this tenant that are no longer in D1 (deleted or revoked)
+    for (const [id, k] of Array.from(this.keysMap.entries())) {
+      if (k.tenantId === this.tenantId && !seenIds.has(id)) {
+        this.keysMap.delete(id);
+        this.statusCache.delete(id);
+        this.keySelector.removeKey(id);
+      }
+    }
+
+    await db
+      .prepare("UPDATE api_keys SET sync_pending = 0 WHERE tenant_id = ? AND sync_pending = 1")
+      .bind(this.tenantId)
+      .run();
+
+    this.keySelector.setKeys(Array.from(this.keysMap.values()));
+    await this.persistKeys();
+    this.privateReconciled = true;
+    return seenIds.size;
+  }
+
+  /**
    * Keys whose push from POST /api/keys failed are flagged sync_pending in D1 (WP-3.6).
    * Pull this tenant's flagged keys into the pool and clear the flag.
    */
@@ -376,7 +560,9 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
   public clearMemoryCache(): void {
     this.keysMap.clear();
     this.statusCache.clear();
+    this.leasesMap.clear();
     this.isLoaded = false;
+    this.privateReconciled = false;
     this.keySelector.clearMemoryCache();
     this.circuitBreaker.clearMemoryCache();
     this.rateLimiter.clearMemoryCache();
@@ -690,6 +876,248 @@ export class KeyPoolDO implements DurableObject, KeyPoolContract {
     this.emitTelemetry("upstream_status_code", keyId, 0n, {
       statusCode: String(statusCode),
     });
+  }
+
+  // =========================================================================
+  // Private Lease API (WP-4.1, T-4.1.3)
+  // =========================================================================
+
+  /**
+   * Leases one of this tenant's PRIVATE keys (or a D-21 stranded COMMUNITY key when the
+   * owner lacks communityPool rights). Applies circuit breaker and per-key RPM/RPD limits.
+   */
+  public async leasePrivate(
+    provider: string,
+    estimateCu = 0,
+    tenantId?: string
+  ): Promise<PrivateKeyLease | null> {
+    await this.alarmBootstrapPromise.catch(() => {});
+    if (!provider || provider.trim().length === 0) {
+      throw new InvalidKeyError("Provider parameter cannot be empty");
+    }
+    if (tenantId) {
+      this.assertTenant(tenantId);
+    }
+
+    await this.ensureLoaded();
+    if (!this.privateReconciled && this.env.DB && typeof this.env.DB.prepare === "function") {
+      await this.reconcile();
+    }
+
+    const norm = provider.trim().toLowerCase();
+    const matchProvider = (p: string): boolean => {
+      const kp = p.trim().toLowerCase();
+      if (kp === norm) return true;
+      if ((norm === "google" && kp === "gemini") || (norm === "gemini" && kp === "google")) {
+        return true;
+      }
+      return false;
+    };
+
+    const now = this.now();
+    const candidates: EncryptedKey[] = [];
+    let statusRecovered = false;
+
+    for (const k of this.keysMap.values()) {
+      if (k.tenantId !== this.tenantId) continue;
+      if (!matchProvider(k.provider)) continue;
+
+      const isCommunal = k.poolType === "COMMUNITY";
+      if (isCommunal && this.ownerHasCommunityPool) {
+        continue;
+      }
+
+      if (k.status === "COOLDOWN" && k.cooldownUntil && now >= k.cooldownUntil) {
+        k.status = "HEALTHY";
+        k.cooldownUntil = null;
+        this.keySelector.addKey(k);
+        statusRecovered = true;
+      }
+
+      candidates.push(k);
+    }
+
+    if (statusRecovered) {
+      await this.persistKeys();
+    }
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const costBigInt = BigInt(Math.max(0, Math.floor(estimateCu)));
+    const selected = await this.keySelector.selectKey(provider, {
+      candidateKeys: candidates,
+      throwOnExhausted: false,
+      costMicrodollars: costBigInt,
+    });
+
+    if (!selected) {
+      return null;
+    }
+
+    await this.rateLimiter.increment(selected.id, 0n);
+
+    const leaseId = "lease_priv_" + crypto.randomUUID();
+    const record: PrivateLeaseRecord = {
+      leaseId,
+      keyId: selected.id,
+      provider: selected.provider,
+      estimateCu: Math.max(0, Math.floor(estimateCu)),
+      createdAt: now,
+      settled: false,
+    };
+    this.leasesMap.set(leaseId, record);
+    await this.ctx.storage.put<PrivateLeaseRecord>(this.getLeaseStorageKey(leaseId), record);
+
+    return {
+      leaseId,
+      keyId: selected.id,
+      provider: selected.provider,
+      ownerTenantId: this.tenantId,
+      source: "private",
+    };
+  }
+
+  /**
+   * Idempotently settles a private key lease and updates circuit breaker / key status.
+   */
+  public async settle(
+    leaseId: string,
+    outcome: PrivateLeaseOutcome,
+    cu = 0,
+    until?: number
+  ): Promise<PrivateSettleResult> {
+    await this.alarmBootstrapPromise.catch(() => {});
+    if (!leaseId || leaseId.trim().length === 0) {
+      return { settled: false, duplicate: false };
+    }
+
+    await this.ensureLoaded();
+
+    let lease = this.leasesMap.get(leaseId);
+    if (!lease) {
+      lease = await this.ctx.storage.get<PrivateLeaseRecord>(this.getLeaseStorageKey(leaseId));
+      if (lease) {
+        this.leasesMap.set(leaseId, lease);
+      }
+    }
+
+    if (!lease) {
+      return { settled: false, duplicate: false };
+    }
+
+    if (lease.settled) {
+      return { settled: true, duplicate: true };
+    }
+
+    const now = this.now();
+    lease.settled = true;
+    lease.settledAt = now;
+    this.leasesMap.set(leaseId, lease);
+    await this.ctx.storage.put<PrivateLeaseRecord>(this.getLeaseStorageKey(leaseId), lease);
+
+    const actualCu = Math.max(0, Math.floor(cu));
+    if (actualCu > 0) {
+      const costBigInt = BigInt(actualCu);
+      await this.rateLimiter.recordCostOnly(lease.keyId, costBigInt);
+      this.emitTelemetry("key_usage", lease.keyId, costBigInt);
+    }
+
+    const key = this.keysMap.get(lease.keyId);
+    const db = this.env.DB;
+    const hasDb = Boolean(db && typeof db.prepare === "function");
+
+    switch (outcome) {
+      case "ok": {
+        await this.circuitBreaker.recordSuccess(lease.keyId);
+        if (key && key.status === "COOLDOWN") {
+          key.status = "HEALTHY";
+          key.cooldownUntil = null;
+          this.keySelector.addKey(key);
+          await this.persistKeys();
+          if (hasDb) {
+            await db!
+              .prepare("UPDATE api_keys SET status = 'HEALTHY', status_changed_at = ? WHERE id = ? AND status = 'COOLDOWN'")
+              .bind(now, lease.keyId)
+              .run();
+          }
+        }
+        this.emitTelemetry("upstream_success", lease.keyId, 0n, { success: "true" });
+        break;
+      }
+
+      case "key_invalid": {
+        if (key) {
+          key.status = "QUARANTINED";
+          key.cooldownUntil = null;
+          this.keySelector.addKey(key);
+          await this.persistKeys();
+        }
+        if (hasDb) {
+          await db!
+            .prepare("UPDATE api_keys SET status = 'QUARANTINED', status_changed_at = ? WHERE id = ? AND status != 'REVOKED'")
+            .bind(now, lease.keyId)
+            .run();
+        }
+        this.emitTelemetry("upstream_failure", lease.keyId, 0n, {
+          success: "false",
+          outcome: "key_invalid",
+        });
+        break;
+      }
+
+      case "rpd_exhausted": {
+        const cooldownUntil = until ?? this.nextUtcMidnightMs(now);
+        if (key) {
+          key.status = "COOLDOWN";
+          key.cooldownUntil = cooldownUntil;
+          this.keySelector.addKey(key);
+          await this.persistKeys();
+        }
+        if (hasDb) {
+          await db!
+            .prepare("UPDATE api_keys SET status = 'COOLDOWN', status_changed_at = ? WHERE id = ? AND status != 'REVOKED'")
+            .bind(now, lease.keyId)
+            .run();
+        }
+        this.emitTelemetry("upstream_failure", lease.keyId, 0n, {
+          success: "false",
+          outcome: "rpd_exhausted",
+        });
+        break;
+      }
+
+      case "rpm_limited": {
+        const cooldownUntil = until ?? (now + 60_000);
+        if (key) {
+          key.status = "COOLDOWN";
+          key.cooldownUntil = cooldownUntil;
+          this.keySelector.addKey(key);
+          await this.persistKeys();
+        }
+        this.emitTelemetry("upstream_failure", lease.keyId, 0n, {
+          success: "false",
+          outcome: "rpm_limited",
+        });
+        break;
+      }
+
+      case "upstream_error": {
+        await this.circuitBreaker.recordFailure(lease.keyId);
+        this.emitTelemetry("upstream_failure", lease.keyId, 0n, {
+          success: "false",
+          outcome: "upstream_error",
+        });
+        break;
+      }
+
+      case "request_error":
+      default:
+        break;
+    }
+
+    return { settled: true, duplicate: false };
   }
 
   // =========================================================================

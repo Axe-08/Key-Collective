@@ -17,6 +17,7 @@ export interface EncryptedKey {
     dispatchedToday?: number;
     dispatchedCommunal?: number;
     vestingTier?: number;
+    cooldownUntil?: number | null;
 }
 
 export interface KeyMetrics {

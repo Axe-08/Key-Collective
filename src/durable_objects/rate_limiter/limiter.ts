@@ -186,23 +186,26 @@ export class RateLimiter {
    */
   public async checkLimitDetailed(
     keyId?: string,
-    costMicrodollars = 0n
+    costMicrodollars = 0n,
+    limits?: { rpmLimit?: number; rpdLimit?: number }
   ): Promise<RateLimitCheckResult> {
     const data = await this.getData(keyId);
     const now = this.now();
     const currentRpm = calculateRpm(data, now, this.windowSizeMs);
     const currentRpd = calculateRpd(data, now, this.dayWindowMs);
     const accumulatedCost = BigInt(data.totalCostMicrodollars);
+    const effectiveRpmLimit = limits?.rpmLimit ?? this.rpmLimit;
+    const effectiveRpdLimit = limits?.rpdLimit ?? this.rpdLimit;
 
     // 1. Check RPM limit
-    if (currentRpm >= this.rpmLimit) {
+    if (currentRpm >= effectiveRpmLimit) {
       const retryAfterSeconds = calculateRpmRetryAfter(data, now, this.windowSizeMs);
       return {
         allowed: false,
         currentRpm,
-        rpmLimit: this.rpmLimit,
+        rpmLimit: effectiveRpmLimit,
         currentRpd,
-        rpdLimit: this.rpdLimit,
+        rpdLimit: effectiveRpdLimit,
         costAccumulatedMicrodollars: accumulatedCost,
         maxBudgetMicrodollars: this.maxBudgetMicrodollars,
         retryAfterSeconds,
@@ -211,14 +214,14 @@ export class RateLimiter {
     }
 
     // 2. Check RPD quota limit
-    if (currentRpd >= this.rpdLimit) {
+    if (currentRpd >= effectiveRpdLimit) {
       const retryAfterSeconds = calculateRpdRetryAfter(data, now, this.dayWindowMs);
       return {
         allowed: false,
         currentRpm,
-        rpmLimit: this.rpmLimit,
+        rpmLimit: effectiveRpmLimit,
         currentRpd,
-        rpdLimit: this.rpdLimit,
+        rpdLimit: effectiveRpdLimit,
         costAccumulatedMicrodollars: accumulatedCost,
         maxBudgetMicrodollars: this.maxBudgetMicrodollars,
         retryAfterSeconds,
@@ -232,9 +235,9 @@ export class RateLimiter {
         return {
           allowed: false,
           currentRpm,
-          rpmLimit: this.rpmLimit,
+          rpmLimit: effectiveRpmLimit,
           currentRpd,
-          rpdLimit: this.rpdLimit,
+          rpdLimit: effectiveRpdLimit,
           costAccumulatedMicrodollars: accumulatedCost,
           maxBudgetMicrodollars: this.maxBudgetMicrodollars,
           retryAfterSeconds: DEFAULT_RETRY_AFTER_SECONDS,
@@ -246,9 +249,9 @@ export class RateLimiter {
     return {
       allowed: true,
       currentRpm,
-      rpmLimit: this.rpmLimit,
+      rpmLimit: effectiveRpmLimit,
       currentRpd,
-      rpdLimit: this.rpdLimit,
+      rpdLimit: effectiveRpdLimit,
       costAccumulatedMicrodollars: accumulatedCost,
       maxBudgetMicrodollars: this.maxBudgetMicrodollars,
       retryAfterSeconds: 0,
@@ -270,22 +273,33 @@ export class RateLimiter {
    * Synchronous check from in-memory cache.
    */
   public checkLimitSync(costMicrodollars?: bigint): boolean;
-  public checkLimitSync(keyId?: string, costMicrodollars?: bigint): boolean;
-  public checkLimitSync(arg1?: string | bigint, arg2?: bigint): boolean {
+  public checkLimitSync(
+    keyId?: string,
+    costMicrodollars?: bigint,
+    limits?: { rpmLimit?: number; rpdLimit?: number }
+  ): boolean;
+  public checkLimitSync(
+    arg1?: string | bigint,
+    arg2?: bigint,
+    limits?: { rpmLimit?: number; rpdLimit?: number }
+  ): boolean {
     const { keyId, cost } = this.resolveArgs(arg1, arg2);
     const data = this.getDataSync(keyId);
     if (!data) {
       return true; // Not loaded yet, assume allowed
     }
 
+    const effectiveRpmLimit = limits?.rpmLimit ?? this.rpmLimit;
+    const effectiveRpdLimit = limits?.rpdLimit ?? this.rpdLimit;
+
     const now = this.now();
     const currentRpm = calculateRpm(data, now, this.windowSizeMs);
-    if (currentRpm >= this.rpmLimit) {
+    if (currentRpm >= effectiveRpmLimit) {
       return false;
     }
 
     const currentRpd = calculateRpd(data, now, this.dayWindowMs);
-    if (currentRpd >= this.rpdLimit) {
+    if (currentRpd >= effectiveRpdLimit) {
       return false;
     }
 
@@ -333,6 +347,25 @@ export class RateLimiter {
     // Prune entries older than 24 hours
     this.prune(data);
 
+    this.memory.set(id, data);
+    await this.persist(id, data);
+  }
+
+  /**
+   * Adds cost to a key's accumulated total without incrementing the request count.
+   * Used during lease settlement when the request count was already incremented at lease acquisition.
+   */
+  public async recordCostOnly(keyId: string, costMicrodollars: bigint): Promise<void> {
+    if (costMicrodollars <= 0n) return;
+    const id = this.resolveKeyId(keyId);
+    const data = await this.getData(id);
+    const previousCost = BigInt(data.totalCostMicrodollars);
+    data.totalCostMicrodollars = (previousCost + costMicrodollars).toString();
+    const lastEntry = data.entries[data.entries.length - 1];
+    if (lastEntry) {
+      const prevEntryCost = BigInt(lastEntry.costMicrodollars);
+      lastEntry.costMicrodollars = (prevEntryCost + costMicrodollars).toString();
+    }
     this.memory.set(id, data);
     await this.persist(id, data);
   }

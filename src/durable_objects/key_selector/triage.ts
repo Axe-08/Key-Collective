@@ -23,13 +23,13 @@ export function isStatusPermitted(status?: string): {
     return { permitted: true };
   }
   const s = status.toLowerCase();
-  if (s === "disabled") {
+  if (s === "disabled" || s === "revoked") {
     return { permitted: false, reason: "disabled" };
   }
-  if (s === "invalid") {
+  if (s === "invalid" || s === "quarantined") {
     return { permitted: false, reason: "invalid" };
   }
-  if (s === "exhausted") {
+  if (s === "exhausted" || s === "cooldown" || s === "rate_limited") {
     return { permitted: false, reason: "exhausted" };
   }
   return { permitted: true };
@@ -45,8 +45,8 @@ export interface TriageContext<TKey extends SelectableKey = SelectableKey> {
 }
 
 /**
- * Evaluates key health and capacity asynchronously, returning full triage diagnostics.
- */
+  * Evaluates key health and capacity asynchronously, returning full triage diagnostics.
+  */
 export async function triageKeysAsync<TKey extends SelectableKey = SelectableKey>(
   ctx: TriageContext<TKey>
 ): Promise<KeyTriageResult<TKey>> {
@@ -121,7 +121,10 @@ export async function triageKeysAsync<TKey extends SelectableKey = SelectableKey
     let rlReason: "rate_limit_exceeded" | "budget_exceeded" | undefined;
 
     if (rateLimiter) {
-      const limitResult = await rateLimiter.checkLimitDetailed(key.id, costMicrodollars);
+      const limitResult = await rateLimiter.checkLimitDetailed(key.id, costMicrodollars, {
+        rpmLimit: key.rpmLimit,
+        rpdLimit: key.rpdLimit,
+      });
       rlAllowed = limitResult.allowed;
       currentRpm = limitResult.currentRpm;
       remainingRpm = Math.max(0, limitResult.rpmLimit - limitResult.currentRpm);
@@ -173,8 +176,8 @@ export async function triageKeysAsync<TKey extends SelectableKey = SelectableKey
 }
 
 /**
- * Synchronous triage check using in-memory state.
- */
+  * Synchronous triage check using in-memory state.
+  */
 export function triageKeysSync<TKey extends SelectableKey = SelectableKey>(
   ctx: TriageContext<TKey>
 ): KeyTriageResult<TKey> {
@@ -244,7 +247,10 @@ export function triageKeysSync<TKey extends SelectableKey = SelectableKey>(
     // 3. Rate Limiter sync check
     let rlAllowed = true;
     if (rateLimiter) {
-      rlAllowed = rateLimiter.checkLimitSync(key.id, costMicrodollars);
+      rlAllowed = rateLimiter.checkLimitSync(key.id, costMicrodollars, {
+        rpmLimit: key.rpmLimit,
+        rpdLimit: key.rpdLimit,
+      });
     }
 
     if (!rlAllowed) {

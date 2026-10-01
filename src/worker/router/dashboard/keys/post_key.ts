@@ -198,7 +198,7 @@ export async function handlePostKeys(
     consent("K2"),
   ]);
 
-  // 10. Owner's KeyPoolDO; on failure the row is marked for reconcile.
+  // 10. Owner's KeyPoolDO and (for COMMUNITY) PoolCoordinatorDO; on failure the row is marked for reconcile.
   const synced = await pushToKeyPool(env, tenantId, {
     id: keyId,
     tenantId,
@@ -213,6 +213,17 @@ export async function handlePostKeys(
     poolType: body.pool_type,
   });
   if (!synced) await repo.markSyncPending(keyId);
+
+  if (community) {
+    await syncCommunityKeyToCoordinator(env, {
+      keyId,
+      owner: tenantId,
+      provider: body.provider,
+      observationUntil: now + DAY_MS,
+      rpmLimit,
+      rpdLimit,
+    });
+  }
 
   return Response.json(
     {
@@ -240,14 +251,67 @@ async function pushToKeyPool(env: WorkerEnv, tenantId: string, key: Record<strin
   const ns = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
   if (!ns || typeof ns.idFromName !== "function") return false;
   try {
-    const res = await ns.get(ns.idFromName(tenantId)).fetch("http://key-pool/keys", {
+    const stub = ns.get(ns.idFromName(tenantId)) as unknown as {
+      fetch(url: string, init?: RequestInit): Promise<Response>;
+      reconcile?(tenantId?: string): Promise<number>;
+    };
+    const res = await stub.fetch("http://key-pool/keys", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ key }),
     });
+    if (typeof stub.reconcile === "function") {
+      await stub.reconcile(tenantId);
+    }
     return res.ok;
   } catch (err: unknown) {
     console.error("KeyPoolDO sync failed; key marked sync_pending:", err instanceof Error ? err.message : String(err));
     return false;
+  }
+}
+
+async function syncCommunityKeyToCoordinator(
+  env: WorkerEnv,
+  input: {
+    keyId: string;
+    owner: string;
+    provider: string;
+    observationUntil: number;
+    rpmLimit: number;
+    rpdLimit: number;
+  }
+): Promise<void> {
+  const coordNs = env.POOL_COORDINATOR as unknown as
+    | {
+        idFromName(name: string): DurableObjectId;
+        get(id: DurableObjectId): {
+          upsertKey?(req: {
+            keyId: string;
+            owner: string;
+            provider: string;
+            status: "OBSERVATION";
+            observationUntil: number;
+            rpmLimit: number;
+            rpdLimit: number;
+          }): Promise<unknown>;
+        };
+      }
+    | undefined;
+  if (!coordNs || typeof coordNs.idFromName !== "function") return;
+  try {
+    const stub = coordNs.get(coordNs.idFromName(input.provider));
+    if (typeof stub.upsertKey === "function") {
+      await stub.upsertKey({
+        keyId: input.keyId,
+        owner: input.owner,
+        provider: input.provider,
+        status: "OBSERVATION",
+        observationUntil: input.observationUntil,
+        rpmLimit: input.rpmLimit,
+        rpdLimit: input.rpdLimit,
+      });
+    }
+  } catch {
+    // Coordinator reconcile will pick up the key
   }
 }
