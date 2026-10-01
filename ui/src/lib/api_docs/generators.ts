@@ -62,204 +62,49 @@ stream = client.chat.completions.create(
 )`;
 }
 
-export function generateOpenApiJson(baseUrl: string): string {
-  return JSON.stringify(
-    {
-      openapi: "3.1.0",
-      info: {
-        title: "Key Collective v3 API",
-        version: "3.0.0",
-        description:
-          "Low-latency unified proxy gateway for dynamic model failover & key pooling",
-      },
-      servers: [{ url: baseUrl }],
-      paths: {
-        "/v1/chat/completions": {
-          post: {
-            summary: "Create chat completion",
-            security: [{ bearerAuth: [] }],
-            requestBody: {
-              required: true,
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    required: ["model", "messages"],
-                    properties: {
-                      model: { type: "string" },
-                      messages: {
-                        type: "array",
-                        items: { type: "object" },
-                      },
-                      stream: { type: "boolean", default: false },
-                      fallback_cascade: {
-                        type: "array",
-                        items: { type: "string" },
-                      },
-                      temperature: { type: "number", default: 0.7 },
-                    },
-                  },
-                },
-              },
-            },
-            responses: {
-              "200": { description: "Successful response" },
-            },
-          },
-        },
-        "/v1/models": {
-          get: {
-            summary: "List models",
-            security: [{ bearerAuth: [] }],
-            responses: { "200": { description: "Successful response" } },
-          },
-        },
-        "/v1/projects": {
-          get: {
-            summary: "List projects",
-            security: [{ bearerAuth: [] }],
-            responses: { "200": { description: "Successful response" } },
-          },
-        },
-        "/v1/projects/{id}/keys": {
-          post: {
-            summary: "Generate project key",
-            security: [{ bearerAuth: [] }],
-            parameters: [
-              {
-                name: "id",
-                in: "path",
-                required: true,
-                schema: { type: "string" },
-              },
-            ],
-            responses: { "200": { description: "Successful response" } },
-          },
-        },
-        "/v1/health": {
-          get: {
-            summary: "Health status",
-            responses: { "200": { description: "Successful response" } },
-          },
-        },
-        "/v1/telemetry": {
-          get: {
-            summary: "Telemetry",
-            security: [{ bearerAuth: [] }],
-            responses: { "200": { description: "Successful response" } },
-          },
-        },
-      },
-      components: {
-        securitySchemes: {
-          bearerAuth: {
-            type: "http",
-            scheme: "bearer",
-          },
-        },
-      },
-    },
-    null,
-    2
-  );
+/** The subset of an OpenAPI 3 document the docs page renders. */
+export interface OpenApiOperation {
+  summary?: string;
+  description?: string;
+  parameters?: Array<{ name: string; in: string; required?: boolean; description?: string }>;
+}
+export interface OpenApiDocument {
+  openapi?: string;
+  info?: { title?: string; version?: string; description?: string };
+  paths: Record<string, Record<string, OpenApiOperation>>;
 }
 
-export function generateApiDocsMarkdown(
-  baseUrl: string,
-  curlSnippet: string,
-  tsSnippet: string,
-  pySnippet: string
-): string {
-  return `# Key Collective v3 — Developer API Reference
+const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 
-**Base URL:** \`${baseUrl}\`  
-**Authentication:** Bearer Token (\`Authorization: Bearer kc_live_...\`)  
-**Pricing Ledger:** Credit Units (CU)  
-**Gateway Latency:** P99 18.4ms
+/** Every (path, method) pair in the spec, in spec order (WP-3.10: the spec is the only source). */
+export function listOperations(spec: OpenApiDocument): Array<{ path: string; method: string; op: OpenApiOperation }> {
+  const out: Array<{ path: string; method: string; op: OpenApiOperation }> = [];
+  for (const [path, item] of Object.entries(spec.paths ?? {})) {
+    for (const method of HTTP_METHODS) {
+      if (item[method]) out.push({ path, method: method.toUpperCase(), op: item[method] });
+    }
+  }
+  return out;
+}
 
----
-
-## 1. Quickstart & Headers
-
-API requests are routed through regional edge proxies for minimal latency.
-
-### Request Headers
-- \`Authorization: Bearer <key>\` (Required) — Master or scoped ephemeral key.
-- \`Content-Type: application/json\` (Required)
-- \`x-pool-fallback: lenient | strict | none\` (Optional) — Automatic failover policy.
-
----
-
-## 2. API Endpoints
-
-### POST \`/v1/chat/completions\`
-Creates a completion request routed dynamically across virtualized pools. Automatically alternates real upstream keys, handling rate-limit backoff under 20ms.
-
-#### Parameters
-| Field | Type | Default | Description |
-|---|---|---|---|
-| \`model\` | string | required | Model alias (e.g. \`gemini-3.8-flash\`, \`groq-llama-3.3-70b\`) or wildcard \`auto-fastest\` |
-| \`messages\` | array[obj] | required | Array of \`{ role, content }\` chat objects |
-| \`stream\` | boolean | \`false\` | Streams partial deltas via Server-Sent Events (SSE) |
-| \`fallback_cascade\` | array[str] | \`["auto"]\` | Fallback model sequence if primary key or provider fails |
-| \`temperature\` | float | \`0.7\` | Sampling temperature (0.0 to 2.0) |
-
-### GET \`/v1/models\`
-Lists all unified active models configured across connected provider pools (Gemini, Groq, Cerebras, DeepSeek, OpenAI) with current load metrics and cost parameters.
-
-### GET \`/v1/projects\`
-Inspects workspace hierarchy, team quotas, remaining Credit Unit (CU) balances, and rate-limit tier thresholds.
-
-### POST \`/v1/projects/:id/keys\`
-Generates a new project-scoped virtual key with custom TTL, model white-lists, and token expenditure limits.
-
-### GET \`/v1/health\` & \`/v1/telemetry\`
-Retrieves live health status across all upstream nodes, active circuit breaker trips, and 60-second moving average edge latency.
-
----
-
-## 3. Credit Unit (CU) Weights Reference
-
-*Deterministic cost accounting using integer Credit Units (CU).*
-
-| Model | Base CU | Input CU / 1K | Cached CU / 1K | Output CU / 1K | Routing Engine |
-|---|---|---|---|---|---|
-| Gemini 2.5 Flash | 10 CU | 1 CU | 0 CU | 4 CU | Google Edge Direct |
-| Groq LLaMA 3.3 (70B) | 10 CU | 1 CU | 0 CU | 4 CU | LPU Ultrafast |
-| DeepSeek V3 | 10 CU | 1 CU | 0 CU | 4 CU | Multi-Head Latent |
-
----
-
-## 4. Error Codes
-
-The API returns standard HTTP status codes along with a structured JSON error response.
-
-| Status | Code | Description |
-|---|---|---|
-| \`400\` | \`bad_request\` | Invalid parameters or malformed JSON payload. |
-| \`401\` | \`unauthorized\` | Missing, invalid, or expired Bearer token. |
-| \`402\` | \`payment_required\` | Project quota exceeded or insufficient CU balance. |
-| \`429\` | \`rate_limit_exceeded\` | Too many requests. Respect the \`Retry-After\` header. |
-| \`500\` | \`internal_error\` | Unexpected edge gateway or routing failure. |
-| \`503\` | \`upstream_unavailable\`| All configured fallback providers are currently unreachable. |
-
----
-
-## 5. Code Examples
-
-### cURL
-\`\`\`bash
-${curlSnippet}
-\`\`\`
-
-### TypeScript (OpenAI SDK)
-\`\`\`typescript
-${tsSnippet}
-\`\`\`
-
-### Python (OpenAI SDK)
-\`\`\`python
-${pySnippet}
-\`\`\`
-`;
+/** Markdown export of the served OpenAPI document. */
+export function specToMarkdown(spec: OpenApiDocument, baseUrl: string): string {
+  const lines = [
+    `# ${spec.info?.title ?? 'Key Collective API'}${spec.info?.version ? ` (${spec.info.version})` : ''}`,
+    '',
+    `Base URL: \`${baseUrl}\``,
+    '',
+    'Authentication: `Authorization: Bearer <API key>`',
+    '',
+  ];
+  for (const { path, method, op } of listOperations(spec)) {
+    lines.push(`## ${method} \`${path}\``, '');
+    if (op.summary) lines.push(op.summary, '');
+    if (op.description) lines.push(op.description, '');
+    for (const p of op.parameters ?? []) {
+      lines.push(`- \`${p.name}\` (${p.in}${p.required ? ', required' : ''})${p.description ? `: ${p.description}` : ''}`);
+    }
+    if (op.parameters?.length) lines.push('');
+  }
+  return lines.join('\n');
 }
