@@ -136,7 +136,25 @@ export async function handleReportKeyAbuse(
     } catch {
       // DO cleanup fallback — the D1 revocation already stands.
     }
-    // NOTE: Owner notification is added later by WP-3.2.
+
+    try {
+      const coordNs = env.POOL_COORDINATOR as
+        | {
+            idFromName?: (name: string) => DurableObjectId;
+            get?: (id: DurableObjectId) => { removeKey?: (keyId: string) => Promise<boolean> };
+          }
+        | undefined;
+      if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+        const shard = revoked.provider?.toLowerCase() === "gemini" ? "google" : (revoked.provider?.toLowerCase() || "google");
+        const coordStub = coordNs.get(coordNs.idFromName(`pool:${shard}`));
+        if (typeof coordStub.removeKey === "function") {
+          await coordStub.removeKey(revoked.id);
+        }
+      }
+    } catch {
+      // Coordinator cleanup fallback — D1 revocation stands.
+    }
+    // NOTE: Owner notification is added later by WP-4.3.
   };
 
   await revokePromise();

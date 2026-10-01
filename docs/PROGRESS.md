@@ -75,7 +75,7 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 
 ### WP-4.1
 - [x] T-4.1.1 ROUTING_ENGINE switch (legacy | leases) and both-engine test runs
-- [ ] T-4.1.2 Coordinator rewrite: SQLite registry, typed RPC, alarm, D1 reconcile, D-21 filter, HTTP endpoints removed
+- [x] T-4.1.2 Coordinator rewrite: SQLite registry, typed RPC, alarm, D1 reconcile, D-21 filter, HTTP endpoints removed
 - [ ] T-4.1.3 KeyPoolDO private lease API (leasePrivate, settle, reconcile)
 - [ ] T-4.1.4 Lease orchestrator (private → own community → borrowed, priority at lease time, owner debt push)
 - [ ] T-4.1.5 CascadeRouter on leases (LeaseProvider, Groq-only auto)

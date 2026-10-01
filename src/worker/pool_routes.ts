@@ -89,50 +89,34 @@ async function handlePoolTelemetry(
     providerMap.set(key, existing);
   }
 
-  // 1. Asynchronously push health updates to POOL_COORDINATOR and fetch live coordinator health
-  let coordinatorHealth: Record<string, { wProvider?: number }> = {};
-  const coordinatorNs = env.POOL_COORDINATOR as { idFromName?: (n: string) => unknown; get?: (id: unknown) => { fetch: (url: string, init?: RequestInit) => Promise<Response> } } | undefined;
-  if (coordinatorNs && typeof coordinatorNs.idFromName === 'function' && typeof coordinatorNs.get === 'function') {
-    try {
-      const coordStub = coordinatorNs.get(coordinatorNs.idFromName('global'));
-      const healthPromise = coordStub.fetch('http://coordinator/coordinator/health')
-        .then(async (res) => {
-          if (res.ok) {
-            coordinatorHealth = await res.json() as Record<string, { wProvider?: number }>;
-          }
-        })
-        .catch(() => {});
-
-      await healthPromise;
-
-      if (ctx?.waitUntil) {
-        const pushes = canonicalProviders.map(async (cp) => {
-          const p = providerMap.get(cp);
-          if (!p) return;
-          try {
-            const row = await db.prepare(
-              `SELECT AVG(latency_ms) as avg_lat FROM cost_ledger WHERE provider = ? AND created_at > datetime('now', '-1 hour')`
-            ).bind(cp).first<{ avg_lat: number | null }>();
-            await coordStub.fetch('http://coordinator/coordinator/update-provider', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({
-                provider: cp,
-                activeKeys: p.active_count,
-                quarantineKeys: p.quarantined_count,
-                latencyMs: Math.round(row?.avg_lat ?? 120),
-              }),
-            });
-          } catch {
-            // Non-blocking telemetry
-          }
-        });
-        ctx.waitUntil(Promise.allSettled(pushes));
+  // 1. Query coordinator stats via typed RPC per provider shard when available
+  const coordinatorStats = new Map<string, { activeKeys: number; quarantinedKeys: number }>();
+  const coordinatorNs = env.POOL_COORDINATOR as
+    | {
+        idFromName?: (n: string) => unknown;
+        get?: (id: unknown) => {
+          stats?: () => Promise<{ activeKeys: number; quarantinedKeys: number }>;
+        };
       }
-    } catch {
-      // Coordinator fallback
+    | undefined;
+  if (
+    coordinatorNs &&
+    typeof coordinatorNs.idFromName === 'function' &&
+    typeof coordinatorNs.get === 'function'
+  ) {
+    for (const shard of ['google', 'groq']) {
+      try {
+        const stub = coordinatorNs.get(coordinatorNs.idFromName(`pool:${shard}`));
+        if (typeof stub.stats === 'function') {
+          const st = await stub.stats();
+          coordinatorStats.set(shard === 'google' ? 'gemini' : shard, st);
+        }
+      } catch {
+        // Coordinator fallback to D1 counts
+      }
     }
   }
+  void ctx;
 
   // 2. Query P90 latency per provider from cost_ledger
   const p90Map = new Map<string, number>();
@@ -158,17 +142,25 @@ async function handlePoolTelemetry(
 
   const providerPools = canonicalProviders.map(cp => {
     const p = providerMap.get(cp);
-    const coordW = coordinatorHealth[cp]?.wProvider;
+    const st = coordinatorStats.get(cp);
+    const activeCount = p?.active_count ?? st?.activeKeys ?? 0;
+    const quarantinedCount = p?.quarantined_count ?? st?.quarantinedKeys ?? 0;
+    const totalKeys = activeCount + quarantinedCount;
+    const p90 = p90Map.get(cp) ?? 0;
+    const wProvider =
+      totalKeys > 0
+        ? Number(((activeCount / totalKeys) * (1000 / (p90 || 1000))).toFixed(2))
+        : 1.0;
     return {
       provider: cp,
-      active_keys: p?.active_count ?? 0,
+      active_keys: activeCount,
       observation_keys: p?.observation_count ?? 0,
-      quarantined_keys: p?.quarantined_count ?? 0,
+      quarantined_keys: quarantinedCount,
       u_pool_percent: (p && p.total_dispatched_today > 0)
         ? Math.round(((p.total_dispatched_communal ?? 0) / p.total_dispatched_today) * 100)
         : 0,
-      w_provider: typeof coordW === 'number' && coordW > 0 ? Number(coordW.toFixed(2)) : 1.0,
-      p90_latency_ms: p90Map.get(cp) ?? 0,
+      w_provider: wProvider > 0 ? wProvider : 1.0,
+      p90_latency_ms: p90,
       eye_for_eye_accessible: tenantProviders.has(cp),
     };
   });

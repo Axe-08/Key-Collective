@@ -802,10 +802,10 @@ export class ApiKeyRepository {
   async revokeByHash(
     keyHash: string,
     revokedAt: number
-  ): Promise<{ id: string; tenant_id: string; provider_project_hash: string | null } | null> {
+  ): Promise<{ id: string; tenant_id: string; provider: string; provider_project_hash: string | null } | null> {
     return this.db
       .prepare(
-        "UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ? WHERE key_hash = ? RETURNING id, tenant_id, provider_project_hash"
+        "UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ? WHERE key_hash = ? RETURNING id, tenant_id, provider, provider_project_hash"
       )
       .bind(revokedAt, keyHash)
       .first();
