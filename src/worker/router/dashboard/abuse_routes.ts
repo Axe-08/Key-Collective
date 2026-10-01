@@ -49,6 +49,7 @@ export async function handleReportKeyAbuse(
         windowMs: RATE_LIMIT_WINDOW_MS,
       }),
     });
+    await limitRes.text().catch(() => {});
 
     if (limitRes.status === 429) {
       await padTo200Ms(startMs);
@@ -166,7 +167,17 @@ export async function handleReportKeyAbuse(
     } catch (err) {
       void err;
     }
-    // NOTE: Owner notification is added later by WP-4.3.
+
+    if (revoked && env.DB) {
+      const notifId = "notif_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+      await env.DB
+        .prepare(
+          "INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at) VALUES (?, ?, 'abuse_takedown', ?, 'Your key was revoked after an abuse report', ?, NULL)"
+        )
+        .bind(notifId, revoked.tenant_id, revoked.id, Date.now())
+        .run()
+        .catch(() => {});
+    }
   };
 
   await revokePromise();

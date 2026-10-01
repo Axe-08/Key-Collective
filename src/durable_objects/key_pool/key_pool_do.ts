@@ -1047,6 +1047,20 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
             .prepare("UPDATE api_keys SET status = 'QUARANTINED', status_changed_at = ? WHERE id = ? AND status != 'REVOKED'")
             .bind(now, lease.keyId)
             .run();
+
+          const notifId = "notif_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+          const normProv = (key?.provider || "unknown").toLowerCase();
+          const provDisplay = normProv === "google" || normProv === "gemini" ? "Gemini" : normProv === "groq" ? "Groq" : (key?.provider || "unknown");
+          const consoleDisplay = normProv === "google" || normProv === "gemini" ? "Google AI Studio" : normProv === "groq" ? "Groq Console" : `${provDisplay} dashboard`;
+          const msg = `⚠️ Key [${key?.label || lease.keyId}] (${provDisplay}) went unhealthy. Check your ${consoleDisplay} and re-submit if needed.`;
+
+          await db!
+            .prepare(
+              "INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at) VALUES (?, ?, 'key_invalid', ?, ?, ?, NULL)"
+            )
+            .bind(notifId, this.tenantId, lease.keyId, msg, now)
+            .run()
+            .catch(() => {});
         }
         this.emitTelemetry("upstream_failure", lease.keyId, 0n, {
           success: "false",

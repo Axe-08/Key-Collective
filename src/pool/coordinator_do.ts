@@ -649,6 +649,28 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
             )
             .bind(now, keyId)
             .run();
+
+          const keyRow = await db!
+            .prepare("SELECT tenant_id, label, provider FROM api_keys WHERE id = ?")
+            .bind(keyId)
+            .first<{ tenant_id: string; label: string; provider: string }>();
+
+          const targetTenant = keyRow?.tenant_id ?? ownerTenantId;
+          if (targetTenant) {
+            const notifId = "notif_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+            const normProv = (keyRow?.provider || "unknown").toLowerCase();
+            const provDisplay = normProv === "google" || normProv === "gemini" ? "Gemini" : normProv === "groq" ? "Groq" : (keyRow?.provider || "unknown");
+            const consoleDisplay = normProv === "google" || normProv === "gemini" ? "Google AI Studio" : normProv === "groq" ? "Groq Console" : `${provDisplay} dashboard`;
+            const msg = `⚠️ Key [${keyRow?.label || keyId}] (${provDisplay}) went unhealthy. Check your ${consoleDisplay} and re-submit if needed.`;
+
+            await db!
+              .prepare(
+                "INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at) VALUES (?, ?, 'key_invalid', ?, ?, ?, NULL)"
+              )
+              .bind(notifId, targetTenant, keyId, msg, now)
+              .run()
+              .catch(() => {});
+          }
         }
       } else if (norm === "rpd_exhausted" || norm === "rpm_limited" || norm === "cooldown") {
         await this.setStatus(keyId, "COOLDOWN", until ?? now + 60_000);

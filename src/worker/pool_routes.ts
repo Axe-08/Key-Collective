@@ -306,23 +306,40 @@ async function handleNotifications(env: WorkerEnv, tenantId: string, since: numb
     return Response.json({ notifications: [] });
   }
   const db = env.DB as D1Database;
-  const unhealthyResult = await db.prepare(`
-    SELECT id, label, provider, status
-    FROM api_keys
-    WHERE tenant_id = ? AND status IN ('invalid', 'exhausted') AND created_at > datetime(?, 'unixepoch')
-    LIMIT 10
-  `).bind(tenantId, Math.floor(since / 1000)).all<{
-    id: string; label: string; provider: string; status: string;
-  }>();
+  const result = await db
+    .prepare(`
+      SELECT id, tenant_id, type, key_id, message, created_at, read_at
+      FROM notifications
+      WHERE tenant_id = ? AND created_at > ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `)
+    .bind(tenantId, since)
+    .all<{
+      id: string;
+      tenant_id: string;
+      type: string;
+      key_id: string | null;
+      message: string;
+      created_at: number;
+      read_at: number | null;
+    }>();
 
-  const notifications = (unhealthyResult.results ?? []).map(k => ({
-    id: `notif_key_${k.id}`,
-    type: 'key_health' as const,
-    message: `⚠️ Key "${k.label}" (${k.provider}) went ${normaliseKeyStatus(k.status)}. Check your provider dashboard.`,
-    created_at: new Date().toISOString(),
-  }));
+  return Response.json({ notifications: result.results ?? [] }, { headers: { 'Cache-Control': 'no-store' } });
+}
 
-  return Response.json({ notifications }, { headers: { 'Cache-Control': 'no-store' } });
+async function handleMarkNotificationRead(env: WorkerEnv, tenantId: string, id: string): Promise<Response> {
+  if (!env.DB || typeof (env.DB as { prepare?: unknown }).prepare !== 'function') {
+    return Response.json({ error: { message: "Database unavailable", statusCode: 503 } }, { status: 503 });
+  }
+  const db = env.DB as D1Database;
+  const now = Date.now();
+  await db
+    .prepare("UPDATE notifications SET read_at = ? WHERE id = ? AND tenant_id = ?")
+    .bind(now, id, tenantId)
+    .run();
+
+  return Response.json({ success: true, id, read_at: now });
 }
 
 export async function handlePoolRoute(
@@ -343,7 +360,14 @@ export async function handlePoolRoute(
   if (method === 'GET' && pathname === '/api/notifications') {
     const url = new URL(request.url);
     const since = parseInt(url.searchParams.get('since') ?? '0', 10);
-    return handleNotifications(env, tenantId, since);
+    return handleNotifications(env, tenantId, Number.isNaN(since) ? 0 : since);
+  }
+  if (method === 'POST' && pathname.startsWith('/api/notifications/') && pathname.endsWith('/read')) {
+    const parts = pathname.split('/');
+    const id = parts[3];
+    if (id) {
+      return handleMarkNotificationRead(env, tenantId, id);
+    }
   }
   return null;
 }
