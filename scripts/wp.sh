@@ -54,7 +54,7 @@ case "$cmd" in
     ;;
   finish)
     branch="wp/$1"
-    [[ -z "$(git status --porcelain)" ]] || { echo "working tree not clean"; exit 1; }
+    [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "working tree not clean"; exit 1; }
     git switch "$branch"
     forbid
     npm run -s gate
