@@ -16,6 +16,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   SSEStreamTransformer,
   extractUsageFromPayload,
+  extractDeltaContent,
   StreamUsage,
   SSEEvent,
   StreamMetadata,
@@ -254,6 +255,55 @@ describe("SSEStreamTransformer", () => {
         totalTokens: 30,
       });
     });
+
+    it("extracts kc.usage cu payload and root tokens", () => {
+      const payload = {
+        cu: 50000,
+        prompt_tokens: 15,
+        completion_tokens: 30,
+      };
+
+      const usage = extractUsageFromPayload(payload);
+      expect(usage).toEqual({
+        cu: 50000,
+        promptTokens: 15,
+        completionTokens: 30,
+      });
+    });
+
+    it("extracts usage from JSON string payload", () => {
+      const str = JSON.stringify({
+        usage: { prompt_tokens: 8, completion_tokens: 16, total_tokens: 24 },
+      });
+      const usage = extractUsageFromPayload(str);
+      expect(usage).toEqual({
+        promptTokens: 8,
+        completionTokens: 16,
+        totalTokens: 24,
+      });
+    });
+  });
+
+  describe("Unit: extractDeltaContent helper", () => {
+    it("returns null for non-object, empty, or missing content payloads", () => {
+      expect(extractDeltaContent(null)).toBeNull();
+      expect(extractDeltaContent(undefined)).toBeNull();
+      expect(extractDeltaContent("invalid-json")).toBeNull();
+      expect(extractDeltaContent({})).toBeNull();
+      expect(extractDeltaContent({ choices: [] })).toBeNull();
+      expect(extractDeltaContent({ choices: [{ delta: {} }] })).toBeNull();
+    });
+
+    it("extracts choices[0].delta.content from object and JSON string", () => {
+      const obj = { choices: [{ delta: { content: "Sample delta" } }] };
+      expect(extractDeltaContent(obj)).toBe("Sample delta");
+      expect(extractDeltaContent(JSON.stringify(obj))).toBe("Sample delta");
+    });
+
+    it("extracts choices[0].text for legacy completion payloads", () => {
+      const obj = { choices: [{ text: "Legacy text completion" }] };
+      expect(extractDeltaContent(obj)).toBe("Legacy text completion");
+    });
   });
 
   describe("Chunk Parsing & Standard SSE Events", () => {
@@ -443,6 +493,9 @@ describe("SSEStreamTransformer", () => {
         promptTokens: 10,
         completionTokens: 20,
         totalTokens: 30,
+        usage_estimated: 0,
+        usageEstimated: 0,
+        streamedChars: 12,
         prompt_tokens: 10,
         completion_tokens: 20,
         total_tokens: 30,
@@ -515,6 +568,8 @@ describe("SSEStreamTransformer", () => {
       expect(usage?.promptTokens).toBe(12);
       expect(usage?.completionTokens).toBe(25);
       expect(usage?.totalTokens).toBe(37);
+      expect(usage?.usage_estimated).toBe(0);
+      expect(usage?.usageEstimated).toBe(0);
 
       // Verify snake_case compatibility for golden test assertions
       expect(usage?.prompt_tokens).toBe(12);
@@ -541,6 +596,8 @@ describe("SSEStreamTransformer", () => {
       expect(usage?.reasoningTokens).toBe(20);
       expect(usage?.cached_tokens).toBe(30);
       expect(usage?.reasoning_tokens).toBe(20);
+      expect(usage?.usage_estimated).toBe(0);
+      expect(usage?.usageEstimated).toBe(0);
     });
 
     it("extracts Google Gemini usageMetadata embedded in SSE", async () => {
@@ -553,7 +610,7 @@ describe("SSEStreamTransformer", () => {
       await streamThrough(transformer, stream);
 
       const usage = await transformer.getUsage();
-      expect(usage).toEqual({
+      expect(usage).toMatchObject({
         promptTokens: 50,
         completionTokens: 120,
         totalTokens: 170,
@@ -562,6 +619,8 @@ describe("SSEStreamTransformer", () => {
         completion_tokens: 120,
         total_tokens: 170,
         cached_tokens: 10,
+        usage_estimated: 0,
+        usageEstimated: 0,
         raw: {
           candidates: [{ content: { parts: [{ text: "Hello" }] } }],
           usageMetadata: {
@@ -627,7 +686,7 @@ describe("SSEStreamTransformer", () => {
       expect(usage?.totalTokens).toBe(100);
     });
 
-    it("returns null when stream contains no usage blocks", async () => {
+    it("estimates token usage when stream has no usage chunk and flags usage_estimated = 1", async () => {
       const transformer = new SSEStreamTransformer();
 
       const stream = [
@@ -638,8 +697,79 @@ describe("SSEStreamTransformer", () => {
       await streamThrough(transformer, stream);
 
       const usage = await transformer.getUsage();
-      expect(usage).toBeNull();
-      expect(transformer.usage).toBeNull();
+      expect(usage).not.toBeNull();
+      expect(usage?.promptTokens).toBe(0);
+      expect(usage?.completionTokens).toBe(1); // ceil(2 / 4) = 1
+      expect(usage?.totalTokens).toBe(1);
+      expect(usage?.usage_estimated).toBe(1);
+      expect(usage?.usageEstimated).toBe(1);
+      expect(usage?.streamedChars).toBe(2);
+      expect(transformer.usage).toEqual(usage);
+    });
+
+    it("estimates token usage across multiple chunks with promptTokens option", async () => {
+      const transformer = new SSEStreamTransformer({ promptTokens: 12 });
+
+      const stream = [
+        'data: {"choices":[{"delta":{"content":"Hello "}}]}\n\n', // 6 chars
+        'data: {"choices":[{"delta":{"content":"world, testing estimation!"}}]}\n\n', // 26 chars
+        "data: [DONE]\n\n",
+      ];
+
+      await streamThrough(transformer, stream);
+
+      const usage = await transformer.getUsage();
+      expect(usage).not.toBeNull();
+      expect(usage?.promptTokens).toBe(12);
+      // Total chars = 32. ceil(32 / 4) = 8.
+      expect(usage?.completionTokens).toBe(8);
+      expect(usage?.totalTokens).toBe(20);
+      expect(usage?.usage_estimated).toBe(1);
+      expect(usage?.usageEstimated).toBe(1);
+      expect(usage?.streamedChars).toBe(32);
+    });
+
+    it("parses event: kc.usage event and records cu metric", async () => {
+      const transformer = new SSEStreamTransformer();
+
+      const stream = [
+        'data: {"choices":[{"delta":{"content":"Compute unit test"}}]}\n\n', // 17 chars
+        'event: kc.usage\n' +
+        'data: {"cu":125000}\n\n',
+        "data: [DONE]\n\n",
+      ];
+
+      await streamThrough(transformer, stream);
+
+      const usage = await transformer.getUsage();
+      expect(usage).not.toBeNull();
+      expect(usage?.cu).toBe(125000);
+      expect(usage?.completionTokens).toBe(5); // ceil(17 / 4) = 5
+      expect(usage?.usage_estimated).toBe(1);
+      expect(usage?.usageEstimated).toBe(1);
+    });
+
+    it("records cu and keeps exact token counts when upstream usage chunk is present", async () => {
+      const transformer = new SSEStreamTransformer();
+
+      const stream = [
+        'data: {"choices":[{"delta":{"content":"Exact test"}}]}\n\n',
+        'data: {"choices":[],"usage":{"prompt_tokens":20,"completion_tokens":40,"total_tokens":60}}\n\n',
+        'event: kc.usage\n' +
+        'data: {"cu":75000}\n\n',
+        "data: [DONE]\n\n",
+      ];
+
+      await streamThrough(transformer, stream);
+
+      const usage = await transformer.getUsage();
+      expect(usage).not.toBeNull();
+      expect(usage?.promptTokens).toBe(20);
+      expect(usage?.completionTokens).toBe(40);
+      expect(usage?.totalTokens).toBe(60);
+      expect(usage?.cu).toBe(75000);
+      expect(usage?.usage_estimated).toBe(0);
+      expect(usage?.usageEstimated).toBe(0);
     });
   });
 
@@ -711,6 +841,31 @@ describe("SSEStreamTransformer", () => {
       await streamThrough(transformer, ['data: {"status":"ok"}\n\n']);
 
       expect(onDone).toHaveBeenCalledTimes(1);
+    });
+
+    it("resolves getUsage() with estimated usage on stream cancellation / abort", async () => {
+      const transformer = new SSEStreamTransformer({ promptTokens: 8 });
+      const reader = transformer.readable.getReader();
+      const writer = transformer.writable.getWriter();
+
+      // Write a single chunk of 16 characters
+      const writePromise = writer.write('data: {"choices":[{"delta":{"content":"1234567890123456"}}]}\n\n');
+
+      const chunk = await reader.read();
+      expect(chunk.done).toBe(false);
+      await writePromise;
+
+      // Reader aborts mid-stream
+      await reader.cancel("Client disconnected mid-stream");
+
+      const usage = await transformer.getUsage();
+      expect(usage).not.toBeNull();
+      expect(usage?.promptTokens).toBe(8);
+      expect(usage?.completionTokens).toBe(4); // ceil(16 / 4) = 4
+      expect(usage?.totalTokens).toBe(12);
+      expect(usage?.streamedChars).toBe(16);
+      expect(usage?.usage_estimated).toBe(1);
+      expect(usage?.usageEstimated).toBe(1);
     });
 
     it("handles getUsage(timeoutMs) timeout rejection if stream hangs", async () => {
