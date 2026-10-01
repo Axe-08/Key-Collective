@@ -56,9 +56,19 @@ async function handlePoolTelemetry(
   };
 
   let tenantProviders = new Set<string>();
-  if (tenantId && tenantId !== 'anonymous' && tenantId !== 'default' && tenantId !== 'guest') {
+  const isNamedTenant =
+    Boolean(tenantId) &&
+    tenantId !== 'anonymous' &&
+    tenantId !== 'default' &&
+    tenantId !== 'guest';
+  if (isNamedTenant) {
     const tenantProviderResult = await db.prepare(
-      `SELECT DISTINCT provider FROM api_keys WHERE tenant_id = ? AND status != 'invalid'`
+      `SELECT DISTINCT provider
+         FROM api_keys
+        WHERE tenant_id = ?
+          AND pool_type = 'COMMUNITY'
+          AND upper(COALESCE(community_routing_status, '')) = 'ACTIVE'
+          AND upper(status) NOT IN ('INVALID', 'REVOKED', 'QUARANTINED')`
     ).bind(tenantId).all<{ provider: string }>();
     tenantProviders = new Set((tenantProviderResult.results ?? []).map(r => normalizeProvider(r.provider)));
   }
@@ -89,13 +99,15 @@ async function handlePoolTelemetry(
     providerMap.set(key, existing);
   }
 
-  // 1. Query coordinator stats via typed RPC per provider shard when available
-  const coordinatorStats = new Map<string, { activeKeys: number; quarantinedKeys: number }>();
+  // 1. Query coordinator stats and eye-for-eye accessibility via typed RPC per provider shard when available
+  const coordinatorStats = new Map<string, { activeKeys: number; observationKeys?: number; quarantinedKeys: number }>();
+  const coordinatorEyeAccessible = new Map<string, boolean>();
   const coordinatorNs = env.POOL_COORDINATOR as
     | {
         idFromName?: (n: string) => unknown;
         get?: (id: unknown) => {
-          stats?: () => Promise<{ activeKeys: number; quarantinedKeys: number }>;
+          stats?: () => Promise<{ activeKeys: number; observationKeys?: number; quarantinedKeys: number }>;
+          isEyeForEyeAccessible?: (tenant: string, provider?: string) => Promise<boolean>;
         };
       }
     | undefined;
@@ -105,11 +117,21 @@ async function handlePoolTelemetry(
     typeof coordinatorNs.get === 'function'
   ) {
     for (const shard of ['google', 'groq']) {
+      const uiProv = shard === 'google' ? 'gemini' : shard;
       try {
         const stub = coordinatorNs.get(coordinatorNs.idFromName(`pool:${shard}`));
         if (typeof stub.stats === 'function') {
           const st = await stub.stats();
-          coordinatorStats.set(shard === 'google' ? 'gemini' : shard, st);
+          coordinatorStats.set(uiProv, st);
+          if (
+            isNamedTenant &&
+            typeof stub.isEyeForEyeAccessible === 'function' &&
+            (st.activeKeys + (st.observationKeys ?? 0) + st.quarantinedKeys > 0 ||
+              tenantProviders.has(uiProv))
+          ) {
+            const acc = await stub.isEyeForEyeAccessible(tenantId, shard);
+            coordinatorEyeAccessible.set(uiProv, acc);
+          }
         }
       } catch {
         // Coordinator fallback to D1 counts
@@ -161,7 +183,7 @@ async function handlePoolTelemetry(
         : 0,
       w_provider: wProvider > 0 ? wProvider : 1.0,
       p90_latency_ms: p90,
-      eye_for_eye_accessible: tenantProviders.has(cp),
+      eye_for_eye_accessible: coordinatorEyeAccessible.get(cp) ?? tenantProviders.has(cp),
     };
   });
 

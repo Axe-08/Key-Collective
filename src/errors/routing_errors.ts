@@ -504,3 +504,36 @@ export function isProviderUnavailableError(value: unknown): value is ProviderUna
   );
 }
 
+/**
+ * EyeForEyeError (HTTP 429)
+ * Thrown when a borrower attempts to borrow from a provider shard without owning at least one
+ * ACTIVE community key in that same provider shard (WP-5.7 T-5.7.1).
+ */
+export class EyeForEyeError extends DomainError {
+  public override readonly name = "EyeForEyeError";
+  public readonly provider: string;
+
+  constructor(provider: string, message?: string) {
+    const msg =
+      message ??
+      `Community borrowing for provider '${provider}' requires an active contributed '${provider}' key (eye_for_eye)`;
+    super(msg, {
+      statusCode: 429,
+      code: "eye_for_eye",
+      details: { provider, reason: "eye_for_eye" },
+    });
+    this.provider = provider;
+    Object.setPrototypeOf(this, EyeForEyeError.prototype);
+  }
+}
+
+export function isEyeForEyeError(value: unknown): value is EyeForEyeError {
+  return (
+    value instanceof EyeForEyeError ||
+    (typeof value === "object" &&
+      value !== null &&
+      (value as Record<string, unknown>).name === "EyeForEyeError")
+  );
+}
+
+

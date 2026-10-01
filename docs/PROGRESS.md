@@ -136,7 +136,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.6.2 Surge brake in coordinator lease(ownOnly=false) with 5-minute window
 
 ### WP-5.7
-- [ ] T-5.7.1 Eye-for-eye check requiring active community key in shard
+- [x] T-5.7.1 Eye-for-eye check requiring active community key in shard
 - [ ] T-5.7.2 Cold-start share cap (FR-12) based on owner trailing 24h CU
 
 ### WP-5.8
