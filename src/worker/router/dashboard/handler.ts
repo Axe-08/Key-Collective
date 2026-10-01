@@ -9,6 +9,7 @@ import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
 import { handleConsent, registrationStatus } from "../../../auth/consent";
+import { loadPoolRights } from "../../../auth/rights";
 import { handleGoogleAuth, handleLogout } from "./auth_routes";
 import { handleGithubLinkCallback, handleGithubLinkStart } from "../../../auth/github/link_flow";
 import { SESSION_COOKIE, lookupSession, readCookie, type SessionContext } from "../../../auth/session/store";
@@ -328,11 +329,24 @@ export class DashboardRouter {
         };
       }
 
+      // D-21: a COMMUNITY key owner without communityPool keeps the key but stops lending it.
+      // Shown on every session read until WP-4.3 adds the notifications table.
+      const notices: string[] = [];
+      if (user && env.DB && tenantId !== "anonymous") {
+        const owned = await env.DB.prepare("SELECT 1 FROM api_keys WHERE tenant_id = ? AND pool_type = 'COMMUNITY' LIMIT 1")
+          .bind(tenantId)
+          .first();
+        if (owned && !(await loadPoolRights(env.DB, tenantId)).communityPool) {
+          notices.push("Link GitHub to keep sharing your key with the community pool");
+        }
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
           user,
           ...(session ? { csrfToken: session.csrfToken } : {}),
+          ...(notices.length > 0 ? { notices } : {}),
         }),
         {
           status: 200,
