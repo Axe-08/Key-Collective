@@ -6,7 +6,13 @@
  * and cannot be computed from anything stored in D1.
  */
 
-import { bytesToHex, secureRandomBytes, stringToBytes, uint8ArrayToBase64Url } from "../../crypto/utils";
+import {
+  bytesToHex,
+  secureRandomBytes,
+  stringToBytes,
+  timingSafeEqualStrings,
+  uint8ArrayToBase64Url,
+} from "../../crypto/utils";
 
 export type SessionKind = "console" | "admin";
 
@@ -113,4 +119,38 @@ export function readCookie(request: Request, name: string): string | null {
     if (k === name) return v.join("=") || null;
   }
   return null;
+}
+
+export const PENDING_COOKIE = "kc_pending";
+export const PENDING_TTL_SECONDS = 900;
+
+async function pendingSignature(secret: string, payload: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    stringToBytes(`kc-pending:${secret}`),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, stringToBytes(payload));
+  return uint8ArrayToBase64Url(new Uint8Array(sig));
+}
+
+/** A signed, 15-minute token naming a user who still has to give registration consent. */
+export async function createPendingToken(secret: string, userId: string, nowMs: number = Date.now()): Promise<string> {
+  const payload = `${userId}.${nowMs + PENDING_TTL_SECONDS * 1000}`;
+  return `${payload}.${await pendingSignature(secret, payload)}`;
+}
+
+/** Returns the user id of a valid, unexpired pending token; null otherwise. */
+export async function verifyPendingToken(secret: string, token: string, nowMs: number = Date.now()): Promise<string | null> {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [userId, exp, sig] = parts;
+  if (!timingSafeEqualStrings(sig, await pendingSignature(secret, `${userId}.${exp}`))) return null;
+  return Number(exp) > nowMs ? userId : null;
+}
+
+export function buildPendingCookie(token: string, maxAge: number = PENDING_TTL_SECONDS): string {
+  return `${PENDING_COOKIE}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 }

@@ -8,7 +8,9 @@ import type { WorkerEnv as AppWorkerEnv } from "../../auth/types";
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { RouterHandlerOptions } from "../types";
 import { handleReportKeyAbuse } from "./abuse_routes";
-import { handleOAuthGithubCallback, handleGoogleAuth } from "./auth_routes";
+import { handleOAuthGithubCallback, handleGoogleAuth, handleLogout } from "./auth_routes";
+import { SESSION_COOKIE, lookupSession, readCookie, type SessionContext } from "../../../auth/session/store";
+import { timingSafeEqualStrings } from "../../../crypto/utils";
 import {
   handleDeleteKey,
   handleGetKeys,
@@ -32,6 +34,8 @@ import { handleGetLogs, handleGetStats } from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
 import { handleAdminRequest } from "../../gateway/admin_handler";
 import { verifyAdminRequest } from "../../gateway/admin_verifier";
+
+const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export class DashboardRouter {
   constructor(
@@ -64,17 +68,38 @@ export class DashboardRouter {
       return handleGoogleAuth(request, env);
     }
 
-    // Auth token extraction
+    if (method === "POST" && pathname === "/api/auth/logout") {
+      return handleLogout(request, env);
+    }
+
+    // 1. Cookie session (console host only; api.* never routes here).
+    let session: SessionContext | null = null;
+    const sessionToken = readCookie(request, SESSION_COOKIE);
+    if (sessionToken && env.DB) {
+      session = await lookupSession(env.DB, sessionToken);
+    }
+    if (session) {
+      const csrf = request.headers.get("x-kc-csrf") ?? "";
+      if (STATE_CHANGING_METHODS.has(method) && !timingSafeEqualStrings(csrf, session.csrfToken)) {
+        return new Response(JSON.stringify({ error: "csrf_required" }), {
+          status: 403,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        });
+      }
+      tenantId = session.userId;
+    }
+
+    // 2. Legacy bearer token (never needs CSRF)
     let rawToken: string | undefined;
     const authHeader =
       request.headers.get("authorization") ||
       request.headers.get("Authorization");
 
-    if (authHeader && authHeader.startsWith("Bearer ")) {
+    if (!session && authHeader && authHeader.startsWith("Bearer ")) {
       rawToken = authHeader.substring(7).trim();
     }
 
-    if (!rawToken) {
+    if (!session && !rawToken) {
       const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
       if (cookieHeader) {
         const match = cookieHeader.match(/(?:^|;\s*)kc_auth_token=([^;]+)/);
@@ -287,6 +312,7 @@ export class DashboardRouter {
         JSON.stringify({
           success: true,
           user,
+          ...(session ? { csrfToken: session.csrfToken } : {}),
         }),
         {
           status: 200,
