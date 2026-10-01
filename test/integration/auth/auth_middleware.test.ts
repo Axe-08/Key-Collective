@@ -1,6 +1,6 @@
 /**
  * Key Collective v2 — Cloudflare-Native LLM Router
- * Unit Tests: AuthMiddleware (Token validation, D1 lookup, RPM check, budget gating)
+ * Integration Tests: AuthMiddleware on real D1 (Token validation, D1 lookup, RPM check, budget gating)
  *
  * Invariants Tested (GEMINI.md Constitution & LLD Edge Worker Auth):
  * 1. Strict TypeScript (strict mode, zero any).
@@ -13,6 +13,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { env as testEnv } from "cloudflare:test";
 import {
   AuthenticatedContext,
   AuthMiddleware,
@@ -27,7 +28,6 @@ import {
 } from "../../../src/worker/auth/index";
 import {
   AuthTokenRecord,
-  AuthTokenRow,
   AuthTokensRepository,
 } from "../../../src/storage/repositories/auth_tokens/index";
 import {
@@ -42,159 +42,7 @@ import { DomainError } from "../../../src/errors/domain_error";
 import { DEFAULT_RETRY_AFTER_SECONDS, DEFAULT_RPM_LIMIT } from "../../../src/constants/limits";
 import { hashToken } from "../../../src/crypto";
 
-/**
- * In-memory Mock D1 Database implementation for AuthTokensRepository unit testing.
- */
-class MockD1Database implements D1Database {
-  public rows = new Map<string, AuthTokenRow>();
-
-  prepare(query: string): D1PreparedStatement {
-    return new MockD1PreparedStatement(query, this);
-  }
-
-  async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
-    const results: D1Result<T>[] = [];
-    for (const stmt of statements) {
-      results.push(await stmt.run<T>());
-    }
-    return results;
-  }
-
-  async exec(_query: string): Promise<D1ExecResult> {
-    return { count: 1, duration: 1 };
-  }
-
-  withSession(): D1DatabaseSession {
-    throw new Error("withSession not implemented in mock");
-  }
-
-  async dump(): Promise<ArrayBuffer> {
-    return new ArrayBuffer(0);
-  }
-}
-
-class MockD1PreparedStatement implements D1PreparedStatement {
-  private boundParams: unknown[] = [];
-
-  constructor(
-    private readonly query: string,
-    private readonly db: MockD1Database
-  ) {}
-
-  bind(...values: unknown[]): D1PreparedStatement {
-    this.boundParams = values;
-    return this;
-  }
-
-  async first<T = Record<string, unknown>>(colName?: string): Promise<T | null> {
-    const res = await this.all<T>();
-    const firstRow = res.results[0] ?? null;
-    if (!firstRow) return null;
-    if (colName && typeof firstRow === "object") {
-      return ((firstRow as Record<string, unknown>)[colName] ?? null) as T;
-    }
-    return firstRow;
-  }
-
-  async run<T = Record<string, unknown>>(): Promise<D1Result<T>> {
-    return this.executeQuery<T>();
-  }
-
-  async all<T = Record<string, unknown>>(): Promise<D1Result<T>> {
-    return this.executeQuery<T>();
-  }
-
-  raw<T = unknown[]>(options: { columnNames: true }): Promise<[string[], ...T[]]>;
-  raw<T = unknown[]>(options?: { columnNames?: false }): Promise<T[]>;
-  async raw<T = unknown[]>(_options?: { columnNames?: boolean }): Promise<any> {
-    throw new Error("raw not implemented in mock");
-  }
-
-  private executeQuery<T>(): D1Result<T> {
-    const trimmed = this.query.trim();
-    const upper = trimmed.toUpperCase().replace(/\s+/g, " ");
-
-    // 1. INSERT INTO AUTH_TOKENS
-    if (upper.startsWith("INSERT INTO AUTH_TOKENS")) {
-      const [
-        id,
-        hash_sha256,
-        tenant_id,
-        encrypted_token_b64,
-        nonce_b64,
-        budget_microdollars,
-        spent_microdollars,
-        allowed_providers,
-        rpm_limit,
-        expires_at,
-        created_at,
-      ] = this.boundParams;
-
-      const row: AuthTokenRow = {
-        id: String(id),
-        hash_sha256: String(hash_sha256),
-        tenant_id: String(tenant_id),
-        encrypted_token_b64: encrypted_token_b64 ? String(encrypted_token_b64) : null,
-        nonce_b64: nonce_b64 ? String(nonce_b64) : null,
-        budget_microdollars: Number(budget_microdollars),
-        spent_microdollars: Number(spent_microdollars),
-        allowed_providers: String(allowed_providers),
-        rpm_limit: Number(rpm_limit),
-        expires_at: expires_at ? String(expires_at) : null,
-        created_at: String(created_at),
-      };
-
-      this.db.rows.set(row.id, row);
-      return {
-        results: [],
-        success: true,
-        meta: { changes: 1, duration: 1, last_row_id: 1, rows_read: 0, rows_written: 1, size_after: 0 },
-      };
-    }
-
-    // 2. SELECT * FROM AUTH_TOKENS WHERE HASH_SHA256 = ?
-    if (upper.includes("WHERE HASH_SHA256 = ?")) {
-      const hash = String(this.boundParams[0]).toLowerCase();
-      const matched = Array.from(this.db.rows.values()).filter(
-        (r) => r.hash_sha256.toLowerCase() === hash
-      );
-      return {
-        results: matched as unknown as T[],
-        success: true,
-        meta: { changes: 0, duration: 1, last_row_id: 0, rows_read: matched.length, rows_written: 0, size_after: 0 },
-      };
-    }
-
-    // 3. SELECT * FROM AUTH_TOKENS WHERE ID = ?
-    if (upper.includes("WHERE ID = ?")) {
-      const id = String(this.boundParams[0]);
-      const matched = Array.from(this.db.rows.values()).filter((r) => r.id === id);
-      return {
-        results: matched as unknown as T[],
-        success: true,
-        meta: { changes: 0, duration: 1, last_row_id: 0, rows_read: matched.length, rows_written: 0, size_after: 0 },
-      };
-    }
-
-    // 4. UPDATE AUTH_TOKENS
-    if (upper.startsWith("UPDATE AUTH_TOKENS")) {
-      return {
-        results: [],
-        success: true,
-        meta: { changes: 1, duration: 1, last_row_id: 0, rows_read: 1, rows_written: 1, size_after: 0 },
-      };
-    }
-
-    return {
-      results: [],
-      success: true,
-      meta: { changes: 0, duration: 1, last_row_id: 0, rows_read: 0, rows_written: 0, size_after: 0 },
-    };
-  }
-}
-
 describe("AuthMiddleware — Edge Authentication & Invariants", () => {
-  let mockDb: MockD1Database;
   let authRepo: AuthTokensRepository;
   let middleware: AuthMiddleware;
 
@@ -202,8 +50,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
   const TEST_TENANT = "tenant-enterprise-acme";
 
   beforeEach(async () => {
-    mockDb = new MockD1Database();
-    authRepo = new AuthTokensRepository(mockDb, "test-master-auth-key-32bytes-long!");
+    authRepo = new AuthTokensRepository(testEnv.DB, "test-master-auth-key-32bytes-long!");
     middleware = new AuthMiddleware({ authRepo });
   });
 
@@ -370,7 +217,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
         tenantId: TEST_TENANT,
       });
 
-      const env: WorkerEnv = { DB: mockDb };
+      const env: WorkerEnv = { DB: testEnv.DB };
       const req = new Request("https://api.keycollective.com/v1/chat/completions", {
         headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       });
@@ -766,7 +613,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       let nextInvoked = false;
       const response = await middleware.handle(
         req,
-        { DB: mockDb },
+        { DB: testEnv.DB },
         async (ctx) => {
           nextInvoked = true;
           return Response.json({ message: "hello", tenant: ctx.tenantId });
@@ -787,7 +634,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       let nextInvoked = false;
       const response = await middleware.handle(
         req,
-        { DB: mockDb },
+        { DB: testEnv.DB },
         async () => {
           nextInvoked = true;
           return new Response("Should not run", { status: 200 });
@@ -818,7 +665,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
         headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       });
 
-      const resp = await workerHandler(req, { DB: mockDb });
+      const resp = await workerHandler(req, { DB: testEnv.DB });
       expect(resp.status).toBe(200);
       expect(capturedTenant).toBe(TEST_TENANT);
     });
@@ -844,7 +691,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
         headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       });
 
-      const resp = await workerHandler(req, { DB: mockDb });
+      const resp = await workerHandler(req, { DB: testEnv.DB });
       expect(routeCalled).toBe(false);
       expect(resp.status).toBe(429);
       expect(resp.headers.get("retry-after")).toBe(String(DEFAULT_RETRY_AFTER_SECONDS));
@@ -901,7 +748,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       };
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         TENANT_QUOTA: {
           idFromName: vi.fn().mockReturnValue({ toString: () => TEST_TENANT }),
           get: vi.fn().mockReturnValue(mockStub),
@@ -952,7 +799,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       };
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         TENANT_QUOTA: {
           idFromName: vi.fn().mockReturnValue(mockStub),
         } as any,
@@ -991,7 +838,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       };
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         TENANT_QUOTA: {
           idFromName: vi.fn().mockReturnValue(mockStub),
         } as any,
@@ -1029,7 +876,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       };
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         TENANT_QUOTA: {
           idFromName: vi.fn().mockReturnValue(mockStub),
         } as any,
@@ -1071,7 +918,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       };
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         TENANT_QUOTA: {
           idFromName: vi.fn().mockReturnValue(mockStub),
         } as any,
@@ -1123,7 +970,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       );
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         TENANT_QUOTA: {
           idFromName: vi.fn().mockReturnValue({ fetch: mockFetch }),
         } as any,
@@ -1157,7 +1004,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       );
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         TENANT_QUOTA: {
           idFromName: vi.fn().mockReturnValue({ fetch: mockFetch }),
         } as any,
@@ -1183,7 +1030,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       });
 
       const mockEnv = {
-        DB: mockDb,
+        DB: testEnv.DB,
         // TENANT_QUOTA is undefined
       };
 

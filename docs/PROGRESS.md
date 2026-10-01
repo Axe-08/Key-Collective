@@ -14,7 +14,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.1.3 Add createSession helper and identity options to world test helper
 - [x] T-3.1.4 Accept kc_admin_session and ADMIN_EMAILS check in admin verifier
 - [x] T-3.1.5 Support console sessions side by side with bearer tokens and CSRF check
-- [ ] T-3.1.6 Rewrite auth middleware unit tests on real D1 and remove legacy cases
+- [x] T-3.1.6 Rewrite auth middleware unit tests on real D1 and remove legacy cases
 
 ### WP-3.2
 - [ ] T-3.2.1 Implement registration consent C1-C3 and enforce consent gate on console API
