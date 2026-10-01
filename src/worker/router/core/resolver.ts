@@ -11,6 +11,8 @@ import type { RouterContract } from "../../../contracts/router";
 import { UpstreamClient } from "../../../proxy/upstream/index";
 import { CapabilityFilter } from "../../../router/capability/index";
 import { CascadeRouter } from "../../../router/cascade/index";
+import { routingEngine } from "../../../router/leases/engine";
+import { LeaseOrchestrator } from "../../../router/leases/orchestrator";
 import type { IModelRegistry } from "../../../router/registry/index";
 import { AuthTokensRepository } from "../../../storage/repositories/auth_tokens/index";
 import { CostLedgerRepository } from "../../../storage/repositories/cost_ledger/index";
@@ -26,6 +28,8 @@ import type {
 import { resolvePlaintextKey } from "./key_resolver";
 
 export class RouterContextResolver {
+  private readonly leaseOrchestrator = new LeaseOrchestrator();
+
   constructor(
     private readonly options: RouterHandlerOptions,
     private readonly modelRegistry: IModelRegistry,
@@ -78,10 +82,11 @@ export class RouterContextResolver {
       return this.options.router;
     }
 
+    const engine = routingEngine(env);
     const client =
       this.upstreamClient ??
       new UpstreamClient({
-        keyPool,
+        keyPool: engine === "leases" ? undefined : keyPool,
         keyResolver: async (keyFromPool: string, provider: string) => {
           return resolvePlaintextKey(
             keyFromPool,
@@ -95,6 +100,12 @@ export class RouterContextResolver {
 
     return new CascadeRouter({
       keyPool,
+      leaseProvider: engine === "leases" ? this.leaseOrchestrator : undefined,
+      leaseContext: {
+        tenantId,
+        env,
+      },
+      routingEngine: engine,
       registry: this.modelRegistry,
       capabilityFilter: this.capabilityFilter,
       upstreamClient: client,

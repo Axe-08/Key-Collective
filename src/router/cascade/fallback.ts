@@ -14,7 +14,7 @@
 
 import type { RouteRequest } from "../../contracts/router";
 import type { KeyPoolContract } from "../../contracts/key_pool";
-import type { IModelRegistry } from "../registry/index";
+import { calculateCu, type IModelRegistry } from "../registry/index";
 import {
   type UpstreamClient,
   type UpstreamChatRequest,
@@ -24,6 +24,11 @@ import {
   FallbackExhaustedError,
   type FallbackAttempt,
 } from "../../errors";
+import type {
+  Lease,
+  LeaseAcquireContext,
+  LeaseProvider,
+} from "../leases/orchestrator";
 import type {
   CascadeRouteRequest,
   CascadeRouteResponse,
@@ -37,15 +42,42 @@ export interface FallbackExecutionContext {
   registry: IModelRegistry;
   upstreamClient: UpstreamClient;
   keyPool?: KeyPoolContract;
+  leaseProvider?: LeaseProvider;
+  leaseContext?: LeaseAcquireContext;
+  useLeases?: boolean;
   maxFallbacks: number;
   options: CascadeRouterOptions;
   checkSelfKeyAvailable?: (provider: string, tenantId: string) => Promise<boolean>;
 }
 
+function classifyErrorOutcome(err: unknown): { outcome: string; until?: number } {
+  const status =
+    err && typeof err === "object" && "upstreamStatusCode" in err
+      ? Number((err as { upstreamStatusCode?: unknown }).upstreamStatusCode)
+      : err && typeof err === "object" && "statusCode" in err
+      ? Number((err as { statusCode?: unknown }).statusCode)
+      : 0;
+  const msg = err instanceof Error ? err.message : String(err);
+
+  if (status === 401 || status === 403 || /API_KEY_INVALID|PERMISSION_DENIED/i.test(msg)) {
+    return { outcome: "key_invalid" };
+  }
+  if (status === 429) {
+    if (/PerDay|rpd/i.test(msg)) {
+      return { outcome: "rpd_exhausted" };
+    }
+    return { outcome: "rpm_limited" };
+  }
+  if (status === 400) {
+    return { outcome: "request_error" };
+  }
+  return { outcome: "upstream_error" };
+}
+
 /**
  * Executes multi-model cascade routing across ordered candidate models.
- * Automatically acquires credentials from KeyPool, executes upstream chat calls,
- * and escalates to fallback candidates if errors arise.
+ * Automatically acquires credentials from KeyPool (legacy) or LeaseProvider (leases),
+ * executes upstream chat calls, and escalates to fallback candidates if errors arise.
  *
  * @param request Inbound route request
  * @param candidates Non-empty ordered array of candidate models
@@ -60,13 +92,31 @@ export async function executeCascadeRouting(
 ): Promise<CascadeRouteResponse> {
   const reqOptions = request as CascadeRouteRequest;
   const maxFallbacks = reqOptions.maxFallbacks ?? context.maxFallbacks;
-  const candidatesToTry = candidates.slice(0, 1 + maxFallbacks);
+  const useLeases = Boolean(
+    context.useLeases && (context.leaseProvider ?? context.options.leaseProvider)
+  );
+  const leaseProvider = context.leaseProvider ?? context.options.leaseProvider;
+
+  // On the lease path, allow scanning across all candidate models so if the cheapest provider
+  // has 0 keys (e.g. a Groq-only tenant calling `auto` when 6 Gemini models sort cheaper),
+  // we skip the empty provider and reach the tenant's Groq model without exhausting early.
+  const candidatesToTry = useLeases
+    ? candidates
+    : candidates.slice(0, 1 + maxFallbacks);
 
   const attempts: FallbackAttempt[] = [];
+  const emptyProviders = new Set<string>();
+  let upstreamAttempts = 0;
+  const maxUpstreamAttempts = 1 + maxFallbacks;
 
-  // 1. Self-Key Priority Pre-check
+  // 1. Self-Key Priority Pre-check (legacy path only; unused on lease path per WP-4.1)
   let selfKeyRouted = false;
-  if (reqOptions.tenantId && candidatesToTry.length > 0 && context.checkSelfKeyAvailable) {
+  if (
+    !useLeases &&
+    reqOptions.tenantId &&
+    candidatesToTry.length > 0 &&
+    context.checkSelfKeyAvailable
+  ) {
     selfKeyRouted = await context.checkSelfKeyAvailable(
       candidatesToTry[0].provider,
       reqOptions.tenantId
@@ -75,6 +125,10 @@ export async function executeCascadeRouting(
 
   // 2. Iterate through candidates with fallback escalation
   for (let i = 0; i < candidatesToTry.length; i++) {
+    if (useLeases && upstreamAttempts >= maxUpstreamAttempts) {
+      break;
+    }
+
     const candidate = candidatesToTry[i];
     const nextCandidate = candidatesToTry[i + 1];
 
@@ -83,11 +137,63 @@ export async function executeCascadeRouting(
       throw new DOMException("Request was aborted", "AbortError");
     }
 
+    // On the lease path, if a provider already returned null lease (no keys available),
+    // skip remaining models of that same provider without re-querying the DOs.
+    if (useLeases && emptyProviders.has(candidate.provider)) {
+      continue;
+    }
+
     let apiKey = reqOptions.apiKey;
     let keyId: string | undefined;
+    let activeLease: Lease | undefined;
+    let activeLeaseCtx: LeaseAcquireContext | undefined;
 
-    // 3. Acquire key from KeyPool if available and no explicit key supplied
-    if (!apiKey && context.keyPool) {
+    if (useLeases && leaseProvider && !apiKey) {
+      const estTokens = BigInt(Math.max(0, reqOptions.estimatedPromptTokens ?? 0));
+      const estCu =
+        (candidate.cuBase ?? 10n) +
+        ((estTokens + 999n) / 1000n) * (candidate.cuInPer1k ?? 1n);
+
+      activeLeaseCtx = reqOptions.leaseContext ??
+        context.leaseContext ??
+        context.options.leaseContext ?? {
+          tenantId: reqOptions.tenantId ?? "default",
+          env: {},
+          estimateCu: estCu,
+        };
+      if (activeLeaseCtx.estimateCu === undefined) {
+        activeLeaseCtx = { ...activeLeaseCtx, estimateCu: estCu };
+      }
+
+      try {
+        const lease = await leaseProvider.acquire(candidate.provider, activeLeaseCtx);
+        if (!lease) {
+          emptyProviders.add(candidate.provider);
+          const attempt: FallbackAttempt = {
+            provider: candidate.provider,
+            modelId: candidate.id,
+            error: `No lease available for provider '${candidate.provider}'`,
+          };
+          attempts.push(attempt);
+          context.options.onFallback?.(attempt, nextCandidate);
+          continue;
+        }
+        activeLease = lease;
+        keyId = lease.keyId;
+        apiKey = lease.keyId;
+      } catch (leaseErr) {
+        const errMsg = leaseErr instanceof Error ? leaseErr.message : String(leaseErr);
+        const attempt: FallbackAttempt = {
+          provider: candidate.provider,
+          modelId: candidate.id,
+          error: `Lease acquisition failed: ${errMsg}`,
+        };
+        attempts.push(attempt);
+        context.options.onFallback?.(attempt, nextCandidate);
+        continue;
+      }
+    } else if (!apiKey && context.keyPool) {
+      // 3. Legacy path: Acquire key from KeyPool if available and no explicit key supplied
       try {
         keyId = await context.keyPool.getKey(candidate.provider);
         apiKey = keyId;
@@ -104,6 +210,8 @@ export async function executeCascadeRouting(
       }
     }
 
+    upstreamAttempts += 1;
+
     // 4. Construct upstream chat request
     const maxTokens =
       reqOptions.maxTokens ??
@@ -118,6 +226,7 @@ export async function executeCascadeRouting(
       stream: request.stream,
       apiKey,
       keyId,
+      recordPoolUsage: !useLeases,
       temperature: reqOptions.temperature ?? context.options.defaultTemperature,
       maxTokens,
       headers: reqOptions.headers,
@@ -149,16 +258,26 @@ export async function executeCascadeRouting(
         }
       }
 
-      // 7. Record KeyPool success and usage (non-blocking hot path)
-      if (context.keyPool && keyId) {
+      if (useLeases && activeLease && activeLeaseCtx && leaseProvider) {
+        // For non-streaming requests, settle immediately (idempotent if also settled in postWork)
+        if (!request.stream) {
+          const actualCu = chatRes.usage
+            ? calculateCu(candidate, chatRes.usage)
+            : (candidate.cuBase ?? 10n);
+          await leaseProvider.settle(activeLease, "ok", activeLeaseCtx, actualCu);
+        }
+      } else if (context.keyPool && keyId) {
+        // 7. Legacy: Record KeyPool success and usage (non-blocking hot path)
         if (typeof context.keyPool.recordDispatch === "function") {
           try {
             context.keyPool.recordDispatch(keyId, !selfKeyRouted);
-          } catch {}
+          } catch (err) {
+            void err;
+          }
         }
-        context.keyPool.recordResult(keyId, true).catch(() => {});
+        await context.keyPool.recordResult(keyId, true).catch(() => {});
         if (costMicrodollars > 0n) {
-          context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
+          await context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
         }
       }
 
@@ -172,7 +291,11 @@ export async function executeCascadeRouting(
         attempts,
         usage: chatRes.usage,
         response: chatRes.response,
-        isSelfKey: selfKeyRouted,
+        isSelfKey: useLeases
+          ? activeLease?.source !== "borrowed"
+          : selfKeyRouted,
+        lease: activeLease,
+        leaseContext: activeLeaseCtx,
       };
 
       context.options.onSuccess?.(successResponse);
@@ -186,9 +309,14 @@ export async function executeCascadeRouting(
         throw upstreamErr;
       }
 
-      // Record failure against KeyPool (non-blocking)
-      if (context.keyPool && keyId) {
-        context.keyPool.recordResult(keyId, false).catch(() => {});
+      if (useLeases && activeLease && activeLeaseCtx && leaseProvider) {
+        const { outcome, until } = classifyErrorOutcome(upstreamErr);
+        await leaseProvider
+          .settle(activeLease, outcome, activeLeaseCtx, 0n, until)
+          .catch(() => {});
+      } else if (context.keyPool && keyId) {
+        // Record failure against KeyPool (non-blocking)
+        await context.keyPool.recordResult(keyId, false).catch(() => {});
       }
 
       const errMsg =

@@ -4,6 +4,7 @@
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { CascadeRouteResponse } from "../../../router/cascade/index";
+import { LeaseOrchestrator } from "../../../router/leases/orchestrator";
 import type { StreamUsage } from "../../../proxy/sse/index";
 import type {
   AuthenticatedContext,
@@ -18,6 +19,8 @@ import { calculateCu } from "../../../router/registry/registry";
 import type { TokenUsage } from "../../../router/registry/types";
 import { extractUsageFromPayload } from "../../../proxy/sse/usage_extractor";
 import { applyKcHeaders } from "../headers";
+
+const defaultStreamLeaseOrchestrator = new LeaseOrchestrator();
 
 export function handleStreamingResponse(
   deps: ChatHandlerDependencies,
@@ -121,11 +124,27 @@ export function handleStreamingResponse(
       }
     }
 
+    const cuWeight = getCalculatedCu(usage);
     const statusCode = errorOccurred ? 500 : 200;
+    const activeLease = cascadeRes.lease;
 
-    // 3. Record key usage on tenant DO
-    const keyId = cascadeRes.modelDef?.id ?? cascadeRes.model;
-    if (costMicrodollars > 0n && keyId) {
+    // 3. Settle lease or record key usage on tenant DO
+    const keyId = activeLease?.keyId ?? cascadeRes.modelDef?.id ?? cascadeRes.model;
+    if (activeLease) {
+      const leaseCtx = cascadeRes.leaseContext ?? {
+        tenantId: authContext.tenantId,
+        env,
+      };
+      const settleCu = cuWeight > 0n ? cuWeight : (cascadeRes.modelDef?.cuBase ?? 10n);
+      await defaultStreamLeaseOrchestrator
+        .settle(
+          activeLease,
+          errorOccurred ? "upstream_error" : "ok",
+          leaseCtx,
+          settleCu
+        )
+        .catch(() => {});
+    } else if (costMicrodollars > 0n && keyId) {
       keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
     }
 
@@ -134,6 +153,9 @@ export function handleStreamingResponse(
     if (costLedgerRepo) {
       const isEstimated =
         usage?.usage_estimated === 1 || usage?.usageEstimated === 1 ? 1 : 0;
+      const isBorrowed = activeLease?.source === "borrowed" ? 1 : 0;
+      const lenderTenantId =
+        activeLease?.source === "borrowed" ? activeLease.ownerTenantId : null;
       try {
         const eventInput: CostLedgerEventInput & { usage_estimated?: number } = {
           requestId: traceId,
@@ -146,6 +168,9 @@ export function handleStreamingResponse(
           cachedTokens: usage?.cachedTokens ?? 0,
           reasoningTokens: usage?.reasoningTokens ?? 0,
           costMicrodollars,
+          cu: cuWeight > 0n ? cuWeight : undefined,
+          borrowed: isBorrowed,
+          lenderTenantId,
           latencyMs: durationMs,
           statusCode,
           usageEstimated: isEstimated,

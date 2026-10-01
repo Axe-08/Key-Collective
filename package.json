@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:workers": "vitest run -c vitest.workers.config.ts",
+    "test:workers:legacy": "ROUTING_ENGINE=legacy vitest run -c vitest.workers.config.ts",
     "test:ui": "vitest run --root ui && vitest run --root ui -c vitest.dom.config.ts",
     "gate:fast": "npm run typecheck && npm run test:unit && node scripts/check-no-sql-mocks.mjs",
     "gate": "npm run gate:fast && npm run test:workers && npm run test:ui",

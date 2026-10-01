@@ -502,4 +502,27 @@ describe("CircuitBreaker (T-01)", () => {
       expect(await cb.canExecute()).toBe(true);
     });
   });
+
+  describe("10. Lease Settlement Outcomes (settle)", () => {
+    it("resets consecutive failures on 'ok' outcome and increments on 'upstream_error'", async () => {
+      const cb = new CircuitBreaker(storage, { failureThreshold: 3, timeProvider });
+
+      // Simulate two 'upstream_error' settle outcomes
+      await cb.recordResult("key-priv-1", false);
+      await cb.recordResult("key-priv-1", false);
+      expect((await cb.getData("key-priv-1")).consecutiveFailures).toBe(2);
+
+      // Simulate 'ok' settle outcome
+      await cb.recordResult("key-priv-1", true);
+      expect((await cb.getData("key-priv-1")).consecutiveFailures).toBe(0);
+      expect(await cb.getState("key-priv-1")).toBe("CLOSED");
+
+      // Three 'upstream_error' settle outcomes trip the breaker
+      await cb.recordResult("key-priv-1", false);
+      await cb.recordResult("key-priv-1", false);
+      await cb.recordResult("key-priv-1", false);
+      expect(await cb.getState("key-priv-1")).toBe("OPEN");
+    });
+  });
 });
+

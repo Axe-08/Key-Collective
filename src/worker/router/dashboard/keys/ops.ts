@@ -58,25 +58,58 @@ export async function handleDeleteKey(
     throw new RouterError("Authentication required to delete keys", { statusCode: 401 });
   }
 
+  let deletedMeta: { id: string; tenant_id: string; provider: string; rpm_limit: number; rpd_limit: number } | null = null;
+
   if (env.DB && typeof env.DB.prepare === "function") {
-    const deleted = await new ApiKeyRepository(env.DB).deleteScoped(keyId, ownerScope(tenantId));
+    const repo = new ApiKeyRepository(env.DB);
+    deletedMeta = await repo.getCoordinatorMeta(keyId, ownerScope(tenantId));
+    const deleted = await repo.deleteScoped(keyId, ownerScope(tenantId));
     if (!deleted && tenantId !== "admin") {
       throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
     }
   }
 
+  const targetTenantId = deletedMeta?.tenant_id ?? tenantId;
+
   try {
-    const targetTenantId = tenantId;
     const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
     if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
       const doId = keyPoolNamespace.idFromName(targetTenantId);
-      const stub = keyPoolNamespace.get(doId);
-      await stub.fetch(`http://key-pool/keys/${encodeURIComponent(keyId)}`, {
-        method: "DELETE",
-      });
+      const stub = keyPoolNamespace.get(doId) as unknown as {
+        fetch(url: string, init?: RequestInit): Promise<Response>;
+        reconcile?(tenantId?: string): Promise<number>;
+      };
+      if (typeof stub.reconcile === "function") {
+        await stub.reconcile(targetTenantId);
+      } else {
+        const res = await stub.fetch(`http://key-pool/keys/${encodeURIComponent(keyId)}`, {
+          method: "DELETE",
+        });
+        await res.text().catch(() => {});
+      }
     }
   } catch (_err) {
     // DO cleanup fallback
+  }
+
+  try {
+    const coordNs = env.POOL_COORDINATOR as unknown as
+      | {
+          idFromName(name: string): DurableObjectId;
+          get(id: DurableObjectId): { removeKey?(keyId: string): Promise<boolean> };
+        }
+      | undefined;
+    if (coordNs && typeof coordNs.idFromName === "function") {
+      const providers = deletedMeta?.provider ? [deletedMeta.provider] : ["google", "groq"];
+      for (const provider of providers) {
+        const coordStub = coordNs.get(coordNs.idFromName(provider));
+        if (typeof coordStub.removeKey === "function") {
+          await coordStub.removeKey(keyId);
+        }
+      }
+    }
+  } catch (_err) {
+    // Coordinator reconcile will clean up removed keys
   }
 
   return Response.json({ success: true, keyId });
@@ -120,9 +153,65 @@ export async function handlePoolMode(
   const commRoutingStatus = poolType === 'COMMUNITY' ? 'OBSERVATION' : null;
   const obsUntil = poolType === 'COMMUNITY' ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
-  const updated = await new ApiKeyRepository(env.DB).setPoolMode(keyId, ownerScope(tenantId), poolType, commRoutingStatus, obsUntil);
+  const repo = new ApiKeyRepository(env.DB);
+  const updated = await repo.setPoolMode(keyId, ownerScope(tenantId), poolType, commRoutingStatus, obsUntil);
   if (!updated && tenantId !== "admin") {
     throw new RouterError("Key not found or you do not have permission to modify it", { statusCode: 404 });
+  }
+
+  const meta = await repo.getCoordinatorMeta(keyId, ownerScope(tenantId));
+  const targetTenantId = meta?.tenant_id ?? tenantId;
+
+  try {
+    const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
+    if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
+      const stub = keyPoolNamespace.get(keyPoolNamespace.idFromName(targetTenantId)) as unknown as {
+        reconcile?(tenantId?: string): Promise<number>;
+      };
+      if (typeof stub.reconcile === "function") {
+        await stub.reconcile(targetTenantId);
+      }
+    }
+  } catch (_err) {
+    // KeyPoolDO reconcile fallback
+  }
+
+  try {
+    const coordNs = env.POOL_COORDINATOR as unknown as
+      | {
+          idFromName(name: string): DurableObjectId;
+          get(id: DurableObjectId): {
+            upsertKey?(req: {
+              keyId: string;
+              owner: string;
+              provider: string;
+              status: "OBSERVATION";
+              observationUntil: number | null;
+              rpmLimit: number;
+              rpdLimit: number;
+            }): Promise<unknown>;
+            removeKey?(keyId: string): Promise<boolean>;
+          };
+        }
+      | undefined;
+    if (meta && coordNs && typeof coordNs.idFromName === "function") {
+      const coordStub = coordNs.get(coordNs.idFromName(meta.provider));
+      if (poolType === "COMMUNITY" && typeof coordStub.upsertKey === "function") {
+        await coordStub.upsertKey({
+          keyId,
+          owner: meta.tenant_id,
+          provider: meta.provider,
+          status: "OBSERVATION",
+          observationUntil: obsUntil,
+          rpmLimit: meta.rpm_limit,
+          rpdLimit: meta.rpd_limit,
+        });
+      } else if (poolType === "PRIVATE" && typeof coordStub.removeKey === "function") {
+        await coordStub.removeKey(keyId);
+      }
+    }
+  } catch (_err) {
+    // Coordinator reconcile fallback
   }
 
   clearDecryptedKeyCache();

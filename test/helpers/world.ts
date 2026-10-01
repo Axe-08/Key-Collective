@@ -49,6 +49,9 @@ export interface AddProviderKeyOptions {
   provider: string;
   pool?: string;
   plaintext: string;
+  rpmLimit?: number;
+  rpdLimit?: number;
+  priority?: number;
 }
 
 export interface ProviderKeyRecord {
@@ -124,7 +127,7 @@ export async function createApiKey(
 
 export async function addProviderKey(
   user: { id: string },
-  { provider, pool = "COMMUNITY", plaintext }: AddProviderKeyOptions
+  { provider, pool = "COMMUNITY", plaintext, rpmLimit = 15, rpdLimit = 1500, priority = 0 }: AddProviderKeyOptions
 ): Promise<ProviderKeyRecord> {
   const masterKey =
     (env as unknown as { KC_MASTER_KEY?: string }).KC_MASTER_KEY ||
@@ -133,7 +136,7 @@ export async function addProviderKey(
   const encrypted = await encrypt(plaintext, subkey);
   const keyId = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
   await env.DB.prepare(
-    "INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix, pool_type, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+    "INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, pool_type, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
   )
     .bind(
       keyId,
@@ -144,6 +147,9 @@ export async function addProviderKey(
       encrypted.nonceB64,
       plaintext.slice(0, 4),
       plaintext.slice(-4),
+      rpmLimit,
+      rpdLimit,
+      priority,
       pool,
       "Healthy"
     )

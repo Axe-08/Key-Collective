@@ -780,6 +780,17 @@ export class ApiKeyRepository {
       .first();
   }
 
+  /** Metadata needed to sync a key with PoolCoordinatorDO and KeyPoolDO. */
+  async getCoordinatorMeta(
+    id: string,
+    tenantId: string | null
+  ): Promise<{ id: string; tenant_id: string; provider: string; rpm_limit: number; rpd_limit: number } | null> {
+    return this.db
+      .prepare(this.scoped("SELECT id, tenant_id, provider, rpm_limit, rpd_limit FROM api_keys WHERE id = ?", tenantId))
+      .bind(...this.scopedBind([id], tenantId))
+      .first();
+  }
+
   /** Replaces a key's secret; false when no such key (for this owner). */
   async replaceSecret(
     id: string,
@@ -802,10 +813,10 @@ export class ApiKeyRepository {
   async revokeByHash(
     keyHash: string,
     revokedAt: number
-  ): Promise<{ id: string; tenant_id: string; provider_project_hash: string | null } | null> {
+  ): Promise<{ id: string; tenant_id: string; provider: string; provider_project_hash: string | null } | null> {
     return this.db
       .prepare(
-        "UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ? WHERE key_hash = ? RETURNING id, tenant_id, provider_project_hash"
+        "UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ? WHERE key_hash = ? RETURNING id, tenant_id, provider, provider_project_hash"
       )
       .bind(revokedAt, keyHash)
       .first();

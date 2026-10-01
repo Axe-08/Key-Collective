@@ -111,10 +111,9 @@ describe("CascadeRouter", () => {
 
   let registry: ModelRegistry;
   let capabilityFilter: CapabilityFilter;
-  let mockKeyPool: {
-    getKey: ReturnType<typeof vi.fn>;
-    recordUsage: ReturnType<typeof vi.fn>;
-    recordResult: ReturnType<typeof vi.fn>;
+  let mockLeaseProvider: {
+    acquire: ReturnType<typeof vi.fn>;
+    settle: ReturnType<typeof vi.fn>;
   };
   let mockUpstreamClient: UpstreamClient & {
     chat: ReturnType<typeof vi.fn>;
@@ -164,13 +163,18 @@ describe("CascadeRouter", () => {
     ]);
     capabilityFilter = new CapabilityFilter(registry);
 
-    mockKeyPool = {
-      getKey: vi.fn().mockImplementation(async (provider: string) => `key-for-${provider}`),
-      recordUsage: vi.fn().mockResolvedValue(undefined),
-      recordResult: vi.fn().mockResolvedValue(undefined),
+    mockLeaseProvider = {
+      acquire: vi.fn().mockImplementation(async (provider: string) => ({
+        leaseId: `lease-${provider}`,
+        keyId: `key-for-${provider}`,
+        provider,
+        ownerTenantId: "tenant-123",
+        source: "private" as const,
+      })),
+      settle: vi.fn().mockResolvedValue({ settled: true, duplicate: false }),
     };
 
-    const client = new UpstreamClient({ keyPool: mockKeyPool });
+    const client = new UpstreamClient();
     client.chat = vi.fn();
     mockUpstreamClient = client as UpstreamClient & { chat: ReturnType<typeof vi.fn> };
   });
@@ -189,14 +193,14 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
         maxFallbacks: 5,
       });
 
       expect(router.getRegistry()).toBe(registry);
       expect(router.getCapabilityFilter()).toBe(capabilityFilter);
       expect(router.getUpstreamClient()).toBe(mockUpstreamClient);
-      expect(router.getKeyPool()).toBe(mockKeyPool);
     });
   });
 
@@ -321,8 +325,8 @@ describe("CascadeRouter", () => {
     });
   });
 
-  describe("Happy Path Routing (tc-01 & LLD 4.0)", () => {
-    it("routes successfully to primary model and records key usage", async () => {
+  describe("Happy Path Routing on Leases (tc-01 & WP-4.1)", () => {
+    it("routes successfully via LeaseProvider and settles with ok outcome", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce(
         createSuccessfulChatResponse("gemini-2.0-flash", "google", "2+2 is 4")
       );
@@ -331,7 +335,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -346,12 +351,16 @@ describe("CascadeRouter", () => {
       expect(response.attempts.length).toBe(0);
       expect(response.costMicrodollars).toBeGreaterThan(0n);
 
-      // Verify KeyPool interactions
-      expect(mockKeyPool.getKey).toHaveBeenCalledWith("google");
-      expect(mockKeyPool.recordResult).toHaveBeenCalledWith("key-for-google", true);
-      expect(mockKeyPool.recordUsage).toHaveBeenCalledWith(
-        "key-for-google",
-        response.costMicrodollars
+      // Verify LeaseProvider interactions
+      expect(mockLeaseProvider.acquire).toHaveBeenCalledWith(
+        "google",
+        expect.objectContaining({ tenantId: "default" })
+      );
+      expect(mockLeaseProvider.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ keyId: "key-for-google", provider: "google" }),
+        "ok",
+        expect.anything(),
+        expect.any(BigInt)
       );
 
       // Verify UpstreamClient call arguments
@@ -362,7 +371,7 @@ describe("CascadeRouter", () => {
       expect(callArgs.apiKey).toBe("key-for-google");
     });
 
-    it("calculates cost in fixed-point microdollars using ModelRegistry when upstream returns 0n", async () => {
+    it("calculates cost using ModelRegistry when upstream returns 0n and settles lease", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce({
         content: "Exact cost calculation",
         model: "gemini-2.0-flash",
@@ -380,7 +389,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -389,12 +399,8 @@ describe("CascadeRouter", () => {
         stream: false,
       });
 
-      // Gemini 2.0 Flash:
-      // prompt: 1000 * 100_000 / 1_000_000 = 100 microdollars
-      // completion: 500 * 400_000 / 1_000_000 = 200 microdollars
-      // total = 300 microdollars
       expect(response.costMicrodollars).toBe(300n);
-      expect(mockKeyPool.recordUsage).toHaveBeenCalledWith("key-for-google", 300n);
+      expect(mockLeaseProvider.settle).toHaveBeenCalledTimes(1);
     });
 
     it("handles streaming passthrough mode cleanly", async () => {
@@ -413,7 +419,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -425,30 +432,39 @@ describe("CascadeRouter", () => {
       expect(response.content).toBe("");
       expect(response.costMicrodollars).toBe(0n);
       expect(response.response?.body).toBeDefined();
+      expect(response.lease?.keyId).toBe("key-for-google");
     });
 
-    it("prioritizes self-key routing when tenantId is supplied and key exists", async () => {
+    it("sets isSelfKey from lease.source (private/own_community vs borrowed)", async () => {
+      mockLeaseProvider.acquire.mockResolvedValueOnce({
+        leaseId: "lease-borrowed-1",
+        keyId: "key-lender-1",
+        provider: "google",
+        ownerTenantId: "lender-tenant",
+        source: "borrowed",
+      });
       mockUpstreamClient.chat.mockResolvedValueOnce(
-        createSuccessfulChatResponse("gemini-2.0-flash", "google", "Self key response")
+        createSuccessfulChatResponse("gemini-2.0-flash", "google", "Borrowed key response")
       );
 
       const router = new CascadeRouter({
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       const response = await router.route({
         modelAlias: "smart-fast",
-        messages: [{ role: "user", content: "Self key test" }],
+        messages: [{ role: "user", content: "Borrowed key test" }],
         stream: false,
-        tenantId: "tenant-123",
+        tenantId: "borrower-123",
       });
 
-      expect(response.content).toBe("Self key response");
-      expect(response.isSelfKey).toBe(true);
-      expect(mockKeyPool.getKey).toHaveBeenCalledWith("google");
+      expect(response.content).toBe("Borrowed key response");
+      expect(response.isSelfKey).toBe(false);
+      expect(response.lease?.source).toBe("borrowed");
     });
   });
 
@@ -471,7 +487,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       // Request requires tools so textOnlyCheapModel is excluded from candidates
@@ -492,24 +509,33 @@ describe("CascadeRouter", () => {
       expect(response.attempts[0].modelId).toBe("gemini-2.0-flash");
       expect(response.attempts[0].error).toContain("Rate limit exceeded");
 
-      // Verify KeyPool tracking: failure recorded on google, success on openai
-      expect(mockKeyPool.recordResult).toHaveBeenCalledWith("key-for-google", false);
-      expect(mockKeyPool.recordResult).toHaveBeenCalledWith("key-for-openai", true);
-      expect(mockKeyPool.recordUsage).toHaveBeenCalledWith(
-        "key-for-openai",
-        response.costMicrodollars
+      // Verify LeaseProvider settle calls: rpm_limited on google, ok on openai
+      expect(mockLeaseProvider.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ keyId: "key-for-google" }),
+        "rpm_limited",
+        expect.anything(),
+        0n,
+        undefined
+      );
+      expect(mockLeaseProvider.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ keyId: "key-for-openai" }),
+        "ok",
+        expect.anything(),
+        expect.any(BigInt)
       );
     });
 
-    it("escalates to secondary candidate when primary key acquisition fails (circuit breaker open)", async () => {
-      // Google key acquisition fails with CircuitBreakerTrippedError
-      mockKeyPool.getKey.mockRejectedValueOnce(
-        new CircuitBreakerTrippedError("google", "Circuit open for google provider", {
-          retryAfterSeconds: 60,
-        })
-      );
-      // OpenAI key acquisition succeeds
-      mockKeyPool.getKey.mockResolvedValueOnce("key-for-openai");
+    it("escalates to secondary candidate when primary lease acquisition returns null", async () => {
+      // Google has no lease available
+      mockLeaseProvider.acquire.mockResolvedValueOnce(null);
+      // OpenAI lease acquisition succeeds
+      mockLeaseProvider.acquire.mockResolvedValueOnce({
+        leaseId: "lease-openai",
+        keyId: "key-for-openai",
+        provider: "openai",
+        ownerTenantId: "tenant-123",
+        source: "private",
+      });
 
       // OpenAI chat succeeds
       mockUpstreamClient.chat.mockResolvedValueOnce(
@@ -520,20 +546,21 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       // Request requires tools so textOnlyCheapModel is excluded
       const response = await router.route({
         modelAlias: "smart-fast",
-        messages: [{ role: "user", content: "Test circuit breaker escalation" }],
+        messages: [{ role: "user", content: "Test lease exhaustion escalation" }],
         stream: false,
         tools: [{ type: "function", function: { name: "search" } }],
       } as CascadeRouteRequest);
 
       expect(response.model).toBe("gpt-4o-mini");
       expect(response.attempts.length).toBe(1);
-      expect(response.attempts[0].error).toContain("Key acquisition failed");
+      expect(response.attempts[0].error).toContain("No lease available");
       expect(response.attempts[0].provider).toBe("google");
     });
 
@@ -558,7 +585,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
         onFallback,
       });
 
@@ -595,7 +623,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -619,7 +648,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
         maxFallbacks: 3,
       });
 
@@ -654,7 +684,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
         maxFallbacks: 1, // only 1 fallback attempt (total 2 attempts)
       });
 
@@ -779,7 +810,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
         allowMismatchEscalation: true,
       });
 
@@ -806,7 +838,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
         onSuccess,
       });
 
@@ -820,7 +853,7 @@ describe("CascadeRouter", () => {
       expect(onSuccess).toHaveBeenCalledWith(response);
     });
 
-    it("bypasses KeyPool when explicit apiKey is provided on request", async () => {
+    it("bypasses LeaseProvider when explicit apiKey is provided on request", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce(
         createSuccessfulChatResponse("gemini-2.0-flash", "google", "Custom key response")
       );
@@ -829,7 +862,8 @@ describe("CascadeRouter", () => {
         registry,
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
-        keyPool: mockKeyPool,
+        leaseProvider: mockLeaseProvider,
+        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -839,7 +873,7 @@ describe("CascadeRouter", () => {
         apiKey: "sk-explicit-user-key",
       } as CascadeRouteRequest);
 
-      expect(mockKeyPool.getKey).not.toHaveBeenCalled();
+      expect(mockLeaseProvider.acquire).not.toHaveBeenCalled();
       expect(mockUpstreamClient.chat).toHaveBeenCalledTimes(1);
       expect(mockUpstreamClient.chat.mock.calls[0][0].apiKey).toBe("sk-explicit-user-key");
       expect(response.content).toBe("Custom key response");

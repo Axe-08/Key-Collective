@@ -123,20 +123,50 @@ export async function handleReportKeyAbuse(
 
     try {
       const keyPoolNamespace = env.KEY_POOL as unknown as
-        | DurableObjectNamespaceLike
+        | {
+            idFromName?: (name: string) => DurableObjectId;
+            get?: (id: DurableObjectId) => {
+              reconcile?: (tenantId?: string) => Promise<unknown>;
+              removeKey?: (keyId: string) => Promise<void>;
+              fetch: (req: Request | string, init?: RequestInit) => Promise<Response>;
+            };
+          }
         | undefined;
-      if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function") {
+      if (keyPoolNamespace && typeof keyPoolNamespace.idFromName === "function" && typeof keyPoolNamespace.get === "function") {
         const doId = keyPoolNamespace.idFromName(revoked.tenant_id);
         const stub = keyPoolNamespace.get(doId);
-        await stub.fetch(`http://key-pool/keys/${encodeURIComponent(revoked.id)}`, {
-          method: "DELETE",
-          headers: { "x-tenant-id": revoked.tenant_id },
-        });
+        if (typeof stub.reconcile === "function") {
+          await stub.reconcile(revoked.tenant_id);
+        } else {
+          const res = await stub.fetch(`http://key-pool/keys/${encodeURIComponent(revoked.id)}`, {
+            method: "DELETE",
+            headers: { "x-tenant-id": revoked.tenant_id },
+          });
+          await res.text().catch(() => {});
+        }
       }
-    } catch {
-      // DO cleanup fallback — the D1 revocation already stands.
+    } catch (err) {
+      void err;
     }
-    // NOTE: Owner notification is added later by WP-3.2.
+
+    try {
+      const coordNs = env.POOL_COORDINATOR as
+        | {
+            idFromName?: (name: string) => DurableObjectId;
+            get?: (id: DurableObjectId) => { removeKey?: (keyId: string) => Promise<boolean> };
+          }
+        | undefined;
+      if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+        const shard = revoked.provider?.toLowerCase() === "gemini" ? "google" : (revoked.provider?.toLowerCase() || "google");
+        const coordStub = coordNs.get(coordNs.idFromName(`pool:${shard}`));
+        if (typeof coordStub.removeKey === "function") {
+          await coordStub.removeKey(revoked.id);
+        }
+      }
+    } catch (err) {
+      void err;
+    }
+    // NOTE: Owner notification is added later by WP-4.3.
   };
 
   await revokePromise();
