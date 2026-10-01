@@ -4,6 +4,7 @@
 
 import type { KeyPoolContract } from "../../../contracts/key_pool";
 import type { CascadeRouteResponse } from "../../../router/cascade/index";
+import { LeaseOrchestrator } from "../../../router/leases/orchestrator";
 import { calculateCu } from "../../../router/registry/index";
 import type { TokenUsage } from "../../../router/registry/types";
 import { createApiResponse } from "../../../types/api";
@@ -14,6 +15,8 @@ import type {
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import type { ChatHandlerDependencies } from "./types";
 import { applyKcHeaders } from "../headers";
+
+const defaultLeaseOrchestrator = new LeaseOrchestrator();
 
 export async function handleNonStreamingResponse(
   deps: ChatHandlerDependencies,
@@ -42,8 +45,18 @@ export async function handleNonStreamingResponse(
 
   // Asynchronous background task for D1 persistence and telemetry
   const postWork = async (): Promise<void> => {
-    // 1. Record key usage on tenant DO
-    if (costMicrodollars > 0n && cascadeRes.modelDef?.id) {
+    const activeLease = cascadeRes.lease;
+    if (activeLease) {
+      const leaseCtx = cascadeRes.leaseContext ?? {
+        tenantId: authContext.tenantId,
+        env,
+      };
+      const settleCu = cu > 0n ? cu : (cascadeRes.modelDef?.cuBase ?? 10n);
+      await defaultLeaseOrchestrator
+        .settle(activeLease, "ok", leaseCtx, settleCu)
+        .catch(() => {});
+    } else if (costMicrodollars > 0n && cascadeRes.modelDef?.id) {
+      // 1. Legacy: Record key usage on tenant DO
       keyPool.recordUsage(cascadeRes.modelDef.id, costMicrodollars).catch(() => {});
     }
 
@@ -51,10 +64,13 @@ export async function handleNonStreamingResponse(
     const costLedgerRepo = deps.getCostLedgerRepo(env);
     if (costLedgerRepo) {
       try {
+        const isBorrowed = activeLease?.source === "borrowed" ? 1 : 0;
+        const lenderTenantId =
+          activeLease?.source === "borrowed" ? activeLease.ownerTenantId : null;
         await costLedgerRepo.recordEvent({
           requestId: traceId,
           tenantId: authContext.tenantId,
-          keyId: cascadeRes.modelDef?.id ?? cascadeRes.model,
+          keyId: activeLease?.keyId ?? cascadeRes.modelDef?.id ?? cascadeRes.model,
           provider: cascadeRes.provider,
           modelId: cascadeRes.model,
           promptTokens: cascadeRes.usage?.promptTokens ?? 0,
@@ -62,6 +78,9 @@ export async function handleNonStreamingResponse(
           cachedTokens: cascadeRes.usage?.cachedTokens ?? 0,
           reasoningTokens: cascadeRes.usage?.reasoningTokens ?? 0,
           costMicrodollars,
+          cu: cu > 0n ? cu : undefined,
+          borrowed: isBorrowed,
+          lenderTenantId,
           latencyMs: durationMs,
           statusCode: 200,
         });

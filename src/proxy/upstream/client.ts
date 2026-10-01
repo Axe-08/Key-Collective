@@ -572,6 +572,7 @@ export class UpstreamClient {
       stream: request.stream ?? false,
       apiKey: request.apiKey,
       keyId: request.keyId,
+      recordPoolUsage: request.recordPoolUsage,
       headers: request.headers,
       timeoutMs: request.timeoutMs,
     });

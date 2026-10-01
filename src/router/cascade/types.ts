@@ -15,6 +15,12 @@ import type { UpstreamClient, UpstreamResponse } from "../../proxy/upstream/inde
 import type { StreamUsage } from "../../proxy/sse/index";
 import type { ModelDef } from "../../types/models";
 import type { FallbackAttempt } from "../../errors";
+import type {
+  Lease,
+  LeaseAcquireContext,
+  LeaseProvider,
+} from "../leases/orchestrator";
+import type { RoutingEngine } from "../leases/engine";
 
 /**
  * Extended request options accepted by CascadeRouter.
@@ -65,6 +71,8 @@ export interface CascadeRouteRequest extends RouteRequest {
   extraBodyParams?: Record<string, unknown>;
   /** Tenant ID for self-key routing */
   tenantId?: string;
+  /** Optional lease acquire context override */
+  leaseContext?: LeaseAcquireContext;
 }
 
 /**
@@ -89,6 +97,10 @@ export interface CascadeRouteResponse extends RouteResponse {
   response?: UpstreamResponse;
   /** Whether a tenant's self-provided key was utilized */
   isSelfKey?: boolean;
+  /** Active lease acquired when ROUTING_ENGINE=leases (WP-4.1) */
+  lease?: Lease;
+  /** Lease acquisition context used for downstream stream settlement */
+  leaseContext?: LeaseAcquireContext;
 }
 
 /**
@@ -103,6 +115,12 @@ export interface CascadeRouterOptions {
   upstreamClient?: UpstreamClient;
   /** KeyPoolContract instance to obtain and record keys */
   keyPool?: KeyPoolContract;
+  /** LeaseProvider instance for ROUTING_ENGINE=leases (WP-4.1) */
+  leaseProvider?: LeaseProvider;
+  /** Default LeaseAcquireContext for this router instance */
+  leaseContext?: LeaseAcquireContext;
+  /** Routing engine mode ("legacy" | "leases") */
+  routingEngine?: RoutingEngine;
   /** Maximum fallback candidate models to attempt upon failure (default: 3) */
   maxFallbacks?: number;
   /** Default fallback model candidate IDs in priority order */

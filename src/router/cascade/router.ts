@@ -189,10 +189,16 @@ export class CascadeRouter implements RouterContract {
     request: RouteRequest | CascadeRouteRequest
   ): Promise<CascadeRouteResponse> {
     const candidates = this.getCandidates(request);
+    const useLeases =
+      this.options.routingEngine === "leases" ||
+      (this.options.routingEngine === undefined && Boolean(this.options.leaseProvider));
     return executeCascadeRouting(request, candidates, {
       registry: this.registry,
       upstreamClient: this.upstreamClient,
       keyPool: this.keyPool,
+      leaseProvider: this.options.leaseProvider,
+      leaseContext: this.options.leaseContext,
+      useLeases,
       maxFallbacks: this.maxFallbacks,
       options: this.options,
       checkSelfKeyAvailable: (provider, tenantId) =>

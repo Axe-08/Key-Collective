@@ -109,6 +109,7 @@ export class ChatHandler {
         "x-kc-tenant-id": authContext.tenantId,
       },
       extraBodyParams,
+      tenantId: authContext.tenantId,
     };
 
     // 5. Execute routing via CascadeRouter (handles model alias resolution tc-06, capability filter tc-07, and context window tc-05)

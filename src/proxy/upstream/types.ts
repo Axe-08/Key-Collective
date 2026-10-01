@@ -212,6 +212,8 @@ export interface UpstreamChatRequest {
   headers?: HeadersInit | Record<string, string>;
   /** Optional timeout in milliseconds */
   timeoutMs?: number;
+  /** Whether to record success/failure and usage in KeyPool */
+  recordPoolUsage?: boolean;
   /** Additional provider-specific body parameters */
   extraBodyParams?: Record<string, unknown>;
 }
