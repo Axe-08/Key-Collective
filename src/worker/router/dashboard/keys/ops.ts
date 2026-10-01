@@ -9,6 +9,7 @@
 
 import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
 import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repository";
+import { checkProofOfLife } from "../../../../ingress/probe";
 import { decryptKey } from "../../../../durable_objects/crypto";
 import { resolvePlaintextKey, clearDecryptedKeyCache } from "../../core/key_resolver";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
@@ -16,6 +17,27 @@ import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
 
+
+
+type KeyTestStatus = "healthy" | "no_quota" | "invalid" | "unavailable";
+const PROOF_OF_LIFE_PROVIDERS = new Set(["google", "gemini", "groq"]);
+const TEST_STATUS: Record<"key_no_quota" | "key_invalid" | "provider_unavailable", KeyTestStatus> = {
+  key_no_quota: "no_quota",
+  key_invalid: "invalid",
+  provider_unavailable: "unavailable",
+};
+const KEY_STATUS_AFTER_TEST: Record<KeyTestStatus, string | null> = {
+  healthy: "HEALTHY",
+  no_quota: "COOLDOWN",
+  invalid: "QUARANTINED",
+  unavailable: null,
+};
+const TEST_MESSAGES: Record<KeyTestStatus, string> = {
+  healthy: "The provider accepted the key.",
+  no_quota: "The key works but has no quota left right now.",
+  invalid: "The provider rejected the key; it has been quarantined.",
+  unavailable: "The provider did not answer; the key was not changed.",
+};
 
 /** Key statements are scoped to the caller; the legacy "admin" tenant acts unscoped. */
 function ownerScope(tenantId: string): string | null {
@@ -144,41 +166,33 @@ export async function handleTestKey(
     masterKey
   );
 
+  // Proof of life (WP-3.6) is the truth for a key test; D-06 leaves no other provider.
+  if (!PROOF_OF_LIFE_PROVIDERS.has(row.provider)) {
+    throw new RouterError(`Key test is not configured for provider '${row.provider}'`, { statusCode: 500 });
+  }
   const testStart = Date.now();
-  let isSuccess = false;
-  let latencyMs = 0;
-  let message = "";
+  const life = await checkProofOfLife(plaintextKey, row.provider);
+  const latencyMs = Date.now() - testStart;
+  const status = "ok" in life ? "healthy" : TEST_STATUS[life.error];
 
-  if (row.provider === "google" || row.provider === "gemini") {
-    const testRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(plaintextKey)}`
-    );
-    latencyMs = Date.now() - testStart;
-    isSuccess = testRes.ok;
-    message = isSuccess
-      ? `Key verified successfully with Google Gemini in ${latencyMs}ms`
-      : `Upstream error HTTP ${testRes.status}: ${testRes.statusText}`;
-  } else if (row.provider === "groq") {
-    const testRes = await fetch("https://api.groq.com/openai/v1/models", {
-      headers: {
-        authorization: `Bearer ${plaintextKey}`,
-      },
-    });
-    latencyMs = Date.now() - testStart;
-    isSuccess = testRes.ok;
-    message = isSuccess
-      ? `Key verified successfully with Groq in ${latencyMs}ms`
-      : `Upstream error HTTP ${testRes.status}: ${testRes.statusText}`;
-  } else {
-    latencyMs = Date.now() - testStart;
-    isSuccess = true;
-    message = `Provider '${row.provider}' key syntax verified in ${latencyMs}ms`;
+  // The key's status follows the result; 'unavailable' is the provider's problem, not the
+  // key's, and a revoked key is never revived.
+  const nextStatus = KEY_STATUS_AFTER_TEST[status];
+  if (nextStatus) {
+    await env.DB.prepare(
+      "UPDATE api_keys SET status = ?, status_changed_at = ? WHERE id = ? AND status != 'REVOKED' AND status != ?"
+    )
+      .bind(nextStatus, Date.now(), keyId, nextStatus)
+      .run();
+    clearDecryptedKeyCache();
   }
 
   return Response.json({
-    success: isSuccess,
+    ok: status === "healthy",
+    success: status === "healthy",
+    status,
     latency_ms: latencyMs,
-    message,
+    message: TEST_MESSAGES[status],
   });
 }
 

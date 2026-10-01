@@ -49,7 +49,7 @@ Tick a box in the same commit that finishes the task. **Current position** is th
 - [x] T-3.7.4 Enforce project scoping, sub-cap, and archival rejection in auth middleware
 
 ### WP-3.8
-- [ ] T-3.8.1 Truthful key testing with proof-of-life probe and D1 status sync
+- [x] T-3.8.1 Truthful key testing with proof-of-life probe and D1 status sync
 
 ### WP-3.9
 - [ ] T-3.9.1 Implement typed API client methods and contracts for project and token actions
