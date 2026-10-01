@@ -60,6 +60,9 @@ export const KeyTestResponseSchema = z.object({
   success: z.boolean(),
   latency_ms: z.number(),
   message: z.string(),
+  /** Proof-of-life verdict (WP-3.8). */
+  ok: z.boolean().optional(),
+  status: z.enum(["healthy", "no_quota", "invalid", "unavailable"]).optional(),
 });
 export type KeyTestResponse = z.infer<typeof KeyTestResponseSchema>;
 
