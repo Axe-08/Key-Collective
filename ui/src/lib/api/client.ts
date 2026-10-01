@@ -19,25 +19,29 @@ export class ApiError extends Error {
 
 /**
  * Pluggable auth transport: supplies the headers `request()` merges into
- * every fetch. Phase 1 uses the bearer token from localStorage
- * (`bearerAuthTransport`). WP-3.4 will introduce a transport that instead
- * relies on `credentials: "same-origin"` plus an `x-kc-csrf` header on
- * mutations — this interface keeps that swap a drop-in.
+ * every fetch. The console authenticates with the HttpOnly `kc_session`
+ * cookie (`credentials: "same-origin"`); mutations also carry the session's
+ * CSRF token, which `GET /api/session` hands out (WP-3.4). No bearer token
+ * is ever sent from the console.
  */
 export interface AuthTransport {
-  getHeaders(): Record<string, string>;
+  getHeaders(method: string): Record<string, string>;
 }
 
-export const bearerAuthTransport: AuthTransport = {
-  getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (typeof window !== 'undefined') {
-      const token = window.localStorage.getItem('kc_auth_token');
-      if (token && token.trim().length > 0) {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
-      }
+let csrfToken: string | null = null;
+
+/** Stores the CSRF token from `GET /api/session` (null on sign-out). */
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token;
+}
+
+const MUTATIONS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export const sessionAuthTransport: AuthTransport = {
+  getHeaders(method: string): Record<string, string> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (MUTATIONS.has(method.toUpperCase()) && csrfToken) {
+      headers['x-kc-csrf'] = csrfToken;
     }
     return headers;
   },
@@ -47,14 +51,14 @@ export async function request<T>(
   schema: ZodType<T>,
   path: string,
   init?: RequestInit,
-  transport: AuthTransport = bearerAuthTransport
+  transport: AuthTransport = sessionAuthTransport
 ): Promise<T> {
   const headers = {
-    ...transport.getHeaders(),
+    ...transport.getHeaders(init?.method ?? 'GET'),
     ...(init?.headers as Record<string, string> | undefined),
   };
 
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, { ...init, headers, credentials: 'same-origin' });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({} as Record<string, unknown>));
