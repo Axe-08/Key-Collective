@@ -191,6 +191,48 @@ describe("migrations integration", () => {
     ).all<{ name: string }>();
     const colNames = (standingCols.results ?? []).map((c) => c.name);
     expect(colNames).toContain("community_debt_cu");
+
+    // Migration 0015: creates user_identities and sessions, and adds columns to users
+    const identityCols = await env.DB.prepare(
+      "PRAGMA table_info(user_identities)",
+    ).all<{ name: string }>();
+    const identityColNames = (identityCols.results ?? []).map((c) => c.name);
+    expect(identityColNames).toEqual(
+      expect.arrayContaining([
+        "user_id",
+        "provider",
+        "subject",
+        "username",
+        "email",
+        "profile_json",
+        "linked_at",
+      ]),
+    );
+
+    const sessionCols = await env.DB.prepare(
+      "PRAGMA table_info(sessions)",
+    ).all<{ name: string }>();
+    const sessionColNames = (sessionCols.results ?? []).map((c) => c.name);
+    expect(sessionColNames).toEqual(
+      expect.arrayContaining([
+        "id_hash",
+        "user_id",
+        "kind",
+        "created_at",
+        "expires_at",
+        "ip_address",
+        "user_agent",
+        "revoked_at",
+      ]),
+    );
+
+    const userCols = await env.DB.prepare(
+      "PRAGMA table_info(users)",
+    ).all<{ name: string }>();
+    const userColNames = (userCols.results ?? []).map((c) => c.name);
+    expect(userColNames).toContain("community_eligible");
+    expect(userColNames).toContain("sybil_assessed_at");
+    expect(userColNames).toContain("registration_status");
   });
 
   it("enforces append-only consent_attestations (insert succeeds, update/delete aborts)", async () => {
@@ -244,5 +286,117 @@ describe("migrations integration", () => {
         .bind("ph_with_provider", "tenant_test", "google", "ACTIVE")
         .run(),
     ).resolves.not.toThrow();
+  });
+
+  it("0015 backfills google identities and leaves auth_tokens and GitHub-only users untouched", async () => {
+    expect(names).toContain("0015_identity.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    const before0015 = migrations.filter((m) => m.name < "0015_identity.sql");
+    const m0015 = migrations.filter((m) => m.name === "0015_identity.sql");
+    expect(m0015.length).toBe(1);
+
+    await applyMigrations(env.DB, before0015);
+
+    // Seed test users: Google user, GitHub-only users
+    await env.DB.prepare(
+      "INSERT INTO users (id, email) VALUES (?, ?)",
+    ).bind("usr_goog_sub123456", "alice@example.com").run();
+
+    await env.DB.prepare(
+      "INSERT INTO users (id, email) VALUES (?, ?)",
+    ).bind("gh_987654", "bob_gh@example.com").run();
+
+    await env.DB.prepare(
+      "INSERT INTO users (id, email) VALUES (?, ?)",
+    ).bind("usr_gh_54321", "carol_gh@example.com").run();
+
+    // Seed an auth_token for the google user
+    await env.DB.prepare(`
+      INSERT INTO auth_tokens (
+        id, hash_sha256, tenant_id, encrypted_token_b64, nonce_b64,
+        budget_microdollars, spent_microdollars, allowed_providers, rpm_limit,
+        expires_at, created_at
+      ) VALUES (
+        'tok_active_test', 'hash_tok_active_test_00000000000000000000000', 'usr_goog_sub123456',
+        'ZW5jcnlwdGVk', 'bm9uY2U=', 1000000, 0, '["gemini"]', 60, NULL, '2024-05-01T00:00:00.000Z'
+      )
+    `).run();
+
+    // Apply migration 0015
+    await applyMigrations(env.DB, m0015);
+
+    // Verify user_identities backfill
+    const identities = await env.DB.prepare(
+      "SELECT user_id, provider, subject, email, profile_json FROM user_identities",
+    ).all<{ user_id: string; provider: string; subject: string; email: string; profile_json: string }>();
+
+    expect(identities.results.length).toBe(1);
+    expect(identities.results[0].user_id).toBe("usr_goog_sub123456");
+    expect(identities.results[0].provider).toBe("google");
+    expect(identities.results[0].subject).toBe("sub123456");
+    expect(identities.results[0].email).toBe("alice@example.com");
+    expect(identities.results[0].profile_json).toBe("{}");
+
+    // Verify registration_status for usr_goog_*
+    const googUser = await env.DB.prepare(
+      "SELECT id, registration_status, community_eligible, sybil_assessed_at FROM users WHERE id = ?",
+    ).bind("usr_goog_sub123456").first<{ id: string; registration_status: string; community_eligible: number; sybil_assessed_at: string | null }>();
+    expect(googUser?.registration_status).toBe("PENDING_CONSENT");
+    expect(googUser?.community_eligible).toBe(0);
+    expect(googUser?.sybil_assessed_at).toBeNull();
+
+    // Verify GitHub-only accounts are left untouched (not suspended)
+    const ghUser1 = await env.DB.prepare(
+      "SELECT id, registration_status FROM users WHERE id = ?",
+    ).bind("gh_987654").first<{ id: string; registration_status: string }>();
+    expect(ghUser1?.registration_status).toBe("PENDING_CONSENT"); // default, not SUSPENDED
+
+    const ghUser2 = await env.DB.prepare(
+      "SELECT id, registration_status FROM users WHERE id = ?",
+    ).bind("usr_gh_54321").first<{ id: string; registration_status: string }>();
+    expect(ghUser2?.registration_status).toBe("PENDING_CONSENT"); // default, not SUSPENDED
+
+    // Verify auth_tokens left untouched (not expired, revoked or deleted)
+    const token = await env.DB.prepare(
+      "SELECT id, expires_at FROM auth_tokens WHERE id = 'tok_active_test'",
+    ).first<{ id: string; expires_at: string | null }>();
+    expect(token).toBeDefined();
+    expect(token?.expires_at).toBeNull();
+
+    // Verify schema constraints
+    // 1. user_identities CHECK (provider IN ('google','github'))
+    await expect(
+      env.DB.prepare(
+        "INSERT INTO user_identities (user_id, provider, subject) VALUES (?, ?, ?)",
+      ).bind("usr_goog_sub123456", "facebook", "sub_fb").run(),
+    ).rejects.toThrow();
+
+    // 2. user_identities UNIQUE INDEX on (user_id, provider)
+    await expect(
+      env.DB.prepare(
+        "INSERT INTO user_identities (user_id, provider, subject) VALUES (?, ?, ?)",
+      ).bind("usr_goog_sub123456", "google", "sub_different").run(),
+    ).rejects.toThrow();
+
+    // 3. sessions CHECK (kind IN ('console','admin'))
+    await expect(
+      env.DB.prepare(
+        "INSERT INTO sessions (id_hash, user_id, kind, expires_at) VALUES (?, ?, ?, ?)",
+      ).bind("hash1", "usr_goog_sub123456", "invalid_kind", "2026-10-01T00:00:00Z").run(),
+    ).rejects.toThrow();
+
+    await expect(
+      env.DB.prepare(
+        "INSERT INTO sessions (id_hash, user_id, kind, expires_at) VALUES (?, ?, ?, ?)",
+      ).bind("hash1", "usr_goog_sub123456", "console", "2026-10-01T00:00:00Z").run(),
+    ).resolves.not.toThrow();
+
+    // 4. users CHECK (registration_status IN ('PENDING_CONSENT','ACTIVE','SUSPENDED'))
+    await expect(
+      env.DB.prepare(
+        "UPDATE users SET registration_status = 'BANNED' WHERE id = ?",
+      ).bind("usr_goog_sub123456").run(),
+    ).rejects.toThrow();
   });
 });
