@@ -12,6 +12,8 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { env as testEnv } from "cloudflare:test";
+import { createSession, createUser } from "../../helpers/world";
 import worker from "../../../src/worker/index";
 import { hashToken } from "../../../src/crypto";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
@@ -175,5 +177,63 @@ describe("S3: Hardened admin authentication (T-0.3.1)", () => {
     const res = await worker.fetch(req, env);
     expect(res.status).not.toBe(404);
     expect(res.status).toBeLessThan(500);
+  });
+});
+
+describe("S3: kc_admin_session on admin.* (T-3.1.4)", () => {
+  const ADMIN_EMAIL = "ops-admin@keycollective.test";
+
+  function adminEnv(): WorkerEnv {
+    return { ...(testEnv as unknown as WorkerEnv), ADMIN_EMAILS: `someone@else.test, ${ADMIN_EMAIL.toUpperCase()}` };
+  }
+
+  async function adminGet(cookie: string): Promise<number> {
+    const req = new Request("https://admin.test/api/admin/surveillance", {
+      headers: { cookie: cookie.replace("kc_session=", "kc_admin_session=") },
+    });
+    return (await worker.fetch(req, adminEnv())).status;
+  }
+
+  async function listedUser(role: string) {
+    await testEnv.DB.prepare("DELETE FROM users WHERE email = ?").bind(ADMIN_EMAIL).run();
+    return createUser({ email: ADMIN_EMAIL, role });
+  }
+
+  it("accepts an admin session for a role='admin' user listed in ADMIN_EMAILS", async () => {
+    const user = await listedUser("admin");
+    const { cookie } = await createSession(user, { kind: "admin" });
+
+    const status = await adminGet(cookie);
+
+    expect(status).not.toBe(404);
+    expect(status).toBeLessThan(500);
+  });
+
+  it("denies (404) a role='admin' user whose email is not in ADMIN_EMAILS", async () => {
+    const user = await createUser({ role: "admin" });
+    const { cookie } = await createSession(user, { kind: "admin" });
+
+    expect(await adminGet(cookie)).toBe(404);
+  });
+
+  it("denies (404) a listed email whose role is not admin", async () => {
+    const user = await listedUser("user");
+    const { cookie } = await createSession(user, { kind: "admin" });
+
+    expect(await adminGet(cookie)).toBe(404);
+  });
+
+  it("denies (404) a console session, an expired session and a revoked session", async () => {
+    const user = await listedUser("admin");
+    const consoleSession = await createSession(user, { kind: "console" });
+    const expired = await createSession(user, { kind: "admin", ttlSeconds: -60 });
+    const revoked = await createSession(user, { kind: "admin" });
+    await testEnv.DB.prepare("UPDATE sessions SET revoked_at = datetime('now') WHERE user_id = ? AND expires_at > datetime('now') AND kind = 'admin'")
+      .bind(user.id)
+      .run();
+
+    expect(await adminGet(consoleSession.cookie)).toBe(404);
+    expect(await adminGet(expired.cookie)).toBe(404);
+    expect(await adminGet(revoked.cookie)).toBe(404);
   });
 });

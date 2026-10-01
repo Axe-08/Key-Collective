@@ -5,8 +5,38 @@
 
 import { hashToken } from "../../crypto";
 import { timingSafeEqualStrings } from "../../crypto/utils";
+import { lookupSession, readCookie } from "../../auth/session/store";
 import type { WorkerEnv } from "../auth/index";
 import type { WorkerOptions } from "./types";
+
+export const ADMIN_SESSION_COOKIE = "kc_admin_session";
+
+function adminEmails(env: WorkerEnv): string[] {
+  return String(env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+}
+
+/**
+ * An admin session needs all three: a live session of kind 'admin', users.role = 'admin',
+ * and the user's email in ADMIN_EMAILS.
+ */
+async function verifyAdminSession(token: string, env: WorkerEnv): Promise<boolean> {
+  const db = (env.DB || env.D1_DB) as D1Database | undefined;
+  if (!db) return false;
+  try {
+    const session = await lookupSession(db, token);
+    return (
+      session !== null &&
+      session.kind === "admin" &&
+      session.role === "admin" &&
+      adminEmails(env).includes(session.email.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Verifies whether an incoming request to admin.* originates from an authorized administrator.
@@ -46,6 +76,11 @@ export async function verifyAdminRequest(
     if (timingSafeEqualStrings(breakGlass.trim(), adminToken.trim())) {
       return true;
     }
+  }
+
+  const adminSession = readCookie(request, ADMIN_SESSION_COOKIE);
+  if (adminSession) {
+    return verifyAdminSession(adminSession, env);
   }
 
   if (!rawToken) {
