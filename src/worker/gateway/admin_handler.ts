@@ -12,6 +12,71 @@ import { TOKENS_PER_REQUEST_ESTIMATE } from "../../constants/keys";
 import { deriveTenantKey, decrypt, hashApiKey, timingSafeEqualStrings } from "../../crypto";
 import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
 import { toEpochMs } from "../../utils/time";
+import { clearMaintenanceCache } from "./control";
+
+interface AdminActor {
+  adminUserId: string | null;
+  adminEmail: string;
+}
+
+async function getAdminActor(request: Request, db?: D1Database): Promise<AdminActor> {
+  let adminEmail = "admin@keycollective.ai";
+  let adminUserId: string | null = null;
+  const cookieHeader = request.headers.get("cookie") || "";
+  const match = cookieHeader.match(/(?:^|;\s*)kc_admin_session=([^;]+)/);
+  if (match && match[1] && db && typeof db.prepare === "function") {
+    try {
+      const row = await db
+        .prepare(
+          `SELECT s.user_id, u.email
+             FROM sessions s
+             LEFT JOIN users u ON u.id = s.user_id
+            WHERE s.token = ? AND s.kind = 'admin' AND s.revoked_at IS NULL AND s.expires_at > datetime('now')`
+        )
+        .bind(match[1])
+        .first<{ user_id: string; email: string | null }>();
+      if (row) {
+        adminUserId = row.user_id;
+        if (row.email) adminEmail = row.email;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return { adminUserId, adminEmail };
+}
+
+async function logAdminAudit(
+  db: D1Database | undefined,
+  actor: AdminActor,
+  action: string,
+  target: string,
+  details: Record<string, unknown>,
+  ipAddress: string
+): Promise<void> {
+  if (!db || typeof db.prepare !== "function") return;
+  try {
+    const id = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT INTO admin_audit_logs (id, admin_user_id, admin_email, action, target, details_json, ip_address, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        actor.adminUserId,
+        actor.adminEmail,
+        action,
+        target,
+        JSON.stringify(details),
+        ipAddress,
+        Date.now()
+      )
+      .run();
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Handles authenticated admin surveillance requests on admin.*.
@@ -74,41 +139,17 @@ export async function handleAdminRequest(
         // ignore
       }
 
-      try {
-        const auditId = crypto.randomUUID();
-        await db
-          .prepare(
-            "INSERT INTO audit_logs (id, user_id, action, ip_address, timestamp) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)"
-          )
-          .bind(
-            auditId,
-            targetTenantId,
-            `TIER_OVERRIDE:${newTier}:${reason}`,
-            request.headers.get("cf-connecting-ip") || "127.0.0.1"
-          )
-          .run();
-        auditLogged = true;
-      } catch {
-        try {
-          const auditId = crypto.randomUUID();
-          await db
-            .prepare(
-              "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
-            )
-            .bind(
-              auditId,
-              "admin@keycollective.ai",
-              "TIER_OVERRIDE",
-              targetTenantId,
-              JSON.stringify({ new_tier: newTier, reason }),
-              request.headers.get("cf-connecting-ip") || "127.0.0.1"
-            )
-            .run();
-          auditLogged = true;
-        } catch {
-          auditLogged = true;
-        }
-      }
+      const actor = await getAdminActor(request, db);
+      const clientIp = request.headers.get("cf-connecting-ip") || "127.0.0.1";
+      await logAdminAudit(
+        db,
+        actor,
+        "TIER_OVERRIDE",
+        targetTenantId,
+        { new_tier: newTier, reason },
+        clientIp
+      );
+      auditLogged = true;
     } else {
       auditLogged = true;
     }
@@ -346,84 +387,208 @@ export async function handleAdminRequest(
     return options.cors !== false ? applyCors(res) : res;
   }
 
-  // 2.8 Admin Circuit Breaker Override (POST /api/admin/circuit-breaker)
-  if (method === "POST" && pathname === "/api/admin/circuit-breaker") {
-    let body: { provider?: string; state?: 'TRIPPED' | 'CLOSED'; reason?: string; adminEmail?: string } = {};
+  // 2.75 Admin Providers Fleet Overview (GET /api/admin/providers)
+  if (method === "GET" && pathname === "/api/admin/providers") {
+    const coordNs = env.POOL_COORDINATOR as DurableObjectNamespace | undefined;
+    const providerIds: Array<{ id: "google" | "groq"; name: string }> = [
+      { id: "google", name: "Google Gemini Flash" },
+      { id: "groq", name: "Groq LLaMA 3.3" },
+    ];
+    const providersList = await Promise.all(
+      providerIds.map(async ({ id, name }) => {
+        let stats: unknown = null;
+        let override: { state: "TRIPPED" | "NORMAL"; until?: number | null; reason?: string | null } | null = null;
+        if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+          try {
+            const stub = coordNs.get(coordNs.idFromName(`pool:${id}`)) as unknown as {
+              stats?: () => Promise<unknown>;
+              getProviderOverride?: () => Promise<{ state: "TRIPPED" | "NORMAL"; until?: number | null; reason?: string | null } | null>;
+            };
+            if (typeof stub.stats === "function") {
+              stats = await stub.stats();
+            }
+            if (typeof stub.getProviderOverride === "function") {
+              override = await stub.getProviderOverride();
+            }
+          } catch {
+            // ignore
+          }
+        }
+        const isTripped = override?.state === "TRIPPED";
+        return {
+          provider: id,
+          name,
+          status: isTripped ? "tripped" : "healthy",
+          override: override ?? { state: "NORMAL" },
+          stats: stats ?? { activeKeys: 0 },
+        };
+      })
+    );
+    const res = Response.json({
+      status: "success",
+      providers: providersList,
+      timestamp: new Date().toISOString(),
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 2.8 Admin Circuit Breaker Override (POST /api/admin/circuit-breaker & POST /api/admin/providers)
+  const provOverrideMatch = pathname.match(/^\/api\/admin\/providers(?:\/([^/]+)\/override)?$/);
+  if (method === "POST" && (pathname === "/api/admin/circuit-breaker" || provOverrideMatch)) {
+    let body: {
+      provider?: string;
+      state?: "TRIPPED" | "NORMAL" | "CLOSED";
+      reason?: string;
+      until?: number;
+      adminEmail?: string;
+      adminUserId?: string;
+    } = {};
     try {
       body = (await request.json()) as typeof body;
-    } catch { /* ignore */ }
+    } catch {
+      // ignore
+    }
 
-    const provider = body.provider || 'all';
-    const state = body.state || 'CLOSED';
-    const reason = body.reason || 'Admin circuit override';
-    const adminEmail = body.adminEmail || 'admin@keycollective.ai';
+    const rawProvider = (provOverrideMatch && provOverrideMatch[1]) || body.provider || "all";
+    const normProvider = rawProvider.trim().toLowerCase();
+    const state: "TRIPPED" | "NORMAL" = body.state === "TRIPPED" ? "TRIPPED" : "NORMAL";
+    const reason =
+      body.reason || (state === "TRIPPED" ? "Admin circuit override" : "Admin circuit reset");
+    const until = body.until;
 
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
-    if (db && typeof db.prepare === "function") {
-      try {
-        const auditId = crypto.randomUUID();
-        await db
-          .prepare(
-            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
-          )
-          .bind(
-            auditId,
-            adminEmail,
-            state === 'TRIPPED' ? 'CIRCUIT_TRIP_OVERRIDE' : 'CIRCUIT_RESET_NORMAL',
-            provider.toUpperCase(),
-            JSON.stringify({ provider, state, reason }),
-            request.headers.get("cf-connecting-ip") || "127.0.0.1"
-          )
-          .run();
-      } catch { /* ignore */ }
+    const actor = await getAdminActor(request, db);
+    if (body.adminEmail) actor.adminEmail = body.adminEmail;
+    if (body.adminUserId) actor.adminUserId = body.adminUserId;
+
+    const coordNs = env.POOL_COORDINATOR as DurableObjectNamespace | undefined;
+    const targetProviders =
+      normProvider === "all"
+        ? ["google", "groq"]
+        : [normProvider === "gemini" ? "google" : normProvider];
+
+    let storedOverride: { updatedAt?: number } | null = null;
+    for (const p of targetProviders) {
+      if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+        try {
+          const stub = coordNs.get(coordNs.idFromName(`pool:${p}`)) as unknown as {
+            setProviderOverride?: (
+              s: "TRIPPED" | "NORMAL",
+              u?: number | null,
+              r?: string | null,
+              a?: string | null
+            ) => Promise<{ updatedAt?: number }>;
+          };
+          if (typeof stub.setProviderOverride === "function") {
+            storedOverride = await stub.setProviderOverride(
+              state,
+              until ?? null,
+              reason,
+              actor.adminUserId
+            );
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // Also push to KeyPoolDO for sys_operator
+      const keyPoolNs = env.KEY_POOL as DurableObjectNamespace | undefined;
+      if (keyPoolNs && typeof keyPoolNs.idFromName === "function" && typeof keyPoolNs.get === "function") {
+        try {
+          const opStub = keyPoolNs.get(keyPoolNs.idFromName("sys_operator")) as unknown as {
+            setProviderOverride?: (
+              pr: string,
+              st: "TRIPPED" | "NORMAL",
+              un?: number
+            ) => Promise<void>;
+          };
+          if (typeof opStub.setProviderOverride === "function") {
+            await opStub.setProviderOverride(p, state, until);
+          }
+        } catch {
+          // ignore
+        }
+      }
     }
+
+    const action = state === "TRIPPED" ? "CIRCUIT_TRIP_OVERRIDE" : "CIRCUIT_RESET_NORMAL";
+    const target = (targetProviders.length === 1 ? targetProviders[0] : "ALL").toUpperCase();
+    const clientIp = request.headers.get("cf-connecting-ip") || "127.0.0.1";
+    await logAdminAudit(
+      db,
+      actor,
+      action,
+      target,
+      { provider: normProvider, state, reason, until },
+      clientIp
+    );
 
     const res = Response.json({
       success: true,
-      provider,
+      provider: normProvider,
       state,
       reason,
-      timestamp: Date.now(),
+      until: until ?? null,
+      updatedAt: storedOverride?.updatedAt ?? Date.now(),
     });
     return options.cors !== false ? applyCors(res) : res;
   }
 
   // 2.9 Admin Global Kill Switch (POST /api/admin/kill-switch)
   if (method === "POST" && pathname === "/api/admin/kill-switch") {
-    let body: { active?: boolean; reason?: string; adminEmail?: string } = {};
+    let body: { active?: boolean; reason?: string; adminEmail?: string; adminUserId?: string } = {};
     try {
       body = (await request.json()) as typeof body;
-    } catch { /* ignore */ }
+    } catch {
+      // ignore
+    }
 
     const active = body.active === true;
-    const reason = body.reason || 'Admin global kill switch';
-    const adminEmail = body.adminEmail || 'admin@keycollective.ai';
+    const reason =
+      body.reason || (active ? "Admin global kill switch" : "Kill switch disarmed");
 
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
-    if (db && typeof db.prepare === "function") {
+    const actor = await getAdminActor(request, db);
+    if (body.adminEmail) actor.adminEmail = body.adminEmail;
+    if (body.adminUserId) actor.adminUserId = body.adminUserId;
+
+    let storedState: { reason?: string; since?: number } | null = null;
+    const coordNs = env.POOL_COORDINATOR as DurableObjectNamespace | undefined;
+    if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
       try {
-        const auditId = crypto.randomUUID();
-        await db
-          .prepare(
-            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
-          )
-          .bind(
-            auditId,
-            adminEmail,
-            active ? 'GLOBAL_KILL_SWITCH_ENGAGED' : 'GLOBAL_KILL_SWITCH_DISARMED',
-            'ALL_EDGE_ISOLATES',
-            JSON.stringify({ active, reason }),
-            request.headers.get("cf-connecting-ip") || "127.0.0.1"
-          )
-          .run();
-      } catch { /* ignore */ }
+        const stub = coordNs.get(coordNs.idFromName("control")) as unknown as {
+          setMaintenance?: (
+            m: boolean,
+            r?: string
+          ) => Promise<{ reason?: string; since?: number }>;
+        };
+        if (typeof stub.setMaintenance === "function") {
+          storedState = await stub.setMaintenance(active, reason);
+        }
+      } catch {
+        // ignore
+      }
     }
+
+    clearMaintenanceCache();
+
+    const action = active ? "GLOBAL_KILL_SWITCH_ENGAGED" : "GLOBAL_KILL_SWITCH_DISARMED";
+    const clientIp = request.headers.get("cf-connecting-ip") || "127.0.0.1";
+    await logAdminAudit(
+      db,
+      actor,
+      action,
+      "ALL_EDGE_ISOLATES",
+      { active, reason },
+      clientIp
+    );
 
     const res = Response.json({
       success: true,
       active,
-      reason,
-      timestamp: Date.now(),
+      reason: storedState?.reason ?? reason,
+      since: storedState?.since ?? Date.now(),
     });
     return options.cors !== false ? applyCors(res) : res;
   }
@@ -800,22 +965,16 @@ export async function handleAdminRequest(
         return options.cors !== false ? applyCors(notFoundRes) : notFoundRes;
       }
 
-      try {
-        const auditId = crypto.randomUUID();
-        await db
-          .prepare(
-            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
-          )
-          .bind(
-            auditId,
-            "admin@keycollective.ai",
-            "TENANT_QUARANTINE",
-            targetTenantId,
-            JSON.stringify({ is_quarantined: isQuar === 1, reason }),
-            request.headers.get("cf-connecting-ip") || "127.0.0.1"
-          )
-          .run();
-      } catch { /* ignore */ }
+      const actor = await getAdminActor(request, db);
+      const clientIp = request.headers.get("cf-connecting-ip") || "127.0.0.1";
+      await logAdminAudit(
+        db,
+        actor,
+        "TENANT_QUARANTINE",
+        targetTenantId,
+        { is_quarantined: isQuar === 1, reason },
+        clientIp
+      );
     }
     const res = Response.json({
       success: true,

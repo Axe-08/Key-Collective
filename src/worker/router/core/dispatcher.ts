@@ -75,28 +75,6 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
     return applyKcHeaders(res, { traceId, requestId: traceId });
   };
 
-  if (env.MIDNIGHT_FREEZE === "true" || env.MIDNIGHT_FREEZE === "1") {
-    return wrapResponse(
-      new Response(
-        JSON.stringify({
-          error: {
-            message:
-              "Service is temporarily unavailable due to a scheduled or emergency maintenance freeze (Midnight Freeze).",
-            type: "service_unavailable",
-            code: "MIDNIGHT_FREEZE",
-            statusCode: 503,
-          },
-        }),
-        {
-          status: 503,
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-          },
-        }
-      )
-    );
-  }
-
   // 1. Health check bypass
   if (pathname === "/health" || pathname === "/v1/health") {
     return wrapResponse(modelRoutes.handleHealth(startTime));

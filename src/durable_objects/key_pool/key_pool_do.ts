@@ -101,6 +101,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
   private dispatchedCommunal!: Map<string, number>;
   private keysMap!: Map<string, EncryptedKey>;
   private leasesMap!: Map<string, PrivateLeaseRecord>;
+  private providerOverrides!: Map<string, { state: "TRIPPED" | "NORMAL"; until?: number }>;
 
   constructor(
     ctx: DurableObjectState | DurableObjectStateLike,
@@ -133,6 +134,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     this.dispatchedCommunal = new Map<string, number>();
     this.keysMap = new Map<string, EncryptedKey>();
     this.leasesMap = new Map<string, PrivateLeaseRecord>();
+    this.providerOverrides = new Map<string, { state: "TRIPPED" | "NORMAL"; until?: number }>();
 
     this.clock = options?.clock ?? systemClock;
     this.timeProvider = options?.timeProvider ?? (() => this.clock.now());
@@ -869,6 +871,45 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
 
   /**
+   * Sets administrative circuit override pushed from coordinator/admin (WP-4.6, T-4.6.1).
+   */
+  public async setProviderOverride(
+    provider: string,
+    state: "TRIPPED" | "NORMAL",
+    until?: number
+  ): Promise<void> {
+    const norm = provider.trim().toLowerCase();
+    this.providerOverrides.set(norm, { state, until });
+    if (norm === "google") this.providerOverrides.set("gemini", { state, until });
+    if (norm === "gemini") this.providerOverrides.set("google", { state, until });
+    if (this.ctx.storage && typeof this.ctx.storage.put === "function") {
+      await this.ctx.storage.put(`override:${norm}`, { state, until }).catch(() => {});
+    }
+  }
+
+  /**
+   * Gets administrative circuit override for provider (WP-4.6, T-4.6.1).
+   */
+  public async getProviderOverride(
+    provider: string
+  ): Promise<{ state: "TRIPPED" | "NORMAL"; until?: number } | null> {
+    const norm = provider.trim().toLowerCase();
+    let override = this.providerOverrides.get(norm);
+    if (!override && this.ctx.storage && typeof this.ctx.storage.get === "function") {
+      override = await this.ctx.storage.get<{ state: "TRIPPED" | "NORMAL"; until?: number }>(`override:${norm}`).catch(() => undefined);
+      if (override) {
+        this.providerOverrides.set(norm, override);
+      }
+    }
+    if (!override) return null;
+    if (override.state === "TRIPPED" && override.until && this.now() >= override.until) {
+      override = { state: "NORMAL" };
+      this.providerOverrides.set(norm, override);
+    }
+    return override;
+  }
+
+  /**
    * Leases one of this tenant's PRIVATE keys (or a D-21 stranded COMMUNITY key when the
    * owner lacks communityPool rights). Applies circuit breaker and per-key RPM/RPD limits.
    */
@@ -883,6 +924,11 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     }
     if (tenantId) {
       this.assertTenant(tenantId);
+    }
+
+    const override = await this.getProviderOverride(provider);
+    if (override && override.state === "TRIPPED") {
+      return null;
     }
 
     await this.ensureLoaded();

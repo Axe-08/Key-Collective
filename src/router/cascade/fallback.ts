@@ -24,6 +24,7 @@ import type { ModelDef } from "../../types/models";
 import {
   DomainError,
   DemoUnavailableError,
+  ProviderUnavailableError,
   FallbackExhaustedError,
   ProviderRoutingError,
   type FallbackAttempt,
@@ -183,11 +184,20 @@ export async function executeCascadeRouting(
           }
         }
       } catch (leaseErr) {
-        const errMsg = leaseErr instanceof Error ? leaseErr.message : String(leaseErr);
+        const isProvUnavailable =
+          leaseErr instanceof ProviderUnavailableError ||
+          (typeof leaseErr === "object" &&
+            leaseErr !== null &&
+            (leaseErr as Record<string, unknown>).name === "ProviderUnavailableError");
+        const errMsg = isProvUnavailable
+          ? "provider_unavailable"
+          : leaseErr instanceof Error
+          ? leaseErr.message
+          : String(leaseErr);
         const attempt: FallbackAttempt = {
           provider: candidate.provider,
           modelId: candidate.id,
-          error: `Lease acquisition failed: ${errMsg}`,
+          error: isProvUnavailable ? "provider_unavailable" : `Lease acquisition failed: ${errMsg}`,
         };
         attempts.push(attempt);
         context.options.onFallback?.(attempt, nextCandidate);
@@ -351,6 +361,22 @@ export async function executeCascadeRouting(
   // 9. All candidate routes exhausted
   if (reqOptions.tenantId === "sys_demo") {
     throw new DemoUnavailableError();
+  }
+  const provUnavailableAttempt = attempts.find(
+    (a) =>
+      a.error === "provider_unavailable" ||
+      a.error.includes("provider_unavailable")
+  );
+  if (
+    provUnavailableAttempt &&
+    attempts.every(
+      (a) =>
+        a.error === "provider_unavailable" ||
+        a.error.includes("provider_unavailable") ||
+        a.error.startsWith("No lease available")
+    )
+  ) {
+    throw new ProviderUnavailableError(provUnavailableAttempt.provider);
   }
   throw new FallbackExhaustedError(
     attempts,

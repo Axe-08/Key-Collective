@@ -470,3 +470,37 @@ export function isDemoUnavailableError(value: unknown): value is DemoUnavailable
       (value as Record<string, unknown>).name === "DemoUnavailableError")
   );
 }
+
+/**
+ * ProviderUnavailableError (HTTP 503)
+ * Thrown when an upstream provider's circuit has been tripped by an administrator override (WP-4.6).
+ */
+export class ProviderUnavailableError extends DomainError {
+  public override readonly name = "ProviderUnavailableError";
+  public readonly provider?: string;
+
+  constructor(provider?: string, message?: string) {
+    const msg =
+      message ??
+      (provider
+        ? `Provider '${provider}' is temporarily unavailable`
+        : "Provider is temporarily unavailable");
+    super(msg, {
+      statusCode: 503,
+      code: "provider_unavailable",
+      details: provider ? { provider } : undefined,
+    });
+    this.provider = provider;
+    Object.setPrototypeOf(this, ProviderUnavailableError.prototype);
+  }
+}
+
+export function isProviderUnavailableError(value: unknown): value is ProviderUnavailableError {
+  return (
+    value instanceof ProviderUnavailableError ||
+    (typeof value === "object" &&
+      value !== null &&
+      (value as Record<string, unknown>).name === "ProviderUnavailableError")
+  );
+}
+

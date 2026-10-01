@@ -9,8 +9,6 @@
  * - Strict TypeScript: No `any`, strict null checks.
  * - Real D1 execution via Cloudflare Workers Vitest Pool.
  */
-
-// @ts-expect-error - cloudflare:test provided by @cloudflare/vitest-pool-workers
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { NONCE_LENGTH_BYTES } from "../../../src/constants/crypto";

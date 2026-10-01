@@ -98,9 +98,9 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 - [x] T-4.5.1 Demo isolation: sys_operator / sys_demo, operator-only leases, excluded from economy
 
 ### WP-4.6
-- [ ] T-4.6.1 Provider override on coordinator and KeyPoolDO; /api/admin/providers
-- [ ] T-4.6.2 Kill switch (control instance, 10 s cache, 503 maintenance); MIDNIGHT_FREEZE removed
-- [ ] T-4.6.3 Audit rows + stored-state responses; admin router echo tests replaced
+- [x] T-4.6.1 Provider override on coordinator and KeyPoolDO; /api/admin/providers
+- [x] T-4.6.2 Kill switch (control instance, 10 s cache, 503 maintenance); MIDNIGHT_FREEZE removed
+- [x] T-4.6.3 Audit rows + stored-state responses; admin router echo tests replaced
 
 ## Phases 5–8
 

@@ -14,7 +14,7 @@ cd "$(git rev-parse --show-toplevel)"
 run_tests() {
   local node=() workers=()
   for f in "$@"; do
-    case "$f" in test/integration/*|test/do/*) workers+=("$f") ;; *) node+=("$f") ;; esac
+    case "$f" in test/integration/*|test/do/*|tests/admin/*) workers+=("$f") ;; *) node+=("$f") ;; esac
   done
   if ((${#node[@]})); then npx vitest run "${node[@]}"; fi
   if ((${#workers[@]})); then npx vitest run -c vitest.workers.config.ts "${workers[@]}"; fi
