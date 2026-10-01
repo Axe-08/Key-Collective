@@ -332,11 +332,14 @@ export class DashboardRouter {
       // D-21: a COMMUNITY key owner without communityPool keeps the key but stops lending it.
       // Shown on every session read until WP-4.3 adds the notifications table.
       const notices: string[] = [];
+      let rights: { privatePool: boolean; communityPool: boolean } | undefined;
       if (user && env.DB && tenantId !== "anonymous") {
+        const { privatePool, communityPool } = await loadPoolRights(env.DB, tenantId);
+        rights = { privatePool, communityPool };
         const owned = await env.DB.prepare("SELECT 1 FROM api_keys WHERE tenant_id = ? AND pool_type = 'COMMUNITY' LIMIT 1")
           .bind(tenantId)
           .first();
-        if (owned && !(await loadPoolRights(env.DB, tenantId)).communityPool) {
+        if (owned && !communityPool) {
           notices.push("Link GitHub to keep sharing your key with the community pool");
         }
       }
@@ -347,6 +350,7 @@ export class DashboardRouter {
           user,
           ...(session ? { csrfToken: session.csrfToken } : {}),
           ...(notices.length > 0 ? { notices } : {}),
+          ...(rights ? { rights } : {}),
         }),
         {
           status: 200,

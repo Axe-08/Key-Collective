@@ -42,6 +42,7 @@
   import AdminView from './lib/admin/AdminView.svelte';
   import Playground from './lib/Playground.svelte';
   import OAuthModal from './lib/OAuthModal.svelte';
+  import { fetchSession, logout, purgeLegacyStorage } from './lib/auth/session';
   import Toast from './lib/Toast.svelte';
   import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
   import ReportKeyModal from './lib/ReportKeyModal.svelte';
@@ -95,6 +96,8 @@
   let isAddModalOpen = $state(false);
   let isReportModalOpen = $state(false);
   let isOAuthModalOpen = $state(false);
+  let sessionRights = $state({ privatePool: false, communityPool: false });
+  let sessionNotices = $state<string[]>([]);
   let oauthMode = $state<'login' | 'register'>('login');
   let autoRefresh = $state(true);
   let isRefreshing = $state(false);
@@ -190,75 +193,39 @@
     addToast('success', `Authorization Tier updated to: ${tier.toUpperCase()}`);
   }
 
-  function handleSimulateLogin(
-    username: string,
-    tier: UserTier,
-    email?: string,
-    avatarUrl?: string,
-    authProvider: 'github' | 'google' | 'demo' = 'github',
-    sessionToken?: string,
-    explicitId?: string
-  ) {
-    const cleanUser = username.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'dev';
-    const deterministicId = explicitId
-      ? explicitId
-      : authProvider === 'google'
-      ? `usr_goog_${cleanUser}`
-      : authProvider === 'demo'
-      ? 'usr_demo'
-      : `usr_gh_${cleanUser}`;
-
-    const updatedUser: UserAccount = {
-      ...userAccount,
-      id: deterministicId,
-      githubUsername: username,
-      primaryEmail: email || userAccount.primaryEmail || `${cleanUser}@users.noreply.kc`,
-      avatarUrl: avatarUrl || userAccount.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(username)}`,
-      tier,
-      authProvider,
-      sybilScore: tier === 'probationary' ? 35 : tier === 'demo' ? 20 : 94,
-      updatedAt: new Date().toISOString(),
-    };
-    userAccount = updatedUser;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('kc_user', JSON.stringify(updatedUser));
-    }
-
-    if (sessionToken) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('kc_auth_token', sessionToken);
-        document.cookie = `kc_auth_token=${encodeURIComponent(sessionToken)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
+  // Identity comes only from GET /api/session (WP-3.4); nothing is kept in localStorage.
+  async function refreshSession() {
+    try {
+      const info = await fetchSession();
+      sessionRights = info.rights ?? { privatePool: false, communityPool: false };
+      sessionNotices = info.notices ?? [];
+      if (info.user) {
+        const u = info.user;
+        userAccount = {
+          ...userAccount,
+          id: u.id,
+          tier: (u.tier as UserTier) || userAccount.tier,
+          primaryEmail: u.email || '',
+          githubUsername: u.email?.split('@')[0] || u.id,
+          sybilScore: u.sybil_score ?? 0,
+          updatedAt: new Date().toISOString(),
+        };
       }
-      loadData();
-    } else {
-      // Persist real user session to D1 and obtain distinct isolated token
-      api.syncUserSession({
-        id: deterministicId,
-        email: updatedUser.primaryEmail,
-        tier,
-        authProvider,
-      }).then((res) => {
-        if (res && res.token) {
-          localStorage.setItem('kc_auth_token', res.token);
-          document.cookie = `kc_auth_token=${encodeURIComponent(res.token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
-        }
-        loadData();
-      }).catch(() => {
-        loadData();
-      });
+    } catch {
+      // Offline or server error: stay signed out.
     }
-
-    addToast('success', `Authenticated as @${username} (${tier.toUpperCase()}) via ${authProvider.toUpperCase()}`);
+    loadData();
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    await logout().catch(() => {});
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('kc_auth_token');
-      localStorage.removeItem('kc_user');
+      purgeLegacyStorage();
       localStorage.removeItem('devDisplayName');
       localStorage.removeItem('devAvatarUrl');
-      document.cookie = 'kc_auth_token=; path=/; Max-Age=0; SameSite=Lax; Secure';
     }
+    sessionRights = { privatePool: false, communityPool: false };
+    sessionNotices = [];
     userAccount = {
       id: '',
       githubId: 0,
@@ -298,31 +265,8 @@
     if (typeof window !== 'undefined') {
       proxyEndpoint = `${API_BASE_URL}/chat/completions`;
       
-      // Hydrate user session from localStorage if present
-      const savedUserStr = localStorage.getItem('kc_user');
-      if (savedUserStr) {
-        try {
-          const parsed = JSON.parse(savedUserStr);
-          if (parsed && typeof parsed === 'object' && parsed.tier) {
-            userAccount = parsed;
-            if (!localStorage.getItem('kc_auth_token') && parsed.id) {
-              api.syncUserSession({
-                id: parsed.id,
-                email: parsed.primaryEmail,
-                tier: parsed.tier,
-                authProvider: parsed.authProvider,
-              }).then((res) => {
-                if (res?.token) {
-                  localStorage.setItem('kc_auth_token', res.token);
-                  document.cookie = `kc_auth_token=${encodeURIComponent(res.token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure`;
-                }
-              });
-            }
-          }
-        } catch {
-          localStorage.removeItem('kc_user');
-        }
-      }
+      // Earlier versions kept identity and a bearer token in localStorage: delete them.
+      purgeLegacyStorage();
 
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('tab') === 'admin' || window.location.hostname.startsWith('admin.')) {
@@ -336,24 +280,8 @@
         activeTab = 'admin';
       }
 
-      // Hydrate live session state from D1 users table
-      api.getSession().then((res) => {
-        if (res?.user) {
-          const u = res.user;
-          userAccount = {
-            ...userAccount,
-            id: u.id || userAccount.id,
-            tier: (u.tier as UserTier) || userAccount.tier,
-            primaryEmail: u.email || userAccount.primaryEmail,
-            sybilScore: u.sybil_score ?? userAccount.sybilScore,
-            githubUsername: u.githubUsername || userAccount.githubUsername || u.id,
-            avatarUrl: u.avatarUrl || userAccount.avatarUrl,
-          };
-          localStorage.setItem('kc_user', JSON.stringify(userAccount));
-        }
-      }).catch(() => {});
+      void refreshSession();
     }
-    loadData();
 
     let pollIntervalId: ReturnType<typeof setInterval>;
     
@@ -391,6 +319,7 @@
   <!-- Shared Component: TopNavBar (Fixed top 0, left 0, right 0, h-14, z-50) -->
   <TopNavBar
     {stats}
+    communityPool={sessionRights.communityPool}
     {activeTab}
     onSelectTab={(tab) => (activeTab = tab as any)}
     {userAccount}
@@ -404,6 +333,13 @@
     {cuUsedToday}
     {proxyEndpoint}
   />
+
+  {#each sessionNotices as notice}
+    <div data-testid="session-notice" class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200 flex items-center justify-between gap-3">
+      <span>{notice}</span>
+      <a href="/api/auth/github/start" class="font-semibold underline">Link GitHub</a>
+    </div>
+  {/each}
 
   <!-- Shared Component: SideNavBar (Fixed top 14, left 0, bottom 0, w-64, z-40) -->
   <SideNavBar
@@ -474,7 +410,7 @@
     {#if activeTab === 'commons'}
       <PoolCommonsTab 
         tenantId={userAccount?.id || ''}
-        authToken={localStorage.getItem('kc_auth_token') || ''}
+        communityPool={sessionRights.communityPool}
       />
     {/if}
   </main>
@@ -496,10 +432,8 @@
   <!-- OAuth & Tier Selection Modal -->
   <OAuthModal
     isOpen={isOAuthModalOpen}
-    {userAccount}
     onClose={() => (isOAuthModalOpen = false)}
-    onSelectTier={handleSelectTier}
-    onSimulateLogin={handleSimulateLogin}
+    onSignedIn={() => void refreshSession()}
   />
 
   <!-- Floating Toast Notifications -->

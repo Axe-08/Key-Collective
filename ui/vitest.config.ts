@@ -24,6 +24,8 @@ export default defineConfig({
   ],
   test: {
     include: ['src/**/*.test.ts'],
+    // Interactive component tests run in vitest.dom.config.ts (client build + happy-dom).
+    exclude: ['src/**/*.dom.test.ts', '**/node_modules/**'],
     passWithNoTests: true,
     environment: 'node',
   },

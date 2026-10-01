@@ -21,6 +21,7 @@
     cuUsedToday = 0,
     proxyEndpoint = `${API_BASE_URL}/chat/completions`,
     isSettingsOpen = $bindable(false),
+    communityPool = false,
   }: {
     stats?: PoolStats;
     activeTab?: 'pool' | 'workbench' | 'docs' | 'admin' | string;
@@ -34,6 +35,7 @@
     cuUsedToday?: CU;
     proxyEndpoint?: string;
     isSettingsOpen?: boolean;
+    communityPool?: boolean;
   } = $props();
 
   import { onMount } from 'svelte';
@@ -52,10 +54,7 @@
 
   async function fetchNotifications() {
     try {
-      const headers: Record<string, string> = {};
-      const token = localStorage.getItem('kc_auth_token');
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch('/api/notifications', { headers });
+      const res = await fetch('/api/notifications', { credentials: 'same-origin' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.notifications)) {
@@ -404,6 +403,19 @@
             <option value="60s">60s</option>
           </select>
         </div>
+        {#if isLoggedIn}
+          <div data-testid="link-github-card" class="pt-2 border-t border-outline-variant/10 space-y-2">
+            <h3 class="text-[12px] font-semibold text-on-surface">Link GitHub</h3>
+            {#if communityPool}
+              <p class="text-[11px] text-on-surface-variant">GitHub linked. Sybil check passed (score {userAccount?.sybilScore ?? 0}/100): you are in the community pool.</p>
+            {:else}
+              <p class="text-[11px] text-on-surface-variant">
+                {userAccount?.sybilScore ? `Last Sybil check: ${userAccount.sybilScore}/100. ` : ''}Link a GitHub account to contribute keys to and borrow from the community pool.
+              </p>
+              <a href="/api/auth/github/start" class="inline-block px-3 py-1.5 bg-primary text-on-primary rounded-lg font-mono text-xs font-semibold">Link GitHub</a>
+            {/if}
+          </div>
+        {/if}
         <div class="pt-2 border-t border-outline-variant/10">
           <h3 class="text-[12px] font-semibold text-on-surface mb-2">Developer Profile Customization</h3>
           <div class="space-y-3">

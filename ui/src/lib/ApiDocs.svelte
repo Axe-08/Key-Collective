@@ -55,10 +55,6 @@
 
   onMount(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('kc_auth_token');
-      if (stored && stored.trim().length > 0) {
-        bearerToken = stored.trim();
-      }
       fetch(`${baseUrl}/models`)
         .then(r => r.json())
         .then(data => {

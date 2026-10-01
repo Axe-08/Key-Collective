@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { APIKey, RequestLog, PoolStats, CreateKeyPayload } from './types';
-import { request } from './api/client';
+import { request, sessionAuthTransport, setCsrfToken } from './api/client';
 import {
   KeysListResponseSchema,
   LogsListResponseSchema,
@@ -11,17 +11,9 @@ import {
 
 const DeleteKeyResponseSchema = z.unknown();
 
-function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('kc_auth_token');
-    if (token && token.trim().length > 0) {
-      headers['Authorization'] = `Bearer ${token.trim()}`;
-    }
-  }
-  return headers;
+/** Fetch options for a console call: session cookie, plus the CSRF header on mutations. */
+function sessionInit(method = 'GET'): RequestInit {
+  return { method, headers: sessionAuthTransport.getHeaders(method), credentials: 'same-origin' };
 }
 
 export const api = {
@@ -59,9 +51,7 @@ export const api = {
 
   async getAdminTenants(): Promise<{ tenants: any[]; pool?: any }> {
     try {
-      const res = await fetch('/api/admin/tenants', {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch('/api/admin/tenants', sessionInit());
       if (res.ok) {
         return await res.json();
       }
@@ -72,8 +62,7 @@ export const api = {
   async updateTenantTier(tenantId: string, newTier: string, reason?: string): Promise<boolean> {
     try {
       const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/tier`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
+        ...sessionInit('POST'),
         body: JSON.stringify({ new_tier: newTier, reason }),
       });
       return res.ok;
@@ -85,8 +74,7 @@ export const api = {
   async quarantineTenant(tenantId: string, isQuarantined: boolean, reason?: string): Promise<boolean> {
     try {
       const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/quarantine`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
+        ...sessionInit('POST'),
         body: JSON.stringify({ is_quarantined: isQuarantined, reason }),
       });
       return res.ok;
@@ -98,8 +86,7 @@ export const api = {
   async updateKeyRoutingStatus(keyId: string, status: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION', reason?: string): Promise<boolean> {
     try {
       const res = await fetch(`/api/admin/keys/${encodeURIComponent(keyId)}/routing-status`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
+        ...sessionInit('POST'),
         body: JSON.stringify({ status, reason }),
       });
       return res.ok;
@@ -111,8 +98,7 @@ export const api = {
   async updateKeyPoolMode(keyId: string, poolType: 'COMMUNITY' | 'PRIVATE'): Promise<boolean> {
     try {
       const res = await fetch(`/api/admin/keys/${encodeURIComponent(keyId)}/pool-mode`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
+        ...sessionInit('POST'),
         body: JSON.stringify({ pool_type: poolType }),
       });
       return res.ok;
@@ -124,8 +110,7 @@ export const api = {
   async adminDeleteKey(keyId: string): Promise<boolean> {
     try {
       const res = await fetch(`/api/admin/keys/${encodeURIComponent(keyId)}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
+        ...sessionInit('DELETE'),
       });
       return res.ok;
     } catch {
@@ -136,30 +121,13 @@ export const api = {
   async manageCommunityPool(action: 'ACTIVATE_ALL_OBSERVATION' | 'PURGE_QUARANTINED' | 'RESET_ALL_DEBT'): Promise<boolean> {
     try {
       const res = await fetch('/api/admin/pool/manage', {
-        method: 'POST',
-        headers: getAuthHeaders(),
+        ...sessionInit('POST'),
         body: JSON.stringify({ action }),
       });
       return res.ok;
     } catch {
       return false;
     }
-  },
-
-  async syncUserSession(user: { id: string; email?: string; tier?: string; authProvider?: string }): Promise<{ token?: string } | null> {
-    try {
-      const res = await fetch('/api/auth/sync-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // offline / error fallback
-    }
-    return null;
   },
 
   async getSession(): Promise<{
@@ -172,13 +140,15 @@ export const api = {
       githubUsername?: string;
       avatarUrl?: string;
     } | null;
+    csrfToken?: string;
+    notices?: string[];
   } | null> {
     try {
-      const res = await fetch('/api/session', {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch('/api/session', sessionInit());
       if (res.ok) {
-        return await res.json();
+        const body = await res.json();
+        setCsrfToken(body?.csrfToken ?? null);
+        return body;
       }
     } catch {
       // offline / error fallback

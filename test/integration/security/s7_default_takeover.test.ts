@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
 import { defaultMainWorker } from "../../../src/worker/index";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
-import { createUser, createApiKey } from "../../helpers/world";
+import { createUser, createSession } from "../../helpers/world";
 import { deriveTenantKey, encrypt } from "../../../src/crypto/encryption";
 import { runDefaultTakeoverForensics } from "../../../ops/s7_forensics";
 
@@ -61,7 +61,7 @@ describe("S7 Security: default-tenant takeover removed from key ops (T-0.7.1)", 
     const keyId = await seedDefaultOwnedKey();
 
     const attacker = await createUser();
-    const attackerToken = await createApiKey(attacker);
+    const { cookie: cookieAttacker, csrfToken: csrfAttacker } = await createSession(attacker);
 
     const poolReq = new Request(
       `https://console.test/api/keys/${keyId}/pool-mode`,
@@ -69,7 +69,8 @@ describe("S7 Security: default-tenant takeover removed from key ops (T-0.7.1)", 
         method: "PATCH",
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${attackerToken}`,
+          cookie: cookieAttacker,
+          "x-kc-csrf": csrfAttacker,
         },
         body: JSON.stringify({ pool_type: "PRIVATE" }),
       }
@@ -83,7 +84,8 @@ describe("S7 Security: default-tenant takeover removed from key ops (T-0.7.1)", 
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${attackerToken}`,
+          cookie: cookieAttacker,
+          "x-kc-csrf": csrfAttacker,
         },
         body: JSON.stringify({ new_key: "sk-new-secret-123" }),
       }

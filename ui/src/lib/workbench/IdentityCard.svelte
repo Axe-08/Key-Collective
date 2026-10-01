@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { sessionAuthTransport } from "../api/client";
   import type { UserAccount } from '../../../../src/contracts/v3_types';
   import type { UserIdentity } from '../../../../src/contracts/v3_5_types';
 
@@ -25,15 +26,9 @@
   let sessionIdentity = $state<UserIdentity | null>(null);
   let isLoading = $state(false);
 
+  // Session cookie travels by default (same-origin); mutations need the CSRF header (WP-3.4).
   function getAuthHeaders(): Record<string, string> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (typeof window !== 'undefined') {
-      try {
-        const token = localStorage.getItem('kc_auth_token');
-        if (token) headers['Authorization'] = `Bearer ${token.trim()}`;
-      } catch {}
-    }
-    return headers;
+    return sessionAuthTransport.getHeaders('POST');
   }
 
   async function fetchSession() {

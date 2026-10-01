@@ -129,4 +129,12 @@ describe("rights on console routes", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "github_link_required" });
   });
+
+  it("GET /api/session reports the caller's rights", async () => {
+    const googleOnly = await asUser(await createUser());
+    const eligible = await asUser(await createUser({ github: true, eligible: true }));
+
+    expect(await (await googleOnly("/api/session")).json()).toMatchObject({ rights: { privatePool: true, communityPool: false } });
+    expect(await (await eligible("/api/session")).json()).toMatchObject({ rights: { privatePool: true, communityPool: true } });
+  });
 });
