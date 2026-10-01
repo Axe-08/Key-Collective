@@ -128,8 +128,8 @@ export function handleStreamingResponse(
     const statusCode = errorOccurred ? 500 : 200;
     const activeLease = cascadeRes.lease;
 
-    // 3. Settle lease or record key usage on tenant DO
-    const keyId = activeLease?.keyId ?? cascadeRes.modelDef?.id ?? cascadeRes.model;
+    // 3. Settle lease (single accounting point)
+    const keyId = activeLease?.keyId ?? cascadeRes.keyId ?? "";
     if (activeLease) {
       const leaseCtx = cascadeRes.leaseContext ?? {
         tenantId: authContext.tenantId,
@@ -143,9 +143,9 @@ export function handleStreamingResponse(
           leaseCtx,
           settleCu
         )
-        .catch(() => {});
-    } else if (costMicrodollars > 0n && keyId) {
-      keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
+        .catch(() => {
+          // Non-blocking settlement
+        });
     }
 
     // 4. Record event to D1 Cost Ledger (Golden Test tc-02)

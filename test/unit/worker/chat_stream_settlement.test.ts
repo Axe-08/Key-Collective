@@ -32,7 +32,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
         id: "event-settlement-1",
         requestId: "trace-stream-settle",
         tenantId: "tenant-settlement-123",
-        keyId: "gemini-2.0-flash",
+        keyId: "key_gemini_settle_1",
         provider: "google",
         modelId: "gemini-2.0-flash",
         promptTokens: 10,
@@ -49,7 +49,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
     mockKeyPool = {
       recordUsage: vi.fn().mockResolvedValue(undefined),
       recordResult: vi.fn().mockResolvedValue(undefined),
-      getKey: vi.fn().mockResolvedValue("test-key"),
+      getKey: vi.fn().mockResolvedValue("key_gemini_settle_1"),
     } as unknown as KeyPoolContract;
 
     mockDeps = {
@@ -132,6 +132,13 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       attempts: [],
       usage: null,
       response: upstreamResponse,
+      lease: {
+        leaseId: "lease_priv_stream_1",
+        keyId: "key_gemini_settle_1",
+        provider: "google",
+        source: "private",
+        ownerTenantId: "tenant-settlement-123",
+      },
     };
 
     const res = handleStreamingResponse(
@@ -152,12 +159,13 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       if (done) break;
     }
 
-    // Verify settlement ran exactly once
+    // Verify settlement ran exactly once with lease.keyId
     expect(mockCostLedgerRepo.recordEvent).toHaveBeenCalledTimes(1);
     expect(mockCostLedgerRepo.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: "trace-settle-exact",
         tenantId: "tenant-settlement-123",
+        keyId: "key_gemini_settle_1",
         modelId: "gemini-2.0-flash",
         promptTokens: 15,
         completionTokens: 25,
@@ -166,12 +174,8 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       })
     );
 
-    // Verify key pool received the calculated cost
-    expect(mockKeyPool.recordUsage).toHaveBeenCalledTimes(1);
-    expect(mockKeyPool.recordUsage).toHaveBeenCalledWith(
-      "gemini-2.0-flash",
-      expect.any(BigInt)
-    );
+    // Separate recordUsage call is deleted in WP-4.2 (settlement is the single accounting point)
+    expect(mockKeyPool.recordUsage).not.toHaveBeenCalled();
   });
 
   it("settles exactly once with estimated tokens and usage_estimated = 1 when stream has no usage chunk", async () => {
@@ -218,6 +222,13 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       attempts: [],
       usage: null,
       response: upstreamResponse,
+      lease: {
+        leaseId: "lease_priv_stream_2",
+        keyId: "key_gemini_settle_1",
+        provider: "google",
+        source: "private",
+        ownerTenantId: "tenant-settlement-123",
+      },
     };
 
     const res = handleStreamingResponse(
@@ -244,6 +255,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       expect.objectContaining({
         requestId: "trace-settle-estimated",
         tenantId: "tenant-settlement-123",
+        keyId: "key_gemini_settle_1",
         modelId: "gemini-2.0-flash",
         promptTokens: 20,
         completionTokens: 8,
@@ -252,7 +264,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       })
     );
 
-    expect(mockKeyPool.recordUsage).toHaveBeenCalledTimes(1);
+    expect(mockKeyPool.recordUsage).not.toHaveBeenCalled();
   });
 
   it("settles exactly once with partial usage and usage_estimated = 1 on client abort mid-stream without duplicating on cancel/flush", async () => {
@@ -296,6 +308,13 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       attempts: [],
       usage: null,
       response: upstreamResponse,
+      lease: {
+        leaseId: "lease_priv_stream_3",
+        keyId: "key_gemini_settle_1",
+        provider: "google",
+        source: "private",
+        ownerTenantId: "tenant-settlement-123",
+      },
     };
 
     const res = handleStreamingResponse(
@@ -335,16 +354,13 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       expect.objectContaining({
         requestId: "trace-settle-abort",
         tenantId: "tenant-settlement-123",
+        keyId: "key_gemini_settle_1",
         promptTokens: 12,
         completionTokens: 4,
         usage_estimated: 1,
       })
     );
 
-    expect(mockKeyPool.recordUsage).toHaveBeenCalledTimes(1);
-    expect(mockKeyPool.recordUsage).toHaveBeenCalledWith(
-      "gemini-2.0-flash",
-      expect.any(BigInt)
-    );
+    expect(mockKeyPool.recordUsage).not.toHaveBeenCalled();
   });
 });

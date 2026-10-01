@@ -101,6 +101,8 @@ export interface CascadeRouteResponse extends RouteResponse {
   lease?: Lease;
   /** Lease acquisition context used for downstream stream settlement */
   leaseContext?: LeaseAcquireContext;
+  /** Resolved key ID used for upstream dispatch */
+  keyId?: string;
 }
 
 /**

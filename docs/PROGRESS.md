@@ -83,7 +83,7 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 - [x] T-4.1.7 Legacy tests migrated (Appendix B list)
 
 ### WP-4.2
-- [ ] T-4.2.1 Ledger and settle use lease.keyId; recordUsage calls removed; key_id must match ^key_
+- [x] T-4.2.1 Ledger and settle use lease.keyId; recordUsage calls removed; key_id must match ^key_
 
 ### WP-4.3
 - [ ] T-4.3.1 Upstream outcome classifier (classify.ts) with per-row tests

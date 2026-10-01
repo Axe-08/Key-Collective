@@ -1356,7 +1356,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       await repo.recordEvent({
         requestId: "req_rec_1",
         tenantId: TENANT_A,
-        keyId: "k1",
+        keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
         promptTokens: 100,
@@ -1369,7 +1369,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       await repo.recordEvent({
         requestId: "req_rec_2",
         tenantId: TENANT_A,
-        keyId: "k1",
+        keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
         promptTokens: 200,
@@ -1382,7 +1382,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       await repo.recordEvent({
         requestId: "req_rec_3",
         tenantId: TENANT_A,
-        keyId: "k2",
+        keyId: "key_2",
         provider: "google",
         modelId: "gemini-2.0-flash",
         promptTokens: 500,
@@ -1422,7 +1422,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       await repo.recordEvent({
         requestId: "req_c1",
         tenantId: TENANT_A,
-        keyId: "k1",
+        keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
         costMicrodollars: 100n,
@@ -1432,7 +1432,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       await repo.recordEvent({
         requestId: "req_c2",
         tenantId: TENANT_A,
-        keyId: "k1",
+        keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
         costMicrodollars: 100n,
