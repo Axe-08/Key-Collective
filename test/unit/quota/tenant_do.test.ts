@@ -7,7 +7,7 @@ import {
   toCu,
   calculateMultiplierCeiling,
   determineJailStatus,
-  processDailyDebtReset,
+  nightlyReset,
 } from '../../../src/quota/tenant/index';
 import { DurableObjectStorageLike } from '../../../src/durable_objects/circuit_breaker';
 import { TenantIsolationError } from '../../../src/errors/auth_errors';
@@ -595,7 +595,7 @@ describe('src/quota/tenant_do.ts', () => {
       expect(determineJailStatus(0n, 450)).toBe('PRISTINE');
     });
 
-    it('processes daily debt reset with integer decay', () => {
+    it('processes nightly debt reset with integer decay and 7-day trust', () => {
       // Non-trusted contributor: 20% integer decay (debt - debt*20/100)
       const state1 = {
         communityDebtCu: 100n,
@@ -604,10 +604,11 @@ describe('src/quota/tenant_do.ts', () => {
         consecutiveDebtFreeDays: 5,
         multiplierCeiling: 100,
       };
-      const res1 = processDailyDebtReset(state1);
+      const res1 = nightlyReset(state1);
       expect(res1.communityDebtCu).toBe(80n);
       expect(res1.consecutiveDebtFreeDays).toBe(0);
-      expect(res1.dailyContributedCu).toBe(0n);
+      // Sliding-window contribution is not reset by nightlyReset
+      expect(res1.dailyContributedCu).toBe(50n);
 
       // Integer truncation with non-round number: 33n * 20 / 100 = 660 / 100 = 6n; 33n - 6n = 27n
       const state2 = {
@@ -617,7 +618,7 @@ describe('src/quota/tenant_do.ts', () => {
         consecutiveDebtFreeDays: 0,
         multiplierCeiling: 100,
       };
-      const res2 = processDailyDebtReset(state2);
+      const res2 = nightlyReset(state2);
       expect(res2.communityDebtCu).toBe(27n);
 
       // Trusted contributor: 30% integer decay (debt - debt*30/100)
@@ -625,29 +626,29 @@ describe('src/quota/tenant_do.ts', () => {
         communityDebtCu: 100n,
         dailyContributedCu: 0n,
         trustedContributor: true,
-        consecutiveDebtFreeDays: 35,
+        consecutiveDebtFreeDays: 10,
         multiplierCeiling: 100,
       };
-      const res3 = processDailyDebtReset(state3);
+      const res3 = nightlyReset(state3);
       expect(res3.communityDebtCu).toBe(70n);
       expect(res3.trustedContributor).toBe(false); // resets after debt
       expect(res3.consecutiveDebtFreeDays).toBe(0);
 
-      // Debt free day increment
+      // Debt free day increment -> 7 days grants trusted status
       const state4 = {
         communityDebtCu: 0n,
         dailyContributedCu: 100n,
         trustedContributor: false,
-        consecutiveDebtFreeDays: 30,
+        consecutiveDebtFreeDays: 6,
         multiplierCeiling: 450,
       };
-      const res4 = processDailyDebtReset(state4);
+      const res4 = nightlyReset(state4);
       expect(res4.communityDebtCu).toBe(0n);
-      expect(res4.consecutiveDebtFreeDays).toBe(31);
-      expect(res4.trustedContributor).toBe(true); // > 30 consecutive days
+      expect(res4.consecutiveDebtFreeDays).toBe(7);
+      expect(res4.trustedContributor).toBe(true); // >= 7 consecutive days
     });
 
-    it('invokes alarm to run daily debt reset and update state', async () => {
+    it('invokes alarm across midnight to run nightly debt reset and update state', async () => {
       const doInstance = new TenantQuotaDO(mockState, {}, {
         timeProvider: () => currentTime,
       });
@@ -655,6 +656,7 @@ describe('src/quota/tenant_do.ts', () => {
       await doInstance.accrueDebt(100n);
       expect(doInstance.getCommunityDebtCu()).toBe(100n);
 
+      currentTime += 86_400_000;
       await doInstance.alarm();
       // 100n decays by 20% -> 80n
       expect(doInstance.getCommunityDebtCu()).toBe(80n);

@@ -462,5 +462,36 @@ describe("migrations integration", () => {
       last_reset_day: null,
     });
   });
+
+  it("0020 creates standing_history table with composite primary key (tenant_id, day)", async () => {
+    expect(names).toContain("0020_standing_history.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations.filter((m) => m.name <= "0020_standing_history.sql"));
+
+    await env.DB.prepare(
+      "INSERT INTO standing_history (tenant_id, day, multiplier_pct, debt_cu, contributed_cu_24h, jail_status) VALUES ('t_hist_1', '2026-10-01', 450, 0, 1200, 'PRISTINE')",
+    ).run();
+
+    const row = await env.DB.prepare(
+      "SELECT tenant_id, day, multiplier_pct, debt_cu, contributed_cu_24h, jail_status FROM standing_history WHERE tenant_id = 't_hist_1' AND day = '2026-10-01'",
+    ).first<{
+      tenant_id: string;
+      day: string;
+      multiplier_pct: number;
+      debt_cu: number;
+      contributed_cu_24h: number;
+      jail_status: string;
+    }>();
+
+    expect(row).toEqual({
+      tenant_id: "t_hist_1",
+      day: "2026-10-01",
+      multiplier_pct: 450,
+      debt_cu: 0,
+      contributed_cu_24h: 1200,
+      jail_status: "PRISTINE",
+    });
+  });
 });
 
