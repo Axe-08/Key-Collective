@@ -258,6 +258,7 @@ export class DemoDO implements DurableObject {
       allowed: true,
       status: 200,
       message: "Request allowed",
+      tenantId: "sys_demo",
       rateLimit,
     };
   }

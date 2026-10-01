@@ -114,6 +114,7 @@ export interface CheckAndConsumeResult {
   allowed: boolean;
   status: number;
   message: string;
+  tenantId?: string;
   retryAfterSeconds?: number;
   rateLimit?: DemoRateLimitResult;
 }

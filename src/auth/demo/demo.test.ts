@@ -185,6 +185,7 @@ describe("Demo Subsystem (src/auth/demo)", () => {
       const res = await demoDO.checkAndConsume("10.0.0.1", token);
       expect(res.allowed).toBe(true);
       expect(res.status).toBe(200);
+      expect(res.tenantId).toBe("sys_demo");
     });
   });
 });
