@@ -102,6 +102,66 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 - [x] T-4.6.2 Kill switch (control instance, 10 s cache, 503 maintenance); MIDNIGHT_FREEZE removed
 - [x] T-4.6.3 Audit rows + stored-state responses; admin router echo tests replaced
 
-## Phases 5–8
+## Phase 5 — Commons economy (observe first)
 
-Not carded yet. Before each phase, write a plan like docs/PHASE4_PLAN.md, then the same loop.
+Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
+
+### WP-5.1
+- [ ] T-5.1.1 Enforcement module (src/pool/enforcement.ts, COMMONS_ENFORCEMENT switch, recordWouldDeny, WorkerEnv types)
+- [ ] T-5.1.2 Admin would-deny endpoint (GET /api/admin/commons/would-deny)
+
+### WP-5.2
+- [ ] T-5.2.1 Migration 0018_anti_cycling.sql (api_keys.anti_cycling_until)
+- [ ] T-5.2.2 Coordinator alarm promotes observation keys to D1 and notifies owner
+- [ ] T-5.2.3 Anti-cycling tier (FR-18) on key submission with tombstoned project
+
+### WP-5.3
+- [ ] T-5.3.1 Migration 0019_standing.sql (contributor_standing columns)
+- [ ] T-5.3.2 TenantQuotaDO credit-first and sliding-window 24h contribution buckets
+- [ ] T-5.3.3 Standing mirror to D1 on TenantQuotaDO dirty alarm
+- [ ] T-5.3.4 Live standing and contribution endpoints (/api/pool/standing, /api/pool/contribution)
+
+### WP-5.4
+- [ ] T-5.4.1 Migration 0020_standing_history.sql (standing_history table)
+- [ ] T-5.4.2 Rewrite processDailyDebtReset to nightlyReset (7-day trust, integer decay, catch-up)
+
+### WP-5.5
+- [ ] T-5.5.1 Migration 0021_key_daily_stats.sql (key_daily_stats table, api_keys.drain_state)
+- [ ] T-5.5.2 Coordinator dispatch counters in settle; delete dead dispatch stubs
+- [ ] T-5.5.3 Hero/parasite and drain classification (D-16) on RPD exhaustion
+- [ ] T-5.5.4 Midnight stats flush from coordinator to key_daily_stats
+
+### WP-5.6
+- [ ] T-5.6.1 Remove pre-dispatch brake and report-volume calls
+- [ ] T-5.6.2 Surge brake in coordinator lease(ownOnly=false) with 5-minute window
+
+### WP-5.7
+- [ ] T-5.7.1 Eye-for-eye check requiring active community key in shard
+- [ ] T-5.7.2 Cold-start share cap (FR-12) based on owner trailing 24h CU
+
+### WP-5.8
+- [ ] T-5.8.1 Provider reset config in src/providers/config.ts (dailyResetTz, nextProviderReset)
+- [ ] T-5.8.2 Jittered reactivate_at on RPD cooldown
+- [ ] T-5.8.3 Leaky-bucket retry near provider reset window in orchestrator
+
+### WP-5.9
+- [ ] T-5.9.1 Passive contributor canary in KeyPoolDO midnight alarm via checkProofOfLife
+
+### WP-5.10
+- [ ] T-5.10.1 Coordinator hourly stats (capacity utilisation, p90 latency, w_provider_pct)
+- [ ] T-5.10.2 Truthful telemetry endpoints (/api/pool/telemetry, get_keys, contribution)
+
+### WP-5.11
+- [ ] T-5.11.1 Migration 0022_project_hash_vesting.sql (vesting_started_at)
+- [ ] T-5.11.2 Soft delete, 30-min resubmission window, vesting inheritance
+- [ ] T-5.11.3 Tombstone lifecycle and project-preserving key rotation
+
+### WP-5.12
+- [ ] T-5.12.1 calculateMultiplierPct with vesting_cap, debt_cap, band_cap
+- [ ] T-5.12.2 Quota evaluator effective_limit scaling with multiplier
+- [ ] T-5.12.3 Quota jail enforcement, Flow F body, notice header, would-deny logging
+
+## Phases 6–8
+
+Not carded yet. Before each phase, write a plan like docs/PHASE4_PLAN.md / docs/PHASE5_PLAN.md, then the same loop.
+
