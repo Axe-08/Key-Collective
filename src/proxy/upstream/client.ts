@@ -284,7 +284,12 @@ export class UpstreamClient {
       clearTimeout(timeoutTimer);
 
       // Record failure on KeyPool if configured
-      if (this.keyPool && keyId && request.recordPoolUsage !== false) {
+      if (
+        this.keyPool &&
+        typeof this.keyPool.recordResult === "function" &&
+        keyId &&
+        request.recordPoolUsage !== false
+      ) {
         await this.keyPool.recordResult(keyId, false).catch(() => {});
       }
 
@@ -327,7 +332,12 @@ export class UpstreamClient {
       const errorText = await rawResponse.text().catch(() => "");
 
       // Record failure on KeyPool if configured
-      if (this.keyPool && keyId && request.recordPoolUsage !== false) {
+      if (
+        this.keyPool &&
+        typeof this.keyPool.recordResult === "function" &&
+        keyId &&
+        request.recordPoolUsage !== false
+      ) {
         await this.keyPool.recordResult(keyId, false).catch(() => {});
       }
 
@@ -368,7 +378,12 @@ export class UpstreamClient {
         },
         onDone: () => {
           // Record success and calculated cost upon completion
-          if (this.keyPool && keyId && request.recordPoolUsage !== false) {
+          if (
+            this.keyPool &&
+            typeof this.keyPool.recordResult === "function" &&
+            keyId &&
+            request.recordPoolUsage !== false
+          ) {
             this.keyPool.recordResult(keyId, true).catch(() => {});
 
             const usage = transformer.usage;
@@ -428,7 +443,12 @@ export class UpstreamClient {
     }
 
     // 8. Handle Non-Streaming Response
-    if (this.keyPool && keyId && request.recordPoolUsage !== false) {
+    if (
+      this.keyPool &&
+      typeof this.keyPool.recordResult === "function" &&
+      keyId &&
+      request.recordPoolUsage !== false
+    ) {
       await this.keyPool.recordResult(keyId, true).catch(() => {});
     }
 

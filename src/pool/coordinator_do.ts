@@ -638,10 +638,37 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
 
     if (keyId) {
       const norm = status.trim().toLowerCase();
+      const db = this.env.DB;
+      const hasDb = Boolean(db && typeof db.prepare === "function");
       if (norm === "key_invalid" || norm === "quarantined") {
         await this.setStatus(keyId, "QUARANTINED");
+        if (hasDb) {
+          await db!
+            .prepare(
+              "UPDATE api_keys SET status = 'QUARANTINED', status_changed_at = ? WHERE id = ? AND status != 'REVOKED'"
+            )
+            .bind(now, keyId)
+            .run();
+        }
       } else if (norm === "rpd_exhausted" || norm === "rpm_limited" || norm === "cooldown") {
         await this.setStatus(keyId, "COOLDOWN", until ?? now + 60_000);
+        if (hasDb) {
+          await db!
+            .prepare(
+              "UPDATE api_keys SET status = 'COOLDOWN', status_changed_at = ? WHERE id = ? AND status != 'REVOKED'"
+            )
+            .bind(now, keyId)
+            .run();
+        }
+      } else if (norm === "ok") {
+        if (hasDb) {
+          await db!
+            .prepare(
+              "UPDATE api_keys SET status = 'HEALTHY', status_changed_at = ? WHERE id = ? AND status = 'COOLDOWN'"
+            )
+            .bind(now, keyId)
+            .run();
+        }
       }
     }
 

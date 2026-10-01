@@ -87,7 +87,7 @@ Protocol, pitfalls and task details: `docs/PHASE4_PLAN.md`. Phase 3 staging walk
 
 ### WP-4.3
 - [x] T-4.3.1 Upstream outcome classifier (classify.ts) with per-row tests
-- [ ] T-4.3.2 Outcomes settle key state + D1 status; breaker timing; 400 without fallback; recordResult/recordStatusCode removed
+- [x] T-4.3.2 Outcomes settle key state + D1 status; breaker timing; 400 without fallback; recordResult/recordStatusCode removed
 - [ ] T-4.3.3 Migration 0017 notifications; GET/POST notification routes; takedown and key_invalid notifications
 
 ### WP-4.4
