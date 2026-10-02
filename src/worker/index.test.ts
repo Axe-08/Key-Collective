@@ -109,6 +109,23 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       };
     }
 
+    // SELECT FROM SESSIONS
+    if (q.includes("SELECT") && q.includes("FROM SESSIONS S")) {
+      return {
+        results: [
+          {
+            user_id: "usr_builder_01",
+            kind: "console",
+            expires_at: "2099-01-01T00:00:00Z",
+            email: "builder@keycollective.ai",
+            role: "user",
+          },
+        ] as unknown as T[],
+        success: true,
+        meta: { duration: 1 } as unknown as D1Meta & Record<string, unknown>,
+      };
+    }
+
     // SELECT FROM USERS
     if (q.includes("SELECT") && q.includes("USERS")) {
       let matched: any = null;
@@ -411,7 +428,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
     it("routes /api/keys on console.* to routerHandler instead of returning SPA html", async () => {
       const req = new Request("https://console.key-col.axe08.tech/api/keys", {
         method: "GET",
-        headers: { host: "console.key-col.axe08.tech", authorization: `Bearer ${builderToken}` },
+        headers: { host: "console.key-col.axe08.tech", cookie: "kc_session=builder-session" },
       });
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(200);

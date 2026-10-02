@@ -58,13 +58,6 @@ export async function handleConsoleRequest(
     headers.set("Pragma", "no-cache");
     headers.set("Expires", "0");
 
-    const queryToken = url.searchParams.get("token") || url.searchParams.get("admin_token");
-    if (queryToken) {
-      headers.append(
-        "Set-Cookie",
-        `kc_auth_token=${encodeURIComponent(queryToken)}; Path=/; SameSite=Lax; Secure; HttpOnly`
-      );
-    }
     return new Response(res.body, {
       status: res.status,
       statusText: res.statusText,

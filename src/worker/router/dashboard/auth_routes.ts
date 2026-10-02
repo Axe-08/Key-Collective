@@ -141,10 +141,6 @@ export async function handleGoogleAuth(
 
   const headers = new Headers({ "content-type": "application/json; charset=utf-8" });
   headers.append("Set-Cookie", buildSessionCookie(session.token));
-  headers.append(
-    "Set-Cookie",
-    `kc_auth_token=${encodeURIComponent(token)}; path=/; Max-Age=2592000; SameSite=Lax; Secure; HttpOnly`
-  );
   return new Response(
     JSON.stringify({
       success: true,
