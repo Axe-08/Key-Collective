@@ -2010,6 +2010,24 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       this.setMeta("hourly_stats_json", JSON.stringify(st));
     }
 
+    // Expire ROTATING project hashes into TOMBSTONED after 30 minutes (WP-5.11 T-5.11.3)
+    if (this.env?.DB && typeof this.env.DB.prepare === "function") {
+      await this.env.DB.prepare(
+        `UPDATE project_hash_registry
+            SET state = 'TOMBSTONED',
+                tombstone_until = rotating_until + ?,
+                updated_at = ?
+          WHERE state = 'ROTATING'
+            AND rotating_until IS NOT NULL
+            AND rotating_until <= ?`
+      )
+        .bind(14 * 86_400_000, now, now)
+        .run()
+        .catch((err) => {
+          void err;
+        });
+    }
+
     // Reconcile against D1 every 5 minutes when a D1 binding and provider are present
     const lastReconcile = Number(this.getMeta("last_reconcile_ms") ?? "0");
     const knownProvider = this.getMeta("provider");

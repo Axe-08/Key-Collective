@@ -795,8 +795,38 @@ export class ApiKeyRepository {
   async replaceSecret(
     id: string,
     tenantId: string | null,
-    secret: { ciphertextB64: string; nonceB64: string; keyPrefix: string; keySuffix: string }
+    secret: {
+      ciphertextB64: string;
+      nonceB64: string;
+      keyPrefix: string;
+      keySuffix: string;
+      keyHash?: string;
+    }
   ): Promise<boolean> {
+    if (secret.keyHash !== undefined) {
+      const row = await this.db
+        .prepare(
+          `${this.scoped(
+            "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ?, key_hash = ? WHERE id = ?",
+            tenantId
+          )} RETURNING id`
+        )
+        .bind(
+          ...this.scopedBind(
+            [
+              secret.ciphertextB64,
+              secret.nonceB64,
+              secret.keyPrefix,
+              secret.keySuffix,
+              secret.keyHash,
+              id,
+            ],
+            tenantId
+          )
+        )
+        .first<{ id: string }>();
+      return row !== null;
+    }
     const row = await this.db
       .prepare(
         `${this.scoped(

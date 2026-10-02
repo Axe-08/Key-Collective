@@ -724,8 +724,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       if (
         k.tenantId === this.tenantId &&
         k.poolType === "COMMUNITY" &&
-        k.status !== "REVOKED" &&
-        k.status !== "QUARANTINED"
+        k.status !== "REVOKED"
       ) {
         if (!candidateMap.has(k.id)) {
           candidateMap.set(k.id, { keyId: k.id, provider: k.provider, label: k.label });
@@ -765,6 +764,21 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
         continue;
       }
 
+      const localKeyBefore = this.keysMap.get(keyId);
+      let wasAlreadyQuarantined = localKeyBefore?.status === "QUARANTINED";
+      let projectHash: string | null = null;
+      if (hasDb) {
+        const d1KeyBefore = await db!
+          .prepare("SELECT status, provider_project_hash FROM api_keys WHERE id = ?")
+          .bind(keyId)
+          .first<{ status: string; provider_project_hash: string | null }>()
+          .catch(() => null);
+        if (d1KeyBefore?.status === "QUARANTINED") {
+          wasAlreadyQuarantined = true;
+        }
+        projectHash = d1KeyBefore?.provider_project_hash ?? null;
+      }
+
       await this.ctx.storage.put<string>(canaryKey, todayDay).catch(() => {});
 
       const probe = await checkProofOfLife(rawKey, provider);
@@ -788,7 +802,57 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
             .catch(() => {});
         }
       } else if ("error" in probe && probe.error === "key_invalid") {
-        // Quarantine flow: coordinator, D1 api_keys, local map, and owner notification
+        if (wasAlreadyQuarantined) {
+          // Repeated 401 after canary -> permanent revocation & TOMBSTONED directly (WP-5.11 T-5.11.3)
+          if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+            const coordStub = coordNs.get(coordNs.idFromName(`pool:${canonProv}`)) as unknown as {
+              removeKey?(keyId: string): Promise<boolean>;
+              setStatus?(keyId: string, status: string): Promise<boolean>;
+            };
+            if (typeof coordStub.removeKey === "function") {
+              await coordStub.removeKey(keyId).catch(() => false);
+            } else if (typeof coordStub.setStatus === "function") {
+              await coordStub.setStatus(keyId, "REVOKED").catch(() => false);
+            }
+          }
+
+          const localKey = this.keysMap.get(keyId);
+          if (localKey) {
+            localKey.status = "REVOKED";
+            localKey.cooldownUntil = null;
+            this.keysMap.delete(keyId);
+            this.keySelector.removeKey(keyId);
+            await this.persistKeys();
+          }
+
+          if (hasDb) {
+            await db!
+              .prepare(
+                "UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ?, status_changed_at = ? WHERE id = ?"
+              )
+              .bind(now, now, keyId)
+              .run()
+              .catch(() => {});
+
+            if (projectHash) {
+              await db!
+                .prepare(
+                  `UPDATE project_hash_registry
+                      SET state = 'TOMBSTONED',
+                          rotating_until = NULL,
+                          tombstone_until = ?,
+                          updated_at = ?
+                    WHERE project_hash = ?`
+                )
+                .bind(now + 14 * 86_400_000, now, projectHash)
+                .run()
+                .catch(() => {});
+            }
+          }
+          continue;
+        }
+
+        // First 401 -> Quarantine flow: coordinator, D1 api_keys, local map, and owner notification
         if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
           const coordStub = coordNs.get(coordNs.idFromName(`pool:${canonProv}`)) as unknown as {
             setStatus?(keyId: string, status: string): Promise<boolean>;

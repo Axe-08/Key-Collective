@@ -421,6 +421,11 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
         ) VALUES (?, ?, 'To Rotate', 'groq', 'Y2lwaGVy', 'bm9uY2U=', 'gsk_old_', 'old_', 30, 1000, 1, 'HEALTHY', 'PRIVATE', ?)
       `).bind(keyId, tenantId, Date.now()).run();
 
+      fetchMock
+        .get("https://api.groq.com")
+        .intercept({ path: "/openai/v1/chat/completions", method: "POST" })
+        .reply(200, "{}");
+
       const newKey = "gsk_fresh_secret_rotated_key_9999";
       const request = new Request(`https://api.test/api/keys/${keyId}/rotate`, {
         method: "POST",

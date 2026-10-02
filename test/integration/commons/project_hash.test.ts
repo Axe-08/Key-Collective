@@ -1,11 +1,14 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { env, fetchMock } from "cloudflare:test";
+import { env, fetchMock, runInDurableObject } from "cloudflare:test";
 import { defaultMainWorker } from "../../../src/worker/index";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
-import { handleDeleteKey } from "../../../src/worker/router/dashboard/keys/ops";
+import { handleDeleteKey, handleRotateKeySecret } from "../../../src/worker/router/dashboard/keys/ops";
+import { PoolCoordinatorDO } from "../../../src/pool/coordinator_do";
+import { KeyPoolDO } from "../../../src/durable_objects/key_pool/key_pool_do";
 import { createSession, createUser } from "../../helpers/world";
 
 let scenarioProject = "777888999000";
+let proofOfLifeStatus = 200;
 
 beforeAll(() => {
   fetchMock.activate();
@@ -40,7 +43,11 @@ beforeAll(() => {
   fetchMock
     .get("https://generativelanguage.googleapis.com")
     .intercept({ path: /:generateContent$/, method: "POST" })
-    .reply(200, "{}", json)
+    .reply(() => ({
+      statusCode: proofOfLifeStatus,
+      data: proofOfLifeStatus === 200 ? "{}" : JSON.stringify({ error: { message: "API key not valid" } }),
+      responseOptions: json,
+    }))
     .persist();
 });
 
@@ -270,3 +277,199 @@ describe("WP-5.11 T-5.11.2 — Soft delete and 30-minute resubmission window", (
     expect(acceptedAfter14d.status).toBe(201);
   });
 });
+
+describe("WP-5.11 T-5.11.3 — Tombstone lifecycle and project-preserving key rotation", () => {
+  it("POST /api/keys/:id/rotate rejects key from another project with 409 project_mismatch and succeeds on same project preserving vesting", async () => {
+    proofOfLifeStatus = 200;
+    const owner = await createUser({ github: true, eligible: true });
+    const projectA = `proj-rot-same-${Date.now()}`;
+    const projectB = `proj-rot-diff-${Date.now()}`;
+    scenarioProject = projectA;
+
+    const initialKey = googleKey();
+    const res1 = await submitAs(owner, {
+      provider: "google",
+      key: initialKey,
+      k1: true,
+      k2: true,
+      pool_type: "COMMUNITY",
+    });
+    expect(res1.status).toBe(201);
+    const { id: keyId } = (await res1.json()) as { id: string };
+
+    const originalVesting = Date.now() - 20 * 3_600_000;
+    await env.DB.prepare("UPDATE api_keys SET created_at = ? WHERE id = ?")
+      .bind(originalVesting, keyId)
+      .run();
+
+    const beforeRow = await env.DB.prepare(
+      "SELECT key_hash, key_prefix, key_suffix, created_at, provider_project_hash FROM api_keys WHERE id = ?"
+    )
+      .bind(keyId)
+      .first<{
+        key_hash: string;
+        key_prefix: string;
+        key_suffix: string;
+        created_at: number;
+        provider_project_hash: string;
+      }>();
+
+    // 1. Rotate with a key from another GCP project -> 409 project_mismatch
+    scenarioProject = projectB;
+    const wrongProjectKey = googleKey();
+    const masterKey =
+      (env as unknown as { KC_MASTER_KEY?: string }).KC_MASTER_KEY ||
+      "test-master-key-please-rotate";
+
+    const mismatchRes = await handleRotateKeySecret(
+      `/api/keys/${keyId}/rotate`,
+      new Request(`https://console.test/api/keys/${keyId}/rotate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ new_key: wrongProjectKey }),
+      }),
+      env as unknown as WorkerEnv,
+      owner.id,
+      masterKey
+    );
+    expect(mismatchRes.status).toBe(409);
+    const mismatchBody = (await mismatchRes.json()) as { error: string };
+    expect(mismatchBody.error).toBe("project_mismatch");
+
+    // Verify original key hash and prefix are untouched
+    const afterMismatchRow = await env.DB.prepare(
+      "SELECT key_hash, key_prefix FROM api_keys WHERE id = ?"
+    )
+      .bind(keyId)
+      .first<{ key_hash: string; key_prefix: string }>();
+    expect(afterMismatchRow?.key_hash).toBe(beforeRow?.key_hash);
+    expect(afterMismatchRow?.key_prefix).toBe(beforeRow?.key_prefix);
+
+    // 2. Rotate with a key from the same GCP project -> 200, updates key_hash & prefix/suffix, preserves created_at
+    scenarioProject = projectA;
+    const sameProjectNewKey = googleKey();
+    const okRes = await handleRotateKeySecret(
+      `/api/keys/${keyId}/rotate`,
+      new Request(`https://console.test/api/keys/${keyId}/rotate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ new_key: sameProjectNewKey }),
+      }),
+      env as unknown as WorkerEnv,
+      owner.id,
+      masterKey
+    );
+    expect(okRes.status).toBe(200);
+
+    const afterOkRow = await env.DB.prepare(
+      "SELECT key_hash, key_prefix, key_suffix, created_at, provider_project_hash FROM api_keys WHERE id = ?"
+    )
+      .bind(keyId)
+      .first<{
+        key_hash: string;
+        key_prefix: string;
+        key_suffix: string;
+        created_at: number;
+        provider_project_hash: string;
+      }>();
+    expect(afterOkRow?.key_hash).not.toBe(beforeRow?.key_hash);
+    expect(afterOkRow?.key_prefix).toBe(sameProjectNewKey.slice(0, 8));
+    expect(afterOkRow?.key_suffix).toBe(sameProjectNewKey.slice(-4));
+    expect(afterOkRow?.created_at).toBe(originalVesting);
+    expect(afterOkRow?.provider_project_hash).toBe(beforeRow?.provider_project_hash);
+  });
+
+  it("Coordinator alarm transitions expired ROTATING rows into TOMBSTONED, and repeated 401 after canary transitions directly to TOMBSTONED", async () => {
+    proofOfLifeStatus = 200;
+    const owner = await createUser({ github: true, eligible: true });
+    scenarioProject = `proj-alarm-tomb-${Date.now()}`;
+
+    const res1 = await submitAs(owner, {
+      provider: "google",
+      key: googleKey(),
+      k1: true,
+      k2: true,
+      pool_type: "COMMUNITY",
+    });
+    expect(res1.status).toBe(201);
+    const { id: key1Id } = (await res1.json()) as { id: string };
+
+    const key1Row = await env.DB.prepare(
+      "SELECT provider_project_hash FROM api_keys WHERE id = ?"
+    )
+      .bind(key1Id)
+      .first<{ provider_project_hash: string }>();
+    const projectHash1 = key1Row!.provider_project_hash;
+
+    await handleDeleteKey(`/api/keys/${key1Id}`, env as unknown as WorkerEnv, owner.id);
+
+    const futureNow = Date.UTC(2030, 8, 1, 12, 0, 0);
+    const expiredRotatingUntil = futureNow - 120_000;
+    await env.DB.prepare(
+      "UPDATE project_hash_registry SET rotating_until = ? WHERE project_hash = ?"
+    )
+      .bind(expiredRotatingUntil, projectHash1)
+      .run();
+
+    const coordStub = env.POOL_COORDINATOR.get(
+      env.POOL_COORDINATOR.idFromName("pool:google")
+    );
+    await runInDurableObject(coordStub, async (coord: PoolCoordinatorDO) => {
+      coord.setClockForTest(futureNow);
+      await coord.alarm();
+    });
+
+    const regAfterAlarm = await env.DB.prepare(
+      "SELECT state, tombstone_until FROM project_hash_registry WHERE project_hash = ?"
+    )
+      .bind(projectHash1)
+      .first<{ state: string; tombstone_until: number }>();
+    expect(regAfterAlarm?.state).toBe("TOMBSTONED");
+    expect(regAfterAlarm?.tombstone_until).toBe(expiredRotatingUntil + 14 * 86_400_000);
+
+    // Part 2: Upstream permanent revocation (repeated 401 after canary) -> TOMBSTONED directly
+    scenarioProject = `proj-canary-tomb-${Date.now()}`;
+    const res2 = await submitAs(owner, {
+      provider: "google",
+      key: googleKey(),
+      k1: true,
+      k2: true,
+      pool_type: "COMMUNITY",
+    });
+    expect(res2.status).toBe(201);
+    const { id: key2Id } = (await res2.json()) as { id: string };
+
+    const key2Row = await env.DB.prepare(
+      "SELECT provider_project_hash FROM api_keys WHERE id = ?"
+    )
+      .bind(key2Id)
+      .first<{ provider_project_hash: string }>();
+    const projectHash2 = key2Row!.provider_project_hash;
+
+    // Upstream returns 401 on canary probes
+    proofOfLifeStatus = 401;
+    const keyPoolStub = env.KEY_POOL.get(env.KEY_POOL.idFromName(owner.id));
+    await runInDurableObject(keyPoolStub, async (poolDo: KeyPoolDO) => {
+      poolDo.setClockForTest(Date.UTC(2030, 8, 2, 0, 1, 0));
+      await poolDo.reconcile(owner.id);
+      // First canary 401 -> QUARANTINED
+      await poolDo.alarm();
+
+      // Next day canary 401 (repeated 401 after canary) -> TOMBSTONED directly
+      poolDo.setClockForTest(Date.UTC(2030, 8, 3, 0, 1, 0));
+      await poolDo.alarm();
+    });
+    proofOfLifeStatus = 200;
+
+    const regAfterCanary = await env.DB.prepare(
+      "SELECT state, tombstone_until FROM project_hash_registry WHERE project_hash = ?"
+    )
+      .bind(projectHash2)
+      .first<{ state: string; tombstone_until: number }>();
+    expect(regAfterCanary?.state).toBe("TOMBSTONED");
+    expect(regAfterCanary?.tombstone_until).toBe(
+      Date.UTC(2030, 8, 3, 0, 1, 0) + 14 * 86_400_000
+    );
+  });
+});
+
