@@ -108,58 +108,10 @@ export class DashboardRouter {
       tenantId = session.userId;
     }
 
-    // 2. Legacy bearer token retired in WP-7.2 (T-7.2.1); archived to archives/src/worker/router/dashboard/bearer_auth.ts
-    let rawToken: string | undefined;
-
-    if (!session && !rawToken) {
-      const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
-      if (cookieHeader) {
-        const match = cookieHeader.match(/(?:^|;\s*)kc_auth_token=([^;]+)/);
-        if (match && match[1]) {
-          rawToken = decodeURIComponent(match[1].trim());
-        }
-      }
-    }
-
     const isAllowListed =
       (method === "GET" && pathname === "/api/session") ||
       (method === "POST" && pathname === "/api/abuse/report-key") ||
       pathname.startsWith("/api/auth/");
-
-    let authFailed = false;
-    if (rawToken) {
-      try {
-        const authReq = new Request(request.url, {
-          headers: new Headers({
-            ...Object.fromEntries(request.headers.entries()),
-            authorization: `Bearer ${rawToken}`,
-          }),
-        });
-        const authContext = await this.authMiddleware.authenticate(authReq, env);
-        tenantId = authContext.tenantId || "anonymous";
-      } catch (_err) {
-        authFailed = true;
-      }
-    }
-
-    if (authFailed) {
-      if (!isAllowListed) {
-        return new Response(
-          JSON.stringify({
-            error: {
-              message: "Invalid authorization token",
-              code: "UNAUTHORIZED",
-              statusCode: 401,
-            },
-          }),
-          {
-            status: 401,
-            headers: { "content-type": "application/json; charset=utf-8" },
-          }
-        );
-      }
-      tenantId = "anonymous";
-    }
 
     if (tenantId === "anonymous" && !isAllowListed) {
       return new Response(

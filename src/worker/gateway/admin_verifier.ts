@@ -56,16 +56,6 @@ export async function verifyAdminRequest(
     rawToken = authHeader.substring(7).trim();
   }
 
-  if (!rawToken) {
-    const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");
-    if (cookieHeader) {
-      const match = cookieHeader.match(/(?:^|;\s*)kc_auth_token=([^;]+)/);
-      if (match && match[1]) {
-        rawToken = decodeURIComponent(match[1].trim());
-      }
-    }
-  }
-
   // Break-glass admin token: accepted only via the x-kc-admin-token header,
   // and only when the request carries no Origin header (never from a browser).
   const breakGlass =

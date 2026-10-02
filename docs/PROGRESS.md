@@ -242,7 +242,7 @@ Plan: `docs/PHASE7_PLAN.md`
 ### WP-7.2
 - [x] T-7.2.1 Remove console bearer token branch
 - [x] T-7.2.2 Add maintenance route to suspend unclaimed legacy accounts
-- [ ] T-7.2.3 Archive legacy cookie-based auth token fallback
+- [x] T-7.2.3 Archive legacy cookie-based auth token fallback
 
 ### WP-7.7
 - [ ] T-7.7.1 Archive parallel storage layer

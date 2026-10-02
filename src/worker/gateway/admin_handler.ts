@@ -1221,20 +1221,6 @@ export async function handleAdminRequest(
 
     const indexUrl = new URL("/", request.url);
     assetRes = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
-
-    const queryToken = url.searchParams.get("token") || url.searchParams.get("admin_token");
-    if (queryToken) {
-      const headers = new Headers(assetRes.headers);
-      headers.append(
-        "Set-Cookie",
-        `kc_auth_token=${encodeURIComponent(queryToken)}; Path=/; SameSite=Lax; Secure; HttpOnly`
-      );
-      assetRes = new Response(assetRes.body, {
-        status: assetRes.status,
-        statusText: assetRes.statusText,
-        headers,
-      });
-    }
     return options.cors !== false ? applyCors(assetRes) : assetRes;
   }
 
