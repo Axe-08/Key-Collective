@@ -21,8 +21,10 @@ export interface TokenSummary {
   id: string;
   tenant_id: string;
   rpm_limit: number;
-  budget_microdollars: number;
-  spent_microdollars: number;
+  budget_microdollars?: number;
+  spent_microdollars?: number;
+  budget_cu?: string | null;
+  spent_cu?: string;
   created_at: string;
   expires_at: string | null;
   hash_sha256: string;
@@ -33,6 +35,7 @@ export interface TokenSummary {
 export interface CreateTokenBody {
   id?: string;
   rpm_limit?: number;
+  budget_cu?: bigint | number | string | null;
   budget_microdollars?: number | bigint;
   allowed_providers?: string[];
   expires_at?: string | null;
@@ -45,8 +48,10 @@ interface RawTokenRow {
   id: string;
   hash_sha256: string;
   tenant_id: string;
-  budget_microdollars: number;
-  spent_microdollars: number;
+  budget_cu?: string | null;
+  spent_cu?: string | null;
+  budget_microdollars?: number;
+  spent_microdollars?: number;
   allowed_providers: string;
   rpm_limit: number;
   expires_at: string | null;
@@ -206,7 +211,7 @@ export async function handleGetTokens(
     if (isAdmin && !targetTenant) {
       const result = await db
         .prepare(
-          `SELECT id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at, project_id
+          `SELECT id, hash_sha256, tenant_id, allowed_providers, rpm_limit, expires_at, created_at, project_id, budget_cu, spent_cu
            FROM auth_tokens
            ORDER BY created_at DESC`
         )
@@ -216,7 +221,7 @@ export async function handleGetTokens(
       const scopedTenant = isAdmin && targetTenant ? targetTenant : tenantId;
       const result = await db
         .prepare(
-          `SELECT id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at, project_id
+          `SELECT id, hash_sha256, tenant_id, allowed_providers, rpm_limit, expires_at, created_at, project_id, budget_cu, spent_cu
            FROM auth_tokens
            WHERE tenant_id = ?
            ORDER BY created_at DESC`
@@ -237,12 +242,16 @@ export async function handleGetTokens(
 
     const formattedTokens: TokenSummary[] = activeRows.map((row) => {
       const masked = maskHash(row.hash_sha256);
+      const budgetCu = row.budget_cu !== undefined && row.budget_cu !== null ? BigInt(row.budget_cu) : null;
+      const spentCu = row.spent_cu !== undefined && row.spent_cu !== null ? BigInt(row.spent_cu) : 0n;
       return {
         id: row.id,
         tenant_id: row.tenant_id,
         rpm_limit: Number(row.rpm_limit),
-        budget_microdollars: Number(row.budget_microdollars),
-        spent_microdollars: Number(row.spent_microdollars),
+        budget_microdollars: budgetCu !== null ? Number(budgetCu) : Number(row.budget_microdollars ?? 0),
+        spent_microdollars: Number(spentCu !== 0n ? spentCu : (row.spent_microdollars ?? 0)),
+        budget_cu: budgetCu !== null ? budgetCu.toString() : null,
+        spent_cu: spentCu.toString(),
         created_at: row.created_at,
         expires_at: row.expires_at ?? null,
         hash_sha256: masked,
@@ -347,10 +356,15 @@ export async function handlePostTokens(
       ? Math.floor(body.rpm_limit)
       : 60;
 
-  const budgetMicro =
-    typeof body.budget_microdollars === "number" || typeof body.budget_microdollars === "bigint"
-      ? Number(body.budget_microdollars)
-      : 0;
+  let budgetCu: bigint | null = null;
+  if (body.budget_cu !== undefined) {
+    budgetCu = body.budget_cu === null ? null : BigInt(body.budget_cu);
+  } else if (body.budget_microdollars !== undefined) {
+    const b = BigInt(body.budget_microdollars);
+    budgetCu = b === 0n ? null : b;
+  }
+
+  const budgetMicro = budgetCu !== null ? Number(budgetCu) : 0;
 
   const allowedProviders = Array.isArray(body.allowed_providers)
     ? JSON.stringify(body.allowed_providers)
@@ -376,14 +390,14 @@ export async function handlePostTokens(
           tenant_id,
           encrypted_token_b64,
           nonce_b64,
-          budget_microdollars,
-          spent_microdollars,
           allowed_providers,
           rpm_limit,
           expires_at,
           created_at,
-          project_id
-        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`
+          project_id,
+          budget_cu,
+          spent_cu
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0')`
       )
       .bind(
         tokenId,
@@ -391,12 +405,12 @@ export async function handlePostTokens(
         targetTenantId,
         encryptedTokenB64,
         nonceB64,
-        budgetMicro,
         allowedProviders,
         rpmLimit,
         expiresAtIso,
         createdAtIso,
-        projectId
+        projectId,
+        budgetCu !== null ? budgetCu.toString() : null
       )
       .run();
 
@@ -409,6 +423,8 @@ export async function handlePostTokens(
         rpm_limit: rpmLimit,
         budget_microdollars: budgetMicro,
         spent_microdollars: 0,
+        budget_cu: budgetCu !== null ? budgetCu.toString() : null,
+        spent_cu: "0",
         allowed_providers: Array.isArray(body.allowed_providers) ? body.allowed_providers : [],
         expires_at: expiresAtIso,
         created_at: createdAtIso,
@@ -547,9 +563,9 @@ export async function handlePlaygroundToken(env: WorkerEnv, tenantId: string): P
   const expiresAt = new Date(Date.now() + PLAYGROUND_TTL_MS).toISOString();
   await db
     .prepare(
-      `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, encrypted_token_b64, nonce_b64, budget_microdollars,
-         spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at)
-       VALUES (?, ?, ?, ?, ?, 0, 0, '[]', ?, ?, ?)`
+      `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, encrypted_token_b64, nonce_b64,
+         allowed_providers, rpm_limit, expires_at, created_at, budget_cu, spent_cu)
+       VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?, null, '0')`
     )
     .bind(id, await computeSha256(token), tenantId, ciphertextB64, nonceB64, PLAYGROUND_RPM, expiresAt, createdAt)
     .run();

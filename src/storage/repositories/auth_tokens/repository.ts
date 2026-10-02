@@ -60,6 +60,8 @@ function toAuthTokenRecord(row: AuthTokenRow): AuthTokenRecord {
       : 0n;
   return {
     ...base,
+    budgetMicrodollars: budgetCu !== undefined && budgetCu !== null ? budgetCu : base.budgetMicrodollars,
+    spentMicrodollars: spentCu !== 0n ? spentCu : base.spentMicrodollars,
     budgetCu,
     spentCu,
   };
@@ -190,6 +192,8 @@ export class AuthTokensRepository {
       if (budgetCu !== null && budgetCu < 0n) {
         throw new TypeError("budgetCu cannot be negative");
       }
+    } else if (params.budgetMicrodollars !== undefined) {
+      budgetCu = budgetMicro === 0n ? null : budgetMicro;
     }
 
     let spentCu = 0n;
@@ -201,6 +205,8 @@ export class AuthTokensRepository {
       if (spentCu < 0n) {
         throw new TypeError("spentCu cannot be negative");
       }
+    } else if (params.spentMicrodollars !== undefined) {
+      spentCu = spentMicro;
     }
 
     // 4. Rate limits & Allowed Providers
@@ -227,15 +233,13 @@ export class AuthTokensRepository {
         tenant_id,
         encrypted_token_b64,
         nonce_b64,
-        budget_microdollars,
-        spent_microdollars,
         allowed_providers,
         rpm_limit,
         expires_at,
         created_at,
         budget_cu,
         spent_cu
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const stmt = this.db.prepare(query).bind(
@@ -244,8 +248,6 @@ export class AuthTokensRepository {
       tenantId,
       encryptedTokenB64,
       nonceB64,
-      Number(budgetMicro),
-      Number(spentMicro),
       allowedProvidersJson,
       rpmLimit,
       expiresAtIso,
@@ -489,11 +491,8 @@ export class AuthTokensRepository {
       bCu = existing.budgetCu ?? null;
     }
 
-    const queryMicro = "UPDATE auth_tokens SET budget_microdollars = ? WHERE id = ? AND tenant_id = ?";
-    const res = await this.db.prepare(queryMicro).bind(Number(budget), id.trim(), tenantId.trim()).run();
-
     const queryCu = "UPDATE auth_tokens SET budget_cu = ? WHERE id = ? AND tenant_id = ?";
-    await this.db.prepare(queryCu).bind(bCu !== null ? bCu.toString() : null, id.trim(), tenantId.trim()).run();
+    const res = await this.db.prepare(queryCu).bind(bCu !== null ? bCu.toString() : null, id.trim(), tenantId.trim()).run();
 
     return (res.meta?.changes ?? 0) > 0;
   }
@@ -535,11 +534,9 @@ export class AuthTokensRepository {
       });
     }
 
-    const newSpent = existing.spentMicrodollars + spend;
-    const newSpentCu = (existing.spentCu ?? 0n) + cuSpend;
-
-    const queryMicro = "UPDATE auth_tokens SET spent_microdollars = ? WHERE id = ? AND tenant_id = ?";
-    await this.db.prepare(queryMicro).bind(Number(newSpent), id.trim(), tenantId.trim()).run();
+    const currentSpent = existing.spentCu ?? existing.spentMicrodollars ?? 0n;
+    const newSpent = currentSpent + spend;
+    const newSpentCu = (existing.spentCu ?? currentSpent) + cuSpend;
 
     const queryCu = "UPDATE auth_tokens SET spent_cu = ? WHERE id = ? AND tenant_id = ?";
     await this.db.prepare(queryCu).bind(newSpentCu.toString(), id.trim(), tenantId.trim()).run();
@@ -563,14 +560,14 @@ export class AuthTokensRepository {
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    if (params.budgetMicrodollars !== undefined) {
+    if (params.budgetMicrodollars !== undefined && params.budgetCu === undefined) {
       const b =
         typeof params.budgetMicrodollars === "bigint"
           ? params.budgetMicrodollars
           : BigInt(params.budgetMicrodollars);
       if (b < 0n) throw new TypeError("budgetMicrodollars cannot be negative");
-      updates.push("budget_microdollars = ?");
-      values.push(Number(b));
+      updates.push("budget_cu = ?");
+      values.push(b.toString());
     }
 
     if (params.budgetCu !== undefined) {

@@ -135,9 +135,9 @@ export async function handleGoogleAuth(
   const token = `kc_${tier}_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
   const tokenHash = bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", stringToBytes(token))));
   await env.DB.prepare(
-    `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, budget_microdollars, spent_microdollars, allowed_providers, rpm_limit, expires_at, created_at)
-     VALUES (?, ?, ?, ?, 0, '[]', ?, null, CURRENT_TIMESTAMP)`
-  ).bind(`tok_${crypto.randomUUID().replace(/-/g, "")}`, tokenHash, tenantId, 50_000_000, 20).run();
+    `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, budget_cu, spent_cu, allowed_providers, rpm_limit, expires_at, created_at)
+     VALUES (?, ?, ?, ?, '0', '[]', ?, null, CURRENT_TIMESTAMP)`
+  ).bind(`tok_${crypto.randomUUID().replace(/-/g, "")}`, tokenHash, tenantId, "50000000", 20).run();
 
   const headers = new Headers({ "content-type": "application/json; charset=utf-8" });
   headers.append("Set-Cookie", buildSessionCookie(session.token));
