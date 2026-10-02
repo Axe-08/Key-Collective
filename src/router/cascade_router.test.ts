@@ -194,7 +194,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
         maxFallbacks: 5,
       });
 
@@ -336,7 +335,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -390,7 +388,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -420,7 +417,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -452,7 +448,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -488,7 +483,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       // Request requires tools so textOnlyCheapModel is excluded from candidates
@@ -547,7 +541,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       // Request requires tools so textOnlyCheapModel is excluded
@@ -586,7 +579,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
         onFallback,
       });
 
@@ -624,7 +616,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       const response = await router.route({
@@ -649,7 +640,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
         maxFallbacks: 3,
       });
 
@@ -685,7 +675,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
         maxFallbacks: 1, // only 1 fallback attempt (total 2 attempts)
       });
 
@@ -811,7 +800,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
         allowMismatchEscalation: true,
       });
 
@@ -839,7 +827,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
         onSuccess,
       });
 
@@ -863,7 +850,6 @@ describe("CascadeRouter", () => {
         capabilityFilter,
         upstreamClient: mockUpstreamClient,
         leaseProvider: mockLeaseProvider,
-        routingEngine: "leases",
       });
 
       const response = await router.route({

@@ -225,7 +225,7 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.4.3 Clean normaliseKeyStatus legacy branches
 
 ### WP-7.5
-- [ ] T-7.5.1 Remove ROUTING_ENGINE switch from cascade router
+- [x] T-7.5.1 Remove ROUTING_ENGINE switch from cascade router
 - [ ] T-7.5.2 Shrink KeyPoolDO to private keys only
 - [ ] T-7.5.3 Remove ROUTING_ENGINE from wrangler.jsonc and scripts
 - [ ] T-7.5.4 Archive legacy routing tests
