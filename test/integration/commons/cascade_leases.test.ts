@@ -137,7 +137,6 @@ describe("CascadeRouter on leases (WP-4.1 T-4.1.5)", () => {
     const router = new CascadeRouter({
       keyPool: forbiddenKeyPool,
       leaseProvider: mockLeaseProvider,
-      routingEngine: "leases",
     });
 
     const res = await router.route({

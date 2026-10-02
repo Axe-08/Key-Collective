@@ -104,22 +104,6 @@ export class CascadeRouter implements RouterContract {
     return this.keyPool;
   }
 
-  /**
-   * Checks whether self-provided keys are configured for this provider & tenant.
-   */
-  public async checkSelfKeyAvailable(
-    provider: string,
-    tenantId: string
-  ): Promise<boolean> {
-    if (!this.keyPool) return false;
-    try {
-      const keyId = await this.keyPool.getKey(provider);
-      return keyId !== null && keyId !== undefined;
-    } catch {
-      return false;
-    }
-  }
-
   // =========================================================================
   // Candidate Resolution & Pre-Flight Planning
   // =========================================================================
@@ -182,9 +166,7 @@ export class CascadeRouter implements RouterContract {
     request: RouteRequest | CascadeRouteRequest
   ): Promise<CascadeRouteResponse> {
     const candidates = this.getCandidates(request);
-    const useLeases =
-      this.options.routingEngine === "leases" ||
-      (this.options.routingEngine === undefined && Boolean(this.options.leaseProvider));
+    const useLeases = Boolean(this.options.leaseProvider);
     return executeCascadeRouting(request, candidates, {
       registry: this.registry,
       upstreamClient: this.upstreamClient,

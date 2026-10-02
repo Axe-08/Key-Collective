@@ -48,7 +48,25 @@ describe("D-21: COMMUNITY keys of owners without communityPool", () => {
 
     expect(ownerKeys).toContain(stranded);
     expect(borrowerKeys).not.toContain(stranded);
-    expect(borrowerKeys).toContain(shared);
+    expect(borrowerKeys).not.toContain(shared);
+
+    const coord = env.POOL_COORDINATOR.get(
+      env.POOL_COORDINATOR.idFromName("pool:groq")
+    ) as unknown as {
+      reconcile(provider?: string): Promise<{ upserted: number; removed: number }>;
+      lease(req: {
+        tenant: string;
+        ownOnly: boolean;
+        provider: string;
+      }): Promise<{ keyId: string } | null>;
+    };
+    await coord.reconcile("groq");
+    const leased = await coord.lease({
+      tenant: borrower.id,
+      ownOnly: false,
+      provider: "groq",
+    });
+    expect(leased?.keyId).toBe(shared);
   });
 
   it("GET /api/session asks a Google-only COMMUNITY owner to link GitHub", async () => {

@@ -49,7 +49,6 @@ export default defineWorkersConfig(async () => {
               ADMIN_HOST: "admin.test",
               APEX_HOST: "apex.test",
               ADMIN_EMAILS: "admin@keycollective.ai,root@keycollective.ai",
-              ROUTING_ENGINE: process.env.ROUTING_ENGINE ?? "leases",
             },
           },
         },

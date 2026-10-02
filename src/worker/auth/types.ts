@@ -25,7 +25,6 @@ export interface WorkerEnv {
   ASSETS?: { fetch(request: Request | string): Promise<Response> };
   REPORT_WEBHOOK_SECRET?: string;
   FIREBASE_PROJECT_ID?: string;
-  ROUTING_ENGINE?: "legacy" | "leases" | string;
   COMMONS_ENFORCEMENT?: "observe" | "enforce" | string;
   COMMONS_ENFORCE_RULES?: string;
   [key: string]: unknown;

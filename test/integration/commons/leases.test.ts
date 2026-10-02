@@ -10,15 +10,12 @@
  * 4. Idempotency: calling `settle` twice with the same lease id changes counters and debt once.
  * 5. Concurrency: 50 parallel leases against a key with `rpm_limit=10` -> exactly 10 granted.
  * 6. `auto` for a tenant holding only a Groq key leases Groq directly without attempting Gemini.
- * 7. With `ROUTING_ENGINE=legacy`, routing works unchanged and the coordinator is never asked for a lease.
  * 8. D-21: A COMMUNITY key whose owner lacks `communityPool` is never returned by `lease(ownOnly=false)`.
  */
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { env, fetchMock, SELF } from "cloudflare:test";
 import { LeaseOrchestrator } from "../../../src/router/leases/orchestrator";
-import { defaultMainWorker } from "../../../src/worker/index";
-import type { WorkerEnv } from "../../../src/worker/auth/types";
 import { addProviderKey, createApiKey, createUser } from "../../helpers/world";
 
 let scenario = "ok";
@@ -484,51 +481,6 @@ describe("Lease Integration Suite (WP-4.1 T-4.1.6)", () => {
 
     const afterStats = await googleCoord.stats();
     expect(afterStats.dispatchedToday).toBe(beforeStats.dispatchedToday);
-  });
-
-  it("7. With ROUTING_ENGINE=legacy, routing passes unchanged and coordinator is never asked for a lease", async () => {
-    const legacyUser = await createUser({ github: true, eligible: true });
-    const privKey = await addProviderKey(legacyUser, {
-      provider: "groq",
-      pool: "PRIVATE",
-      plaintext: "gsk_legacy_engine_test_key_00000007",
-      rpmLimit: 10,
-    });
-    const token = await createApiKey(legacyUser);
-
-    let coordCalled = false;
-    const legacyEnv: WorkerEnv = {
-      ...(env as unknown as WorkerEnv),
-      ROUTING_ENGINE: "legacy",
-      POOL_COORDINATOR: {
-        idFromName: () => {
-          coordCalled = true;
-          throw new Error("Coordinator must not be called when ROUTING_ENGINE=legacy");
-        },
-        get: () => {
-          coordCalled = true;
-          throw new Error("Coordinator must not be called when ROUTING_ENGINE=legacy");
-        },
-      } as unknown as DurableObjectNamespace,
-    };
-
-    const req = new Request("https://api.test/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: "Legacy check" }],
-      }),
-    });
-
-    const res = await defaultMainWorker.fetch(req, legacyEnv);
-    expect(res.status).toBe(200);
-    await res.json();
-    expect(coordCalled).toBe(false);
-    expect(privKey.id).toMatch(/^key_/);
   });
 
   it("8. D-21: A COMMUNITY key whose owner lacks communityPool is never returned by lease(ownOnly=false)", async () => {
