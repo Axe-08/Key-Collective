@@ -31,7 +31,7 @@ import type { DurableObjectNamespaceLike } from "../../types";
 
 const SUBMISSIONS_PER_DAY = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ROTATION_GRACE_MS = 30 * 60 * 1000;
+const TOMBSTONE_DURATION_MS = 14 * DAY_MS;
 const KEY_CONSENT_VERSION = "v1.0";
 
 const KEY_FORMATS: Record<"google" | "groq", RegExp> = {
@@ -119,6 +119,7 @@ export async function handlePostKeys(
   // 6. GCP project (Google only).
   const now = Date.now();
   let projectHash: string | null = null;
+  let inheritedVestingStartedAt: number | null = null;
   const probe = await forceErrorGcpProbe(rawKey, body.provider);
   if (probe && "unavailable" in probe && body.pool_type === "COMMUNITY") {
     return fail(422, "project_unverifiable", `GCP project could not be verified (${probe.unavailable})`);
@@ -129,7 +130,7 @@ export async function handlePostKeys(
     projectHash = await sha256Hex(probe.projectNumber);
     const existing = await db
       .prepare(
-        "SELECT state, tenant_id, rotating_until, tombstone_until, updated_at FROM project_hash_registry WHERE project_hash = ?"
+        "SELECT state, tenant_id, rotating_until, tombstone_until, vesting_started_at, created_at, updated_at FROM project_hash_registry WHERE project_hash = ?"
       )
       .bind(projectHash)
       .first<{
@@ -137,10 +138,37 @@ export async function handlePostKeys(
         tenant_id: string;
         rotating_until: number | null;
         tombstone_until: number | null;
+        vesting_started_at?: number | null;
+        created_at?: number | null;
         updated_at?: number | null;
       }>();
     if (existing?.state === "ACTIVE") return fail(409, "project_already_registered");
-    if (existing?.state === "TOMBSTONED") {
+    if (existing?.state === "ROTATING") {
+      const rotUntil = existing.rotating_until ?? 0;
+      if (rotUntil <= now) {
+        // Expired ROTATING window transitions to TOMBSTONED for 14 days from rotating_until (WP-5.11 T-5.11.2 / T-5.11.3)
+        const tombstoneUntil = rotUntil + TOMBSTONE_DURATION_MS;
+        await db
+          .prepare(
+            "UPDATE project_hash_registry SET state = 'TOMBSTONED', tombstone_until = ?, updated_at = ? WHERE project_hash = ?"
+          )
+          .bind(tombstoneUntil, now, projectHash)
+          .run()
+          .catch(() => {});
+        if (tombstoneUntil > now) {
+          return fail(409, "project_tombstoned");
+        }
+        if (now - tombstoneUntil <= DAY_MS) {
+          antiCyclingUntil = now + ANTI_CYCLING_MS;
+        }
+      } else if (existing.tenant_id !== tenantId) {
+        return fail(409, "project_already_registered");
+      } else {
+        // In-window resubmission by owner preserves vesting
+        inheritedVestingStartedAt =
+          existing.vesting_started_at ?? existing.created_at ?? now;
+      }
+    } else if (existing?.state === "TOMBSTONED") {
       const isRecentOwnerRevocation =
         existing.tenant_id === tenantId &&
         existing.rotating_until === null &&
@@ -153,9 +181,6 @@ export async function handlePostKeys(
       } else if (now - (existing.tombstone_until ?? 0) <= DAY_MS) {
         antiCyclingUntil = now + ANTI_CYCLING_MS;
       }
-    }
-    if (existing?.state === "ROTATING" && !(existing.tenant_id === tenantId && (existing.rotating_until ?? 0) + ROTATION_GRACE_MS > now)) {
-      return fail(409, "project_already_registered");
     }
   }
 
@@ -174,6 +199,7 @@ export async function handlePostKeys(
   const community = body.pool_type === "COMMUNITY";
   const keyPrefix = rawKey.slice(0, 8);
   const keySuffix = rawKey.slice(-4);
+  const effectiveVestingStartedAt = inheritedVestingStartedAt ?? now;
 
   // 9. One atomic batch.
   const ip = request.headers.get("cf-connecting-ip");
@@ -203,19 +229,27 @@ export async function handlePostKeys(
       observationUntil: community ? now + DAY_MS : null,
       keyHash,
       providerProjectHash: projectHash,
-      createdAt: now,
+      createdAt: effectiveVestingStartedAt,
       antiCyclingUntil,
     }),
     ...(projectHash
       ? [
           db
             .prepare(
-              `INSERT INTO project_hash_registry (project_hash, tenant_id, provider, state, created_at, updated_at)
-               VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+              `INSERT INTO project_hash_registry (project_hash, tenant_id, provider, state, vesting_started_at, created_at, updated_at)
+               VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?)
                ON CONFLICT(project_hash) DO UPDATE SET tenant_id = excluded.tenant_id, provider = excluded.provider,
-                 state = 'ACTIVE', rotating_until = NULL, tombstone_until = NULL, updated_at = excluded.updated_at`
+                 state = 'ACTIVE', rotating_until = NULL, tombstone_until = NULL,
+                 vesting_started_at = excluded.vesting_started_at, updated_at = excluded.updated_at`
             )
-            .bind(projectHash, tenantId, body.provider, now, now),
+            .bind(
+              projectHash,
+              tenantId,
+              body.provider,
+              effectiveVestingStartedAt,
+              now,
+              now
+            ),
         ]
       : []),
     consent("K1"),

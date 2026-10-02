@@ -351,7 +351,7 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
       expect(projRegistryRows.results[0].tenant_id).toBe(tenantId);
     });
 
-    it("handleDeleteKey removes key from api_keys", async () => {
+    it("handleDeleteKey soft-deletes key to REVOKED in api_keys", async () => {
       const keyId = "key_to_delete_conformance";
       await env.DB.prepare(`
         INSERT INTO api_keys (
@@ -364,10 +364,13 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
       const deleteRes = await handleDeleteKey(`/api/keys/${keyId}`, workerEnv, tenantId);
       expect(deleteRes.status).toBe(200);
 
-      const checkRow = await env.DB.prepare("SELECT id FROM api_keys WHERE id = ?")
+      const checkRow = await env.DB.prepare("SELECT status, community_routing_status, revoked_at FROM api_keys WHERE id = ?")
         .bind(keyId)
-        .first();
-      expect(checkRow).toBeNull();
+        .first<{ status: string; community_routing_status: string; revoked_at: number | null }>();
+      expect(checkRow).not.toBeNull();
+      expect(checkRow?.status).toBe("REVOKED");
+      expect(checkRow?.community_routing_status).toBe("REVOKED");
+      expect(typeof checkRow?.revoked_at).toBe("number");
     });
 
     it("handlePoolMode toggles pool_type and routing status in api_keys", async () => {
@@ -417,6 +420,11 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
           pool_type, created_at
         ) VALUES (?, ?, 'To Rotate', 'groq', 'Y2lwaGVy', 'bm9uY2U=', 'gsk_old_', 'old_', 30, 1000, 1, 'HEALTHY', 'PRIVATE', ?)
       `).bind(keyId, tenantId, Date.now()).run();
+
+      fetchMock
+        .get("https://api.groq.com")
+        .intercept({ path: "/openai/v1/chat/completions", method: "POST" })
+        .reply(200, "{}");
 
       const newKey = "gsk_fresh_secret_rotated_key_9999";
       const request = new Request(`https://api.test/api/keys/${keyId}/rotate`, {

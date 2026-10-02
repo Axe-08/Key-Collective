@@ -529,5 +529,16 @@ describe("migrations integration", () => {
       classification: "HERO",
     });
   });
+
+  it("0022 adds vesting_started_at column to project_hash_registry", async () => {
+    expect(names).toContain("0022_project_hash_vesting.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations.filter((m) => m.name <= "0022_project_hash_vesting.sql"));
+
+    const cols = await env.DB.prepare("SELECT name FROM pragma_table_info('project_hash_registry')").all<{ name: string }>();
+    expect(cols.results.map((c) => c.name)).toContain("vesting_started_at");
+  });
 });
+
 

@@ -9,7 +9,7 @@
 
 import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
 import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repository";
-import { checkProofOfLife } from "../../../../ingress/probe";
+import { checkProofOfLife, forceErrorGcpProbe } from "../../../../ingress/probe";
 import { decryptKey } from "../../../../durable_objects/crypto";
 import { resolvePlaintextKey, evict } from "../../core/key_resolver";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
@@ -44,6 +44,8 @@ function ownerScope(tenantId: string): string | null {
   return tenantId === "admin" ? null : tenantId;
 }
 
+const ROTATION_WINDOW_MS = 30 * 60 * 1000;
+
 export async function handleDeleteKey(
   pathname: string,
   env: WorkerEnv,
@@ -58,14 +60,57 @@ export async function handleDeleteKey(
     throw new RouterError("Authentication required to delete keys", { statusCode: 401 });
   }
 
-  let deletedMeta: { id: string; tenant_id: string; provider: string; rpm_limit: number; rpd_limit: number } | null = null;
+  const now = Date.now();
+  let deletedMeta: {
+    id: string;
+    tenant_id: string;
+    provider: string;
+    rpm_limit: number;
+    rpd_limit: number;
+    provider_project_hash: string | null;
+    created_at: number | string | null;
+  } | null = null;
 
   if (env.DB && typeof env.DB.prepare === "function") {
     const repo = new ApiKeyRepository(env.DB);
-    deletedMeta = await repo.getCoordinatorMeta(keyId, ownerScope(tenantId));
-    const deleted = await repo.deleteScoped(keyId, ownerScope(tenantId));
-    if (!deleted && tenantId !== "admin") {
+    deletedMeta = await repo.softDeleteScoped(keyId, ownerScope(tenantId), now);
+    if (!deletedMeta && tenantId !== "admin") {
       throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
+    }
+
+    if (deletedMeta?.provider_project_hash) {
+      const existingReg = await env.DB.prepare(
+        "SELECT vesting_started_at, created_at FROM project_hash_registry WHERE project_hash = ?"
+      )
+        .bind(deletedMeta.provider_project_hash)
+        .first<{ vesting_started_at?: number | null; created_at?: number | null }>()
+        .catch(() => null);
+
+      const createdAtNum =
+        typeof deletedMeta.created_at === "number"
+          ? deletedMeta.created_at
+          : typeof deletedMeta.created_at === "string"
+          ? Date.parse(deletedMeta.created_at) || now
+          : now;
+      const vestingStartedAt =
+        existingReg?.vesting_started_at ?? createdAtNum ?? existingReg?.created_at ?? now;
+
+      await env.DB.prepare(
+        `UPDATE project_hash_registry
+            SET state = 'ROTATING',
+                rotating_until = ?,
+                vesting_started_at = ?,
+                updated_at = ?
+          WHERE project_hash = ?`
+      )
+        .bind(
+          now + ROTATION_WINDOW_MS,
+          vestingStartedAt,
+          now,
+          deletedMeta.provider_project_hash
+        )
+        .run()
+        .catch(() => {});
     }
   }
 
@@ -102,9 +147,16 @@ export async function handleDeleteKey(
     if (coordNs && typeof coordNs.idFromName === "function") {
       const providers = deletedMeta?.provider ? [deletedMeta.provider] : ["google", "groq"];
       for (const provider of providers) {
-        const coordStub = coordNs.get(coordNs.idFromName(provider));
-        if (typeof coordStub.removeKey === "function") {
-          await coordStub.removeKey(keyId);
+        const canon = provider.toLowerCase() === "gemini" ? "google" : provider.toLowerCase();
+        for (const shardName of [`pool:${canon}`, provider]) {
+          try {
+            const coordStub = coordNs.get(coordNs.idFromName(shardName));
+            if (typeof coordStub.removeKey === "function") {
+              await coordStub.removeKey(keyId);
+            }
+          } catch (err) {
+            void err;
+          }
         }
       }
     }
@@ -112,6 +164,7 @@ export async function handleDeleteKey(
     // Coordinator reconcile will clean up removed keys
   }
 
+  evict(keyId);
   return Response.json({ success: true, keyId });
 }
 
@@ -285,6 +338,11 @@ export async function handleTestKey(
   });
 }
 
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function handleRotateKeySecret(
   pathname: string,
   request: Request,
@@ -306,27 +364,127 @@ export async function handleRotateKeySecret(
     throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { new_key?: string };
-  const rawKey = body.new_key?.trim();
+  const body = (await request.json().catch(() => ({}))) as { new_key?: string; key?: string };
+  const rawKey = (body.new_key ?? body.key)?.trim();
   if (!rawKey) {
     throw new RouterError("New key string is required", { statusCode: 400 });
   }
 
-  const targetTenantId = tenantId;
+  const scope = ownerScope(tenantId);
+  const existingRow =
+    scope === null
+      ? await env.DB.prepare(
+          "SELECT id, tenant_id, provider, pool_type, provider_project_hash, created_at FROM api_keys WHERE id = ? AND upper(status) != 'REVOKED'"
+        )
+          .bind(keyId)
+          .first<{
+            id: string;
+            tenant_id: string;
+            provider: string;
+            pool_type: string | null;
+            provider_project_hash: string | null;
+            created_at: number | string | null;
+          }>()
+      : await env.DB.prepare(
+          "SELECT id, tenant_id, provider, pool_type, provider_project_hash, created_at FROM api_keys WHERE id = ? AND tenant_id = ? AND upper(status) != 'REVOKED'"
+        )
+          .bind(keyId, scope)
+          .first<{
+            id: string;
+            tenant_id: string;
+            provider: string;
+            pool_type: string | null;
+            provider_project_hash: string | null;
+            created_at: number | string | null;
+          }>();
+
+  if (!existingRow) {
+    throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
+  }
+
+  const repo = new ApiKeyRepository(env.DB);
+  const keyHash = await sha256Hex(rawKey);
+  if (await repo.existsByHash(keyHash)) {
+    return Response.json({ error: "key_already_registered" }, { status: 409 });
+  }
+
+  const normProv = existingRow.provider.toLowerCase() === "gemini" ? "google" : existingRow.provider.toLowerCase();
+  if (normProv === "google") {
+    const probe = await forceErrorGcpProbe(rawKey, "google");
+    if (probe && "projectNumber" in probe) {
+      const newProjectHash = await sha256Hex(probe.projectNumber);
+      if (
+        existingRow.provider_project_hash &&
+        existingRow.provider_project_hash !== newProjectHash
+      ) {
+        return Response.json(
+          {
+            error: "project_mismatch",
+            message: "Rotated key must belong to the same GCP project",
+          },
+          { status: 409 }
+        );
+      }
+    } else if (probe && "unavailable" in probe && existingRow.pool_type === "COMMUNITY") {
+      return Response.json(
+        { error: "project_unverifiable", message: `GCP project could not be verified (${probe.unavailable})` },
+        { status: 422 }
+      );
+    }
+  }
+
+  if (PROOF_OF_LIFE_PROVIDERS.has(existingRow.provider.toLowerCase())) {
+    const life = await checkProofOfLife(rawKey, existingRow.provider);
+    if ("error" in life) {
+      if (life.error === "provider_unavailable") {
+        return Response.json(
+          { error: "provider_unavailable", message: "Upstream provider did not respond to proof of life" },
+          { status: 503 }
+        );
+      }
+      return Response.json({ error: life.error }, { status: 400 });
+    }
+  }
+
+  const targetTenantId = existingRow.tenant_id || tenantId;
   const tenantKey = await deriveTenantKey(masterKey as string | Uint8Array, targetTenantId);
   const { ciphertextB64, nonceB64 } = await encrypt(rawKey, tenantKey);
 
   const keyPrefix = rawKey.slice(0, 8);
   const keySuffix = rawKey.slice(-4);
 
-  const rotated = await new ApiKeyRepository(env.DB).replaceSecret(keyId, ownerScope(tenantId), {
+  const rotated = await repo.replaceSecret(keyId, scope, {
     ciphertextB64,
     nonceB64,
     keyPrefix,
     keySuffix,
+    keyHash,
   });
   if (!rotated) {
     throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
+  }
+
+  if (existingRow.provider_project_hash) {
+    const now = Date.now();
+    const vestingStart =
+      typeof existingRow.created_at === "number"
+        ? existingRow.created_at
+        : typeof existingRow.created_at === "string"
+        ? Date.parse(existingRow.created_at) || now
+        : now;
+    await env.DB.prepare(
+      `UPDATE project_hash_registry
+          SET state = 'ACTIVE',
+              rotating_until = NULL,
+              vesting_started_at = COALESCE(vesting_started_at, ?),
+              updated_at = ?
+        WHERE project_hash = ?`
+    )
+      .bind(vestingStart, now, existingRow.provider_project_hash)
+      .run()
+      .catch((err) => {
+        void err;
+      });
   }
 
   evict(keyId);
@@ -337,4 +495,5 @@ export async function handleRotateKeySecret(
     key_suffix: keySuffix,
   });
 }
+
 
