@@ -121,10 +121,10 @@
         </div>
         <div class="flex items-baseline gap-2 mt-1">
           <span class="text-3xl font-bold font-mono text-on-surface">
-            {currentStanding.multiplier.toFixed(2)}x
+            {Number(currentStanding.multiplier ?? 1).toFixed(2)}x
           </span>
           <span class="text-xs text-outline font-mono">
-            / {(currentStanding.multiplier_ceiling || currentStanding.multiplier).toFixed(2)}x ceiling
+            / {Number(currentStanding.multiplier_ceiling || currentStanding.multiplier || 1).toFixed(2)}x ceiling
           </span>
         </div>
       </div>
@@ -141,7 +141,7 @@
         {/if}
 
         <span class="px-2.5 py-1 rounded text-xs font-mono font-bold border {statusTheme.badgeBg}">
-          {currentStanding.jail_status}
+          {currentStanding.jail_status ?? 'PRISTINE'}
         </span>
       </div>
     </div>
@@ -182,28 +182,28 @@
       <div class="p-2 rounded bg-surface-container-highest/40">
         <div class="text-[10px] text-outline uppercase">24h Contribution</div>
         <div class="text-sm font-semibold text-primary mt-0.5">
-          {currentStanding.contributed_cu_24h.toLocaleString()} CU
+          {Number(currentStanding.contributed_cu_24h ?? 0).toLocaleString()} CU
         </div>
       </div>
 
       <div class="p-2 rounded bg-surface-container-highest/40">
         <div class="text-[10px] text-outline uppercase">Communal Debt</div>
         <div class="text-sm font-semibold text-tertiary mt-0.5">
-          {currentStanding.community_debt_cu.toLocaleString()} CU
+          {Number(currentStanding.community_debt_cu ?? 0).toLocaleString()} CU
         </div>
       </div>
 
       <div class="p-2 rounded bg-surface-container-highest/40">
         <div class="text-[10px] text-outline uppercase">Net CU Balance</div>
-        <div class="text-sm font-semibold {currentStanding.net_cu_balance >= 0 ? 'text-secondary' : 'text-error'} mt-0.5">
-          {currentStanding.net_cu_balance.toLocaleString()} CU
+        <div class="text-sm font-semibold {Number(currentStanding.net_cu_balance ?? 0) >= 0 ? 'text-secondary' : 'text-error'} mt-0.5">
+          {Number(currentStanding.net_cu_balance ?? 0).toLocaleString()} CU
         </div>
       </div>
 
       <div class="p-2 rounded bg-surface-container-highest/40">
         <div class="text-[10px] text-outline uppercase">Debt-Free Streak</div>
         <div class="text-sm font-semibold text-on-surface mt-0.5">
-          {currentStanding.consecutive_debt_free_days} days
+          {Number(currentStanding.consecutive_debt_free_days ?? 0)} days
         </div>
       </div>
     </div>

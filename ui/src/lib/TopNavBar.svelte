@@ -43,6 +43,7 @@
   
   let isNotificationsOpen = $state(false);
   let isProfileMenuOpen = $state(false);
+  let isDevMenuOpen = $state(false);
   let devDisplayName = $state('');
   let devAvatarUrl = $state('');
   let telemetryPollFreq = $state('3s');
@@ -123,9 +124,9 @@
 </script>
 
 <header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm">
-  <!-- Left Section: Brand & Search bar on left -->
-  <div class="flex items-center gap-6">
-    <button class="flex items-center gap-2.5 cursor-pointer text-left hover:opacity-80 transition-opacity" onclick={() => handleTabClick('pool')}>
+  <!-- Left Section: Brand & Main Tabs -->
+  <div class="flex items-center gap-5">
+    <button class="flex items-center gap-2.5 cursor-pointer text-left hover:opacity-80 transition-opacity" onclick={() => handleTabClick('dashboard')}>
       <div class="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-primary shadow-inner">
         <span class="material-symbols-outlined text-primary text-[19px]" data-icon="shield">shield</span>
       </div>
@@ -135,14 +136,73 @@
       </div>
     </button>
 
-    <!-- Edge status badge -->
-    <div class="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/40">
-      <span class="w-2 h-2 rounded-full bg-secondary status-pulse shadow-[0_0_8px_#4edea3]"></span>
-      <span class="text-label-sm font-label-sm text-secondary font-mono">Edge Network Active • Latency Nominal</span>
-    </div>
+    <!-- Top-Level Navigation Links (PRD Section 4) -->
+    <nav class="hidden md:flex items-center gap-1 font-mono text-xs" aria-label="Top Navigation">
+      <button
+        type="button"
+        onclick={() => handleTabClick('dashboard')}
+        class="px-2.5 py-1 rounded-md transition-colors cursor-pointer {activeTab === 'dashboard' ? 'bg-primary/15 text-primary font-semibold' : 'text-outline hover:text-on-surface'}"
+      >
+        Dashboard
+      </button>
+      <button
+        type="button"
+        onclick={() => handleTabClick('keys')}
+        class="px-2.5 py-1 rounded-md transition-colors cursor-pointer {activeTab === 'keys' ? 'bg-primary/15 text-primary font-semibold' : 'text-outline hover:text-on-surface'}"
+      >
+        Keys
+      </button>
+      <button
+        type="button"
+        onclick={() => handleTabClick('pool')}
+        class="px-2.5 py-1 rounded-md transition-colors cursor-pointer {activeTab === 'pool' ? 'bg-primary/15 text-primary font-semibold' : 'text-outline hover:text-on-surface'}"
+      >
+        Pool
+      </button>
+      <button
+        type="button"
+        onclick={() => handleTabClick('analytics')}
+        class="px-2.5 py-1 rounded-md transition-colors cursor-pointer {activeTab === 'analytics' ? 'bg-primary/15 text-primary font-semibold' : 'text-outline hover:text-on-surface'}"
+      >
+        Analytics
+      </button>
+
+      <!-- Developers Dropdown -->
+      <div class="relative">
+        <button
+          type="button"
+          onclick={() => (isDevMenuOpen = !isDevMenuOpen)}
+          class="px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1 {activeTab === 'playground' || activeTab === 'docs' ? 'bg-primary/15 text-primary font-semibold' : 'text-outline hover:text-on-surface'}"
+        >
+          <span>Developers</span>
+          <span class="material-symbols-outlined text-[14px]">expand_more</span>
+        </button>
+
+        {#if isDevMenuOpen}
+          <div class="absolute left-0 top-8 w-44 rounded-xl bg-surface-container-high border border-outline-variant/30 shadow-2xl p-1.5 z-50 space-y-1">
+            <button
+              type="button"
+              onclick={() => { isDevMenuOpen = false; handleTabClick('playground'); }}
+              class="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-surface-container-highest text-on-surface flex items-center gap-2 cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[15px] text-emerald-400">science</span>
+              <span>Playground</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { isDevMenuOpen = false; handleTabClick('docs'); }}
+              class="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-surface-container-highest text-on-surface flex items-center gap-2 cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[15px] text-primary">menu_book</span>
+              <span>API Docs</span>
+            </button>
+          </div>
+        {/if}
+      </div>
+    </nav>
 
     <!-- Search on left -->
-    <div class="relative hidden xl:block w-64">
+    <div class="relative hidden xl:block w-56">
       <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[16px]" data-icon="search">search</span>
       <input
         bind:value={searchQuery}
