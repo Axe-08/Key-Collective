@@ -107,7 +107,7 @@ describe("Environment & Durable Object Bindings (task-1-bind-tenant-quota)", () 
     expect(config.vars?.CONSOLE_HOST).toBe("console.key-col.axe08.tech");
     expect(config.vars?.ADMIN_HOST).toBe("admin.key-col.axe08.tech");
     expect(config.vars?.APEX_HOST).toBe("key-col.axe08.tech");
-    expect(config.vars?.LEGACY_SUNSET).toBe("Thu, 01 Jan 2026 00:00:00 GMT");
+    expect(config.vars?.LEGACY_SUNSET).toBeUndefined();
 
     // Dev vars
     const devVars = config.env?.dev?.vars;
@@ -115,7 +115,7 @@ describe("Environment & Durable Object Bindings (task-1-bind-tenant-quota)", () 
     expect(devVars?.CONSOLE_HOST).toBe("console-dev.key-col.axe08.tech");
     expect(devVars?.ADMIN_HOST).toBe("admin-dev.key-col.axe08.tech");
     expect(devVars?.APEX_HOST).toBe("dev.key-col.axe08.tech");
-    expect(devVars?.LEGACY_SUNSET).toBe("Thu, 01 Jan 2026 00:00:00 GMT");
+    expect(devVars?.LEGACY_SUNSET).toBeUndefined();
 
     // Dev routes
     const devRoutes = config.env?.dev?.routes ?? [];
@@ -134,7 +134,7 @@ describe("Environment & Durable Object Bindings (task-1-bind-tenant-quota)", () 
     expect(prodVars?.CONSOLE_HOST).toBe("console.key-col.axe08.tech");
     expect(prodVars?.ADMIN_HOST).toBe("admin.key-col.axe08.tech");
     expect(prodVars?.APEX_HOST).toBe("key-col.axe08.tech");
-    expect(prodVars?.LEGACY_SUNSET).toBe("Thu, 01 Jan 2026 00:00:00 GMT");
+    expect(prodVars?.LEGACY_SUNSET).toBeUndefined();
   });
 });
 

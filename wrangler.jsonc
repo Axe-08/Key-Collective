@@ -104,8 +104,7 @@
     "API_HOST": "api.key-col.axe08.tech",
     "CONSOLE_HOST": "console.key-col.axe08.tech",
     "ADMIN_HOST": "admin.key-col.axe08.tech",
-    "APEX_HOST": "key-col.axe08.tech",
-    "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
+    "APEX_HOST": "key-col.axe08.tech"
   },
   "env": {
     "dev": {
@@ -114,8 +113,7 @@
         "API_HOST": "api-dev.key-col.axe08.tech",
         "CONSOLE_HOST": "console-dev.key-col.axe08.tech",
         "ADMIN_HOST": "admin-dev.key-col.axe08.tech",
-        "APEX_HOST": "dev.key-col.axe08.tech",
-        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
+        "APEX_HOST": "dev.key-col.axe08.tech"
       },
       "routes": [
         {
@@ -179,8 +177,7 @@
         "API_HOST": "api.key-col.axe08.tech",
         "CONSOLE_HOST": "console.key-col.axe08.tech",
         "ADMIN_HOST": "admin.key-col.axe08.tech",
-        "APEX_HOST": "key-col.axe08.tech",
-        "LEGACY_SUNSET": "Thu, 01 Jan 2026 00:00:00 GMT"
+        "APEX_HOST": "key-col.axe08.tech"
       },
       "routes": [
         {

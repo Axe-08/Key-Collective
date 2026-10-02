@@ -19,7 +19,6 @@ import { verifyAdminRequest } from "./admin_verifier";
 import { handleConsoleRequest } from "./console_handler";
 import { handleAdminRequest } from "./admin_handler";
 import { handleV1Route } from "../api/v1_router";
-import { handleLegacyRoute, matchLegacyRoute } from "../api/legacy_routes";
 import { handleDemoTokenRequest } from "../router/demo_routes";
 import { checkMaintenance } from "./control";
 
@@ -151,20 +150,7 @@ export class MainWorker {
       return this.options.cors !== false ? applyCors(v1Res) : v1Res;
     }
 
-    // 3. Legacy route resolution on api.*
-    const legacyMatch = matchLegacyRoute("api", method, pathname);
-    if (legacyMatch) {
-      const legacyRes = await handleLegacyRoute(
-        request,
-        legacyMatch,
-        env,
-        ctx,
-        this.routerHandler
-      );
-      return this.options.cors !== false ? applyCors(legacyRes) : legacyRes;
-    }
-
-    // 4. Default 404 for unrouted paths on api.*
+    // 3. Default 404 for unrouted paths on api.*
     const notFoundRes = new Response(
       JSON.stringify({
         error: {
@@ -200,8 +186,8 @@ export class MainWorker {
       return new Response(null, { status: 204 });
     }
 
-    // 2. Raw DO routes stay 404 everywhere (N-01)
-    if (RAW_DO_PATHS.has(pathname) || pathname.startsWith("/v1/keys/")) {
+    // 2. Raw DO routes and /v1/* proxy routes return 404 on console.* (N-01, WP-7.1)
+    if (RAW_DO_PATHS.has(pathname) || pathname === "/v1" || pathname.startsWith("/v1/")) {
       return new Response("Not Found", { status: 404 });
     }
 
@@ -232,19 +218,7 @@ export class MainWorker {
       }
     }
 
-    // 5. Legacy routes on console.*
-    const legacyMatch = matchLegacyRoute("console", method, pathname);
-    if (legacyMatch) {
-      return await handleLegacyRoute(
-        request,
-        legacyMatch,
-        env,
-        ctx,
-        this.routerHandler
-      );
-    }
-
-    // 6. SPA static assets delivery
+    // 5. SPA static assets delivery
     return this.handleConsole(request, env);
   }
 
@@ -292,7 +266,7 @@ export class MainWorker {
   private async handleApexHost(
     request: Request,
     env: WorkerEnv,
-    ctx?: ExecutionContextLike
+    _ctx?: ExecutionContextLike
   ): Promise<Response> {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, "") || "/";
@@ -308,19 +282,7 @@ export class MainWorker {
       return new Response("Not Found", { status: 404 });
     }
 
-    // 3. Legacy routes on apex
-    const legacyMatch = matchLegacyRoute("apex", method, pathname);
-    if (legacyMatch) {
-      return await handleLegacyRoute(
-        request,
-        legacyMatch,
-        env,
-        ctx,
-        this.routerHandler
-      );
-    }
-
-    // 4. Apex non-API paths redirect to console (301 for GET/HEAD, 308 for others)
+    // 3. Apex paths redirect to console (301 for GET/HEAD, 308 for others)
     const consoleHost =
       (env.CONSOLE_HOST as string | undefined) ?? "console.key-col.axe08.tech";
     const targetUrl = `https://${consoleHost}${url.pathname}${url.search}`;

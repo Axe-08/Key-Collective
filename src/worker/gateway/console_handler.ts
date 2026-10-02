@@ -22,7 +22,7 @@ export async function handleConsoleRequest(
   // Health probe on console
   if (
     method === "GET" &&
-    (pathname === "/health" || pathname === "/v1/health")
+    pathname === "/health"
   ) {
     const payload: HealthResponse = {
       status: "healthy",
