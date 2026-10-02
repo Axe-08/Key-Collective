@@ -77,6 +77,21 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
       fs.existsSync(path.join(ROOT, "archives/src/worker/gateway/maintenance_suspend_legacy.ts"))
     ).toBe(true);
   });
+
+  it("T-7.7.5: src/utils/logger.ts is wired into dashboard handler, coordinator DO, and key pool DO", () => {
+    const consumers = [
+      "src/worker/router/dashboard/handler.ts",
+      "src/pool/coordinator_do.ts",
+      "src/durable_objects/key_pool/key_pool_do.ts",
+      "src/worker/router/dashboard/keys/post_key.ts",
+      "src/worker/router/core/key_resolver.ts",
+    ];
+    for (const rel of consumers) {
+      const content = fs.readFileSync(path.join(ROOT, rel), "utf8");
+      expect(content).toMatch(/from\s+["'][^"']*utils\/logger["']/);
+    }
+  });
 });
+
 
 

@@ -28,6 +28,7 @@ import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repo
 import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
 import type { DurableObjectNamespaceLike } from "../../types";
+import { Logger } from "../../../../utils/logger";
 
 const SUBMISSIONS_PER_DAY = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -323,7 +324,9 @@ async function pushToKeyPool(env: WorkerEnv, tenantId: string, key: Record<strin
     }
     return res.ok;
   } catch (err: unknown) {
-    console.error("KeyPoolDO sync failed; key marked sync_pending:", err instanceof Error ? err.message : String(err));
+    new Logger({ traceId: "sync-key", tenantId }).error("KeyPoolDO sync failed; key marked sync_pending", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return false;
   }
 }

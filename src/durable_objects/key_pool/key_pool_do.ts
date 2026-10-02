@@ -28,6 +28,7 @@ import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
 import { checkProofOfLife } from "../../ingress/probe";
 import { canonicalCoordinatorProvider } from "../../pool/coordinator_do";
 import { Clock, systemClock } from "../../utils/clock";
+import { Logger } from "../../utils/logger";
 import type { WorkerEnv } from "../../worker/auth/types";
 import { resolveLeasedKey } from "../../worker/router/core/key_resolver";
 import {
@@ -718,7 +719,11 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
             { keyId, ownerTenantId: this.tenantId, provider },
             this.env as unknown as WorkerEnv
           );
-        } catch {
+        } catch (err) {
+          new Logger({ traceId: "canary-probe", tenantId: this.tenantId }).warn(
+            "Failed to resolve leased key during nightly canary probe",
+            { keyId, error: err instanceof Error ? err.message : String(err) }
+          );
           rawKey = undefined;
         }
       }

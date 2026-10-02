@@ -15,6 +15,7 @@ import { handleGoogleAuth, handleLogout } from "./auth_routes";
 import { handleGithubLinkCallback, handleGithubLinkStart } from "../../../auth/github/link_flow";
 import { SESSION_COOKIE, lookupSession, readCookie, type SessionContext } from "../../../auth/session/store";
 import { timingSafeEqualStrings } from "../../../crypto/utils";
+import { Logger } from "../../../utils/logger";
 import {
   handleDeleteKey,
   handleGetKeys,
@@ -278,7 +279,11 @@ export class DashboardRouter {
               sybil_score: userRow.sybil_score ?? 95,
             };
           }
-        } catch {}
+        } catch (err) {
+          new Logger({ traceId: "session-user", tenantId }).warn("Failed to load user row for session", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
 
       if (!user && tenantId && tenantId !== "anonymous") {
