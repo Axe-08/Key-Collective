@@ -128,7 +128,7 @@ async function seedGeminiKey(suffix: string): Promise<SeededKey> {
 
   await env.DB.prepare(
     `INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix, status, community_routing_status, key_hash, provider_project_hash)
-     VALUES (?, ?, ?, 'google', 'ciphertext', 'nonce', ?, ?, 'Healthy', 'ACTIVE', ?, ?)`
+     VALUES (?, ?, ?, 'google', 'ciphertext', 'nonce', ?, ?, 'HEALTHY', 'ACTIVE', ?, ?)`
   )
     .bind(id, tenantId, `label-${suffix}`, plaintext.slice(0, 8), plaintext.slice(-4), keyHash, projectHash)
     .run();
@@ -195,9 +195,9 @@ describe("S4 Security: Abuse Takedown Route (exact hashing + rate limiting)", ()
       .bind(key2.id)
       .first<ApiKeyRow>();
 
-    expect(row1?.status).toBe("Healthy");
+    expect(row1?.status).toBe("HEALTHY");
     expect(row1?.community_routing_status).toBe("ACTIVE");
-    expect(row2?.status).toBe("Healthy");
+    expect(row2?.status).toBe("HEALTHY");
     expect(row2?.community_routing_status).toBe("ACTIVE");
   });
 
@@ -214,7 +214,7 @@ describe("S4 Security: Abuse Takedown Route (exact hashing + rate limiting)", ()
       .bind(key.id)
       .first<ApiKeyRow>();
 
-    expect(row?.status).toBe("Healthy");
+    expect(row?.status).toBe("HEALTHY");
     expect(row?.community_routing_status).toBe("ACTIVE");
   });
 
@@ -240,7 +240,7 @@ describe("S4 Security: Abuse Takedown Route (exact hashing + rate limiting)", ()
 
     expect(row1?.status).toBe("REVOKED");
     expect(row1?.community_routing_status).toBe("REVOKED");
-    expect(row2?.status).toBe("Healthy");
+    expect(row2?.status).toBe("HEALTHY");
     expect(row2?.community_routing_status).toBe("ACTIVE");
 
     const projRow = await env.DB.prepare(

@@ -222,7 +222,7 @@ Plan: `docs/PHASE7_PLAN.md`
 ### WP-7.4
 - [x] T-7.4.1 Rename coordinator SQLite dispatched columns
 - [x] T-7.4.2 Migration 0024_key_schema_contract.sql
-- [ ] T-7.4.3 Clean normaliseKeyStatus legacy branches
+- [x] T-7.4.3 Clean normaliseKeyStatus legacy branches
 
 ### WP-7.5
 - [ ] T-7.5.1 Remove ROUTING_ENGINE switch from cascade router

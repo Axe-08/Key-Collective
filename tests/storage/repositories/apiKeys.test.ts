@@ -730,7 +730,7 @@ describe("ApiKeyRepository (storage-repo-keys on real D1)", () => {
         rpm_limit: 120,
         rpd_limit: 3000,
         priority: 15,
-        status: "Healthy",
+        status: "HEALTHY",
         circuit_open_until: null,
         last_used_at: "2026-09-01T00:00:00Z",
         created_at: "2026-08-01T00:00:00Z",
@@ -746,16 +746,11 @@ describe("ApiKeyRepository (storage-repo-keys on real D1)", () => {
       expect(mapped.rpmLimit).toBe(120);
       expect(mapped.rpdLimit).toBe(3000);
       expect(mapped.priority).toBe(15);
-      // status is normalised via normaliseKeyStatus: raw "Healthy" -> canonical "HEALTHY"
       expect(mapped.status).toBe("HEALTHY");
-      expect(mapped.status).not.toBe("Healthy");
       expect(mapped.circuitOpenUntil).toBeNull();
-      // timestamps are normalised via toEpochMs: ISO-8601 strings -> epoch-ms numbers
       expect(mapped.lastUsedAt).toBe(Date.parse("2026-09-01T00:00:00Z"));
-      expect(mapped.lastUsedAt).not.toBe("2026-09-01T00:00:00Z");
       expect(typeof mapped.lastUsedAt).toBe("number");
       expect(mapped.createdAt).toBe(Date.parse("2026-08-01T00:00:00Z"));
-      expect(mapped.createdAt).not.toBe("2026-08-01T00:00:00Z");
       expect(typeof mapped.createdAt).toBe("number");
     });
 
@@ -772,18 +767,17 @@ describe("ApiKeyRepository (storage-repo-keys on real D1)", () => {
         rpm_limit: 60,
         rpd_limit: 1500,
         priority: 0,
-        status: "quarantined",
+        status: "QUARANTINED",
         circuit_open_until: null,
         last_used_at: null,
         created_at: "2026-08-01T00:00:00Z",
-        pool_type: "community",
+        pool_type: "COMMUNITY",
         observation_until: null,
       };
 
       const mapped = mapRowToAPIKey(row);
       expect(mapped.status).toBe("QUARANTINED");
       expect(mapped.poolType).toBe("COMMUNITY");
-      expect(mapped.poolType).not.toBe("community");
       expect(mapped.circuitOpenUntil).toBeNull();
       expect(mapped.lastUsedAt).toBeNull();
       expect(mapped.observationUntil).toBeNull();

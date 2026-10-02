@@ -118,17 +118,17 @@ export async function handleGetStats(
     const statsQuery = isGlobal
       ? `SELECT 
            COUNT(*) as total_count,
-           SUM(CASE WHEN status = 'Healthy' THEN 1 ELSE 0 END) as healthy_count,
-           SUM(CASE WHEN status = 'RateLimited' THEN 1 ELSE 0 END) as rate_limited_count,
-           SUM(CASE WHEN status NOT IN ('Healthy', 'RateLimited') THEN 1 ELSE 0 END) as invalid_count,
+           SUM(CASE WHEN status = 'HEALTHY' THEN 1 ELSE 0 END) as healthy_count,
+           SUM(CASE WHEN status = 'COOLDOWN' THEN 1 ELSE 0 END) as rate_limited_count,
+           SUM(CASE WHEN status NOT IN ('HEALTHY', 'COOLDOWN') THEN 1 ELSE 0 END) as invalid_count,
            SUM(rpm_limit) as rpm_sum,
            SUM(rpd_limit) as rpd_sum
          FROM api_keys`
       : `SELECT 
            COUNT(*) as total_count,
-           SUM(CASE WHEN status = 'Healthy' THEN 1 ELSE 0 END) as healthy_count,
-           SUM(CASE WHEN status = 'RateLimited' THEN 1 ELSE 0 END) as rate_limited_count,
-           SUM(CASE WHEN status NOT IN ('Healthy', 'RateLimited') THEN 1 ELSE 0 END) as invalid_count,
+           SUM(CASE WHEN status = 'HEALTHY' THEN 1 ELSE 0 END) as healthy_count,
+           SUM(CASE WHEN status = 'COOLDOWN' THEN 1 ELSE 0 END) as rate_limited_count,
+           SUM(CASE WHEN status NOT IN ('HEALTHY', 'COOLDOWN') THEN 1 ELSE 0 END) as invalid_count,
            SUM(rpm_limit) as rpm_sum,
            SUM(rpd_limit) as rpd_sum
          FROM api_keys

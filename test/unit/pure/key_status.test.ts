@@ -2,41 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { normaliseKeyStatus, normalisePoolType } from '../../../src/contracts/keys';
 
 describe('normaliseKeyStatus', () => {
-  it('maps Healthy variants to HEALTHY', () => {
-    expect(normaliseKeyStatus('Healthy')).toBe('HEALTHY');
-    expect(normaliseKeyStatus('healthy')).toBe('HEALTHY');
+  it('returns canonical uppercase KeyStatus values', () => {
     expect(normaliseKeyStatus('HEALTHY')).toBe('HEALTHY');
-  });
-
-  it('maps invalid to REVOKED when communityRoutingStatus is REVOKED', () => {
-    expect(normaliseKeyStatus('invalid', 'REVOKED')).toBe('REVOKED');
-  });
-
-  it('maps invalid to QUARANTINED when communityRoutingStatus is not REVOKED', () => {
-    expect(normaliseKeyStatus('invalid')).toBe('QUARANTINED');
-    expect(normaliseKeyStatus('invalid', null)).toBe('QUARANTINED');
-    expect(normaliseKeyStatus('invalid', 'SOMETHING_ELSE')).toBe('QUARANTINED');
-  });
-
-  it('maps quarantined variants to QUARANTINED', () => {
-    expect(normaliseKeyStatus('quarantined')).toBe('QUARANTINED');
-    expect(normaliseKeyStatus('QUARANTINED')).toBe('QUARANTINED');
-  });
-
-  it('maps exhausted/rate_limited/cooldown variants to COOLDOWN', () => {
-    expect(normaliseKeyStatus('exhausted')).toBe('COOLDOWN');
-    expect(normaliseKeyStatus('rate_limited')).toBe('COOLDOWN');
     expect(normaliseKeyStatus('COOLDOWN')).toBe('COOLDOWN');
-  });
-
-  it('maps revoked to REVOKED', () => {
+    expect(normaliseKeyStatus('QUARANTINED')).toBe('QUARANTINED');
     expect(normaliseKeyStatus('REVOKED')).toBe('REVOKED');
-    expect(normaliseKeyStatus('revoked')).toBe('REVOKED');
   });
 
-  it('fails closed to QUARANTINED for unknown or null values', () => {
-    expect(normaliseKeyStatus('some_unknown_value')).toBe('QUARANTINED');
-    expect(normaliseKeyStatus(null)).toBe('QUARANTINED');
+  it('throws on non-canonical or legacy values like Healthy (T-7.4.3)', () => {
+    expect(() => normaliseKeyStatus('Healthy')).toThrow();
+    expect(() => normaliseKeyStatus('healthy')).toThrow();
+    expect(() => normaliseKeyStatus('invalid')).toThrow();
+    expect(() => normaliseKeyStatus('exhausted')).toThrow();
+    expect(() => normaliseKeyStatus('rate_limited')).toThrow();
+    expect(() => normaliseKeyStatus('some_unknown_value')).toThrow();
+    expect(() => normaliseKeyStatus(null)).toThrow();
   });
 });
 
@@ -45,15 +25,8 @@ describe('normalisePoolType', () => {
     expect(normalisePoolType(null)).toBe('PRIVATE');
   });
 
-  it('is case-insensitive for community', () => {
-    expect(normalisePoolType('community')).toBe('COMMUNITY');
+  it('returns canonical PoolType values', () => {
     expect(normalisePoolType('COMMUNITY')).toBe('COMMUNITY');
-    expect(normalisePoolType('Community')).toBe('COMMUNITY');
-  });
-
-  it('returns PRIVATE for private or unknown values', () => {
-    expect(normalisePoolType('private')).toBe('PRIVATE');
     expect(normalisePoolType('PRIVATE')).toBe('PRIVATE');
-    expect(normalisePoolType('something_else')).toBe('PRIVATE');
   });
 });

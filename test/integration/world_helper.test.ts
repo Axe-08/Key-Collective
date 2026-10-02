@@ -171,7 +171,7 @@ describe("World Test Helper", () => {
       expect(row?.label).toBe("anthropic-key");
       expect(row?.provider).toBe("anthropic");
       expect(row?.pool_type).toBe("COMMUNITY");
-      expect(row?.status).toBe("Healthy");
+      expect(row?.status).toBe("HEALTHY");
       expect(row?.key_prefix).toBe(rawSecret.slice(0, 4));
       expect(row?.key_suffix).toBe(rawSecret.slice(-4));
 
