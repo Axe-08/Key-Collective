@@ -62,5 +62,21 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
       expect(fs.existsSync(path.join(ROOT, "archives", rel))).toBe(true);
     }
   });
+
+  it("T-7.7.4: one-off maintenance routes (backfill-key-hash, suspend-unclaimed-legacy) are archived", () => {
+    const adminHandlerSrc = fs.readFileSync(
+      path.join(ROOT, "src/worker/gateway/admin_handler.ts"),
+      "utf8"
+    );
+    expect(adminHandlerSrc).not.toContain("/api/admin/maintenance/backfill-key-hash");
+    expect(adminHandlerSrc).not.toContain("/api/admin/maintenance/suspend-unclaimed-legacy");
+    expect(
+      fs.existsSync(path.join(ROOT, "archives/src/worker/gateway/maintenance_backfill.ts"))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(ROOT, "archives/src/worker/gateway/maintenance_suspend_legacy.ts"))
+    ).toBe(true);
+  });
 });
+
 
