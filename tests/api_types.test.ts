@@ -15,7 +15,7 @@ import {
   isApiRequest,
   isApiResponse,
   isApiErrorResponse,
-} from "../src/types";
+} from "../src/types/api";
 
 describe("API Types and Helpers", () => {
   describe("ApiRequest<T>", () => {

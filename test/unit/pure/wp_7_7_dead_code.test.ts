@@ -30,4 +30,22 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
       expect(fs.existsSync(path.join(ROOT, "archives", rel))).toBe(true);
     }
   });
+
+  it("T-7.7.2: unused contracts and barrels (providers.ts, proxy/index.ts, and 7 domain barrels) are archived", () => {
+    const archivedPaths = [
+      "src/contracts/providers.ts",
+      "src/proxy/index.ts",
+      "src/auth/index.ts",
+      "src/constants/index.ts",
+      "src/contracts/index.ts",
+      "src/durable_objects/index.ts",
+      "src/quota/index.ts",
+      "src/router/index.ts",
+      "src/types/index.ts",
+    ];
+    for (const rel of archivedPaths) {
+      expect(fs.existsSync(path.join(ROOT, rel))).toBe(false);
+      expect(fs.existsSync(path.join(ROOT, "archives", rel))).toBe(true);
+    }
+  });
 });
