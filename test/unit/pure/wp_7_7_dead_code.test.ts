@@ -48,4 +48,19 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
       expect(fs.existsSync(path.join(ROOT, "archives", rel))).toBe(true);
     }
   });
+
+  it("T-7.7.3: facade modules and unused HTTP RPC handler are archived", () => {
+    const archivedPaths = [
+      "src/durable_objects/key_pool.ts",
+      "src/durable_objects/key_pool_do.ts",
+      "src/worker/router/chat_handler.ts",
+      "src/worker/router/dashboard_handler.ts",
+      "src/durable_objects/key_pool/rpc.ts",
+    ];
+    for (const rel of archivedPaths) {
+      expect(fs.existsSync(path.join(ROOT, rel))).toBe(false);
+      expect(fs.existsSync(path.join(ROOT, "archives", rel))).toBe(true);
+    }
+  });
 });
+

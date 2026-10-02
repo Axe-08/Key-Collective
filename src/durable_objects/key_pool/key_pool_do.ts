@@ -30,7 +30,6 @@ import { canonicalCoordinatorProvider } from "../../pool/coordinator_do";
 import { Clock, systemClock } from "../../utils/clock";
 import type { WorkerEnv } from "../../worker/auth/types";
 import { resolveLeasedKey } from "../../worker/router/core/key_resolver";
-import { handleKeyPoolRpc } from "./rpc";
 import {
   DurableObjectStateLike,
   isEncryptedKey,
@@ -1395,24 +1394,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       return Response.json({ now: this.now(), alarm });
     }
 
-    return handleKeyPoolRpc(request, {
-      tenantId: this.tenantId,
-      assertTenant: (t) => this.assertTenant(t),
-      ensureLoaded: () => this.ensureLoaded(),
-      getKey: (p) => this.getKey(p),
-      getKeyById: (id) => this.getKeyById(id),
-      recordUsage: (id, c) => this.recordUsage(id, c),
-      recordResult: (id, s) => this.recordResult(id, s),
-      recordStatusCode: (id, sc) => this.recordStatusCode(id, sc),
-      getKeys: (p) => this.getKeys(p),
-      addKey: (k) => this.addKey(k),
-      addKeys: (ks) => this.addKeys(ks),
-      setKeys: (ks) => this.setKeys(ks),
-      removeKey: (id) => this.removeKey(id),
-      getKeyMetrics: (id) => this.getKeyMetrics(id),
-      getCapacitySummary: (p) => this.getCapacitySummary(p),
-      now: () => this.now(),
-      keysCount: () => this.keysMap.size,
-    });
+    return new Response("Not Found", { status: 404 });
   }
 }

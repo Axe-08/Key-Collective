@@ -7,6 +7,6 @@ export * from "./types";
 export * from "./errors";
 export * from "./do_client";
 export * from "./model_routes";
-export * from "./dashboard_handler";
-export * from "./chat_handler";
+export * from "./dashboard/index";
+export * from "./chat/index";
 export * from "./router_handler";

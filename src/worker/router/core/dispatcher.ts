@@ -19,8 +19,8 @@ import type {
 import type { ExecutionContextLike } from "../../telemetry_emitter";
 import { formatRouterError, RouterError } from "../errors";
 import type { ModelRoutesHandler } from "../model_routes";
-import type { DashboardHandler } from "../dashboard_handler";
-import type { ChatHandler } from "../chat_handler";
+import type { DashboardHandler } from "../dashboard/index";
+import type { ChatHandler } from "../chat/index";
 import type { RouterHandlerOptions } from "../types";
 import type { RouterContextResolver } from "./resolver";
 import { handleDemoTokenRequest } from "../demo_routes";

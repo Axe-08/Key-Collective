@@ -247,7 +247,7 @@ Plan: `docs/PHASE7_PLAN.md`
 ### WP-7.7
 - [x] T-7.7.1 Archive parallel storage layer
 - [x] T-7.7.2 Archive unused contracts and barrels
-- [ ] T-7.7.3 Archive facade modules
+- [x] T-7.7.3 Archive facade modules
 - [ ] T-7.7.4 Archive one-off maintenance routes
 - [ ] T-7.7.5 Wire src/utils/logger.ts as the only logger
 - [ ] T-7.7.6 Verify sybil engine is wired
