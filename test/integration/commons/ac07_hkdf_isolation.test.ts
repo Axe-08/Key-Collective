@@ -17,7 +17,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { env, fetchMock, SELF } from "cloudflare:test";
 import { deriveTenantKey, encrypt } from "../../../src/crypto/encryption/index";
-import { encryptKey } from "../../../src/durable_objects/crypto";
 import { KeyDecryptionError } from "../../../src/errors/key_errors";
 import { resolveLeasedKey } from "../../../src/worker/router/core/key_resolver";
 import { migrateKeysToHkdf } from "../../../ops/migrate_keys_hkdf";
@@ -145,7 +144,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
   it("unmigrated row (hkdf_migrated=0): throws KeyDecryptionError and quarantines key without calling upstream (T-7.6.1)", async () => {
     const user = await createUser({ github: true, eligible: true });
     const rawPlaintext = "gsk_legacy_row_plain_key_7777";
-    const legacyEncrypted = await encryptKey(rawPlaintext, "legacy", "groq", MASTER_KEY);
+    const legacyEncrypted = await encrypt(rawPlaintext, MASTER_KEY);
     const keyId = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
     await env.DB.prepare(
@@ -160,8 +159,8 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
         user.id,
         "legacy-key",
         "groq",
-        legacyEncrypted.ciphertext,
-        legacyEncrypted.nonce,
+        legacyEncrypted.ciphertextB64,
+        legacyEncrypted.nonceB64,
         "hash777",
         "gsk_",
         "7777",
@@ -208,7 +207,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
     const keyIds: string[] = [];
 
     for (const raw of rawKeys) {
-      const encrypted = await encryptKey(raw, "legacy", "groq", MASTER_KEY);
+      const encrypted = await encrypt(raw, MASTER_KEY);
       const kid = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
       keyIds.push(kid);
       await env.DB.prepare(
@@ -223,8 +222,8 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
           user.id,
           `bulk-${kid}`,
           "groq",
-          encrypted.ciphertext,
-          encrypted.nonce,
+          encrypted.ciphertextB64,
+          encrypted.nonceB64,
           "hash_" + kid,
           "gsk_",
           "bulk",

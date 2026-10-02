@@ -232,7 +232,7 @@ Plan: `docs/PHASE7_PLAN.md`
 
 ### WP-7.6
 - [x] T-7.6.1 Simplify resolveLeasedKey to HKDF-only
-- [ ] T-7.6.2 Archive legacy global-key decryption path in crypto.ts
+- [x] T-7.6.2 Archive legacy global-key decryption path in crypto.ts
 
 ### WP-7.1
 - [ ] T-7.1.1 Archive legacy routes and unwire

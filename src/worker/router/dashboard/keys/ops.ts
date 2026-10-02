@@ -10,7 +10,6 @@
 import { githubLinkRequired, loadPoolRights } from "../../../../auth/rights";
 import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repository";
 import { checkProofOfLife, forceErrorGcpProbe } from "../../../../ingress/probe";
-import { decryptKey } from "../../../../durable_objects/crypto";
 import { resolvePlaintextKey, evict } from "../../core/key_resolver";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
 import type { WorkerEnv } from "../../../auth/index";
