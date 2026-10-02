@@ -852,15 +852,12 @@ export async function handleAdminRequest(
         tier,
         role: user?.role || (tier === 'admin' ? 'admin' : 'user'),
         authProvider,
-        sybil_score: user?.sybil_score ?? (tier === 'admin' ? 100 : tier === 'demo' ? 20 : 92),
-        sybilScore: user?.sybil_score ?? (tier === 'admin' ? 100 : tier === 'demo' ? 20 : 92),
+        sybil_score: user?.sybil_score ?? (tier === 'admin' ? 100 : tier === 'demo' ? 20 : 0),
+        sybilScore: user?.sybil_score ?? (tier === 'admin' ? 100 : tier === 'demo' ? 20 : 0),
         is_quarantined: isQuar ? 1 : 0,
         isQuarantined: isQuar,
         communityDebtCu: debtMap.get(tid) ?? 0,
-        communityDebtMicroCu: debtMap.get(tid) ?? 0,
-        community_debt_micro_cu: debtMap.get(tid) ?? 0,
         todaySpendCu: spendMap.get(tid) ?? 0,
-        todaySpendMicrodollars: spendMap.get(tid) ?? 0,
         activeKeyCount: activeKeys.length,
         currentRpm: tenantRpmMap.get(tid) ?? 0,
         rpmLimit,
@@ -973,12 +970,12 @@ export async function handleAdminRequest(
       observationKeys: keysList.filter((k) => k.community_routing_status === 'OBSERVATION').length,
       quarantinedKeys: keysList.filter((k) => k.community_routing_status === 'QUARANTINED').length,
       privateKeys: keysList.filter((k) => normalisePoolType(k.pool_type) === 'PRIVATE').length,
-      totalDebtMicroCu: Array.from(debtMap.values()).reduce((sum, d) => sum + d, 0),
+      totalDebtCu: Array.from(debtMap.values()).reduce((sum, d) => sum + d, 0),
       clusterRpmCurrent: totalClusterRpm,
       clusterRpmMax: totalFleetRpmLimit || 100,
       tokenVelocityTpm: totalClusterRpm * TOKENS_PER_REQUEST_ESTIMATE,
       tokenVelocityMaxTpm: (totalFleetRpmLimit || 100) * TOKENS_PER_REQUEST_ESTIMATE,
-      spendRateMicrodollarsPerHour: Math.round(totalFleetSpendToday / 24),
+      spendRateCuPerHour: Math.round(totalFleetSpendToday / 24),
       upstreamLatencyMs,
       rotationFairnessScore,
       providers,
@@ -1038,6 +1035,120 @@ export async function handleAdminRequest(
       success: true,
       target_tenant_id: targetTenantId,
       is_quarantined: isQuar === 1,
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 5. Admin Tenant Quota Reset (POST /api/admin/tenants/:id/reset-quota)
+  const resetQuotaMatch = pathname.match(
+    /^\/api\/admin\/tenants\/([^/]+)\/reset-quota$/
+  );
+  if (method === "POST" && resetQuotaMatch) {
+    const targetTenantId = resetQuotaMatch[1];
+    let body: { reason?: string } = {};
+    try {
+      body = (await request.json()) as { reason?: string };
+    } catch {
+      // empty body
+    }
+    const reason = body.reason || "Administrative quota reset";
+
+    // Call TenantQuotaDO.reset()
+    const quotaNs = env.TENANT_QUOTA as
+      | {
+          idFromName?: (name: string) => unknown;
+          get?: (id: unknown) => {
+            reset?: () => Promise<void>;
+          };
+        }
+      | undefined;
+    if (quotaNs && typeof quotaNs.idFromName === "function" && typeof quotaNs.get === "function") {
+      try {
+        const stub = quotaNs.get(quotaNs.idFromName(targetTenantId));
+        if (typeof stub.reset === "function") {
+          await stub.reset();
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (db && typeof db.prepare === "function") {
+      const actor = await getAdminActor(request, db);
+      const clientIp = request.headers.get("cf-connecting-ip") || "127.0.0.1";
+      await logAdminAudit(
+        db,
+        actor,
+        "RESET_QUOTA",
+        targetTenantId,
+        { reason },
+        clientIp
+      );
+    }
+
+    const res = Response.json({
+      success: true,
+      tenant_id: targetTenantId,
+      reason,
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
+  // 6. Admin Audit Logs (GET /api/admin/audit)
+  if (method === "GET" && pathname === "/api/admin/audit") {
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
+    const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
+
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    let events: Array<{
+      id: string;
+      admin_user_id: string | null;
+      admin_email: string;
+      action: string;
+      target: string;
+      details_json: string;
+      ip_address: string;
+      created_at: number;
+    }> = [];
+    let total = 0;
+
+    if (db && typeof db.prepare === "function") {
+      try {
+        const countRes = await db
+          .prepare("SELECT COUNT(*) as total FROM admin_audit_logs")
+          .first<{ total: number }>();
+        total = countRes?.total ?? 0;
+
+        const listRes = await db
+          .prepare(
+            `SELECT id, admin_user_id, admin_email, action, target, details_json, ip_address, created_at
+             FROM admin_audit_logs
+             ORDER BY created_at DESC
+             LIMIT ? OFFSET ?`
+          )
+          .bind(limit, offset)
+          .all<{
+            id: string;
+            admin_user_id: string | null;
+            admin_email: string;
+            action: string;
+            target: string;
+            details_json: string;
+            ip_address: string;
+            created_at: number;
+          }>();
+        events = listRes.results || [];
+      } catch {
+        // ignore
+      }
+    }
+
+    const res = Response.json({
+      events,
+      total,
+      limit,
+      offset,
     });
     return options.cors !== false ? applyCors(res) : res;
   }

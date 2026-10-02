@@ -485,5 +485,69 @@ describe("Admin Gateway & Governance (WP-4.6)", () => {
       expect(body.top_tenants[0].count).toBe(3);
     });
   });
+
+  describe("Admin Quota Reset & Audit Endpoints (WP-6.2 T-6.2.1, T-6.2.2)", () => {
+    it("POST /api/admin/tenants/:id/reset-quota: unauthorized returns 404, authorized resets quota and logs audit", async () => {
+      const targetUser = await createUser({ email: "user-to-reset@test.com", tier: "builder" });
+
+      // Unauthorized request -> 404
+      const unauthRes = await adminRequest(`/api/admin/tenants/${targetUser.id}/reset-quota`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "Testing unauth" }),
+      });
+      expect(unauthRes.status).toBe(404);
+
+      // Authorized request -> 200
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+
+      const authRes = await adminRequest(
+        `/api/admin/tenants/${targetUser.id}/reset-quota`,
+        {
+          method: "POST",
+          body: JSON.stringify({ reason: "Monthly courtesy reset" }),
+        },
+        cookie
+      );
+      expect(authRes.status).toBe(200);
+      const authBody = (await authRes.json()) as { success: boolean; tenant_id: string };
+      expect(authBody.success).toBe(true);
+      expect(authBody.tenant_id).toBe(targetUser.id);
+
+      // Verify audit log row exists
+      const auditRow = await env.DB.prepare(
+        "SELECT action, target, details_json FROM admin_audit_logs WHERE target = ? AND action = 'RESET_QUOTA' LIMIT 1"
+      )
+        .bind(targetUser.id)
+        .first<{ action: string; target: string; details_json: string }>();
+      expect(auditRow).not.toBeNull();
+      expect(auditRow!.action).toBe("RESET_QUOTA");
+      expect(auditRow!.details_json).toContain("Monthly courtesy reset");
+    });
+
+    it("GET /api/admin/audit: unauthorized returns 404, authorized returns paginated audit events", async () => {
+      // Unauthorized -> 404
+      const unauthRes = await adminRequest("/api/admin/audit");
+      expect(unauthRes.status).toBe(404);
+
+      // Authorized -> 200
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+
+      const authRes = await adminRequest("/api/admin/audit?limit=10&offset=0", { method: "GET" }, cookie);
+      expect(authRes.status).toBe(200);
+
+      const body = (await authRes.json()) as {
+        events: Array<{ action: string; target: string }>;
+        total: number;
+        limit: number;
+        offset: number;
+      };
+      expect(Array.isArray(body.events)).toBe(true);
+      expect(body.limit).toBe(10);
+      expect(body.offset).toBe(0);
+      expect(typeof body.total).toBe("number");
+    });
+  });
 });
 

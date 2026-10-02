@@ -9,6 +9,10 @@
   import AdminHeader from './AdminHeader.svelte';
   import KillSwitchBanner from './KillSwitchBanner.svelte';
   import AdminTabBar from './AdminTabBar.svelte';
+  import TenantsView from './TenantsView.svelte';
+  import KeysView from './KeysView.svelte';
+  import ProvidersView from './ProvidersView.svelte';
+  import AuditLogView from './AuditLogView.svelte';
 
   let {
     adminEmail = 'admin@keycollective.io',
@@ -19,7 +23,7 @@
   } = $props();
 
   // Admin sub-navigation view mode
-  let adminTab = $state<'all' | 'surveillance' | 'velocity' | 'circuits'>('surveillance');
+  let adminTab = $state<'all' | 'surveillance' | 'tenants' | 'keys' | 'providers' | 'audit' | 'velocity' | 'circuits'>('surveillance');
 
   // Edge host & cluster identification
   const edgeHost = 'admin.key-col.axe08.tech';
@@ -108,6 +112,23 @@
           { provider: 'deepseek', name: 'DeepSeek Reasoner', model: 'deepseek-reasoner', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
         ]
   );
+
+  let allKeys = $derived.by(() => {
+    const list: Array<Record<string, unknown>> = [];
+    for (const t of tenants) {
+      if (Array.isArray(t.keys)) {
+        for (const k of t.keys) {
+          if (typeof k === 'object' && k !== null) {
+            list.push({
+              ...(k as Record<string, unknown>),
+              tenantId: t.id ?? t.tenant_id,
+            });
+          }
+        }
+      }
+    }
+    return list;
+  });
 
   async function loadAdminData() {
     isLoading = true;
@@ -200,7 +221,7 @@
       ];
       await loadAdminData();
     } else if (payload.action === 'RESET_QUOTA') {
-      await api.updateTenantTier(payload.targetTenantId, 'builder', 'Reset quota');
+      await api.resetTenantQuota(payload.targetTenantId, payload.reason);
       const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
       auditLogs = [
         {
@@ -446,6 +467,49 @@
         onCircuitOverride={handleCircuitOverride}
         onGlobalKillSwitch={handleGlobalKillSwitch}
       />
+    </section>
+  {/if}
+
+  {#if adminTab === 'tenants'}
+    <section class="space-y-4">
+      <TenantsView
+        {tenants}
+        {adminEmail}
+        onResetQuota={async (tenantId, reason) => {
+          await handleAdminAction({ action: 'RESET_QUOTA', targetTenantId: tenantId, reason, adminEmail });
+        }}
+        onAdjustTier={async (tenantId, newTier) => {
+          await handleAdminAction({ action: 'ADJUST_TIER', targetTenantId: tenantId, newTier, adminEmail });
+        }}
+        onToggleCommunal={async (tenantId, allow) => {
+          await handleAdminAction({ action: allow ? 'UNFREEZE' : 'FREEZE_COMMUNAL', targetTenantId: tenantId, adminEmail });
+        }}
+      />
+    </section>
+  {/if}
+
+  {#if adminTab === 'keys'}
+    <section class="space-y-4">
+      <KeysView
+        keys={allKeys}
+        onUpdateStatus={handleKeyRoutingStatus}
+        onDeleteKey={handleDeleteKey}
+      />
+    </section>
+  {/if}
+
+  {#if adminTab === 'providers'}
+    <section class="space-y-4">
+      <ProvidersView
+        {circuits}
+        onCircuitOverride={handleCircuitOverride}
+      />
+    </section>
+  {/if}
+
+  {#if adminTab === 'audit'}
+    <section class="space-y-4">
+      <AuditLogView {auditLogs} />
     </section>
   {/if}
 

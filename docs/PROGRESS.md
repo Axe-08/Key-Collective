@@ -192,13 +192,13 @@ Plan: `docs/PHASE6_PLAN.md`
 - [x] T-6.3.4 Delete legacy DebtLedgerWidget.test.ts
 
 ### WP-6.2
-- [ ] T-6.2.1 POST /api/admin/tenants/:id/reset-quota endpoint + TenantQuotaDO.reset()
-- [ ] T-6.2.2 GET /api/admin/audit endpoint (paginated admin_audit_logs)
-- [ ] T-6.2.3 GET /api/admin/tenants endpoint (D1 + live DO standing)
-- [ ] T-6.2.4 Admin Tenants view — server-backed with reset-quota wiring
-- [ ] T-6.2.5 Admin Keys view — routing status, delete via coordinator RPC
-- [ ] T-6.2.6 Admin Providers view — coordinator stats + override controls
-- [ ] T-6.2.7 Admin audit log view — server audit list
+- [x] T-6.2.1 POST /api/admin/tenants/:id/reset-quota endpoint + TenantQuotaDO.reset()
+- [x] T-6.2.2 GET /api/admin/audit endpoint (paginated admin_audit_logs)
+- [x] T-6.2.3 GET /api/admin/tenants endpoint (D1 + live DO standing)
+- [x] T-6.2.4 Admin Tenants view — server-backed with reset-quota wiring
+- [x] T-6.2.5 Admin Keys view — routing status, delete via coordinator RPC
+- [x] T-6.2.6 Admin Providers view — coordinator stats + override controls
+- [x] T-6.2.7 Admin audit log view — server audit list
 
 ### WP-6.4
 - [ ] T-6.4.1 Top-level navigation: Dashboard / Keys / Pool / Analytics
