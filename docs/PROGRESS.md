@@ -235,7 +235,7 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.6.2 Archive legacy global-key decryption path in crypto.ts
 
 ### WP-7.1
-- [ ] T-7.1.1 Archive legacy routes and unwire
+- [x] T-7.1.1 Archive legacy routes and unwire
 - [ ] T-7.1.2 Route matrix integration tests
 - [ ] T-7.1.3 Remove Deprecation / Sunset header injection
 
