@@ -161,7 +161,56 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.12.2 Quota evaluator effective_limit scaling with multiplier
 - [x] T-5.12.3 Quota jail enforcement, Flow F body, notice header, would-deny logging
 
-## Phases 6–8
+## Phase 6 — Frontend truth; stop using microdollars
 
-Not carded yet. Before each phase, write a plan like docs/PHASE4_PLAN.md / docs/PHASE5_PLAN.md, then the same loop.
+Plan: `docs/PHASE6_PLAN.md`
+
+### WP-6.5
+- [ ] T-6.5.1 Remove µ$ from cost ledger writes (cost_microdollars, daily_spend_rollup)
+- [ ] T-6.5.2 Remove µ$ from auth tokens (budget_microdollars, spent_microdollars)
+- [ ] T-6.5.3 Remove µ$ from contributor standing D1 sync (community_debt_micro_cu)
+- [ ] T-6.5.4 Delete calculateCost, financial.ts, x-kc-cost-microdollars header, all µ$ contract fields
+- [ ] T-6.5.5 UI µ$ cleanup and grep guard (VelocityDials, SurveillanceTable, types.ts)
+- [ ] T-6.5.6 Update GEMINI.md and CONTEXT.md invariant #4 to CU
+
+### WP-6.1
+- [ ] T-6.1.1 Audit surviving invented-data components
+- [ ] T-6.1.2 AdminView.svelte — remove fake audit rows and syncDurationMs
+- [ ] T-6.1.3 CircuitBreakerControls.svelte — remove hard-coded latencies
+- [ ] T-6.1.4 TelemetryLogs.svelte — remove invented model/token data
+- [ ] T-6.1.5 TopNavBar.svelte — remove hard-coded trust/tier/name
+- [ ] T-6.1.6 DebtLedgerWidget.svelte — remove standing fallback defaults
+- [ ] T-6.1.7 KeysTable.svelte — remove RPD/RPM fallbacks
+- [ ] T-6.1.8 MetricCards.svelte — remove $1.00 budget ring, use CU
+- [ ] T-6.1.9 Workbench.svelte — remove assignedRpm formula and hard-coded timestamp
+- [ ] T-6.1.10 CI guard scripts/check-ui-literals.mjs
+
+### WP-6.3
+- [ ] T-6.3.1 Standing data types (ui/src/lib/standing/types.ts)
+- [ ] T-6.3.2 Standing API client (ui/src/lib/standing/api.ts)
+- [ ] T-6.3.3 Rewrite DebtLedgerWidget → StandingCard.svelte with PRD states
+- [ ] T-6.3.4 Delete legacy DebtLedgerWidget.test.ts
+
+### WP-6.2
+- [ ] T-6.2.1 POST /api/admin/tenants/:id/reset-quota endpoint + TenantQuotaDO.reset()
+- [ ] T-6.2.2 GET /api/admin/audit endpoint (paginated admin_audit_logs)
+- [ ] T-6.2.3 GET /api/admin/tenants endpoint (D1 + live DO standing)
+- [ ] T-6.2.4 Admin Tenants view — server-backed with reset-quota wiring
+- [ ] T-6.2.5 Admin Keys view — routing status, delete via coordinator RPC
+- [ ] T-6.2.6 Admin Providers view — coordinator stats + override controls
+- [ ] T-6.2.7 Admin audit log view — server audit list
+
+### WP-6.4
+- [ ] T-6.4.1 Top-level navigation: Dashboard / Keys / Pool / Analytics
+- [ ] T-6.4.2 Dashboard view (standing card, activity, credentials)
+- [ ] T-6.4.3 Keys view with sub-tabs: My Keys / Private / Observation
+- [ ] T-6.4.4 Rotate modal and pool toggle modal with PRD text
+- [ ] T-6.4.5 Pool view with sub-tabs: Community / Provider / My Contribution
+- [ ] T-6.4.6 Analytics view with sub-tabs: Usage / Ledger / Multiplier History
+- [ ] T-6.4.7 Public /report page (signed-out, Turnstile)
+- [ ] T-6.4.8 Notification toasts every 30s
+
+## Phases 7–8
+
+Not carded yet. Before each phase, write a plan like docs/PHASE6_PLAN.md, then the same loop.
 
