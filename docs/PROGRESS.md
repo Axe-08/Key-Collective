@@ -252,7 +252,7 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.7.5 Wire src/utils/logger.ts as the only logger
 - [x] T-7.7.6 Verify sybil engine is wired
 - [ ] T-7.7.7 Create scripts/reachability.mjs and add to gate
-- [ ] T-7.7.8 Wire contracts/keys.ts (KeyStatus, PoolType enums)
+- [x] T-7.7.8 Wire contracts/keys.ts (KeyStatus, PoolType enums)
 - [ ] T-7.7.9 Remove µ$ leftovers (AU-07)
 
 ## Phase 8

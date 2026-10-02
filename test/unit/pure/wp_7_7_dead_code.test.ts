@@ -98,7 +98,21 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
     expect(linkFlow).toContain("communityEligible");
     expect(fs.existsSync(path.join(ROOT, "src/auth/sybil/index.ts"))).toBe(true);
   });
+
+  it("T-7.7.8: src/contracts/keys.ts is wired into key_pool_do.ts and get_keys.ts", () => {
+    const keyPoolDo = fs.readFileSync(
+      path.join(ROOT, "src/durable_objects/key_pool/key_pool_do.ts"),
+      "utf8"
+    );
+    const getKeys = fs.readFileSync(
+      path.join(ROOT, "src/worker/router/dashboard/keys/get_keys.ts"),
+      "utf8"
+    );
+    expect(keyPoolDo).toMatch(/from\s+["'][^"']*contracts\/keys["']/);
+    expect(getKeys).toMatch(/from\s+["'][^"']*contracts\/keys["']/);
+  });
 });
+
 
 
 
