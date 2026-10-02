@@ -65,8 +65,18 @@ export function evaluateQuota(
   const incomingCost = toMicrodollars(request.costMicrodollars);
 
   const tierLimits = getTierLimits(effectiveTier);
-  const rootRpmLimit = tierLimits.rpmLimit;
-  const rootRpdLimit = tierLimits.rpdLimit;
+  const multiplierPct =
+    typeof ctx.multiplierCeiling === "number" && ctx.multiplierCeiling >= 100
+      ? Math.trunc(ctx.multiplierCeiling)
+      : 100;
+  const rootRpmLimit =
+    tierLimits.rpmLimit === Infinity
+      ? Infinity
+      : Math.floor((tierLimits.rpmLimit * multiplierPct) / 100);
+  const rootRpdLimit =
+    tierLimits.rpdLimit === Infinity
+      ? Infinity
+      : Math.floor((tierLimits.rpdLimit * multiplierPct) / 100);
 
   const currentRootRpm = calculateUsage(ctx.entries, ctx.rpmWindowMs, ctx.now);
   const currentRootRpd = calculateUsage(ctx.entries, ctx.rpdWindowMs, ctx.now);

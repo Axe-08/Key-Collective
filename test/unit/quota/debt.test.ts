@@ -141,7 +141,7 @@ describe("Nightly Reset: decay, trust, streaks, catch-up (WP-5.4 T-5.4.2)", () =
     // Also verify pure helper directly with debt=60 after reset and contributed24h=100
     const ceil = calculateMultiplierCeiling(60n, 100n, false);
     expect(ceil).toBe(150);
-    expect(determineJailStatus(60n, ceil)).toBe("SOFT_WARNING");
+    expect(determineJailStatus(60n, 100n)).toBe("SOFT_WARNING");
   });
 
   it("applies three decays when three daily alarms were missed (last_reset_day catch-up)", async () => {

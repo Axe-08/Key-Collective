@@ -26,6 +26,8 @@ import {
   DemoUnavailableError,
   EyeForEyeError,
   isEyeForEyeError,
+  QuotaJailError,
+  isQuotaJailError,
   ProviderUnavailableError,
   FallbackExhaustedError,
   ProviderRoutingError,
@@ -89,6 +91,7 @@ export async function executeCascadeRouting(
 
   const attempts: FallbackAttempt[] = [];
   const emptyProviders = new Set<string>();
+  let lastQuotaJailError: QuotaJailError | null = null;
   let upstreamAttempts = 0;
   const maxUpstreamAttempts = 1 + maxFallbacks;
 
@@ -177,10 +180,17 @@ export async function executeCascadeRouting(
             leaseErr !== null &&
             (leaseErr as Record<string, unknown>).name === "ProviderUnavailableError");
         const isEyeForEye = isEyeForEyeError(leaseErr);
+        const isQuotaJail = isQuotaJailError(leaseErr);
+        if (isQuotaJail) {
+          lastQuotaJailError = leaseErr;
+          emptyProviders.add(candidate.provider);
+        }
         const errMsg = isProvUnavailable
           ? "provider_unavailable"
           : isEyeForEye
           ? "eye_for_eye"
+          : isQuotaJail
+          ? "quota_jail"
           : leaseErr instanceof Error
           ? leaseErr.message
           : String(leaseErr);
@@ -188,7 +198,7 @@ export async function executeCascadeRouting(
           provider: candidate.provider,
           modelId: candidate.id,
           error:
-            isProvUnavailable || isEyeForEye
+            isProvUnavailable || isEyeForEye || isQuotaJail
               ? errMsg
               : `Lease acquisition failed: ${errMsg}`,
         };
@@ -345,6 +355,17 @@ export async function executeCascadeRouting(
   // 9. All candidate routes exhausted
   if (reqOptions.tenantId === "sys_demo") {
     throw new DemoUnavailableError();
+  }
+  if (
+    lastQuotaJailError &&
+    attempts.every(
+      (a) =>
+        a.error === "quota_jail" ||
+        a.error.includes("quota_jail") ||
+        a.error.startsWith("No lease available")
+    )
+  ) {
+    throw lastQuotaJailError;
   }
   const eyeAttempt = attempts.find(
     (a) => a.error === "eye_for_eye" || a.error.includes("eye_for_eye")

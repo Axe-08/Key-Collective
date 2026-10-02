@@ -26,8 +26,14 @@ import {
   type CoordinatorLeaseRequest,
   type CoordinatorSettleResult,
 } from "../../pool/coordinator_do";
-import { EyeForEyeError, ProviderUnavailableError } from "../../errors/routing_errors";
+import { commonsEnforcement, recordWouldDeny } from "../../pool/enforcement";
+import {
+  EyeForEyeError,
+  ProviderUnavailableError,
+  QuotaJailError,
+} from "../../errors/routing_errors";
 import { isWithinProviderResetWindow } from "../../providers/config";
+import { estimateJailRecoveryDays } from "../../quota/tenant/debt";
 import type { WorkerEnv } from "../../worker/auth/types";
 
 export type LeaseSource = "private" | "own_community" | "borrowed";
@@ -38,6 +44,7 @@ export interface Lease {
   source: LeaseSource;
   ownerTenantId: string;
   provider: string;
+  commonsNotice?: string;
 }
 
 export interface LeaseAcquireContext {
@@ -108,6 +115,12 @@ interface TenantQuotaRpcStub {
     leaseId?: string,
     tenantId?: string
   ): Promise<void>;
+  standing?(tenantId?: string): Promise<{
+    communityDebtCu: string;
+    contributedCu24h: string;
+    multiplierPct: number;
+    jailStatus: string;
+  }>;
 }
 
 export class LeaseOrchestrator implements LeaseProvider {
@@ -241,6 +254,34 @@ export class LeaseOrchestrator implements LeaseProvider {
       return null;
     }
 
+    // Quota jail check (WP-5.12 T-5.12.3): HARD_JAIL tenants get ownOnly=true leases only in enforce mode
+    let commonsNotice: string | undefined;
+    const quotaStub = this.getTenantQuotaStub(ctx.tenantId, ctx.env);
+    if (quotaStub && typeof quotaStub.standing === "function") {
+      const standing = await quotaStub.standing(ctx.tenantId).catch(() => null);
+      if (standing && standing.jailStatus === "HARD_JAIL") {
+        const debtBigInt = BigInt(standing.communityDebtCu || "0");
+        const contribBigInt = BigInt(standing.contributedCu24h || "0");
+        const mode = commonsEnforcement("jail", ctx.env);
+        if (mode === "enforce") {
+          const estimatedDays = estimateJailRecoveryDays(debtBigInt, contribBigInt);
+          throw new QuotaJailError({
+            communityDebtCu: Number(debtBigInt),
+            contributedCu24h: Number(contribBigInt),
+            multiplierPct: standing.multiplierPct,
+            estimatedDays,
+          });
+        }
+        await recordWouldDeny(
+          "jail",
+          ctx.tenantId,
+          `debt=${standing.communityDebtCu} contributed_24h=${standing.contributedCu24h}`,
+          ctx.env
+        );
+        commonsNotice = "quota_jail";
+      }
+    }
+
     const borrowedLease = await coordStub.lease({
       tenant: ctx.tenantId,
       ownOnly: false,
@@ -255,6 +296,7 @@ export class LeaseOrchestrator implements LeaseProvider {
         source: "borrowed",
         ownerTenantId: borrowedLease.ownerTenantId,
         provider: borrowedLease.provider,
+        ...(commonsNotice ? { commonsNotice } : {}),
       };
     }
 
@@ -312,6 +354,7 @@ export class LeaseOrchestrator implements LeaseProvider {
                 source: "borrowed",
                 ownerTenantId: retryBorrowed.ownerTenantId,
                 provider: retryBorrowed.provider,
+                ...(commonsNotice ? { commonsNotice } : {}),
               };
             }
           }
