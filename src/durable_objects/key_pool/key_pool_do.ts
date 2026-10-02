@@ -26,7 +26,11 @@ import {
 } from "../key_selector";
 import { RateLimiter, RateLimiterMetrics } from "../rate_limiter";
 import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
+import { checkProofOfLife } from "../../ingress/probe";
+import { canonicalCoordinatorProvider } from "../../pool/coordinator_do";
 import { Clock, systemClock } from "../../utils/clock";
+import type { WorkerEnv } from "../../worker/auth/types";
+import { resolveLeasedKey } from "../../worker/router/core/key_resolver";
 import { handleKeyPoolRpc } from "./rpc";
 import {
   DurableObjectStateLike,
@@ -663,6 +667,9 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
   }
 
   public async alarm(): Promise<void> {
+    await this.ensureLoaded();
+    await this.runNightlyCanaryProbes().catch(() => {});
+
     const tomorrow = new Date(this.clock.now());
     tomorrow.setUTCHours(24, 0, 0, 0);
     const storageWithAlarm = this.ctx.storage as unknown as {
@@ -670,6 +677,190 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     };
     if (typeof storageWithAlarm?.setAlarm === "function") {
       await storageWithAlarm.setAlarm(tomorrow.getTime());
+    }
+  }
+
+  /**
+   * Nightly passive contributor canary (WP-5.9 T-5.9.1):
+   * - Asks TenantQuotaDO for the tenant's 24h personal request count.
+   * - If < 50, asks the coordinators for the tenant's community keys and runs `checkProofOfLife`
+   *   once per key per day: 200 -> HEALTHY; 401/403 -> QUARANTINED + owner notification; 429 -> no action.
+   */
+  private async runNightlyCanaryProbes(): Promise<void> {
+    const now = this.now();
+    const todayDay = new Date(now).toISOString().slice(0, 10);
+
+    // 1. Ask TenantQuotaDO for yesterday's (24h) personal request count
+    let personalRequests = 0;
+    const quotaNs = this.env.TENANT_QUOTA as DurableObjectNamespace | undefined;
+    if (quotaNs && typeof quotaNs.idFromName === "function" && typeof quotaNs.get === "function") {
+      const quotaStub = quotaNs.get(quotaNs.idFromName(this.tenantId)) as unknown as {
+        getPersonalRequestCount?(targetTenantId?: string): Promise<number>;
+        getRpd?(): Promise<number> | number;
+      };
+      if (typeof quotaStub.getPersonalRequestCount === "function") {
+        personalRequests = await quotaStub.getPersonalRequestCount(this.tenantId).catch(() => 0);
+      } else if (typeof quotaStub.getRpd === "function") {
+        personalRequests = Number(await Promise.resolve(quotaStub.getRpd()).catch(() => 0));
+      }
+    }
+
+    if (personalRequests >= 50) {
+      return;
+    }
+
+    // 2. Ask the coordinators for the tenant's community keys
+    const candidateMap = new Map<string, { keyId: string; provider: string; label?: string }>();
+    const coordNs = this.env.POOL_COORDINATOR as DurableObjectNamespace | undefined;
+
+    if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+      for (const prov of ["google", "groq"] as const) {
+        const coordStub = coordNs.get(coordNs.idFromName(`pool:${prov}`)) as unknown as {
+          getOwnerCommunityKeys?(
+            owner: string
+          ): Promise<Array<{ keyId: string; provider: string; status: string }>>;
+        };
+        if (typeof coordStub.getOwnerCommunityKeys === "function") {
+          const rows = await coordStub.getOwnerCommunityKeys(this.tenantId).catch(() => []);
+          for (const r of rows) {
+            candidateMap.set(r.keyId, { keyId: r.keyId, provider: r.provider });
+          }
+        }
+      }
+    }
+
+    // Also include any in-memory or D1 community keys owned by this tenant
+    for (const k of this.keysMap.values()) {
+      if (
+        k.tenantId === this.tenantId &&
+        k.poolType === "COMMUNITY" &&
+        k.status !== "REVOKED" &&
+        k.status !== "QUARANTINED"
+      ) {
+        if (!candidateMap.has(k.id)) {
+          candidateMap.set(k.id, { keyId: k.id, provider: k.provider, label: k.label });
+        }
+      }
+    }
+
+    const db = this.env.DB;
+    const hasDb = Boolean(db && typeof db.prepare === "function");
+
+    // 3. Run checkProofOfLife once per key per day
+    for (const { keyId, provider, label } of candidateMap.values()) {
+      const canaryKey = `${this.storageKeyPrefix}canary:${keyId}`;
+      const lastProbedDay = await this.ctx.storage.get<string>(canaryKey).catch(() => undefined);
+      if (lastProbedDay === todayDay) {
+        continue;
+      }
+
+      let rawKey: string | undefined;
+      if (hasDb) {
+        try {
+          rawKey = await resolveLeasedKey(
+            { keyId, ownerTenantId: this.tenantId, provider },
+            this.env as unknown as WorkerEnv
+          );
+        } catch {
+          rawKey = undefined;
+        }
+      }
+      if (!rawKey) {
+        const localKey = this.keysMap.get(keyId);
+        if (localKey?.ciphertext) {
+          rawKey = localKey.ciphertext;
+        }
+      }
+      if (!rawKey) {
+        continue;
+      }
+
+      await this.ctx.storage.put<string>(canaryKey, todayDay).catch(() => {});
+
+      const probe = await checkProofOfLife(rawKey, provider);
+      const canonProv = canonicalCoordinatorProvider(provider);
+
+      if ("ok" in probe && probe.ok) {
+        const localKey = this.keysMap.get(keyId);
+        if (localKey && localKey.status !== "HEALTHY") {
+          localKey.status = "HEALTHY";
+          localKey.cooldownUntil = null;
+          this.keySelector.addKey(localKey);
+          await this.persistKeys();
+        }
+        if (hasDb) {
+          await db!
+            .prepare(
+              "UPDATE api_keys SET status = 'HEALTHY', status_changed_at = ? WHERE id = ? AND status NOT IN ('REVOKED', 'QUARANTINED')"
+            )
+            .bind(now, keyId)
+            .run()
+            .catch(() => {});
+        }
+      } else if ("error" in probe && probe.error === "key_invalid") {
+        // Quarantine flow: coordinator, D1 api_keys, local map, and owner notification
+        if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+          const coordStub = coordNs.get(coordNs.idFromName(`pool:${canonProv}`)) as unknown as {
+            setStatus?(keyId: string, status: string): Promise<boolean>;
+          };
+          if (typeof coordStub.setStatus === "function") {
+            await coordStub.setStatus(keyId, "QUARANTINED").catch(() => false);
+          }
+        }
+
+        const localKey = this.keysMap.get(keyId);
+        if (localKey) {
+          localKey.status = "QUARANTINED";
+          localKey.cooldownUntil = null;
+          this.keySelector.addKey(localKey);
+          await this.persistKeys();
+        }
+
+        if (hasDb) {
+          await db!
+            .prepare(
+              "UPDATE api_keys SET status = 'QUARANTINED', community_routing_status = 'QUARANTINED', status_changed_at = ? WHERE id = ? AND status != 'REVOKED'"
+            )
+            .bind(now, keyId)
+            .run()
+            .catch(() => {});
+
+          let resolvedLabel = label ?? localKey?.label;
+          if (!resolvedLabel) {
+            const kRow = await db!
+              .prepare("SELECT label FROM api_keys WHERE id = ?")
+              .bind(keyId)
+              .first<{ label: string }>()
+              .catch(() => null);
+            resolvedLabel = kRow?.label;
+          }
+
+          const notifId = "notif_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+          const normProv = provider.toLowerCase();
+          const provDisplay =
+            normProv === "google" || normProv === "gemini"
+              ? "Gemini"
+              : normProv === "groq"
+              ? "Groq"
+              : provider;
+          const consoleDisplay =
+            normProv === "google" || normProv === "gemini"
+              ? "Google AI Studio"
+              : normProv === "groq"
+              ? "Groq Console"
+              : `${provDisplay} dashboard`;
+          const msg = `⚠️ Key [${resolvedLabel || keyId}] (${provDisplay}) went unhealthy during nightly canary check. Check your ${consoleDisplay} and re-submit if needed.`;
+
+          await db!
+            .prepare(
+              "INSERT INTO notifications (id, tenant_id, type, key_id, message, created_at, read_at) VALUES (?, ?, 'key_invalid', ?, ?, ?, NULL)"
+            )
+            .bind(notifId, this.tenantId, keyId, msg, now)
+            .run()
+            .catch(() => {});
+        }
+      }
+      // 429 (key_no_quota) or provider_unavailable -> no action
     }
   }
 
