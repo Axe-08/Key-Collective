@@ -315,9 +315,8 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     if (this.keysMap.size === 0 && this.env.DB && typeof this.env.DB.prepare === "function") {
       try {
         const stmt = this.env.DB.prepare(
-          `SELECT k.id, k.tenant_id, k.label, k.provider, k.encrypted_key_b64, k.nonce_b64, 
+          `SELECT k.id, k.tenant_id, k.label, k.provider, k.encrypted_key_b64, k.nonce_b64,
                   k.rpm_limit, k.rpd_limit, k.priority, k.status, k.pool_type,
-                  k.dispatched_today, k.dispatched_communal,
                   COALESCE(cs.community_debt_micro_cu, 0) as owner_debt
            FROM api_keys k
            LEFT JOIN contributor_standing cs ON cs.tenant_id = k.tenant_id
@@ -344,25 +343,16 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
           priority: number;
           status: string;
           pool_type?: string;
-          dispatched_today?: number;
-          dispatched_communal?: number;
           owner_debt?: number;
         }>();
         if (result.results && result.results.length > 0) {
           const d1Keys: EncryptedKey[] = result.results.map((row) => {
             const isOwnKey = row.tenant_id === this.tenantId;
-            const totalDispatched = row.dispatched_today ?? 0;
-            const communalDispatched = row.dispatched_communal ?? 0;
-            const ratio = totalDispatched > 0 ? communalDispatched / totalDispatched : 0;
-            const isParasite = totalDispatched > 0 && ratio < 0.1;
-            const isHero = totalDispatched > 0 && ratio >= 0.8;
 
             let calculatedPriority = isOwnKey ? 10000 : 0;
             if (!isOwnKey) {
               const debtBoost = Math.min(5000, Math.floor(Number(row.owner_debt ?? 0) / 1000));
               calculatedPriority += debtBoost;
-              if (isParasite) calculatedPriority += 2000;
-              if (isHero) calculatedPriority -= 1000;
             }
 
             return {

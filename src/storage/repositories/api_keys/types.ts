@@ -30,9 +30,6 @@ export interface APIKeyRow {
   pool_type?: string;
   community_routing_status?: string;
   observation_until?: string | null;
-  dispatched_today?: number;
-  dispatched_communal?: number;
-  vesting_tier?: number;
   provider_project_hash?: string | null;
   hkdf_migrated?: number;
   anti_cycling_until?: number | null;
@@ -169,9 +166,9 @@ export function mapRowToAPIKey(row: APIKeyRow): APIKey {
     poolType: normalisePoolType(row.pool_type ?? null),
     communityRoutingStatus: (row.community_routing_status as "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED") ?? null,
     observationUntil: toEpochMs(row.observation_until ?? null),
-    dispatchedToday: row.dispatched_today ?? 0,
-    dispatchedCommunal: row.dispatched_communal ?? 0,
-    vestingTier: row.vesting_tier ?? 0,
+    dispatchedToday: 0,
+    dispatchedCommunal: 0,
+    vestingTier: 0,
     providerProjectHash: row.provider_project_hash ?? null,
     hkdfMigrated: row.hkdf_migrated ?? 0,
     antiCyclingUntil: toEpochMs(row.anti_cycling_until ?? null),

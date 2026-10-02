@@ -113,6 +113,9 @@ export interface CoordinatorStats {
   dispatchedCommunal: number;
   borrowerCuInWindow: number;
   activeBrakes: number;
+  utilisationPct: number;
+  p90LatencyMs: number;
+  wProviderPct: number;
 }
 
 export interface ProviderOverrideInfo {
@@ -244,6 +247,11 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         status TEXT,
         cu INTEGER,
         settled_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS latency_samples (
+        lease_id TEXT PRIMARY KEY,
+        latency_ms INTEGER NOT NULL,
+        recorded_at INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS key_model_stats (
         key_id TEXT NOT NULL,
@@ -1153,7 +1161,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     status: string,
     cu: number | bigint = 0,
     until?: number,
-    model?: string
+    model?: string,
+    latencyMs?: number
   ): Promise<CoordinatorSettleResult> {
     const sql = this.ensureSchema();
     const now = this.clock.now();
@@ -1166,12 +1175,14 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
 
     const leaseRows = sql
-      .exec("SELECT key_id, tenant, borrowed, model FROM leases WHERE lease_id = ?", leaseId)
+      .exec("SELECT key_id, tenant, borrowed, model, created_at FROM leases WHERE lease_id = ?", leaseId)
       .toArray();
     const leaseRow = leaseRows[0];
     const keyId = leaseRow && typeof leaseRow.key_id === "string" ? leaseRow.key_id : undefined;
     const tenant = leaseRow && typeof leaseRow.tenant === "string" ? leaseRow.tenant : undefined;
     const borrowed = leaseRow ? Number(leaseRow.borrowed) === 1 : false;
+    const createdAt =
+      leaseRow && typeof leaseRow.created_at === "number" ? Number(leaseRow.created_at) : now;
     const resolvedModel =
       (
         model ??
@@ -1205,6 +1216,19 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       now
     );
     sql.exec("UPDATE leases SET settled_at = ? WHERE lease_id = ?", now, leaseId);
+
+    const sampleLatency =
+      latencyMs !== undefined && Number.isFinite(latencyMs)
+        ? Math.max(0, Math.trunc(latencyMs))
+        : Math.max(0, Math.trunc(now - createdAt));
+    if (sampleLatency > 0 || latencyMs !== undefined) {
+      sql.exec(
+        "INSERT OR REPLACE INTO latency_samples (lease_id, latency_ms, recorded_at) VALUES (?, ?, ?)",
+        leaseId,
+        sampleLatency,
+        now
+      );
+    }
 
     if (borrowed && tenant && numericUnits > 0) {
       const minute = Math.floor(now / 60_000);
@@ -1766,7 +1790,9 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
            SUM(CASE WHEN status = 'QUARANTINED' THEN 1 ELSE 0 END) AS quarantined_keys,
            SUM(CASE WHEN status = 'REVOKED' THEN 1 ELSE 0 END) AS revoked_keys,
            COALESCE(SUM(dispatched_today), 0) AS dispatched_today,
-           COALESCE(SUM(dispatched_communal), 0) AS dispatched_communal
+           COALESCE(SUM(dispatched_communal), 0) AS dispatched_communal,
+           COALESCE(SUM(CASE WHEN status = 'ACTIVE' THEN day_count ELSE 0 END), 0) AS active_day_count,
+           COALESCE(SUM(CASE WHEN status = 'ACTIVE' THEN rpd_limit ELSE 0 END), 0) AS active_rpd_limit
          FROM keys`
       )
       .toArray()[0] ?? {};
@@ -1782,16 +1808,71 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       .exec("SELECT COUNT(*) AS cnt FROM brakes WHERE until > ?", now)
       .toArray()[0] ?? {};
 
+    const activeKeys = Number(keyAgg.active_keys ?? 0);
+    const observationKeys = Number(keyAgg.observation_keys ?? 0);
+    const cooldownKeys = Number(keyAgg.cooldown_keys ?? 0);
+    const quarantinedKeys = Number(keyAgg.quarantined_keys ?? 0);
+    const revokedKeys = Number(keyAgg.revoked_keys ?? 0);
+    const activeDayCount = Number(keyAgg.active_day_count ?? 0);
+    const activeRpdLimit = Number(keyAgg.active_rpd_limit ?? 0);
+
+    const utilisationPct =
+      activeRpdLimit > 0
+        ? Math.min(100, Math.floor((activeDayCount * 100) / activeRpdLimit))
+        : 0;
+
+    const latencyCountRow =
+      sql
+        .exec(
+          "SELECT COUNT(*) AS total FROM latency_samples WHERE recorded_at > ?",
+          now - SETTLED_LEASE_TTL_MS
+        )
+        .toArray()[0] ?? {};
+    const totalLatencySamples = Number(latencyCountRow.total ?? 0);
+    let p90LatencyMs = 0;
+    if (totalLatencySamples > 0) {
+      const offset = Math.max(0, Math.ceil(totalLatencySamples * 0.9) - 1);
+      const latRow =
+        sql
+          .exec(
+            `SELECT latency_ms
+               FROM latency_samples
+              WHERE recorded_at > ?
+              ORDER BY latency_ms ASC
+              LIMIT 1 OFFSET ?`,
+            now - SETTLED_LEASE_TTL_MS,
+            offset
+          )
+          .toArray()[0] ?? {};
+      p90LatencyMs = Math.max(0, Math.trunc(Number(latRow.latency_ms ?? 0)));
+    }
+
+    const TARGET_P90_MS = 800;
+    const totalHealthKeys = activeKeys + quarantinedKeys;
+    const activeRatioPct =
+      totalHealthKeys > 0 ? Math.floor((activeKeys * 100) / totalHealthKeys) : 100;
+    const latencyFactorPct =
+      p90LatencyMs > 0
+        ? Math.min(100, Math.floor((TARGET_P90_MS * 100) / p90LatencyMs))
+        : 100;
+    const wProviderPct =
+      totalHealthKeys > 0
+        ? Math.floor((activeRatioPct * latencyFactorPct) / 100)
+        : 100;
+
     return {
-      activeKeys: Number(keyAgg.active_keys ?? 0),
-      observationKeys: Number(keyAgg.observation_keys ?? 0),
-      cooldownKeys: Number(keyAgg.cooldown_keys ?? 0),
-      quarantinedKeys: Number(keyAgg.quarantined_keys ?? 0),
-      revokedKeys: Number(keyAgg.revoked_keys ?? 0),
+      activeKeys,
+      observationKeys,
+      cooldownKeys,
+      quarantinedKeys,
+      revokedKeys,
       dispatchedToday: Number(keyAgg.dispatched_today ?? 0),
       dispatchedCommunal: Number(keyAgg.dispatched_communal ?? 0),
       borrowerCuInWindow: parseInt(String(winAgg.total_cu ?? 0), 10) || 0,
       activeBrakes: Number(brakeAgg.cnt ?? 0),
+      utilisationPct,
+      p90LatencyMs,
+      wProviderPct,
     };
   }
 
@@ -1851,10 +1932,58 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
+   * Returns per-key dispatch counters and status for the requested key IDs (or all keys when omitted) (WP-5.10 T-5.10.2).
+   */
+  public async getKeysCounterMap(
+    keyIds?: string[]
+  ): Promise<
+    Record<
+      string,
+      {
+        dispatchedToday: number;
+        dispatchedCommunal: number;
+        status: CoordinatorKeyStatus;
+        observationUntil: number | null;
+      }
+    >
+  > {
+    const sql = this.ensureSchema();
+    const filterSet = keyIds && keyIds.length > 0 ? new Set(keyIds) : null;
+    const rows = sql
+      .exec(
+        `SELECT key_id, status, observation_until, dispatched_today, dispatched_communal
+           FROM keys`
+      )
+      .toArray();
+    const out: Record<
+      string,
+      {
+        dispatchedToday: number;
+        dispatchedCommunal: number;
+        status: CoordinatorKeyStatus;
+        observationUntil: number | null;
+      }
+    > = {};
+    for (const r of rows) {
+      const kid = String(r.key_id);
+      if (filterSet && !filterSet.has(kid)) continue;
+      out[kid] = {
+        dispatchedToday: Number(r.dispatched_today ?? 0),
+        dispatchedCommunal: Number(r.dispatched_communal ?? 0),
+        status: String(r.status) as CoordinatorKeyStatus,
+        observationUntil:
+          typeof r.observation_until === "number" ? Number(r.observation_until) : null,
+      };
+    }
+    return out;
+  }
+
+  /**
    * 60-second alarm:
    * - Promotes OBSERVATION keys past `observation_until`
    * - Reactivates COOLDOWN keys past `reactivate_at`
-   * - Prunes expired `brakes`, old `borrower_window` rows, and 24h-expired `settled_leases`
+   * - Prunes expired `brakes`, old `borrower_window` rows, and 24h-expired `settled_leases` / `latency_samples`
+   * - Hourly sub-tick (WP-5.10 T-5.10.1): snapshots shard telemetry stats into `meta`
    * - Reconciles against D1 every 5 minutes
    */
   public async alarm(): Promise<void> {
@@ -1864,13 +1993,22 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     await this.promoteObservationKeys(false, now);
     await this.promoteAndResetBuckets(now);
 
-    // Prune expired brakes and old borrower_window / owner_service_window / settled_leases
+    // Prune expired brakes and old borrower_window / owner_service_window / settled_leases / latency_samples
     sql.exec("DELETE FROM brakes WHERE until <= ?", now);
     const cutoffMinute = Math.floor((now - BORROWER_WINDOW_MINUTES * 60_000) / 60_000);
     sql.exec("DELETE FROM borrower_window WHERE minute < ?", cutoffMinute);
     const cutoffHour = Math.floor((now - 24 * 3_600_000) / 3_600_000);
     sql.exec("DELETE FROM owner_service_window WHERE hour < ?", cutoffHour);
     sql.exec("DELETE FROM settled_leases WHERE settled_at <= ?", now - SETTLED_LEASE_TTL_MS);
+    sql.exec("DELETE FROM latency_samples WHERE recorded_at <= ?", now - SETTLED_LEASE_TTL_MS);
+
+    // Hourly sub-tick (WP-5.10 T-5.10.1): compute and cache shard stats snapshot
+    const currentHourBucket = String(Math.floor(now / 3_600_000));
+    if (this.getMeta("last_hourly_tick") !== currentHourBucket) {
+      const st = await this.stats();
+      this.setMeta("last_hourly_tick", currentHourBucket);
+      this.setMeta("hourly_stats_json", JSON.stringify(st));
+    }
 
     // Reconcile against D1 every 5 minutes when a D1 binding and provider are present
     const lastReconcile = Number(this.getMeta("last_reconcile_ms") ?? "0");
