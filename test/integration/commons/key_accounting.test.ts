@@ -73,7 +73,6 @@ beforeEach(async () => {
   currentScenario = "json_ok";
   clearDecryptedKeyCache();
   await env.DB.prepare("DELETE FROM cost_ledger").run();
-  await env.DB.prepare("DELETE FROM daily_spend_rollup").run();
   await env.DB.prepare("DELETE FROM daily_cu_rollup").run();
   await env.DB.prepare("DELETE FROM api_keys").run();
 });

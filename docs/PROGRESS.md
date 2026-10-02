@@ -215,7 +215,7 @@ Plan: `docs/PHASE6_PLAN.md`
 Plan: `docs/PHASE7_PLAN.md`
 
 ### WP-7.3
-- [ ] T-7.3.1 Migration 0023_credit_units_contract.sql
+- [x] T-7.3.1 Migration 0023_credit_units_contract.sql
 - [ ] T-7.3.2 Clean telemetry emitter µ$ remnants
 - [ ] T-7.3.3 Schema conformance test
 
