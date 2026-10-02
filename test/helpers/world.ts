@@ -143,7 +143,7 @@ export async function addProviderKey(
     .join("");
   const keyId = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
   await env.DB.prepare(
-    "INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_hash, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, pool_type, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+    "INSERT INTO api_keys (id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_hash, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, pool_type, status, hkdf_migrated, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)"
   )
     .bind(
       keyId,

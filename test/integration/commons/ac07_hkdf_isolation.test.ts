@@ -17,7 +17,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { env, fetchMock, SELF } from "cloudflare:test";
 import { deriveTenantKey, encrypt } from "../../../src/crypto/encryption/index";
-import { encryptKey } from "../../../src/durable_objects/crypto";
 import { KeyDecryptionError } from "../../../src/errors/key_errors";
 import { resolveLeasedKey } from "../../../src/worker/router/core/key_resolver";
 import { migrateKeysToHkdf } from "../../../ops/migrate_keys_hkdf";
@@ -142,10 +141,10 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
     expect(row?.status).toBe("QUARANTINED");
   });
 
-  it("lazy migration: decrypts legacy row (hkdf_migrated=0) once, re-encrypts with tenant subkey, and updates hkdf_migrated=1", async () => {
+  it("unmigrated row (hkdf_migrated=0): throws KeyDecryptionError and quarantines key without calling upstream (T-7.6.1)", async () => {
     const user = await createUser({ github: true, eligible: true });
     const rawPlaintext = "gsk_legacy_row_plain_key_7777";
-    const legacyEncrypted = await encryptKey(rawPlaintext, "legacy", "groq", MASTER_KEY);
+    const legacyEncrypted = await encrypt(rawPlaintext, MASTER_KEY);
     const keyId = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
     await env.DB.prepare(
@@ -160,8 +159,8 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
         user.id,
         "legacy-key",
         "groq",
-        legacyEncrypted.ciphertext,
-        legacyEncrypted.nonce,
+        legacyEncrypted.ciphertextB64,
+        legacyEncrypted.nonceB64,
         "hash777",
         "gsk_",
         "7777",
@@ -173,36 +172,27 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
       )
       .run();
 
-    // First resolution decrypts via legacy path, re-encrypts, and returns plaintext
-    const resolved = await resolveLeasedKey(
-      {
-        keyId,
-        ownerTenantId: user.id,
-        provider: "groq",
-      },
-      env
-    );
-    expect(resolved).toBe(rawPlaintext);
+    const beforeCalls = upstreamCallCount;
+    await expect(
+      resolveLeasedKey(
+        {
+          keyId,
+          ownerTenantId: user.id,
+          provider: "groq",
+        },
+        env
+      )
+    ).rejects.toThrow(KeyDecryptionError);
+    expect(upstreamCallCount).toBe(beforeCalls);
 
-    // Verify D1 state updated to hkdf_migrated=1 with new ciphertext
     const rowAfter = await env.DB.prepare(
-      "SELECT encrypted_key_b64, nonce_b64, hkdf_migrated FROM api_keys WHERE id = ?"
+      "SELECT status, hkdf_migrated FROM api_keys WHERE id = ?"
     )
       .bind(keyId)
-      .first<{ encrypted_key_b64: string; nonce_b64: string; hkdf_migrated: number }>();
+      .first<{ status: string; hkdf_migrated: number }>();
 
-    expect(rowAfter?.hkdf_migrated).toBe(1);
-    expect(rowAfter?.encrypted_key_b64).not.toBe(legacyEncrypted.ciphertext);
-
-    // Verify new ciphertext can be decrypted directly with user's subkey
-    const userSubkey = await deriveTenantKey(MASTER_KEY, user.id);
-    const decryptedDirectly = await (
-      await import("../../../src/crypto/encryption/index")
-    ).decrypt(
-      { ciphertext: rowAfter!.encrypted_key_b64, nonce: rowAfter!.nonce_b64 },
-      userSubkey
-    );
-    expect(decryptedDirectly).toBe(rawPlaintext);
+    expect(rowAfter?.status).toBe("QUARANTINED");
+    expect(rowAfter?.hkdf_migrated).toBe(0);
   });
 
   it("bulk migration: migrateKeysToHkdf migrates all legacy rows and quarantines corrupted ones", async () => {
@@ -217,7 +207,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
     const keyIds: string[] = [];
 
     for (const raw of rawKeys) {
-      const encrypted = await encryptKey(raw, "legacy", "groq", MASTER_KEY);
+      const encrypted = await encrypt(raw, MASTER_KEY);
       const kid = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
       keyIds.push(kid);
       await env.DB.prepare(
@@ -232,8 +222,8 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
           user.id,
           `bulk-${kid}`,
           "groq",
-          encrypted.ciphertext,
-          encrypted.nonce,
+          encrypted.ciphertextB64,
+          encrypted.nonceB64,
           "hash_" + kid,
           "gsk_",
           "bulk",

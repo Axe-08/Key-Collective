@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { deriveTenantKey, encrypt } from "../../../crypto/encryption/index";
-import { encryptKey } from "../../../durable_objects/crypto";
-import { KeyDecryptionError } from "../../../errors/key_errors";
+import { decryptKey, encryptKey } from "../../../durable_objects/crypto";
+import { DecryptionError, KeyDecryptionError } from "../../../errors/key_errors";
 import type { WorkerEnv } from "../../auth/index";
-import { evict, clearDecryptedKeyCache, resolveLeasedKey, resolvePlaintextKey } from "./key_resolver";
+import { evict, clearDecryptedKeyCache, resolveLeasedKey } from "./key_resolver";
 
 describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
   const MASTER_KEY = "super-secret-master-key-for-tests-12345";
@@ -47,13 +49,12 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
     expect(resolved).toBe(rawPlaintext);
   });
 
-  it("lazy migration: decrypts legacy row (hkdf_migrated=0) once, re-encrypts with tenant subkey and updates hkdf_migrated=1", async () => {
+  it("unmigrated row (hkdf_migrated=0): throws KeyDecryptionError and quarantines key without attempting legacy decryption (T-7.6.1)", async () => {
     const rawPlaintext = "gsk_LegacySecretKey888";
-    const encrypted = await encryptKey(rawPlaintext, "default", "groq", MASTER_KEY);
+    const subkey = await deriveTenantKey(MASTER_KEY, TENANT_A);
+    const encrypted = await encrypt(rawPlaintext, subkey);
 
-    let updatedHkdf = false;
-    let newCiphertext = "";
-    let newNonce = "";
+    let quarantinedKeyId: string | null = null;
 
     const mockDb = {
       prepare: vi.fn((sql: string) => ({
@@ -64,8 +65,8 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
                 id: "key_legacy_001",
                 tenant_id: TENANT_A,
                 provider: "groq",
-                encrypted_key_b64: encrypted.ciphertext,
-                nonce_b64: encrypted.nonce,
+                encrypted_key_b64: encrypted.ciphertextB64,
+                nonce_b64: encrypted.nonceB64,
                 hkdf_migrated: 0,
                 status: "HEALTHY",
               };
@@ -73,10 +74,8 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
             return null;
           },
           run: async () => {
-            if (sql.includes("UPDATE api_keys SET encrypted_key_b64")) {
-              updatedHkdf = true;
-              newCiphertext = args[0] as string;
-              newNonce = args[1] as string;
+            if (sql.includes("QUARANTINED")) {
+              quarantinedKeyId = args[1] as string;
             }
             return { success: true };
           },
@@ -89,14 +88,13 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
       KC_MASTER_KEY: MASTER_KEY,
     } as unknown as WorkerEnv;
 
-    const resolved = await resolveLeasedKey(
-      { keyId: "key_legacy_001", ownerTenantId: TENANT_A, provider: "groq" },
-      env
-    );
-    expect(resolved).toBe(rawPlaintext);
-    expect(updatedHkdf).toBe(true);
-    expect(newCiphertext).toBeTruthy();
-    expect(newNonce).toBeTruthy();
+    await expect(
+      resolveLeasedKey(
+        { keyId: "key_legacy_001", ownerTenantId: TENANT_A, provider: "groq" },
+        env
+      )
+    ).rejects.toThrow(KeyDecryptionError);
+    expect(quarantinedKeyId).toBe("key_legacy_001");
   });
 
   it("caches decrypted key in-memory by keyId:nonce and invalidates on evict(keyId)", async () => {
@@ -232,5 +230,15 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
     ).rejects.toThrow(KeyDecryptionError);
 
     expect(quarantined).toBe(true);
+  });
+
+  it("T-7.6.2: durable_objects/crypto rejects raw string master keys and only accepts HKDF-derived tenant subkeys", async () => {
+    const subkey = await deriveTenantKey(MASTER_KEY, TENANT_A);
+    const record = await encryptKey("gsk_hkdf_only_test", TENANT_A, "groq", subkey);
+    expect(await decryptKey(record, subkey)).toBe("gsk_hkdf_only_test");
+
+    await expect(decryptKey(record, MASTER_KEY)).rejects.toThrow(DecryptionError);
+    expect(fs.existsSync(path.resolve(process.cwd(), "src/durable_objects/crypto.spec.ts"))).toBe(false);
+    expect(fs.existsSync(path.resolve(process.cwd(), "archives/src/durable_objects/crypto.spec.ts"))).toBe(true);
   });
 });

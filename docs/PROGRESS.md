@@ -231,8 +231,8 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.5.4 Archive legacy routing tests
 
 ### WP-7.6
-- [ ] T-7.6.1 Simplify resolveLeasedKey to HKDF-only
-- [ ] T-7.6.2 Archive legacy global-key decryption path in crypto.ts
+- [x] T-7.6.1 Simplify resolveLeasedKey to HKDF-only
+- [x] T-7.6.2 Archive legacy global-key decryption path in crypto.ts
 
 ### WP-7.1
 - [ ] T-7.1.1 Archive legacy routes and unwire

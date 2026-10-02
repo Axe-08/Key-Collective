@@ -57,46 +57,35 @@ export interface EncryptedKey {
 }
 
 /**
- * Resolves the master encryption secret key for decryption.
- * Inspects explicit parameter, then falls back to environment variable (KC_MASTER_KEY).
+ * Resolves the encryption/decryption subkey.
+ * Raw string passphrases and global master-key env fallbacks are retired (WP-7.6 T-7.6.2).
  *
- * @param masterKey Optional master secret passphrase, raw bytes, or CryptoKey
- * @throws DecryptionError if master key is missing or empty
+ * @param masterKey HKDF-derived CryptoKey or 32-byte Uint8Array subkey
+ * @throws DecryptionError if key is missing, empty, or a raw string passphrase
  */
 export function resolveMasterKey(masterKey?: KeyInput): KeyInput {
   if (masterKey !== undefined && masterKey !== null) {
     if (typeof masterKey === "string") {
-      if (masterKey.trim().length === 0) {
-        throw new DecryptionError("Master encryption key cannot be empty");
-      }
-      return masterKey;
+      throw new DecryptionError(
+        "Legacy global master key passphrase is not accepted; supply an HKDF-derived tenant subkey"
+      );
     }
     if (masterKey instanceof Uint8Array) {
       if (masterKey.byteLength === 0) {
-        throw new DecryptionError("Master encryption key bytes cannot be empty");
+        throw new DecryptionError("Encryption key bytes cannot be empty");
       }
       return masterKey;
     }
     return masterKey;
   }
 
-  // Fallback to environment variable if available in runtime
-  const envKey =
-    typeof process !== "undefined" && process.env
-      ? process.env[MASTER_KEY_ENV_VAR] || process.env.MASTER_KEY
-      : undefined;
-
-  if (envKey && envKey.trim().length > 0) {
-    return envKey;
-  }
-
   throw new DecryptionError(
-    `Master encryption key not provided. Supply masterKey or set ${MASTER_KEY_ENV_VAR} environment variable.`
+    "HKDF-derived tenant subkey not provided."
   );
 }
 
 /**
- * Resolves a KeyInput into an AES-GCM CryptoKey for Web Crypto decryption.
+ * Resolves an HKDF-derived KeyInput into an AES-GCM CryptoKey for Web Crypto decryption.
  */
 async function resolveCryptoKey(key: KeyInput): Promise<CryptoKey> {
   if (
@@ -109,22 +98,9 @@ async function resolveCryptoKey(key: KeyInput): Promise<CryptoKey> {
     return key as CryptoKey;
   }
 
-  if (typeof key === "string") {
+  if (key instanceof Uint8Array && key.byteLength === ENCRYPTION_KEY_LENGTH_BYTES) {
     try {
-      return await deriveKey(key);
-    } catch (err) {
-      throw new DecryptionError(
-        `Failed to derive AES-256-GCM key: ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
-  }
-
-  if (key instanceof Uint8Array) {
-    try {
-      if (key.byteLength === ENCRYPTION_KEY_LENGTH_BYTES) {
-        return await importRawKey(key);
-      }
-      return await deriveKey(key);
+      return await importRawKey(key);
     } catch (err) {
       throw new DecryptionError(
         `Failed to resolve AES-256-GCM key: ${err instanceof Error ? err.message : String(err)}`
@@ -133,7 +109,7 @@ async function resolveCryptoKey(key: KeyInput): Promise<CryptoKey> {
   }
 
   throw new DecryptionError(
-    "Invalid key type: expected CryptoKey, string passphrase, or 32-byte Uint8Array"
+    "Invalid key type: expected HKDF-derived CryptoKey or 32-byte Uint8Array subkey"
   );
 }
 
