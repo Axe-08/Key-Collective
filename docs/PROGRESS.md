@@ -201,14 +201,14 @@ Plan: `docs/PHASE6_PLAN.md`
 - [x] T-6.2.7 Admin audit log view — server audit list
 
 ### WP-6.4
-- [ ] T-6.4.1 Top-level navigation: Dashboard / Keys / Pool / Analytics
-- [ ] T-6.4.2 Dashboard view (standing card, activity, credentials)
-- [ ] T-6.4.3 Keys view with sub-tabs: My Keys / Private / Observation
-- [ ] T-6.4.4 Rotate modal and pool toggle modal with PRD text
-- [ ] T-6.4.5 Pool view with sub-tabs: Community / Provider / My Contribution
-- [ ] T-6.4.6 Analytics view with sub-tabs: Usage / Ledger / Multiplier History
-- [ ] T-6.4.7 Public /report page (signed-out, Turnstile)
-- [ ] T-6.4.8 Notification toasts every 30s
+- [x] T-6.4.1 Top-level navigation: Dashboard / Keys / Pool / Analytics
+- [x] T-6.4.2 Dashboard view (standing card, activity, credentials)
+- [x] T-6.4.3 Keys view with sub-tabs: My Keys / Private / Observation
+- [x] T-6.4.4 Rotate modal and pool toggle modal with PRD text
+- [x] T-6.4.5 Pool view with sub-tabs: Community / Provider / My Contribution
+- [x] T-6.4.6 Analytics view with sub-tabs: Usage / Ledger / Multiplier History
+- [x] T-6.4.7 Public /report page (signed-out, Turnstile)
+- [x] T-6.4.8 Notification toasts every 30s
 
 ## Phases 7–8
 

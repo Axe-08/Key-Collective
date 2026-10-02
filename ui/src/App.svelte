@@ -36,7 +36,12 @@
 
   import TopNavBar from './lib/TopNavBar.svelte';
   import SideNavBar from './lib/SideNavBar.svelte';
+  import DashboardView from './lib/DashboardView.svelte';
+  import KeysView from './lib/KeysView.svelte';
   import PoolView from './lib/PoolView.svelte';
+  import AnalyticsView from './lib/AnalyticsView.svelte';
+  import ReportPage from './lib/ReportPage.svelte';
+  import NotificationToasts from './lib/NotificationToasts.svelte';
   import AddKeyModal from './lib/AddKeyModal.svelte';
   import Workbench from './lib/Workbench.svelte';
   import ApiDocs from './lib/ApiDocs.svelte';
@@ -49,8 +54,8 @@
   import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
   import ReportKeyModal from './lib/ReportKeyModal.svelte';
 
-  // Navigation state (Stitch multi-screen routing)
-  let activeTab = $state<'pool' | 'workbench' | 'docs' | 'playground' | 'admin' | 'commons'>('pool');
+  // Navigation state (PRD Section 4 top-level tabs)
+  let activeTab = $state<'dashboard' | 'keys' | 'pool' | 'analytics' | 'workbench' | 'docs' | 'playground' | 'admin' | 'commons' | 'report'>('dashboard');
 
   // Svelte 5 reactive state for pool
   let keys = $state<APIKey[]>([]);
@@ -273,7 +278,9 @@
       purgeLegacyStorage();
 
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('tab') === 'admin' || window.location.hostname.startsWith('admin.')) {
+      if (window.location.pathname === '/report' || urlParams.get('tab') === 'report') {
+        activeTab = 'report';
+      } else if (urlParams.get('tab') === 'admin' || window.location.hostname.startsWith('admin.')) {
         userAccount = {
           ...userAccount,
           id: userAccount.id || 'admin',
@@ -282,6 +289,8 @@
           primaryEmail: userAccount.primaryEmail || 'admin@keycollective.io',
         };
         activeTab = 'admin';
+      } else if (urlParams.get('tab')) {
+        activeTab = urlParams.get('tab') as typeof activeTab;
       }
 
       void refreshSession();
@@ -296,7 +305,7 @@
       if (isNaN(freqMs)) freqMs = 3000;
 
       pollIntervalId = setInterval(() => {
-        if (autoRefresh && activeTab === 'pool') {
+        if (autoRefresh && (activeTab === 'dashboard' || activeTab === 'pool')) {
           loadData();
         }
       }, freqMs);
@@ -361,15 +370,44 @@
     {cuUsedToday}
   />
 
-  <!-- Main Canvas Container with Left Sidebar Offset (Exact matching Stitch screen1_dashboard.html) -->
+  <!-- Main Canvas Container with Left Sidebar Offset -->
   <main class="md:ml-64 pt-16 min-h-screen px-4 md:px-8 pb-24 relative z-10">
-    <!-- TAB 1: Virtual Key Inventory & Routing Shield Dashboard -->
-    {#if activeTab === 'pool'}
+    <!-- TAB 1: Dashboard (Standing Card, Activity, Quick Credentials & Workbench) -->
+    {#if activeTab === 'dashboard' || activeTab === 'workbench'}
+      <DashboardView
+        {stats}
+        {keys}
+        {cuUsedToday}
+        {proxyEndpoint}
+        {isEndpointCopied}
+        onCopyEndpoint={handleCopyEndpoint}
+        onOpenAddModal={() => (isAddModalOpen = true)}
+        onRefresh={loadData}
+        {userAccount}
+        {projects}
+        {projectKeys}
+      />
+    {/if}
+
+    <!-- TAB 2: Keys (My Keys / Private / Observation) -->
+    {#if activeTab === 'keys'}
+      <KeysView
+        {keys}
+        onDeleteKey={handleDeleteKey}
+        onTestKey={handleTestKey}
+        onOpenAddModal={() => (isAddModalOpen = true)}
+        onRefresh={loadData}
+      />
+    {/if}
+
+    <!-- TAB 3: Pool (Community / Provider / My Contribution) -->
+    {#if activeTab === 'pool' || activeTab === 'commons'}
       <PoolView
         {keys}
         {logs}
         {stats}
         {cuUsedToday}
+        communityPool={sessionRights.communityPool}
         isRefreshing={isRefreshing || statsLoading}
         {autoRefresh}
         {proxyEndpoint}
@@ -384,29 +422,22 @@
       />
     {/if}
 
-    <!-- TAB 2: Developer Workbench (v3 Multi-Project & 7-Tier Authorization) -->
-    {#if activeTab === 'workbench'}
-      <Workbench
-        {userAccount}
-        {projects}
-        keys={projectKeys}
-        providerKeys={keys}
-        onRefreshProviderKeys={loadData}
-      />
+    <!-- TAB 4: Analytics (Usage / Ledger / Multiplier History) -->
+    {#if activeTab === 'analytics'}
+      <AnalyticsView />
     {/if}
 
-    <!-- TAB 3: API Documentation & Code Snippets -->
+    <!-- Developers: API Documentation & Code Snippets -->
     {#if activeTab === 'docs'}
       <ApiDocs {proxyEndpoint} />
     {/if}
 
-    <!-- TAB 4: Sandbox Playground -->
+    <!-- Developers: Sandbox Playground -->
     {#if activeTab === 'playground'}
       <Playground {proxyEndpoint} onRefreshMetrics={loadData} />
     {/if}
 
-
-    <!-- TAB 4: Admin Surveillance Panel (admin.key-col.axe08.tech) -->
+    <!-- Admin Surveillance Panel (admin.*) -->
     {#if activeTab === 'admin'}
       <AdminView
         adminEmail={userAccount.primaryEmail}
@@ -414,12 +445,9 @@
       />
     {/if}
 
-    <!-- TAB 5: Pool Commons (v4 Reciprocal Commons — Community Debt Ledger & Eye-for-an-Eye) -->
-    {#if activeTab === 'commons'}
-      <PoolCommonsTab 
-        tenantId={userAccount?.id || ''}
-        communityPool={sessionRights.communityPool}
-      />
+    <!-- Public Key Takedown Report Page (/report) -->
+    {#if activeTab === 'report'}
+      <ReportPage onBack={() => (activeTab = 'dashboard')} />
     {/if}
   </main>
 
@@ -443,6 +471,9 @@
     onClose={() => (isOAuthModalOpen = false)}
     onSignedIn={() => void refreshSession()}
   />
+
+  <!-- 30s Polling Notification Toasts (T-6.4.8) -->
+  <NotificationToasts />
 
   <!-- Floating Toast Notifications -->
   <Toast {toasts} onDismiss={dismissToast} />

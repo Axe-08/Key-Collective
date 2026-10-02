@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { PoolStats, APIKey } from './types';
-  import type { UserAccount, UserTier } from '../../../src/contracts/v3_types';
+  import type { UserAccount } from '../../../src/contracts/v3_types';
   import { type CU, formatCu } from './types';
 
   let {
-    activeTab = 'pool',
+    activeTab = 'dashboard',
     onSelectTab,
     stats,
     keys = [],
@@ -13,7 +13,7 @@
     onOpenReportModal,
     cuUsedToday = 0,
   }: {
-    activeTab?: 'pool' | 'workbench' | 'docs' | 'admin' | string;
+    activeTab?: string;
     onSelectTab?: (tab: string) => void;
     stats?: PoolStats;
     keys?: APIKey[];
@@ -22,6 +22,12 @@
     onOpenReportModal?: () => void;
     cuUsedToday?: CU;
   } = $props();
+
+  let isDevelopersOpen = $state(true);
+
+  let isAdminHost = $derived(
+    typeof window !== 'undefined' && window.location.hostname.startsWith('admin.')
+  );
 
   let quotaPercent = $derived.by(() => {
     if (!stats || !stats.daily_quota_limit || stats.daily_quota_limit === 0) {
@@ -38,7 +44,7 @@
   }
 </script>
 
-<aside class="fixed top-14 left-0 bottom-0 w-64 z-40 flex flex-col justify-between p-4 bg-surface-container-low/90 backdrop-blur-xl border-r border-outline-variant/30 hidden md:flex">
+<aside class="fixed top-14 left-0 bottom-0 w-64 z-40 flex flex-col justify-between p-4 bg-surface-container-low/90 backdrop-blur-xl border-r border-outline-variant/30 hidden md:flex" data-testid="side-nav-bar">
   <!-- Upper Section: Primary Navigation -->
   <div class="space-y-4">
     <!-- Side Nav CTA: Add Provider Key -->
@@ -51,92 +57,106 @@
       <span>Add Provider Key</span>
     </button>
 
-    <!-- Primary Tabs (Overview, Developer Workbench, API Documentation, Admin Panel) -->
-    <div class="space-y-1 pt-2">
-      <!-- Overview -->
+    <!-- Primary 4 Top-Level Tabs per PRD Section 4: Dashboard / Keys / Pool / Analytics -->
+    <div class="space-y-1 pt-2" role="navigation" aria-label="Main Navigation">
+      <!-- 1. Dashboard -->
       <button
         type="button"
-        onclick={() => handleTabClick('pool')}
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'pool' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+        data-testid="nav-tab-dashboard"
+        onclick={() => handleTabClick('dashboard')}
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'dashboard' || activeTab === 'workbench' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
       >
         <span class="material-symbols-outlined text-[18px]" data-icon="dashboard">dashboard</span>
-        <span class="text-label-md font-label-md">Overview</span>
+        <span class="text-label-md font-label-md">Dashboard</span>
       </button>
 
-      <!-- Developer Workbench -->
+      <!-- 2. Keys -->
       <button
         type="button"
-        onclick={() => handleTabClick('workbench')}
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'workbench' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+        data-testid="nav-tab-keys"
+        onclick={() => handleTabClick('keys')}
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'keys' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
       >
-        <span class="material-symbols-outlined text-[18px]" data-icon="layers">layers</span>
-        <span class="text-label-md font-label-md">Developer Workbench</span>
-      </button>
-
-      <!-- API Documentation -->
-      <button
-        type="button"
-        onclick={() => handleTabClick('docs')}
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'docs' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
-      >
-        <span class="material-symbols-outlined text-[18px]" data-icon="menu_book">menu_book</span>
-        <span class="text-label-md font-label-md">API Documentation</span>
-      </button>
-
-      <!-- Sandbox Playground -->
-      <button
-        type="button"
-        onclick={() => handleTabClick('playground')}
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'playground' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
-      >
-        <span class="material-symbols-outlined text-[18px] text-emerald-400" data-icon="science">science</span>
-        <span class="text-label-md font-label-md">Playground</span>
-        <span class="ml-auto text-[9px] font-mono font-bold px-1 rounded bg-primary/20 text-primary border border-primary/40">
-          LIVE
+        <span class="material-symbols-outlined text-[18px]" data-icon="vpn_key">vpn_key</span>
+        <span class="text-label-md font-label-md">Keys</span>
+        <span class="ml-auto text-[10px] font-mono px-1.5 py-0.2 rounded bg-surface-container text-outline">
+          {keys.length}
         </span>
       </button>
 
-
-      <!-- Pool Commons (v4 — Reciprocal Community Pool) -->
+      <!-- 3. Pool -->
       <button
         type="button"
-        onclick={() => handleTabClick('commons')}
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'commons' ? 'bg-surface-container-high text-secondary font-medium border-l-2 border-secondary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+        data-testid="nav-tab-pool"
+        onclick={() => handleTabClick('pool')}
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'pool' || activeTab === 'commons' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
       >
-        <span class="material-symbols-outlined text-[18px] {activeTab === 'commons' ? 'text-secondary' : ''}" data-icon="groups">groups</span>
-        <span class="text-label-md font-label-md">Pool Commons</span>
-        <span class="ml-auto text-[9px] font-mono font-bold px-1 rounded bg-secondary/20 text-secondary border border-secondary/40">
-          v4
-        </span>
+        <span class="material-symbols-outlined text-[18px]" data-icon="groups">groups</span>
+        <span class="text-label-md font-label-md">Pool</span>
       </button>
 
-      <!-- Admin Panel (Surveillance - visible for admin tier) -->
-      {#if userAccount?.tier === 'admin'}
-        <div class="space-y-1 pt-1">
+      <!-- 4. Analytics -->
+      <button
+        type="button"
+        data-testid="nav-tab-analytics"
+        onclick={() => handleTabClick('analytics')}
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'analytics' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+      >
+        <span class="material-symbols-outlined text-[18px]" data-icon="insights">insights</span>
+        <span class="text-label-md font-label-md">Analytics</span>
+      </button>
+
+      <!-- Developers Menu (Playground & API Docs) -->
+      <div class="pt-3 border-t border-outline-variant/20 mt-2">
+        <button
+          type="button"
+          data-testid="nav-developers-toggle"
+          onclick={() => (isDevelopersOpen = !isDevelopersOpen)}
+          class="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-outline hover:text-on-surface cursor-pointer"
+        >
+          <span>Developers</span>
+          <span class="material-symbols-outlined text-[16px]">
+            {isDevelopersOpen ? 'expand_less' : 'expand_more'}
+          </span>
+        </button>
+
+        {#if isDevelopersOpen}
+          <div class="space-y-1 mt-1 pl-2">
+            <button
+              type="button"
+              data-testid="nav-tab-playground"
+              onclick={() => handleTabClick('playground')}
+              class="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-left {activeTab === 'playground' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+            >
+              <span class="material-symbols-outlined text-[17px] text-emerald-400">science</span>
+              <span class="text-xs">Playground</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="nav-tab-docs"
+              onclick={() => handleTabClick('docs')}
+              class="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-left {activeTab === 'docs' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
+            >
+              <span class="material-symbols-outlined text-[17px]">menu_book</span>
+              <span class="text-xs">API Documentation</span>
+            </button>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Admin Panel (only on admin.* or admin tier) -->
+      {#if isAdminHost || userAccount?.tier === 'admin'}
+        <div class="space-y-1 pt-2 border-t border-outline-variant/20">
           <button
             type="button"
+            data-testid="nav-tab-admin"
             onclick={() => handleTabClick('admin')}
             class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors active:scale-[0.98] cursor-pointer text-left {activeTab === 'admin' ? 'bg-surface-container-high text-primary font-medium border-l-2 border-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50'}"
           >
-            <span class="material-symbols-outlined text-[18px] text-amber-400" data-icon="shield_person">shield_person</span>
+            <span class="material-symbols-outlined text-[18px] text-amber-400">shield_person</span>
             <span class="text-label-md font-label-md text-amber-300">Admin Panel</span>
-            <span class="ml-auto text-[9px] font-mono font-bold px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              ROOT
-            </span>
           </button>
-          <a
-            href="https://admin.key-col.axe08.tech/"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-300 text-[11px] font-mono transition-colors cursor-pointer"
-            title="Open Admin Surveillance Console in new window"
-          >
-            <span class="flex items-center gap-1.5">
-              <span class="material-symbols-outlined text-[14px]">admin_panel_settings</span>
-              <span>Go to Admin Console</span>
-            </span>
-            <span class="material-symbols-outlined text-[13px]">open_in_new</span>
-          </a>
         </div>
       {/if}
     </div>
@@ -144,7 +164,6 @@
 
   <!-- Lower Section: Daily Quota Limit, CU Accounting & Footer Links -->
   <div class="pt-4 border-t border-outline-variant/30 space-y-2">
-    <!-- Daily Quota Limit & CU Accounting Card -->
     <div class="px-3 py-2.5 rounded-lg bg-surface-container-lowest/80 border border-outline-variant/20 flex flex-col gap-1.5 shadow-sm">
       <div class="flex justify-between items-center text-label-sm font-label-sm text-outline">
         <span class="flex items-center gap-1 font-medium">
@@ -163,37 +182,15 @@
       </div>
     </div>
 
-    <!-- Proxy Status Indicator -->
-    <div class="flex items-center justify-between px-3 py-1.5 rounded-lg text-on-surface-variant text-label-md font-label-md">
-      <span class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-[18px]" data-icon="sensors">sensors</span>
-        <span>Proxy Status</span>
-      </span>
-      <span class="inline-flex items-center gap-1.5 text-[10px] text-secondary font-mono">
-        <span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_#4edea3]"></span>
-        Active
-      </span>
-    </div>
-
     <!-- Report / Takedown Link -->
     <button
       type="button"
-      onclick={() => onOpenReportModal ? onOpenReportModal() : handleTabClick('report')}
+      data-testid="nav-tab-report"
+      onclick={() => handleTabClick('report')}
       class="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-error hover:bg-error/10 text-label-md font-label-md transition-colors cursor-pointer text-left"
     >
       <span class="material-symbols-outlined text-[18px]" data-icon="security">security</span>
       <span>Report / Takedown</span>
     </button>
-
-    <!-- Support Link -->
-    <a
-      href="https://github.com/Axe-08/Key-Collective"
-      target="_blank"
-      rel="noreferrer"
-      class="flex items-center gap-3 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50 text-label-md font-label-md transition-colors"
-    >
-      <span class="material-symbols-outlined text-[18px]" data-icon="help_center">help_center</span>
-      <span>Support</span>
-    </a>
   </div>
 </aside>
