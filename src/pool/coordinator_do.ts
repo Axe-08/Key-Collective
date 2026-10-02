@@ -51,6 +51,7 @@ export interface CoordinatorLeaseRequest {
   estimateCu?: number | bigint;
   provider?: string;
   model?: string;
+  retryOffsetMs?: number;
 }
 
 export interface CoordinatorLease {
@@ -773,7 +774,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
-   * Checks whether `tenant` owns at least one ACTIVE community key in this provider shard (WP-5.7 T-5.7.1).
+   * Checks whether `tenant` owns at least one promoted community key in this provider shard (WP-5.7 T-5.7.1).
    */
   public async isEyeForEyeAccessible(tenant: string, provider?: string): Promise<boolean> {
     const sql = this.ensureSchema();
@@ -782,7 +783,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       .exec(
         `SELECT 1 FROM keys
           WHERE owner = ?
-            AND status = 'ACTIVE'
+            AND (status = 'ACTIVE' OR (status = 'COOLDOWN' AND observation_until IS NULL))
             AND (? IS NULL OR provider = ?)
           LIMIT 1`,
         tenant,
@@ -810,7 +811,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
    */
   public async lease(req: CoordinatorLeaseRequest): Promise<CoordinatorLease | null> {
     const sql = this.ensureSchema();
-    const now = this.clock.now();
+    const now = this.clock.now() + Math.max(0, Math.trunc(Number(req.retryOffsetMs ?? 0) || 0));
     await this.promoteAndResetBuckets(now);
 
     const override = await this.getProviderOverride();
@@ -970,6 +971,21 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
 
     if (rawRows.length === 0) {
+      if (!req.ownOnly) {
+        const cooldownRows = sql
+          .exec(
+            `SELECT 1 FROM keys
+              WHERE status = 'COOLDOWN'
+                AND (? IS NULL OR provider = ?)
+              LIMIT 1`,
+            providerFilter,
+            providerFilter
+          )
+          .toArray();
+        if (cooldownRows.length > 0) {
+          this.setMeta(`refusal:${req.tenant}`, "all_cooldown");
+        }
+      }
       return null;
     }
 

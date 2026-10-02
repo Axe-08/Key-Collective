@@ -137,3 +137,24 @@ export function nextProviderReset(provider: string, now: number): number {
     tz
   );
 }
+
+/**
+ * Returns true if `now` is within `±windowMs` (default 5 minutes = 300_000 ms)
+ * of the provider's daily quota reset boundary.
+ */
+export function isWithinProviderResetWindow(
+  provider: string,
+  now: number,
+  windowMs: number = 300_000
+): boolean {
+  const nextReset = nextProviderReset(provider, now);
+  if (nextReset - now <= windowMs) {
+    return true;
+  }
+  const prevCandidate = nextProviderReset(provider, now - windowMs - 1000);
+  if (prevCandidate <= now && now - prevCandidate <= windowMs) {
+    return true;
+  }
+  return false;
+}
+

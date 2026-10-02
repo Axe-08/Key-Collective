@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { env, runInDurableObject } from "cloudflare:test";
 import { PoolCoordinatorDO } from "../../../src/pool/coordinator_do";
 import { nextProviderReset } from "../../../src/providers/config";
+import { LeaseOrchestrator } from "../../../src/router/leases/orchestrator";
+import type { WorkerEnv } from "../../../src/worker/auth/index";
 
 function getCoordinatorStub(name: string): DurableObjectStub {
   return env.POOL_COORDINATOR.get(env.POOL_COORDINATOR.idFromName(name));
@@ -25,8 +27,8 @@ function ksStatisticUniform(samples: number[], a: number, b: number): number {
   return maxDiff;
 }
 
-describe("RPD reset jitter (WP-5.8 T-5.8.2)", () => {
-  it("AC-12: exhausting 100 keys at 23:59:30 provider time sets reactivate_at within [reset, reset+300s], spread > 240s, and KS statistic < 0.05", async () => {
+describe("RPD reset jitter and leaky-bucket retry (WP-5.8)", () => {
+  it("AC-12: exhausting 100 keys at 23:59:30 provider time sets reactivate_at within [reset, reset+300s], spread > 240s, and KS statistic < 0.05 (T-5.8.2)", async () => {
     const stub = getCoordinatorStub("test-jitter-100-keys");
     await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
       // 2030-06-15 06:59:30 UTC is 23:59:30 PDT (America/Los_Angeles)
@@ -90,5 +92,45 @@ describe("RPD reset jitter (WP-5.8 T-5.8.2)", () => {
       expect(statsAfter.activeKeys).toBe(100);
       expect(statsAfter.cooldownKeys).toBe(0);
     });
+  });
+
+  it("retries with 250ms backoff for up to 5s when all keys are in COOLDOWN within ±5 min of provider reset, succeeding when a key reactivates within 5s (T-5.8.3)", async () => {
+    const stub = getCoordinatorStub("pool:groq");
+    const reset = Date.UTC(2030, 5, 16, 0, 0, 0);
+    const nowAtResetMinus2s = reset - 2_000;
+
+    await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
+      coord.setClockForTest(nowAtResetMinus2s);
+      coord.setEnvForTest({
+        COMMONS_ENFORCEMENT: "observe",
+      });
+
+      // Seed a community key in COOLDOWN that reactivates at reset + 500ms (i.e. +2.5s from now, within 5s retry window)
+      await coord.upsertKey({
+        keyId: "key_leaky_groq_1",
+        owner: "owner_leaky_1",
+        provider: "groq",
+        status: "COOLDOWN",
+        cooldownUntil: reset + 500,
+        reactivateAt: reset + 500,
+        rpmLimit: 30,
+        rpdLimit: 1000,
+      });
+    });
+
+    const orchestrator = new LeaseOrchestrator();
+    const lease = await orchestrator.acquire("groq", {
+      tenantId: "borrower_leaky",
+      estimateCu: 10,
+      rights: {
+        privatePool: true,
+        communityPool: true,
+      },
+      env: env as unknown as WorkerEnv,
+    });
+
+    expect(lease).not.toBeNull();
+    expect(lease?.keyId).toBe("key_leaky_groq_1");
+    expect(lease?.source).toBe("borrowed");
   });
 });
