@@ -58,7 +58,7 @@
       })
       .sort((a, b) => {
         if (sortBy === 'rpm') return b.currentRpm - a.currentRpm;
-        if (sortBy === 'spend') return b.todaySpendMicrodollars - a.todaySpendMicrodollars;
+        if (sortBy === 'spend') return (b.todaySpendCu ?? 0) - (a.todaySpendCu ?? 0);
         if (sortBy === 'recent') return b.lastActiveTimestamp - a.lastActiveTimestamp;
         return a.tenantId.localeCompare(b.tenantId);
       });
@@ -148,7 +148,7 @@
         {/if}
       </div>
       <p class="text-body-sm font-body-sm text-on-surface-variant">
-        Real-time per-tenant velocity inspection, microdollar spend tracking, and 1-click ban hammer with &lt;5ms DO isolate eviction.
+        Real-time per-tenant velocity inspection, Credit Unit spend tracking, and 1-click ban hammer with &lt;5ms DO isolate eviction.
       </p>
     </div>
   </div>

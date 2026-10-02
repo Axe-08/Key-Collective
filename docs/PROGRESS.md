@@ -170,7 +170,7 @@ Plan: `docs/PHASE6_PLAN.md`
 - [x] T-6.5.2 Remove µ$ from auth tokens (budget_microdollars, spent_microdollars)
 - [x] T-6.5.3 Remove µ$ from contributor standing D1 sync (community_debt_micro_cu)
 - [x] T-6.5.4 Delete calculateCost, financial.ts, x-kc-cost-microdollars header, all µ$ contract fields
-- [ ] T-6.5.5 UI µ$ cleanup and grep guard (VelocityDials, SurveillanceTable, types.ts)
+- [x] T-6.5.5 UI µ$ cleanup and grep guard (VelocityDials, SurveillanceTable, types.ts)
 - [ ] T-6.5.6 Update GEMINI.md and CONTEXT.md invariant #4 to CU
 
 ### WP-6.1

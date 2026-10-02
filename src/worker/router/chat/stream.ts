@@ -169,12 +169,14 @@ export function handleStreamingResponse(
 
     // 5. Update AuthToken spend in D1
     const authTokensRepo = deps.getAuthTokensRepo(env);
-    if (authContext.token && authTokensRepo && costMicrodollars > 0n) {
+    const tokenSpend = cuWeight > 0n ? cuWeight : costMicrodollars;
+    if (authContext.token && authTokensRepo && tokenSpend > 0n) {
       try {
         await authTokensRepo.recordSpend(
           authContext.token.id,
           authContext.tenantId,
-          costMicrodollars
+          tokenSpend,
+          cuWeight > 0n ? cuWeight : undefined
         );
       } catch {
         // Non-blocking hot path invariant

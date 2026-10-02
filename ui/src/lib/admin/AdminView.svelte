@@ -68,7 +68,8 @@
     observationKeys: number;
     quarantinedKeys: number;
     privateKeys: number;
-    totalDebtMicroCu: number;
+    totalDebtCu?: number;
+    totalDebtMicroCu?: number;
     clusterRpmCurrent?: number;
     clusterRpmMax?: number;
     tokenVelocityTpm?: number;
@@ -83,6 +84,7 @@
     observationKeys: 0,
     quarantinedKeys: 0,
     privateKeys: 0,
+    totalDebtCu: 0,
     totalDebtMicroCu: 0,
     clusterRpmCurrent: 0,
     clusterRpmMax: 100,
@@ -116,7 +118,7 @@
         const poolAny = res.pool as Record<string, any>;
         poolSummary = {
           ...res.pool,
-          spendRateCuPerHour: poolAny.spendRateCuPerHour ?? poolAny['spendRateMicrodollarsPerHour'] ?? 0,
+          spendRateCuPerHour: poolAny.spendRateCuPerHour ?? 0,
         };
       }
     } catch (err) {
@@ -140,7 +142,7 @@
   );
   let totalClusterRpm = $derived(tenants.reduce((acc, t) => acc + (t.currentRpm || 0), 0));
   let totalCumulativeSpendCu = $derived(
-    tenants.reduce((acc, t) => acc + (t.todaySpendCu ?? (t as Record<string, any>)['todaySpendMicrodollars'] ?? 0), 0)
+    tenants.reduce((acc, t) => acc + (t.todaySpendCu ?? 0), 0)
   );
   let trippedCircuitsCount = $derived(
     (Object.keys(circuits) as ProviderKey[]).filter((p) => circuits[p].state === 'TRIPPED').length
@@ -522,7 +524,7 @@
         </div>
         <div class="p-2.5 rounded-lg bg-surface-container/40 border border-outline-variant/15">
           <span class="text-[10px] text-outline uppercase block">Total Debt</span>
-          <span class="text-title-sm font-bold text-on-surface-variant">{(poolSummary.totalDebtMicroCu / 1000).toFixed(1)}k µCU</span>
+          <span class="text-title-sm font-bold text-on-surface-variant">{(poolSummary.totalDebtCu ?? poolSummary.totalDebtMicroCu ?? 0).toLocaleString()} CU</span>
         </div>
       </div>
     </div>

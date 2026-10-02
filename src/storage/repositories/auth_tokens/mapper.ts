@@ -20,12 +20,16 @@ export function mapRowToAuthTokenRecord(row: AuthTokenRow): AuthTokenRecord {
   const budget =
     typeof row.budget_microdollars === "bigint"
       ? row.budget_microdollars
-      : BigInt(row.budget_microdollars ?? 0);
+      : (row.budget_microdollars != null && !isNaN(Number(row.budget_microdollars)))
+        ? BigInt(row.budget_microdollars)
+        : 0n;
 
   const spent =
     typeof row.spent_microdollars === "bigint"
       ? row.spent_microdollars
-      : BigInt(row.spent_microdollars ?? 0);
+      : (row.spent_microdollars != null && !isNaN(Number(row.spent_microdollars)))
+        ? BigInt(row.spent_microdollars)
+        : 0n;
 
   return {
     id: row.id,

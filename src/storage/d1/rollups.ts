@@ -27,6 +27,9 @@ export async function saveRollup(db: D1Database, rollup: RollupInput): Promise<v
   if (!rollup.modelId || rollup.modelId.trim().length === 0) {
     throw new Error("Model ID cannot be empty");
   }
+  if (rollup.costMicrodollarsDelta !== undefined) {
+    assertValidMicrodollars(rollup.costMicrodollarsDelta);
+  }
 
   const requestsDelta = Math.max(0, Math.trunc(rollup.requestsDelta ?? 1));
   const tokensDelta = Math.max(0, Math.trunc(rollup.tokensDelta ?? 0));

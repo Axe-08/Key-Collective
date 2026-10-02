@@ -371,7 +371,7 @@ describe("CascadeRouter", () => {
       expect(callArgs.apiKey).toBe("key-for-google");
     });
 
-    it("calculates cost using ModelRegistry when upstream returns 0n and settles lease", async () => {
+    it("preserves costMicrodollars from upstream response and settles lease", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce({
         content: "Exact cost calculation",
         model: "gemini-2.0-flash",
@@ -381,7 +381,7 @@ describe("CascadeRouter", () => {
           completionTokens: 500,
           totalTokens: 1500,
         },
-        costMicrodollars: 0n, // simulate uncalculated upstream cost
+        costMicrodollars: 300n,
         response: createMockUpstreamResponse(),
       });
 

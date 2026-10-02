@@ -91,12 +91,14 @@ export async function handleNonStreamingResponse(
 
     // 3. Update AuthToken spend in D1
     const authTokensRepo = deps.getAuthTokensRepo(env);
-    if (authContext.token && authTokensRepo && costMicrodollars > 0n) {
+    const tokenSpend = cu > 0n ? cu : costMicrodollars;
+    if (authContext.token && authTokensRepo && tokenSpend > 0n) {
       try {
         await authTokensRepo.recordSpend(
           authContext.token.id,
           authContext.tenantId,
-          costMicrodollars
+          tokenSpend,
+          cu > 0n ? cu : undefined
         );
       } catch {
         // Non-blocking hot path invariant

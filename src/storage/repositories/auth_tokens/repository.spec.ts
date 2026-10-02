@@ -101,40 +101,66 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // INSERT INTO auth_tokens
     if (upper.startsWith("INSERT INTO AUTH_TOKENS")) {
-      const [
-        id,
-        hash_sha256,
-        tenant_id,
-        encrypted_token_b64,
-        nonce_b64,
-        budget_microdollars,
-        spent_microdollars,
-        allowed_providers,
-        rpm_limit,
-        expires_at,
-        created_at,
-      ] = this.boundParams;
+      let row: AuthTokenRow;
+      if (this.boundParams.length === 11 && typeof this.boundParams[5] === "string" && (this.boundParams[5] as string).startsWith("[")) {
+        const [
+          id,
+          hash_sha256,
+          tenant_id,
+          encrypted_token_b64,
+          nonce_b64,
+          allowed_providers,
+          rpm_limit,
+          expires_at,
+          created_at,
+          budget_cu,
+          spent_cu,
+        ] = this.boundParams;
 
-      // Check unique constraint on hash_sha256
-      for (const existing of this.db.rows.values()) {
-        if (existing.hash_sha256 === hash_sha256) {
-          throw new Error("UNIQUE constraint failed: auth_tokens.hash_sha256");
-        }
+        row = {
+          id: String(id),
+          hash_sha256: String(hash_sha256),
+          tenant_id: String(tenant_id),
+          encrypted_token_b64: (encrypted_token_b64 as string | null) ?? null,
+          nonce_b64: (nonce_b64 as string | null) ?? null,
+          budget_cu: (budget_cu as string | null) ?? null,
+          spent_cu: String(spent_cu ?? "0"),
+          budget_microdollars: budget_cu ? Number(budget_cu) : 0,
+          spent_microdollars: spent_cu ? Number(spent_cu) : 0,
+          allowed_providers: String(allowed_providers),
+          rpm_limit: Number(rpm_limit),
+          expires_at: (expires_at as string | null) ?? null,
+          created_at: String(created_at),
+        };
+      } else {
+        const [
+          id,
+          hash_sha256,
+          tenant_id,
+          encrypted_token_b64,
+          nonce_b64,
+          budget_microdollars,
+          spent_microdollars,
+          allowed_providers,
+          rpm_limit,
+          expires_at,
+          created_at,
+        ] = this.boundParams;
+
+        row = {
+          id: String(id),
+          hash_sha256: String(hash_sha256),
+          tenant_id: String(tenant_id),
+          encrypted_token_b64: (encrypted_token_b64 as string | null) ?? null,
+          nonce_b64: (nonce_b64 as string | null) ?? null,
+          budget_microdollars: Number(budget_microdollars),
+          spent_microdollars: Number(spent_microdollars),
+          allowed_providers: String(allowed_providers),
+          rpm_limit: Number(rpm_limit),
+          expires_at: (expires_at as string | null) ?? null,
+          created_at: String(created_at),
+        };
       }
-
-      const row: AuthTokenRow = {
-        id: String(id),
-        hash_sha256: String(hash_sha256),
-        tenant_id: String(tenant_id),
-        encrypted_token_b64: (encrypted_token_b64 as string | null) ?? null,
-        nonce_b64: (nonce_b64 as string | null) ?? null,
-        budget_microdollars: Number(budget_microdollars),
-        spent_microdollars: Number(spent_microdollars),
-        allowed_providers: String(allowed_providers),
-        rpm_limit: Number(rpm_limit),
-        expires_at: (expires_at as string | null) ?? null,
-        created_at: String(created_at),
-      };
 
       this.db.rows.set(row.id, row);
       return { success: true, meta: createMeta(1), results: [] };
