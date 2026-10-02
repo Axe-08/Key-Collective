@@ -1932,6 +1932,53 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
+   * Returns per-key dispatch counters and status for the requested key IDs (or all keys when omitted) (WP-5.10 T-5.10.2).
+   */
+  public async getKeysCounterMap(
+    keyIds?: string[]
+  ): Promise<
+    Record<
+      string,
+      {
+        dispatchedToday: number;
+        dispatchedCommunal: number;
+        status: CoordinatorKeyStatus;
+        observationUntil: number | null;
+      }
+    >
+  > {
+    const sql = this.ensureSchema();
+    const filterSet = keyIds && keyIds.length > 0 ? new Set(keyIds) : null;
+    const rows = sql
+      .exec(
+        `SELECT key_id, status, observation_until, dispatched_today, dispatched_communal
+           FROM keys`
+      )
+      .toArray();
+    const out: Record<
+      string,
+      {
+        dispatchedToday: number;
+        dispatchedCommunal: number;
+        status: CoordinatorKeyStatus;
+        observationUntil: number | null;
+      }
+    > = {};
+    for (const r of rows) {
+      const kid = String(r.key_id);
+      if (filterSet && !filterSet.has(kid)) continue;
+      out[kid] = {
+        dispatchedToday: Number(r.dispatched_today ?? 0),
+        dispatchedCommunal: Number(r.dispatched_communal ?? 0),
+        status: String(r.status) as CoordinatorKeyStatus,
+        observationUntil:
+          typeof r.observation_until === "number" ? Number(r.observation_until) : null,
+      };
+    }
+    return out;
+  }
+
+  /**
    * 60-second alarm:
    * - Promotes OBSERVATION keys past `observation_until`
    * - Reactivates COOLDOWN keys past `reactivate_at`

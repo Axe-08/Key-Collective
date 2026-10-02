@@ -78,9 +78,6 @@ interface RawApiKeyRow {
   pool_type?: string;
   community_routing_status?: string;
   observation_until?: string | number | null;
-  dispatched_today?: number;
-  dispatched_communal?: number;
-  vesting_tier?: number;
   provider_project_hash?: string | null;
   hkdf_migrated?: number;
   anti_cycling_until?: number | null;

@@ -149,7 +149,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.10
 - [x] T-5.10.1 Coordinator hourly stats (capacity utilisation, p90 latency, w_provider_pct)
-- [ ] T-5.10.2 Truthful telemetry endpoints (/api/pool/telemetry, get_keys, contribution)
+- [x] T-5.10.2 Truthful telemetry endpoints (/api/pool/telemetry, get_keys, contribution)
 
 ### WP-5.11
 - [ ] T-5.11.1 Migration 0022_project_hash_vesting.sql (vesting_started_at)

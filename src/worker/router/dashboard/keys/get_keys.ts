@@ -53,9 +53,13 @@ interface ApiKeyRow {
   pool_type: "PRIVATE" | "COMMUNITY" | null;
   community_routing_status: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED" | null;
   observation_until: string | null;
-  dispatched_today: number | null;
-  dispatched_communal: number | null;
-  vesting_tier: 0 | 1 | 2 | null;
+}
+
+interface CoordinatorCounterEntry {
+  dispatchedToday: number;
+  dispatchedCommunal: number;
+  status?: string;
+  observationUntil?: number | null;
 }
 
 export async function handleGetKeys(
@@ -123,14 +127,62 @@ export async function handleGetKeys(
   }
 
   const rows = keyRows || [];
+  const keyIds = rows.map((r) => r.id);
+  const coordCounterMap = new Map<string, CoordinatorCounterEntry>();
+
+  const coordinatorNs = env.POOL_COORDINATOR as
+    | {
+        idFromName?: (n: string) => unknown;
+        get?: (id: unknown) => {
+          getKeysCounterMap?: (
+            ids?: string[]
+          ) => Promise<Record<string, CoordinatorCounterEntry>>;
+        };
+      }
+    | undefined;
+
+  if (
+    keyIds.length > 0 &&
+    coordinatorNs &&
+    typeof coordinatorNs.idFromName === "function" &&
+    typeof coordinatorNs.get === "function"
+  ) {
+    for (const shard of ["google", "groq"]) {
+      try {
+        const stub = coordinatorNs.get(coordinatorNs.idFromName(`pool:${shard}`));
+        if (typeof stub.getKeysCounterMap === "function") {
+          const map = await stub.getKeysCounterMap(keyIds);
+          for (const [kId, entry] of Object.entries(map)) {
+            coordCounterMap.set(kId, entry);
+          }
+        }
+      } catch (err) {
+        void err;
+      }
+    }
+  }
+
   const formattedKeys: FormattedKeyItem[] = rows.map((row) => {
     const metric = metricsMap.get(row.id);
+    const coordEntry = coordCounterMap.get(row.id);
     const normStatus = normaliseKeyStatus(row.status, row.community_routing_status);
 
     const isOwner = isGlobal ? true : row.tenant_id === tenantId;
 
     const keyPrefix = (row.key_prefix || "").slice(0, 6);
     const keySuffix = (row.key_suffix || "").slice(-4);
+
+    const createdMs = toEpochMs(row.created_at);
+    const ageHours =
+      createdMs !== null ? Math.max(0, (Date.now() - createdMs) / 3_600_000) : 0;
+    const computedVestingTier =
+      normalisePoolType(row.pool_type) === "COMMUNITY"
+        ? ageHours >= 12
+          ? 2
+          : ageHours >= 2
+          ? 1
+          : 0
+        : 0;
 
     const formattedKey: FormattedKeyItem = {
       id: row.id,
@@ -147,13 +199,13 @@ export async function handleGetKeys(
       total_requests: metric?.total_reqs ?? 0,
       avg_latency_ms: metric?.avg_lat ?? 0,
       cooldown_until: toEpochMs(row.circuit_open_until),
-      created_at: toEpochMs(row.created_at),
+      created_at: createdMs,
       pool_type: normalisePoolType(row.pool_type),
       community_routing_status: row.community_routing_status ?? "OBSERVATION",
       observation_until: toEpochMs(row.observation_until),
-      dispatched_today: row.dispatched_today ?? 0,
-      dispatched_communal: row.dispatched_communal ?? 0,
-      vesting_tier: row.vesting_tier ?? 0,
+      dispatched_today: coordEntry?.dispatchedToday ?? 0,
+      dispatched_communal: coordEntry?.dispatchedCommunal ?? 0,
+      vesting_tier: computedVestingTier,
       ...(isGlobal ? { tenant_id: row.tenant_id } : {}),
       is_owner: isOwner,
     };

@@ -644,8 +644,6 @@ export async function handleAdminRequest(
       pool_type: 'PRIVATE' | 'COMMUNITY' | null;
       community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
       observation_until: string | null;
-      dispatched_today: number | null;
-      dispatched_communal: number | null;
       created_at: string;
     }> = [];
 
@@ -676,7 +674,7 @@ export async function handleAdminRequest(
           .prepare(
             `SELECT id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit,
                     priority, status, pool_type, community_routing_status, observation_until,
-                    dispatched_today, dispatched_communal, created_at
+                    created_at
              FROM api_keys
              ORDER BY priority ASC, created_at DESC`
           )
@@ -694,8 +692,6 @@ export async function handleAdminRequest(
             pool_type: 'PRIVATE' | 'COMMUNITY' | null;
             community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
             observation_until: string | null;
-            dispatched_today: number | null;
-            dispatched_communal: number | null;
             created_at: string;
           }>();
         keysList = kRes.results || [];
@@ -754,6 +750,39 @@ export async function handleAdminRequest(
           upstreamLatencyMs = Math.round(latencyRow.avg_lat);
         }
       } catch { /* ignore */ }
+    }
+
+    const coordKeyCounters = new Map<string, { dispatchedToday: number; dispatchedCommunal: number }>();
+    const coordinatorNs = env.POOL_COORDINATOR as
+      | {
+          idFromName?: (n: string) => unknown;
+          get?: (id: unknown) => {
+            getKeysCounterMap?: (
+              ids?: string[]
+            ) => Promise<Record<string, { dispatchedToday: number; dispatchedCommunal: number }>>;
+          };
+        }
+      | undefined;
+    if (
+      keysList.length > 0 &&
+      coordinatorNs &&
+      typeof coordinatorNs.idFromName === "function" &&
+      typeof coordinatorNs.get === "function"
+    ) {
+      const allKeyIds = keysList.map((k) => k.id);
+      for (const shard of ["google", "groq"]) {
+        try {
+          const stub = coordinatorNs.get(coordinatorNs.idFromName(`pool:${shard}`));
+          if (typeof stub.getKeysCounterMap === "function") {
+            const map = await stub.getKeysCounterMap(allKeyIds);
+            for (const [kId, entry] of Object.entries(map)) {
+              coordKeyCounters.set(kId, entry);
+            }
+          }
+        } catch (err) {
+          void err;
+        }
+      }
     }
 
     // Group keys by tenant_id
@@ -837,24 +866,27 @@ export async function handleAdminRequest(
           lastActiveMap.get(tid) ??
           (user?.created_at ? toEpochMs(user.created_at) ?? Date.now() : Date.now()),
         created_at: toEpochMs(user?.created_at) ?? new Date().toISOString(),
-        keys: tenantKeys.map((k) => ({
-          id: k.id,
-          tenant_id: k.tenant_id,
-          label: k.label,
-          provider: k.provider === 'google' ? 'gemini' : k.provider,
-          key_prefix: k.key_prefix,
-          key_suffix: k.key_suffix,
-          rpm_limit: k.rpm_limit,
-          rpd_limit: k.rpd_limit,
-          priority: k.priority,
-          status: normaliseKeyStatus(k.status, k.community_routing_status).toLowerCase(),
-          pool_type: k.pool_type ? normalisePoolType(k.pool_type) : 'COMMUNITY',
-          community_routing_status: k.community_routing_status || 'OBSERVATION',
-          observation_until: toEpochMs(k.observation_until),
-          dispatched_today: k.dispatched_today || 0,
-          dispatched_communal: k.dispatched_communal || 0,
-          created_at: toEpochMs(k.created_at) ?? k.created_at,
-        })),
+        keys: tenantKeys.map((k) => {
+          const kc = coordKeyCounters.get(k.id);
+          return {
+            id: k.id,
+            tenant_id: k.tenant_id,
+            label: k.label,
+            provider: k.provider === 'google' ? 'gemini' : k.provider,
+            key_prefix: k.key_prefix,
+            key_suffix: k.key_suffix,
+            rpm_limit: k.rpm_limit,
+            rpd_limit: k.rpd_limit,
+            priority: k.priority,
+            status: normaliseKeyStatus(k.status, k.community_routing_status).toLowerCase(),
+            pool_type: k.pool_type ? normalisePoolType(k.pool_type) : 'COMMUNITY',
+            community_routing_status: k.community_routing_status || 'OBSERVATION',
+            observation_until: toEpochMs(k.observation_until),
+            dispatched_today: kc?.dispatchedToday ?? 0,
+            dispatched_communal: kc?.dispatchedCommunal ?? 0,
+            created_at: toEpochMs(k.created_at) ?? k.created_at,
+          };
+        }),
       };
     });
 
@@ -916,7 +948,7 @@ export async function handleAdminRequest(
     const totalFleetSpendToday = Array.from(spendMap.values()).reduce((sum, s) => sum + s, 0);
 
     // Compute rotation fairness score based on variance across dispatched keys
-    const dispatchCounts = keysList.map((k) => k.dispatched_today || 0);
+    const dispatchCounts = keysList.map((k) => coordKeyCounters.get(k.id)?.dispatchedToday ?? 0);
     const totalDispatched = dispatchCounts.reduce((s, v) => s + v, 0);
     const fairness = totalDispatched === 0 || dispatchCounts.length === 0
       ? 100

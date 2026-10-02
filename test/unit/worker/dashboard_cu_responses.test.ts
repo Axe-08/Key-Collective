@@ -14,12 +14,10 @@ describe("Dashboard CU responses and microdollar purge", () => {
             if (query.includes("SELECT registration_status, is_quarantined, community_eligible FROM users")) {
               return { registration_status: "ACTIVE", is_quarantined: 0, community_eligible: 1 } as unknown as T;
             }
-            if (query.includes("dispatched_communal") && query.includes("FROM api_keys")) {
+            if (query.includes("community_active_keys") && query.includes("FROM api_keys")) {
               return {
                 total_keys: 4,
                 community_active_keys: 3,
-                total_dispatched_today: 100,
-                total_communal_served: 40,
               } as unknown as T;
             }
             if (query.includes("FROM api_keys")) {

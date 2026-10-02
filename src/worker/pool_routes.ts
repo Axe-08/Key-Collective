@@ -6,111 +6,32 @@
 
 import { githubLinkRequired, loadPoolRights } from "../auth/rights";
 import type { WorkerEnv } from './auth/index';
-import { normaliseKeyStatus } from '../contracts/keys';
+import type { CoordinatorStats } from '../pool/coordinator_do';
 
 type ExecutionContextLike = { waitUntil: (p: Promise<unknown>) => void };
 
-interface ProviderAggregate {
-  provider: string;
-  active_count: number;
-  observation_count: number;
-  quarantined_count: number;
-  total_dispatched_today: number;
-  total_dispatched_communal: number;
-}
-
 async function handlePoolTelemetry(
   env: WorkerEnv,
-  tenantId: string,
-  ctx?: ExecutionContextLike
+  tenantId: string
 ): Promise<Response> {
-  if (!env.DB || typeof (env.DB as { prepare?: unknown }).prepare !== 'function') {
-    return Response.json({ error: 'Database unavailable' }, { status: 503 });
-  }
-  const db = env.DB as D1Database;
-  const aggResult = await db.prepare(`
-    SELECT
-      provider,
-      SUM(CASE WHEN status != 'invalid' AND community_routing_status = 'ACTIVE' THEN 1 ELSE 0 END) as active_count,
-      SUM(CASE WHEN community_routing_status = 'OBSERVATION' THEN 1 ELSE 0 END) as observation_count,
-      SUM(CASE WHEN status = 'invalid' OR community_routing_status = 'QUARANTINED' THEN 1 ELSE 0 END) as quarantined_count,
-      COALESCE(SUM(dispatched_today), 0) as total_dispatched_today,
-      COALESCE(SUM(dispatched_communal), 0) as total_dispatched_communal
-    FROM api_keys
-    WHERE pool_type = 'COMMUNITY'
-    GROUP BY provider
-  `).all<ProviderAggregate>();
-
-  const providers = aggResult.results ?? [];
-  const totalActive = providers.reduce((s, p) => s + (p.active_count ?? 0), 0);
-  const totalObservation = providers.reduce((s, p) => s + (p.observation_count ?? 0), 0);
-  const totalQuarantined = providers.reduce((s, p) => s + (p.quarantined_count ?? 0), 0);
-  const totalDispatched = providers.reduce((s, p) => s + (p.total_dispatched_today ?? 0), 0);
-  const totalCommunal = providers.reduce((s, p) => s + (p.total_dispatched_communal ?? 0), 0);
-  const uPoolPercent = totalDispatched > 0 ? Math.round((totalCommunal / totalDispatched) * 100) : 0;
-
-  const normalizeProvider = (p: string): string => {
-    const s = p.toLowerCase().trim();
-    if (s === 'google' || s === 'gemini') return 'gemini';
-    return s;
-  };
-
-  let tenantProviders = new Set<string>();
   const isNamedTenant =
     Boolean(tenantId) &&
     tenantId !== 'anonymous' &&
     tenantId !== 'default' &&
     tenantId !== 'guest';
-  if (isNamedTenant) {
-    const tenantProviderResult = await db.prepare(
-      `SELECT DISTINCT provider
-         FROM api_keys
-        WHERE tenant_id = ?
-          AND pool_type = 'COMMUNITY'
-          AND upper(COALESCE(community_routing_status, '')) = 'ACTIVE'
-          AND upper(status) NOT IN ('INVALID', 'REVOKED', 'QUARANTINED')`
-    ).bind(tenantId).all<{ provider: string }>();
-    tenantProviders = new Set((tenantProviderResult.results ?? []).map(r => normalizeProvider(r.provider)));
-  }
 
-  const canonicalProviders = ['gemini', 'groq', 'sambanova', 'cerebras'];
-  const providerMap = new Map<string, {
-    active_count: number;
-    observation_count: number;
-    quarantined_count: number;
-    total_dispatched_today: number;
-    total_dispatched_communal: number;
-  }>();
-
-  for (const p of providers) {
-    const key = normalizeProvider(p.provider);
-    const existing = providerMap.get(key) ?? {
-      active_count: 0,
-      observation_count: 0,
-      quarantined_count: 0,
-      total_dispatched_today: 0,
-      total_dispatched_communal: 0,
-    };
-    existing.active_count += p.active_count ?? 0;
-    existing.observation_count += p.observation_count ?? 0;
-    existing.quarantined_count += p.quarantined_count ?? 0;
-    existing.total_dispatched_today += p.total_dispatched_today ?? 0;
-    existing.total_dispatched_communal += p.total_dispatched_communal ?? 0;
-    providerMap.set(key, existing);
-  }
-
-  // 1. Query coordinator stats and eye-for-eye accessibility via typed RPC per provider shard when available
-  const coordinatorStats = new Map<string, { activeKeys: number; observationKeys?: number; quarantinedKeys: number }>();
+  const coordinatorStats = new Map<string, CoordinatorStats>();
   const coordinatorEyeAccessible = new Map<string, boolean>();
   const coordinatorNs = env.POOL_COORDINATOR as
     | {
         idFromName?: (n: string) => unknown;
         get?: (id: unknown) => {
-          stats?: () => Promise<{ activeKeys: number; observationKeys?: number; quarantinedKeys: number }>;
+          stats?: () => Promise<CoordinatorStats>;
           isEyeForEyeAccessible?: (tenant: string, provider?: string) => Promise<boolean>;
         };
       }
     | undefined;
+
   if (
     coordinatorNs &&
     typeof coordinatorNs.idFromName === 'function' &&
@@ -123,67 +44,53 @@ async function handlePoolTelemetry(
         if (typeof stub.stats === 'function') {
           const st = await stub.stats();
           coordinatorStats.set(uiProv, st);
-          if (
-            isNamedTenant &&
-            typeof stub.isEyeForEyeAccessible === 'function' &&
-            (st.activeKeys + (st.observationKeys ?? 0) + st.quarantinedKeys > 0 ||
-              tenantProviders.has(uiProv))
-          ) {
+          if (isNamedTenant && typeof stub.isEyeForEyeAccessible === 'function') {
             const acc = await stub.isEyeForEyeAccessible(tenantId, shard);
             coordinatorEyeAccessible.set(uiProv, acc);
           }
         }
       } catch {
-        // Coordinator fallback to D1 counts
+        // Coordinator shard unavailable
       }
     }
   }
-  void ctx;
 
-  // 2. Query P90 latency per provider from cost_ledger
-  const p90Map = new Map<string, number>();
-  try {
-    for (const cp of canonicalProviders) {
-      const countRow = await db.prepare(
-        `SELECT COUNT(*) as total FROM cost_ledger WHERE provider = ? AND created_at > datetime('now', '-24 hours')`
-      ).bind(cp).first<{ total: number }>();
-      const total = countRow?.total ?? 0;
-      if (total > 0) {
-        const offset = Math.max(0, Math.floor(total * 0.9) - 1);
-        const latRow = await db.prepare(
-          `SELECT latency_ms FROM cost_ledger WHERE provider = ? AND created_at > datetime('now', '-24 hours') ORDER BY latency_ms ASC LIMIT 1 OFFSET ?`
-        ).bind(cp, offset).first<{ latency_ms: number }>();
-        p90Map.set(cp, Math.round(latRow?.latency_ms ?? 0));
-      } else {
-        p90Map.set(cp, 0);
-      }
+  let totalActive = 0;
+  let totalObservation = 0;
+  let totalQuarantined = 0;
+  let activeShards = 0;
+  let sumUtilisationPct = 0;
+
+  for (const st of coordinatorStats.values()) {
+    totalActive += st.activeKeys ?? 0;
+    totalObservation += st.observationKeys ?? 0;
+    totalQuarantined += st.quarantinedKeys ?? 0;
+    if ((st.activeKeys ?? 0) > 0) {
+      activeShards += 1;
+      sumUtilisationPct += st.utilisationPct ?? 0;
     }
-  } catch {
-    // D1 fallback
   }
 
+  const uPoolPercent = activeShards > 0 ? Math.floor(sumUtilisationPct / activeShards) : 0;
+
+  const canonicalProviders = ['gemini', 'groq', 'sambanova', 'cerebras'];
   const providerPools = canonicalProviders.map(cp => {
-    const p = providerMap.get(cp);
     const st = coordinatorStats.get(cp);
-    const activeCount = p?.active_count ?? st?.activeKeys ?? 0;
-    const quarantinedCount = p?.quarantined_count ?? st?.quarantinedKeys ?? 0;
-    const totalKeys = activeCount + quarantinedCount;
-    const p90 = p90Map.get(cp) ?? 0;
-    const wProvider =
-      totalKeys > 0
-        ? Number(((activeCount / totalKeys) * (1000 / (p90 || 1000))).toFixed(2))
-        : 1.0;
+    const activeCount = st?.activeKeys ?? 0;
+    const observationCount = st?.observationKeys ?? 0;
+    const quarantinedCount = st?.quarantinedKeys ?? 0;
+    const p90 = st?.p90LatencyMs ?? 0;
+    const wProviderPct = st?.wProviderPct ?? 100;
+    const wProvider = Number((wProviderPct / 100).toFixed(2));
     return {
       provider: cp,
       active_keys: activeCount,
-      observation_keys: p?.observation_count ?? 0,
+      observation_keys: observationCount,
       quarantined_keys: quarantinedCount,
-      u_pool_percent: (p && p.total_dispatched_today > 0)
-        ? Math.round(((p.total_dispatched_communal ?? 0) / p.total_dispatched_today) * 100)
-        : 0,
+      u_pool_percent: st?.utilisationPct ?? 0,
       w_provider: wProvider > 0 ? wProvider : 1.0,
       p90_latency_ms: p90,
-      eye_for_eye_accessible: coordinatorEyeAccessible.get(cp) ?? tenantProviders.has(cp),
+      eye_for_eye_accessible: coordinatorEyeAccessible.get(cp) ?? false,
     };
   });
 
@@ -315,15 +222,11 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
   const result = await db.prepare(`
     SELECT
       COUNT(*) as total_keys,
-      SUM(CASE WHEN pool_type = 'COMMUNITY' AND community_routing_status = 'ACTIVE' THEN 1 ELSE 0 END) as community_active_keys,
-      COALESCE(SUM(dispatched_today), 0) as total_dispatched_today,
-      COALESCE(SUM(dispatched_communal), 0) as total_communal_served
+      SUM(CASE WHEN pool_type = 'COMMUNITY' AND community_routing_status = 'ACTIVE' THEN 1 ELSE 0 END) as community_active_keys
     FROM api_keys WHERE tenant_id = ?
   `).bind(tenantId).first<{
     total_keys: number;
     community_active_keys: number;
-    total_dispatched_today: number;
-    total_communal_served: number;
   }>();
 
   let coordActiveKeys = 0;
@@ -384,12 +287,8 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
     contributed = standing?.daily_contributed_cu ?? 0;
   }
 
-  const dispatchedToday = hasCoordinatorStats
-    ? coordDispatchedToday
-    : (result?.total_dispatched_today ?? 0);
-  const communalServed = hasCoordinatorStats
-    ? coordCommunalServed
-    : (result?.total_communal_served ?? 0);
+  const dispatchedToday = coordDispatchedToday;
+  const communalServed = coordCommunalServed;
   const personalRequestsToday = Math.max(0, dispatchedToday - communalServed);
   const netCu = contributed - debt;
 
@@ -457,13 +356,13 @@ export async function handlePoolRoute(
   request: Request,
   env: WorkerEnv,
   tenantId: string,
-  ctx: ExecutionContextLike
+  _ctx: ExecutionContextLike
 ): Promise<Response | null> {
   if (method === 'GET' && (pathname === '/api/pool/telemetry' || pathname === '/api/pool/contribution')) {
     const anonymous = !tenantId || tenantId === 'anonymous' || tenantId === 'guest';
     if (anonymous || !env.DB || !(await loadPoolRights(env.DB, tenantId)).communityPool) return githubLinkRequired();
   }
-  if (method === 'GET' && pathname === '/api/pool/telemetry') return handlePoolTelemetry(env, tenantId, ctx);
+  if (method === 'GET' && pathname === '/api/pool/telemetry') return handlePoolTelemetry(env, tenantId);
   if (method === 'GET' && pathname === '/api/pool/standing') return handlePoolStanding(env, tenantId);
   if (method === 'GET' && pathname === '/api/pool/contribution') return handlePoolContribution(env, tenantId);
   if (method === 'GET' && pathname === '/api/notifications') {

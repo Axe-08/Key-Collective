@@ -829,7 +829,7 @@ export class ApiKeyRepository {
   /** Console key listing; tenantId null lists every key (admins). */
   async listForDashboard<T>(tenantId: string | null): Promise<T[]> {
     const columns =
-      "id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until, dispatched_today, dispatched_communal, vesting_tier";
+      "id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until";
     const result =
       tenantId === null
         ? await this.db.prepare(`SELECT ${columns} FROM api_keys ORDER BY priority ASC, created_at DESC`).all<T>()
