@@ -519,8 +519,8 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
         INSERT INTO api_keys (
           id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
           key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-          pool_type, dispatched_today, dispatched_communal, created_at
-        ) VALUES (?, ?, 'Healthy Groq Key', 'groq', ?, ?, 'gsk_heal', '3456', 60, 1500, 10, 'HEALTHY', 'PRIVATE', 0, 0, ?)
+          pool_type, created_at
+        ) VALUES (?, ?, 'Healthy Groq Key', 'groq', ?, ?, 'gsk_heal', '3456', 60, 1500, 10, 'HEALTHY', 'PRIVATE', ?)
       `).bind(
         keyId,
         doTenantId,

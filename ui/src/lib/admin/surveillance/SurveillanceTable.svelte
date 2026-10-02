@@ -21,8 +21,8 @@
       pool_type: 'PRIVATE' | 'COMMUNITY' | null;
       community_routing_status: 'OBSERVATION' | 'ACTIVE' | 'QUARANTINED' | 'REVOKED' | null;
       observation_until: string | null;
-      dispatched_today: number | null;
-      dispatched_communal: number | null;
+      dispatches_today: number | null;
+      dispatches_communal: number | null;
       created_at: string;
     }>;
   }
@@ -338,9 +338,9 @@
 
                                 <!-- Dispatched count -->
                                 <td class="p-2.5 text-outline">
-                                  {k.dispatched_today || 0} reqs
-                                  {#if k.dispatched_communal}
-                                    <span class="text-primary text-[10px]">({k.dispatched_communal} communal)</span>
+                                  {k.dispatches_today || 0} reqs
+                                  {#if k.dispatches_communal}
+                                    <span class="text-primary text-[10px]">({k.dispatches_communal} communal)</span>
                                   {/if}
                                 </td>
 

@@ -39,9 +39,8 @@ export const APIKeySchema = z.object({
   pool_type: PoolTypeSchema.optional(),
   community_routing_status: CommunityRoutingStatusSchema.optional(),
   observation_until: z.string().nullable().optional(),
-  dispatched_today: z.number().optional(),
-  dispatched_communal: z.number().optional(),
-  vesting_tier: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional(),
+  dispatches_today: z.number().optional(),
+  dispatches_communal: z.number().optional(),
   tenant_id: z.string().optional(),
   is_owner: z.boolean().optional(),
 });

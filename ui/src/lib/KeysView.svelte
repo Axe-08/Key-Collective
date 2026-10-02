@@ -60,8 +60,8 @@
 
   function getCommunalSharePct(k: APIKey): number {
     if (typeof k.communal_share_pct === 'number') return k.communal_share_pct;
-    const total = k.dispatched_today ?? k.requests_today ?? 0;
-    const comm = k.dispatched_communal ?? 0;
+    const total = k.dispatches_today ?? k.requests_today ?? 0;
+    const comm = k.dispatches_communal ?? 0;
     if (total <= 0) return 0;
     return Math.round((comm / total) * 100);
   }
@@ -187,7 +187,7 @@
                 </span>
               </td>
               <td class="py-2.5 px-3 text-on-surface">
-                {k.dispatched_today ?? k.requests_today ?? 0} / {k.rpd_limit ?? '—'}
+                {k.dispatches_today ?? k.requests_today ?? 0} / {k.rpd_limit ?? '—'}
               </td>
               {#if subTab === 'observation'}
                 <td class="py-2.5 px-3 text-amber-300 font-semibold" data-testid="observation-countdown">
@@ -256,7 +256,7 @@
                     <div class="p-2.5 rounded bg-surface-container-high/40 border border-outline-variant/20">
                       <span class="text-[10px] text-outline uppercase block">Communal Share</span>
                       <span class="font-semibold text-on-surface mt-0.5 block">
-                        {getCommunalSharePct(k)}% ({k.dispatched_communal ?? 0} reqs)
+                        {getCommunalSharePct(k)}% ({k.dispatches_communal ?? 0} reqs)
                       </span>
                     </div>
 

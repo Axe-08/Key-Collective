@@ -50,7 +50,7 @@ async function seedDefaultOwnedKey(): Promise<string> {
       plaintext.slice(0, 4),
       plaintext.slice(-4),
       "PRIVATE",
-      "Healthy"
+      "HEALTHY"
     )
     .run();
   return keyId;
@@ -121,7 +121,7 @@ describe("S7 Forensics: runDefaultTakeoverForensics (OP-0.11)", () => {
         "kc_l",
         "cret",
         "PRIVATE",
-        "Healthy"
+        "HEALTHY"
       )
       .run();
 
@@ -142,7 +142,7 @@ describe("S7 Forensics: runDefaultTakeoverForensics (OP-0.11)", () => {
         "kc_l",
         "cret",
         "PRIVATE",
-        "Healthy"
+        "HEALTHY"
       )
       .run();
 

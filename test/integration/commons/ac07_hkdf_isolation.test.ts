@@ -120,7 +120,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
         1500,
         0,
         "PRIVATE",
-        "Healthy"
+        "HEALTHY"
       )
       .run();
 
@@ -169,7 +169,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
         1500,
         0,
         "PRIVATE",
-        "Healthy"
+        "HEALTHY"
       )
       .run();
 
@@ -241,7 +241,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
           1500,
           0,
           "COMMUNITY",
-          "Healthy"
+          "HEALTHY"
         )
         .run();
     }
@@ -269,7 +269,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
         1500,
         0,
         "COMMUNITY",
-        "Healthy"
+        "HEALTHY"
       )
       .run();
 
@@ -286,7 +286,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
         .bind(kid)
         .first<{ hkdf_migrated: number; status: string }>();
       expect(row?.hkdf_migrated).toBe(1);
-      expect(row?.status).toBe("Healthy");
+      expect(row?.status).toBe("HEALTHY");
     }
 
     // Verify corrupted key is quarantined

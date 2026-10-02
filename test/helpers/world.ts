@@ -159,7 +159,7 @@ export async function addProviderKey(
       rpdLimit,
       priority,
       pool,
-      "Healthy"
+      "HEALTHY"
     )
     .run();
   return { id: keyId, tenant_id: user.id, provider, pool };

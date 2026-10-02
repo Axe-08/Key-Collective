@@ -320,7 +320,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
                   COALESCE(cs.community_debt_cu, 0) as owner_debt
            FROM api_keys k
            LEFT JOIN contributor_standing cs ON cs.tenant_id = k.tenant_id
-           WHERE upper(k.status) = 'HEALTHY'
+           WHERE k.status = 'HEALTHY'
              AND (k.tenant_id = ? OR (k.pool_type = 'COMMUNITY' AND k.community_routing_status = 'ACTIVE'
                   -- D-21: another tenant's key is lent only while its owner holds communityPool
                   AND EXISTS (
