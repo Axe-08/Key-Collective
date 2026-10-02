@@ -142,7 +142,7 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
     expect(row?.status).toBe("QUARANTINED");
   });
 
-  it("lazy migration: decrypts legacy row (hkdf_migrated=0) once, re-encrypts with tenant subkey, and updates hkdf_migrated=1", async () => {
+  it("unmigrated row (hkdf_migrated=0): throws KeyDecryptionError and quarantines key without calling upstream (T-7.6.1)", async () => {
     const user = await createUser({ github: true, eligible: true });
     const rawPlaintext = "gsk_legacy_row_plain_key_7777";
     const legacyEncrypted = await encryptKey(rawPlaintext, "legacy", "groq", MASTER_KEY);
@@ -173,36 +173,27 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
       )
       .run();
 
-    // First resolution decrypts via legacy path, re-encrypts, and returns plaintext
-    const resolved = await resolveLeasedKey(
-      {
-        keyId,
-        ownerTenantId: user.id,
-        provider: "groq",
-      },
-      env
-    );
-    expect(resolved).toBe(rawPlaintext);
+    const beforeCalls = upstreamCallCount;
+    await expect(
+      resolveLeasedKey(
+        {
+          keyId,
+          ownerTenantId: user.id,
+          provider: "groq",
+        },
+        env
+      )
+    ).rejects.toThrow(KeyDecryptionError);
+    expect(upstreamCallCount).toBe(beforeCalls);
 
-    // Verify D1 state updated to hkdf_migrated=1 with new ciphertext
     const rowAfter = await env.DB.prepare(
-      "SELECT encrypted_key_b64, nonce_b64, hkdf_migrated FROM api_keys WHERE id = ?"
+      "SELECT status, hkdf_migrated FROM api_keys WHERE id = ?"
     )
       .bind(keyId)
-      .first<{ encrypted_key_b64: string; nonce_b64: string; hkdf_migrated: number }>();
+      .first<{ status: string; hkdf_migrated: number }>();
 
-    expect(rowAfter?.hkdf_migrated).toBe(1);
-    expect(rowAfter?.encrypted_key_b64).not.toBe(legacyEncrypted.ciphertext);
-
-    // Verify new ciphertext can be decrypted directly with user's subkey
-    const userSubkey = await deriveTenantKey(MASTER_KEY, user.id);
-    const decryptedDirectly = await (
-      await import("../../../src/crypto/encryption/index")
-    ).decrypt(
-      { ciphertext: rowAfter!.encrypted_key_b64, nonce: rowAfter!.nonce_b64 },
-      userSubkey
-    );
-    expect(decryptedDirectly).toBe(rawPlaintext);
+    expect(rowAfter?.status).toBe("QUARANTINED");
+    expect(rowAfter?.hkdf_migrated).toBe(0);
   });
 
   it("bulk migration: migrateKeysToHkdf migrates all legacy rows and quarantines corrupted ones", async () => {

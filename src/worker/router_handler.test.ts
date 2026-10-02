@@ -3,7 +3,7 @@ import { sanitize, SECRET_REGEX, IP_REGEX } from "./error_normalizer";
 import { formatRouterError, RouterHandler } from "./router/index";
 import type { AuthenticatedContext, WorkerEnv } from "./auth/types";
 import { RouterError } from "./router/index";
-import { encryptKey } from "../durable_objects/crypto";
+import { deriveTenantKey, encrypt } from "../crypto/encryption/index";
 
 describe("GATEWAY-001: Error Normalizer & Secret Redaction", () => {
   describe("sanitize", () => {
@@ -182,7 +182,8 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
   it("decrypts keyId from KeyPool using D1 and KC_MASTER_KEY before calling upstream", async () => {
     const MASTER_KEY = "super-secret-master-key-1234567890";
     const rawApiKey = "AIzaSyDecryptedGoogleKey999";
-    const encrypted = await encryptKey(rawApiKey, "default", "google", MASTER_KEY);
+    const tenantSubkey = await deriveTenantKey(MASTER_KEY, "default");
+    const encrypted = await encrypt(rawApiKey, tenantSubkey);
 
     let capturedHeaders: Headers | undefined;
     const mockFetch = vi.fn().mockImplementation(async (url: string | URL | Request, init?: RequestInit) => {
@@ -213,11 +214,11 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
           bind: () => ({
             first: async () => ({
               id: "key_gemini_test_1",
-              encrypted_key_b64: encrypted.ciphertext,
-              nonce_b64: encrypted.nonce,
+              encrypted_key_b64: encrypted.ciphertextB64,
+              nonce_b64: encrypted.nonceB64,
               tenant_id: "default",
               provider: "google",
-              hkdf_migrated: 0,
+              hkdf_migrated: 1,
             }),
             run: async () => ({ success: true }),
           }),

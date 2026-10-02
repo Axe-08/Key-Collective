@@ -1,20 +1,18 @@
 /**
- * Key Collective v2/v4 — Upstream Key Decryption & Resolution (WP-4.4)
+ * Key Collective v2/v4 — Upstream Key Decryption & Resolution (WP-4.4 / WP-7.6)
  *
- * Implements strict tenant key derivation and lazy HKDF migration (AC-07):
+ * Implements strict tenant key derivation (AC-07):
  * - Row is loaded from D1 by lease.keyId.
  * - Asserts row.tenant_id === lease.ownerTenantId (zero cross-tenant fallback).
+ * - Requires row.hkdf_migrated === 1; unmigrated rows are quarantined and rejected.
  * - Decrypts with deriveTenantKey(master, row.tenant_id) only.
- * - Lazy HKDF migration: if hkdf_migrated=0, decrypts via legacy global key once,
- *   re-encrypts with tenant subkey, updates D1 (hkdf_migrated=1) atomically.
  * - Failure -> KeyDecryptionError, key marked QUARANTINED in D1, alert logged.
  * - Raw key fast-path and caller/default fallbacks are deleted.
  * - In-memory cache keyed by keyId:nonce with 5-minute TTL.
  * - evict(keyId) invalidates cached entries for a key.
  */
 
-import { deriveTenantKey, decrypt, encrypt, type KeyInput } from "../../../crypto/encryption/index";
-import { decryptKey } from "../../../durable_objects/crypto";
+import { deriveTenantKey, decrypt, type KeyInput } from "../../../crypto/encryption/index";
 import { KeyDecryptionError } from "../../../errors/key_errors";
 import type { WorkerEnv } from "../../auth/index";
 
@@ -135,89 +133,17 @@ export async function resolveLeasedKey(
     return cached.key;
   }
 
-  // Lazy HKDF migration if hkdf_migrated is 0 or null
-  const isMigrated = row.hkdf_migrated === 1;
-
-  if (!isMigrated) {
-    let legacyPlaintext: string | undefined;
-
-    // 1. Decrypt via legacy master key path
-    try {
-      legacyPlaintext = await decryptKey(
-        row.encrypted_key_b64,
-        row.nonce_b64,
-        resolvedMasterKey
-      );
-    } catch {
-      try {
-        legacyPlaintext = await decrypt(
-          { ciphertext: row.encrypted_key_b64, nonce: row.nonce_b64 },
-          resolvedMasterKey
-        );
-      } catch {
-        // Fallback: check if the row was already encrypted with tenant subkey
-        try {
-          const tenantKey = await deriveTenantKey(resolvedMasterKey, row.tenant_id);
-          const trialPlaintext = await decrypt(
-            { ciphertext: row.encrypted_key_b64, nonce: row.nonce_b64 },
-            tenantKey
-          );
-          if (trialPlaintext && trialPlaintext.trim().length > 0) {
-            await env.DB.prepare("UPDATE api_keys SET hkdf_migrated = 1 WHERE id = ?")
-              .bind(row.id)
-              .run();
-            const clean = trialPlaintext.trim();
-            decryptedKeyCache.set(cacheKey, {
-              key: clean,
-              expiresAt: Date.now() + CACHE_TTL_MS,
-            });
-            return clean;
-          }
-        } catch {
-          // Both legacy and tenant decryption failed
-        }
-      }
-    }
-
-    if (!legacyPlaintext || legacyPlaintext.trim().length === 0) {
-      console.error(`Security Alert: Decryption failed for legacy key '${lease.keyId}'`);
-      await quarantineKey(env, lease.keyId);
-      throw new KeyDecryptionError(
-        `Decryption failed for key '${lease.keyId}': invalid ciphertext or corrupted nonce`,
-        { keyId: lease.keyId, provider: lease.provider ?? row.provider }
-      );
-    }
-
-    const cleanPlaintext = legacyPlaintext.trim();
-
-    // 2. Re-encrypt with tenant subkey and update D1 hkdf_migrated = 1
-    try {
-      const tenantKey = await deriveTenantKey(resolvedMasterKey, row.tenant_id);
-      const { ciphertextB64, nonceB64 } = await encrypt(cleanPlaintext, tenantKey);
-      await env.DB.prepare(
-        "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, hkdf_migrated = 1 WHERE id = ?"
-      )
-        .bind(ciphertextB64, nonceB64, row.id)
-        .run();
-
-      // Cache under new nonce
-      decryptedKeyCache.set(`${row.id}:${nonceB64}`, {
-        key: cleanPlaintext,
-        expiresAt: Date.now() + CACHE_TTL_MS,
-      });
-
-      return cleanPlaintext;
-    } catch (migErr) {
-      console.error(`Security Alert: Re-encryption failed for key '${lease.keyId}':`, migErr);
-      await quarantineKey(env, lease.keyId);
-      throw new KeyDecryptionError(
-        `Failed to re-encrypt migrated key '${lease.keyId}'`,
-        { keyId: lease.keyId, provider: lease.provider ?? row.provider }
-      );
-    }
+  // Require HKDF migration (WP-7.6 T-7.6.1): unmigrated rows are quarantined and rejected
+  if (row.hkdf_migrated !== 1) {
+    console.error(`Security Alert: Key '${lease.keyId}' is not HKDF-migrated (hkdf_migrated=${String(row.hkdf_migrated)})`);
+    await quarantineKey(env, lease.keyId);
+    throw new KeyDecryptionError(
+      `Decryption rejected for unmigrated key '${lease.keyId}': hkdf_migrated must be 1`,
+      { keyId: lease.keyId, provider: lease.provider ?? row.provider }
+    );
   }
 
-  // Already HKDF-migrated: decrypt strictly with deriveTenantKey(master, row.tenant_id)
+  // Decrypt strictly with deriveTenantKey(master, row.tenant_id)
   try {
     const tenantKey = await deriveTenantKey(resolvedMasterKey, row.tenant_id);
     const plaintext = await decrypt(

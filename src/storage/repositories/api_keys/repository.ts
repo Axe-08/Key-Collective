@@ -111,8 +111,8 @@ export class ApiKeyRepository {
       INSERT INTO api_keys (
         id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
         key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-        circuit_open_until, last_used_at, created_at, pool_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+        circuit_open_until, last_used_at, created_at, pool_type, hkdf_migrated
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)
     `;
 
     await this.db
@@ -224,8 +224,8 @@ export class ApiKeyRepository {
       INSERT INTO api_keys (
         id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
         key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status,
-        circuit_open_until, last_used_at, created_at, pool_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        circuit_open_until, last_used_at, created_at, pool_type, hkdf_migrated
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `;
 
     await this.db
@@ -830,7 +830,7 @@ export class ApiKeyRepository {
     const row = await this.db
       .prepare(
         `${this.scoped(
-          "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ? WHERE id = ?",
+          "UPDATE api_keys SET encrypted_key_b64 = ?, nonce_b64 = ?, key_prefix = ?, key_suffix = ?, hkdf_migrated = 1 WHERE id = ?",
           tenantId
         )} RETURNING id`
       )
@@ -927,8 +927,8 @@ export class ApiKeyRepository {
         `INSERT INTO api_keys (
            id, tenant_id, label, provider, encrypted_key_b64, nonce_b64, key_prefix, key_suffix,
            rpm_limit, rpd_limit, priority, status, pool_type, community_routing_status,
-           observation_until, key_hash, provider_project_hash, created_at, anti_cycling_until
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HEALTHY', ?, ?, ?, ?, ?, ?, ?)`
+           observation_until, key_hash, provider_project_hash, created_at, anti_cycling_until, hkdf_migrated
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HEALTHY', ?, ?, ?, ?, ?, ?, ?, 1)`
       )
       .bind(
         row.id,

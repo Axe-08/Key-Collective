@@ -47,13 +47,11 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
     expect(resolved).toBe(rawPlaintext);
   });
 
-  it("lazy migration: decrypts legacy row (hkdf_migrated=0) once, re-encrypts with tenant subkey and updates hkdf_migrated=1", async () => {
+  it("unmigrated row (hkdf_migrated=0): throws KeyDecryptionError and quarantines key without attempting legacy decryption (T-7.6.1)", async () => {
     const rawPlaintext = "gsk_LegacySecretKey888";
     const encrypted = await encryptKey(rawPlaintext, "default", "groq", MASTER_KEY);
 
-    let updatedHkdf = false;
-    let newCiphertext = "";
-    let newNonce = "";
+    let quarantinedKeyId: string | null = null;
 
     const mockDb = {
       prepare: vi.fn((sql: string) => ({
@@ -73,10 +71,8 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
             return null;
           },
           run: async () => {
-            if (sql.includes("UPDATE api_keys SET encrypted_key_b64")) {
-              updatedHkdf = true;
-              newCiphertext = args[0] as string;
-              newNonce = args[1] as string;
+            if (sql.includes("QUARANTINED")) {
+              quarantinedKeyId = args[1] as string;
             }
             return { success: true };
           },
@@ -89,14 +85,13 @@ describe("Strict Upstream Key Decryption (WP-4.4 T-4.4.1)", () => {
       KC_MASTER_KEY: MASTER_KEY,
     } as unknown as WorkerEnv;
 
-    const resolved = await resolveLeasedKey(
-      { keyId: "key_legacy_001", ownerTenantId: TENANT_A, provider: "groq" },
-      env
-    );
-    expect(resolved).toBe(rawPlaintext);
-    expect(updatedHkdf).toBe(true);
-    expect(newCiphertext).toBeTruthy();
-    expect(newNonce).toBeTruthy();
+    await expect(
+      resolveLeasedKey(
+        { keyId: "key_legacy_001", ownerTenantId: TENANT_A, provider: "groq" },
+        env
+      )
+    ).rejects.toThrow(KeyDecryptionError);
+    expect(quarantinedKeyId).toBe("key_legacy_001");
   });
 
   it("caches decrypted key in-memory by keyId:nonce and invalidates on evict(keyId)", async () => {
