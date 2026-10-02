@@ -29,7 +29,7 @@ Every line of code and every architectural change must satisfy these non-negotia
 1. **Strict TypeScript (No `any`):** Full strict mode across Cloudflare Workers, Durable Objects, and UI. No loose typing or untyped dictionaries.
 2. **No Plaintext Keys:** Upstream keys are encrypted via AES-256-GCM with unique 12-byte CSPRNG nonces stored alongside ciphertext in D1. Keys are encrypted using per-tenant subkeys derived via Web Crypto HKDF (`deriveTenantKey(KC_MASTER_KEY, tenantId)`). Plaintext keys are never logged, persisted, or returned to clients.
 3. **Per-Tenant DO Isolation:** Compute and memory isolation enforced via `env.KEY_POOL.idFromName(tenantId)` and `env.TENANT_QUOTA.idFromName(tenantId)`. Zero cross-tenant state within tenant DO instances.
-4. **Fixed-Point Microdollars:** All financial accounting, cost metrics, and communal debt units are represented in `int64` / `bigint` microdollars (1 USD = 1,000,000 µ$). `MICRODOLLAR_MULTIPLIER = 1_000_000n`. Zero IEEE 754 floating-point math in financial calculations.
+4. **Integer Credit Units:** All capacity accounting is `bigint` CU; zero floating-point math; zero currency.
 5. **DO Transactional Storage for Hot State:** In-memory circuit breakers, rate limiters, communal dispatch counters, and debt registers must synchronize to `this.ctx.storage` to survive DO eviction. D1 is reserved for persistence and rollups.
 6. **Non-Blocking Telemetry:** High-frequency telemetry streams to Cloudflare Workers Analytics Engine (`env.TELEMETRY`) via `ctx.waitUntil()`. The proxy hot path is never blocked by database writes.
 7. **Strict Quality Gate:** All code changes must pass `make gate` (<10s, `tsc --noEmit` and `vitest run`) before merge.
@@ -209,15 +209,14 @@ To guarantee statutory safe harbor and prevent liability traps, Key Collective e
 
 ---
 
-## 🔢 6. Fixed-Point Microdollars & Financial Invariants
+## 🔢 6. Integer Credit Units & Capacity Invariants
 
-Floating-point arithmetic (IEEE 754) is strictly forbidden across the codebase to prevent cumulative financial drift and precision loss:
+Floating-point arithmetic (IEEE 754) is strictly forbidden across the codebase to prevent cumulative drift and precision loss:
 
-- **Base Unit:** 1 USD = 1,000,000 microdollars (µ$). `MICRODOLLAR_MULTIPLIER = 1_000_000n` (`src/constants/financial.ts`).
+- **Base Unit:** Capacity is measured in integer Credit Units (`CU`). Zero currency, zero dollars, zero microdollars.
 - **Data Type:** All internal accounting uses `bigint` / `int64`.
-- **Parsing:** String splitting (`dollarsToMicrodollars`) is used to convert dollar representations without float coercion.
-- **Presentation:** Floating-point conversion (`microdollarsToDollars`) is restricted to the UI presentation layer.
-- **Community Debt Accounting:** `community_debt_micro_cu` tracks consumption from the commons in micro-CU. Settled in real time when the contributor's own key serves other tenants' requests.
+- **Parsing & Presentation:** Integer arithmetic with `formatCu` in UI. Zero floating-point math in financial/accounting calculations.
+- **Community Debt Accounting:** `community_debt_cu` tracks consumption from the commons in integer CU. Settled in real time when the contributor's own key serves other tenants' requests.
 - **Multiplier Formulas (`src/quota/tenant/debt.ts`):**
   - Ratio $R = \frac{\text{Debt}}{\text{Daily Contributed CU}}$
   - $R > 1.0$ (Debt exceeded contribution): **Hard Jail** $\rightarrow$ multiplier locked to 1.0×, communal routing blocked.
