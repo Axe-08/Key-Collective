@@ -16,6 +16,7 @@ import { getTierLimits } from "../limits";
 import { Clock, systemClock } from "../../utils/clock";
 import {
   calculateBandCapPct,
+  calculateDebtCapPct,
   calculateMultiplierPct,
   calculateVestingCapPct,
   determineJailStatus,
@@ -498,6 +499,21 @@ export class TenantQuotaDO extends DurableObject<unknown> {
 
   public getDebtState() {
     const contributed24h = this.getContributed24h();
+    const debtCap = calculateDebtCapPct(this.communityDebtCu, contributed24h, this.trustedContributor);
+    const vestingCap = this.vestingCap ?? (this.trustedContributor ? 500 : 450);
+    const bandCap = this.bandCap ?? (this.trustedContributor ? 500 : 450);
+    const jailStatus = determineJailStatus(this.communityDebtCu, contributed24h);
+
+    let estimatedDays = 0;
+    if (this.communityDebtCu > contributed24h && contributed24h >= 0n) {
+      let d = this.communityDebtCu;
+      const target = contributed24h;
+      while (d > target && estimatedDays < 30) {
+        d = (d * 80n) / 100n;
+        estimatedDays++;
+      }
+    }
+
     return {
       communityDebtCu: this.communityDebtCu.toString(),
       communityDebtMicroCu: this.communityDebtCu.toString(),
@@ -507,7 +523,16 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       multiplierPct: this.multiplierCeiling,
       trustedContributor: this.trustedContributor,
       consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
-      jailStatus: determineJailStatus(this.communityDebtCu, contributed24h),
+      jailStatus,
+      caps: {
+        vesting: vestingCap,
+        debt: debtCap,
+        band: bandCap,
+      },
+      recovery: {
+        debt_decay: "20% per day at 00:00 UTC",
+        estimated_days: estimatedDays,
+      },
     };
   }
 

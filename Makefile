@@ -30,7 +30,7 @@ test-pool-commons:
 	@npx vitest run ui/src/lib/PoolCommonsTab.test.ts
 
 test-debt-ledger:
-	@npx vitest run ui/src/lib/DebtLedgerWidget.test.ts
+	@npx vitest run ui/src/lib/standing/StandingCard.test.ts
 
 test-add-key-modal:
 	@npx vitest run ui/src/lib/AddKeyModal.test.ts

@@ -186,10 +186,10 @@ Plan: `docs/PHASE6_PLAN.md`
 - [x] T-6.1.10 CI guard scripts/check-ui-literals.mjs
 
 ### WP-6.3
-- [ ] T-6.3.1 Standing data types (ui/src/lib/standing/types.ts)
-- [ ] T-6.3.2 Standing API client (ui/src/lib/standing/api.ts)
-- [ ] T-6.3.3 Rewrite DebtLedgerWidget → StandingCard.svelte with PRD states
-- [ ] T-6.3.4 Delete legacy DebtLedgerWidget.test.ts
+- [x] T-6.3.1 Standing data types (ui/src/lib/standing/types.ts)
+- [x] T-6.3.2 Standing API client (ui/src/lib/standing/api.ts)
+- [x] T-6.3.3 Rewrite DebtLedgerWidget → StandingCard.svelte with PRD states
+- [x] T-6.3.4 Delete legacy DebtLedgerWidget.test.ts
 
 ### WP-6.2
 - [ ] T-6.2.1 POST /api/admin/tenants/:id/reset-quota endpoint + TenantQuotaDO.reset()
