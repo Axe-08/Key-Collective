@@ -44,6 +44,8 @@ function ownerScope(tenantId: string): string | null {
   return tenantId === "admin" ? null : tenantId;
 }
 
+const ROTATION_WINDOW_MS = 30 * 60 * 1000;
+
 export async function handleDeleteKey(
   pathname: string,
   env: WorkerEnv,
@@ -58,14 +60,57 @@ export async function handleDeleteKey(
     throw new RouterError("Authentication required to delete keys", { statusCode: 401 });
   }
 
-  let deletedMeta: { id: string; tenant_id: string; provider: string; rpm_limit: number; rpd_limit: number } | null = null;
+  const now = Date.now();
+  let deletedMeta: {
+    id: string;
+    tenant_id: string;
+    provider: string;
+    rpm_limit: number;
+    rpd_limit: number;
+    provider_project_hash: string | null;
+    created_at: number | string | null;
+  } | null = null;
 
   if (env.DB && typeof env.DB.prepare === "function") {
     const repo = new ApiKeyRepository(env.DB);
-    deletedMeta = await repo.getCoordinatorMeta(keyId, ownerScope(tenantId));
-    const deleted = await repo.deleteScoped(keyId, ownerScope(tenantId));
-    if (!deleted && tenantId !== "admin") {
+    deletedMeta = await repo.softDeleteScoped(keyId, ownerScope(tenantId), now);
+    if (!deletedMeta && tenantId !== "admin") {
       throw new RouterError(`Key '${keyId}' not found`, { statusCode: 404 });
+    }
+
+    if (deletedMeta?.provider_project_hash) {
+      const existingReg = await env.DB.prepare(
+        "SELECT vesting_started_at, created_at FROM project_hash_registry WHERE project_hash = ?"
+      )
+        .bind(deletedMeta.provider_project_hash)
+        .first<{ vesting_started_at?: number | null; created_at?: number | null }>()
+        .catch(() => null);
+
+      const createdAtNum =
+        typeof deletedMeta.created_at === "number"
+          ? deletedMeta.created_at
+          : typeof deletedMeta.created_at === "string"
+          ? Date.parse(deletedMeta.created_at) || now
+          : now;
+      const vestingStartedAt =
+        existingReg?.vesting_started_at ?? createdAtNum ?? existingReg?.created_at ?? now;
+
+      await env.DB.prepare(
+        `UPDATE project_hash_registry
+            SET state = 'ROTATING',
+                rotating_until = ?,
+                vesting_started_at = ?,
+                updated_at = ?
+          WHERE project_hash = ?`
+      )
+        .bind(
+          now + ROTATION_WINDOW_MS,
+          vestingStartedAt,
+          now,
+          deletedMeta.provider_project_hash
+        )
+        .run()
+        .catch(() => {});
     }
   }
 
@@ -102,9 +147,16 @@ export async function handleDeleteKey(
     if (coordNs && typeof coordNs.idFromName === "function") {
       const providers = deletedMeta?.provider ? [deletedMeta.provider] : ["google", "groq"];
       for (const provider of providers) {
-        const coordStub = coordNs.get(coordNs.idFromName(provider));
-        if (typeof coordStub.removeKey === "function") {
-          await coordStub.removeKey(keyId);
+        const canon = provider.toLowerCase() === "gemini" ? "google" : provider.toLowerCase();
+        for (const shardName of [`pool:${canon}`, provider]) {
+          try {
+            const coordStub = coordNs.get(coordNs.idFromName(shardName));
+            if (typeof coordStub.removeKey === "function") {
+              await coordStub.removeKey(keyId);
+            }
+          } catch (err) {
+            void err;
+          }
         }
       }
     }
@@ -112,6 +164,7 @@ export async function handleDeleteKey(
     // Coordinator reconcile will clean up removed keys
   }
 
+  evict(keyId);
   return Response.json({ success: true, keyId });
 }
 

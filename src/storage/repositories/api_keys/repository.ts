@@ -826,15 +826,46 @@ export class ApiKeyRepository {
     return (await this.db.prepare("SELECT 1 AS hit FROM api_keys WHERE key_hash = ?").bind(keyHash).first()) !== null;
   }
 
-  /** Console key listing; tenantId null lists every key (admins). */
+  /** Soft-deletes a key by marking it REVOKED and setting revoked_at; returns metadata or null. */
+  async softDeleteScoped(
+    id: string,
+    tenantId: string | null,
+    revokedAt: number
+  ): Promise<{
+    id: string;
+    tenant_id: string;
+    provider: string;
+    rpm_limit: number;
+    rpd_limit: number;
+    provider_project_hash: string | null;
+    created_at: number | string | null;
+  } | null> {
+    return this.db
+      .prepare(
+        `${this.scoped(
+          "UPDATE api_keys SET status = 'REVOKED', community_routing_status = 'REVOKED', revoked_at = ? WHERE id = ? AND upper(status) != 'REVOKED'",
+          tenantId
+        )} RETURNING id, tenant_id, provider, rpm_limit, rpd_limit, provider_project_hash, created_at`
+      )
+      .bind(...this.scopedBind([revokedAt, id], tenantId))
+      .first();
+  }
+
+  /** Console key listing; tenantId null lists every key (admins). Excludes soft-deleted REVOKED keys. */
   async listForDashboard<T>(tenantId: string | null): Promise<T[]> {
     const columns =
       "id, tenant_id, label, provider, key_prefix, key_suffix, rpm_limit, rpd_limit, priority, status, circuit_open_until, created_at, pool_type, community_routing_status, observation_until";
     const result =
       tenantId === null
-        ? await this.db.prepare(`SELECT ${columns} FROM api_keys ORDER BY priority ASC, created_at DESC`).all<T>()
+        ? await this.db
+            .prepare(
+              `SELECT ${columns} FROM api_keys WHERE upper(status) != 'REVOKED' AND upper(COALESCE(community_routing_status, '')) != 'REVOKED' ORDER BY priority ASC, created_at DESC`
+            )
+            .all<T>()
         : await this.db
-            .prepare(`SELECT ${columns} FROM api_keys WHERE tenant_id = ? ORDER BY priority ASC, created_at DESC`)
+            .prepare(
+              `SELECT ${columns} FROM api_keys WHERE tenant_id = ? AND upper(status) != 'REVOKED' AND upper(COALESCE(community_routing_status, '')) != 'REVOKED' ORDER BY priority ASC, created_at DESC`
+            )
             .bind(tenantId)
             .all<T>();
     return result.results ?? [];

@@ -153,7 +153,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 
 ### WP-5.11
 - [x] T-5.11.1 Migration 0022_project_hash_vesting.sql (vesting_started_at)
-- [ ] T-5.11.2 Soft delete, 30-min resubmission window, vesting inheritance
+- [x] T-5.11.2 Soft delete, 30-min resubmission window, vesting inheritance
 - [ ] T-5.11.3 Tombstone lifecycle and project-preserving key rotation
 
 ### WP-5.12
