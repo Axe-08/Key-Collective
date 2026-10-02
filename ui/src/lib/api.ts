@@ -239,6 +239,7 @@ export const api = {
     } | null;
     csrfToken?: string;
     notices?: string[];
+    rights?: { privatePool: boolean; communityPool: boolean };
   } | null> {
     try {
       const res = await fetch('/api/session', sessionInit());
@@ -252,4 +253,130 @@ export const api = {
     }
     return null;
   },
+
+  async toggleUserPoolMode(
+    keyId: string,
+    poolType: 'COMMUNITY' | 'PRIVATE'
+  ): Promise<{ ok: boolean; error?: string; message?: string }> {
+    try {
+      const res = await fetch(`/api/keys/${encodeURIComponent(keyId)}/pool-mode`, {
+        ...sessionInit('PATCH'),
+        body: JSON.stringify({ pool_type: poolType }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        return {
+          ok: false,
+          error: errBody?.error?.code || errBody?.error || 'FAILED',
+          message: errBody?.error?.message || errBody?.message || 'Pool mode change failed',
+        };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'NETWORK_ERROR', message: 'Network error' };
+    }
+  },
+
+  async rotateKeySecret(
+    keyId: string,
+    newSecret: string
+  ): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const res = await fetch(`/api/keys/${encodeURIComponent(keyId)}/rotate`, {
+        ...sessionInit('POST'),
+        body: JSON.stringify({ secret: newSecret }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        return {
+          ok: false,
+          message: errBody?.error?.message || errBody?.message || 'Key rotation failed',
+        };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, message: 'Network error while rotating key' };
+    }
+  },
+
+  async getAnalyticsUsage(): Promise<{
+    usage: Array<{
+      day: string;
+      provider: string;
+      model: string;
+      requests: number;
+      tokens: number;
+      cu: number;
+    }>;
+  }> {
+    const res = await fetch('/api/analytics/usage', sessionInit());
+    if (!res.ok) return { usage: [] };
+    return res.json();
+  },
+
+  async getAnalyticsLedger(
+    limit = 50,
+    offset = 0
+  ): Promise<{
+    items: Array<{
+      id: string;
+      key_id: string;
+      provider: string;
+      model_id: string;
+      cu: number | null;
+      prompt_tokens: number;
+      completion_tokens: number;
+      latency_ms: number;
+      status_code: number;
+      borrowed: number;
+      created_at: string;
+    }>;
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    const res = await fetch(`/api/analytics/ledger?limit=${limit}&offset=${offset}`, sessionInit());
+    if (!res.ok) return { items: [], total: 0, limit, offset };
+    return res.json();
+  },
+
+  async getAnalyticsMultiplierHistory(): Promise<{
+    history: Array<{
+      day: string;
+      multiplier_pct: number;
+      debt_cu: number;
+      contributed_cu_24h: number;
+      jail_status: string;
+    }>;
+  }> {
+    const res = await fetch('/api/analytics/multiplier-history', sessionInit());
+    if (!res.ok) return { history: [] };
+    return res.json();
+  },
+
+  async getNotifications(since = 0): Promise<{
+    items: Array<{
+      id: string;
+      kind: string;
+      payload_json: string;
+      created_at: number;
+      read_at: number | null;
+    }>;
+  }> {
+    const res = await fetch(`/api/notifications?since=${since}`, sessionInit());
+    if (!res.ok) return { items: [] };
+    return res.json();
+  },
+
+  async markNotificationRead(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/notifications/${encodeURIComponent(id)}/read`, {
+        ...sessionInit('POST'),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
 };
+

@@ -29,6 +29,8 @@ export interface APIKey {
   vesting_tier?: 0 | 1 | 2;
   tenant_id?: string;
   is_owner?: boolean;
+  drain_state?: 'ACTIVE' | 'DRAINED' | 'RESTRICTED' | null;
+  communal_share_pct?: number;
 }
 
 export interface RequestLog {

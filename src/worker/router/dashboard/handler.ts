@@ -36,7 +36,13 @@ import {
   handleRotateToken,
   handlePlaygroundToken,
 } from "./token_routes";
-import { handleGetLogs, handleGetStats } from "./metrics_routes";
+import {
+  handleGetAnalyticsLedger,
+  handleGetAnalyticsMultiplierHistory,
+  handleGetAnalyticsUsage,
+  handleGetLogs,
+  handleGetStats,
+} from "./metrics_routes";
 import { handlePoolRoute } from "../../pool_routes";
 import { handleAdminRequest } from "../../gateway/admin_handler";
 import { verifyAdminRequest } from "../../gateway/admin_verifier";
@@ -464,6 +470,17 @@ export class DashboardRouter {
     // 6. GET /api/stats
     if (method === "GET" && pathname === "/api/stats") {
       return handleGetStats(env, tenantId, this.getKeyPool);
+    }
+
+    // 6.5 Analytics Routes (T-6.4.6)
+    if (method === "GET" && pathname === "/api/analytics/usage") {
+      return handleGetAnalyticsUsage(env, tenantId);
+    }
+    if (method === "GET" && pathname === "/api/analytics/ledger") {
+      return handleGetAnalyticsLedger(request, env, tenantId);
+    }
+    if (method === "GET" && pathname === "/api/analytics/multiplier-history") {
+      return handleGetAnalyticsMultiplierHistory(env, tenantId);
     }
 
     // 7. Pool Commons & Notifications Routes (/api/pool/*, /api/notifications)

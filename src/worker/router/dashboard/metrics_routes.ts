@@ -276,3 +276,160 @@ export async function handleGetStats(
 
   return Response.json(statsPayload);
 }
+
+/**
+ * GET /api/analytics/usage — Daily CU rollup rows for the signed-in tenant (T-6.4.6)
+ */
+export async function handleGetAnalyticsUsage(
+  env: WorkerEnv,
+  tenantId: string
+): Promise<Response> {
+  if (!env.DB || typeof env.DB.prepare !== "function") {
+    return Response.json({ usage: [] });
+  }
+  try {
+    const res = await env.DB.prepare(
+      `SELECT day, provider, model, requests, tokens, cu
+       FROM daily_cu_rollup
+       WHERE tenant_id = ?
+       ORDER BY day DESC, cu DESC
+       LIMIT 100`
+    )
+      .bind(tenantId)
+      .all<{
+        day: string;
+        provider: string;
+        model: string;
+        requests: number;
+        tokens: number;
+        cu: number;
+      }>();
+    return Response.json({ usage: res.results ?? [] });
+  } catch {
+    return Response.json({ usage: [] });
+  }
+}
+
+/**
+ * GET /api/analytics/ledger — Paginated cost_ledger rows for the signed-in tenant (T-6.4.6)
+ */
+export async function handleGetAnalyticsLedger(
+  request: Request,
+  env: WorkerEnv,
+  tenantId: string
+): Promise<Response> {
+  const url = new URL(request.url, "http://localhost");
+  const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") ?? 50)));
+  const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0));
+
+  if (!env.DB || typeof env.DB.prepare !== "function") {
+    return Response.json({ items: [], total: 0, limit, offset });
+  }
+
+  try {
+    const countRow = await env.DB.prepare(
+      "SELECT COUNT(*) AS cnt FROM cost_ledger WHERE tenant_id = ?"
+    )
+      .bind(tenantId)
+      .first<{ cnt: number }>();
+
+    const rows = await env.DB.prepare(
+      `SELECT id, key_id, provider, model_id, cu, prompt_tokens, completion_tokens,
+              latency_ms, status_code, borrowed, created_at
+       FROM cost_ledger
+       WHERE tenant_id = ?
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`
+    )
+      .bind(tenantId, limit, offset)
+      .all<{
+        id: string;
+        key_id: string;
+        provider: string;
+        model_id: string;
+        cu: number | null;
+        prompt_tokens: number;
+        completion_tokens: number;
+        latency_ms: number;
+        status_code: number;
+        borrowed: number;
+        created_at: string;
+      }>();
+
+    return Response.json({
+      items: rows.results ?? [],
+      total: Number(countRow?.cnt ?? 0),
+      limit,
+      offset,
+    });
+  } catch {
+    return Response.json({ items: [], total: 0, limit, offset });
+  }
+}
+
+/**
+ * GET /api/analytics/multiplier-history — Historical standing & multiplier snapshots (T-6.4.6)
+ */
+export async function handleGetAnalyticsMultiplierHistory(
+  env: WorkerEnv,
+  tenantId: string
+): Promise<Response> {
+  if (!env.DB || typeof env.DB.prepare !== "function") {
+    return Response.json({ history: [] });
+  }
+  try {
+    const res = await env.DB.prepare(
+      `SELECT day, multiplier_pct, debt_cu, contributed_cu_24h, jail_status
+       FROM standing_history
+       WHERE tenant_id = ?
+       ORDER BY day DESC
+       LIMIT 90`
+    )
+      .bind(tenantId)
+      .all<{
+        day: string;
+        multiplier_pct: number;
+        debt_cu: number;
+        contributed_cu_24h: number;
+        jail_status: string;
+      }>();
+
+    if ((res.results ?? []).length > 0) {
+      return Response.json({ history: res.results });
+    }
+
+    // Fallback to current contributor_standing row if standing_history has no rows yet
+    const current = await env.DB.prepare(
+      `SELECT multiplier_pct, debt_cu, contributed_cu_24h, jail_status, updated_at
+       FROM contributor_standing
+       WHERE tenant_id = ?`
+    )
+      .bind(tenantId)
+      .first<{
+        multiplier_pct: number;
+        debt_cu: number;
+        contributed_cu_24h: number;
+        jail_status: string;
+        updated_at: string;
+      }>();
+
+    if (current) {
+      const today = (current.updated_at || new Date().toISOString()).slice(0, 10);
+      return Response.json({
+        history: [
+          {
+            day: today,
+            multiplier_pct: current.multiplier_pct ?? 100,
+            debt_cu: current.debt_cu ?? 0,
+            contributed_cu_24h: current.contributed_cu_24h ?? 0,
+            jail_status: current.jail_status ?? "NONE",
+          },
+        ],
+      });
+    }
+    return Response.json({ history: [] });
+  } catch {
+    return Response.json({ history: [] });
+  }
+}
+
