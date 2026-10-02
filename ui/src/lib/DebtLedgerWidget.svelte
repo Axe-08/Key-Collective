@@ -12,8 +12,8 @@
   };
 
   export const defaultStanding: ContributorStanding = {
-    multiplier: 1.5,
-    multiplier_ceiling: 4.5,
+    multiplier: 1.0,
+    multiplier_ceiling: 1.0,
     community_debt_cu: 0,
     daily_contributed_cu: 0,
     trusted_contributor: false,

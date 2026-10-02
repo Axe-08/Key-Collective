@@ -220,7 +220,7 @@
       <div class="relative">
         <div
           class="w-8 h-8 rounded-full p-0.5 bg-gradient-to-tr from-secondary to-primary flex items-center justify-center shadow-sm"
-          title="Sybil Trust Score: {userAccount?.sybilScore ?? 92}/100 ({userAccount?.tier?.toUpperCase() || 'BUILDER'})"
+          title="Sybil Trust Score: {userAccount?.sybilScore != null ? `${userAccount.sybilScore}/100` : '—'} ({userAccount?.tier ? userAccount.tier.toUpperCase() : 'GUEST'})"
         >
           {#if displayAvatarUrl}
             <img src={displayAvatarUrl} alt="Avatar" class="w-full h-full rounded-full object-cover" />
@@ -238,11 +238,11 @@
             @{displayUsername}
           </span>
           <span class="font-label-sm text-[9px] px-1 rounded bg-primary/10 text-primary border border-primary/20 uppercase font-mono">
-            {userAccount?.tier || 'builder'}
+            {userAccount?.tier || 'guest'}
           </span>
         </div>
         <span class="font-label-sm text-[10px] text-on-surface-variant font-mono leading-tight">
-          Trust: {userAccount?.sybilScore ?? 92}/100
+          Trust: {userAccount?.sybilScore != null ? `${userAccount.sybilScore}/100` : '—'}
         </span>
       </div>
     </button>
@@ -253,12 +253,12 @@
     {#if isLoggedIn}
       <div class="px-4 py-2 border-b border-outline-variant/20 mb-1">
         <p class="text-label-sm font-semibold text-on-surface truncate">{displayUsername}</p>
-        <p class="text-[11px] text-outline truncate font-mono">{userAccount?.primaryEmail || 'builder@keycollective.io'}</p>
+        <p class="text-[11px] text-outline truncate font-mono">{userAccount?.primaryEmail || '—'}</p>
         <div class="mt-1 flex items-center gap-1.5">
           <span class="px-1.5 py-0.2 text-[9px] rounded bg-primary/20 text-primary uppercase font-mono font-semibold">
-            {userAccount?.tier || 'builder'}
+            {userAccount?.tier || 'guest'}
           </span>
-          <span class="text-[10px] text-outline-variant font-mono">Trust {userAccount?.sybilScore ?? 92}/100</span>
+          <span class="text-[10px] text-outline-variant font-mono">Trust {userAccount?.sybilScore != null ? `${userAccount.sybilScore}/100` : '—'}</span>
         </div>
       </div>
       {#if userAccount?.tier === 'admin'}
