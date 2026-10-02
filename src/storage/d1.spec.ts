@@ -198,9 +198,9 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           id, request_id, tenant_id, key_id, provider, model_id,
           prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
           latency_ms, status_code, created_at
-        ] = this.params as any[];
+        ] = this.params as unknown[];
 
-        this.db.costLedger.set(id, {
+        this.db.costLedger.set(id as string, {
           id,
           request_id,
           tenant_id,
@@ -220,9 +220,9 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           id, request_id, tenant_id, key_id, provider, model_id,
           prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
           cost_microdollars, latency_ms, status_code, created_at
-        ] = this.params as any[];
+        ] = this.params as unknown[];
 
-        this.db.costLedger.set(id, {
+        this.db.costLedger.set(id as string, {
           id,
           request_id,
           tenant_id,
