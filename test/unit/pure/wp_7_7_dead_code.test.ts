@@ -91,7 +91,15 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
       expect(content).toMatch(/from\s+["'][^"']*utils\/logger["']/);
     }
   });
+
+  it("T-7.7.6: sybil engine is wired into src/auth/github/link_flow.ts and src/auth/sybil/index.ts is retained", () => {
+    const linkFlow = fs.readFileSync(path.join(ROOT, "src/auth/github/link_flow.ts"), "utf8");
+    expect(linkFlow).toContain("evaluateAntiSybil");
+    expect(linkFlow).toContain("communityEligible");
+    expect(fs.existsSync(path.join(ROOT, "src/auth/sybil/index.ts"))).toBe(true);
+  });
 });
+
 
 
 
