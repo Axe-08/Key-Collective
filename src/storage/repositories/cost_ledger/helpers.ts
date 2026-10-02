@@ -116,7 +116,8 @@ export function isDailySpendRollup(value: unknown): value is DailySpendRollup {
     return false;
   }
   const candidate = value as Record<string, unknown>;
-  const hasCost =
+  const hasValidCost =
+    candidate.totalCostMicrodollars === undefined ||
     typeof candidate.totalCostMicrodollars === "bigint" ||
     (typeof candidate.totalCostMicrodollars === "number" &&
       Number.isInteger(candidate.totalCostMicrodollars));
@@ -127,7 +128,7 @@ export function isDailySpendRollup(value: unknown): value is DailySpendRollup {
     typeof candidate.modelId === "string" &&
     typeof candidate.totalRequests === "number" &&
     typeof candidate.totalTokens === "number" &&
-    hasCost
+    hasValidCost
   );
 }
 
@@ -139,7 +140,8 @@ export function isCostLedgerEvent(value: unknown): value is CostLedgerEvent {
     return false;
   }
   const candidate = value as Record<string, unknown>;
-  const hasCost =
+  const hasValidCost =
+    candidate.costMicrodollars === undefined ||
     typeof candidate.costMicrodollars === "bigint" ||
     (typeof candidate.costMicrodollars === "number" &&
       Number.isInteger(candidate.costMicrodollars));
@@ -153,6 +155,6 @@ export function isCostLedgerEvent(value: unknown): value is CostLedgerEvent {
     typeof candidate.promptTokens === "number" &&
     typeof candidate.completionTokens === "number" &&
     typeof candidate.statusCode === "number" &&
-    hasCost
+    hasValidCost
   );
 }

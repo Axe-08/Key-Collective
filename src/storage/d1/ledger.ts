@@ -28,7 +28,9 @@ export async function recordCostLedgerEvent(
   if (!event.modelId || event.modelId.trim().length === 0) {
     throw new Error("Model ID cannot be empty");
   }
-  assertValidMicrodollars(event.costMicrodollars);
+  if (event.costMicrodollars !== undefined) {
+    assertValidMicrodollars(event.costMicrodollars);
+  }
 
   const id = event.id ?? crypto.randomUUID();
   const createdAt = event.createdAt ?? new Date().toISOString();
@@ -37,14 +39,13 @@ export async function recordCostLedgerEvent(
   const cachedTokens = Math.max(0, Math.trunc(event.cachedTokens ?? 0));
   const reasoningTokens = Math.max(0, Math.trunc(event.reasoningTokens ?? 0));
   const latencyMs = Math.max(0, Math.trunc(event.latencyMs ?? 0));
-  const cost = Number(event.costMicrodollars);
 
   const query = `
     INSERT INTO cost_ledger (
       id, request_id, tenant_id, key_id, provider, model_id,
       prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-      cost_microdollars, latency_ms, status_code, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      latency_ms, status_code, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   await db
@@ -60,7 +61,6 @@ export async function recordCostLedgerEvent(
       completionTokens,
       cachedTokens,
       reasoningTokens,
-      cost,
       latencyMs,
       event.statusCode,
       createdAt
