@@ -580,19 +580,19 @@ describe('src/quota/tenant_do.ts', () => {
     it('calculates multiplier ceiling using scaled integer ratios without floating point math', () => {
       // 0 contribution, >0 debt -> 1000n ratio -> 100 ceiling (HARD_JAIL)
       expect(calculateMultiplierCeiling(100n, 0n, false)).toBe(100);
-      expect(determineJailStatus(100n, 100)).toBe('HARD_JAIL');
+      expect(determineJailStatus(100n, 0n)).toBe('HARD_JAIL');
 
       // Ratio > 100n: 200n debt with 150n contributed (200*100/150 = 133n) -> 100 ceiling
       expect(calculateMultiplierCeiling(200n, 150n, false)).toBe(100);
 
       // Ratio 51..100: 75n debt with 100n contributed (75n ratio) -> 150 ceiling (SOFT_WARNING)
       expect(calculateMultiplierCeiling(75n, 100n, false)).toBe(150);
-      expect(determineJailStatus(75n, 150)).toBe('SOFT_WARNING');
+      expect(determineJailStatus(75n, 100n)).toBe('SOFT_WARNING');
 
       // Ratio <= 50: 40n debt with 100n contributed (40n ratio) -> 450 (or 500 for trusted) (PRISTINE)
       expect(calculateMultiplierCeiling(40n, 100n, false)).toBe(450);
       expect(calculateMultiplierCeiling(40n, 100n, true)).toBe(500);
-      expect(determineJailStatus(0n, 450)).toBe('PRISTINE');
+      expect(determineJailStatus(0n, 100n)).toBe('PRISTINE');
     });
 
     it('processes nightly debt reset with integer decay and 7-day trust', () => {

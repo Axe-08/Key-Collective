@@ -2002,12 +2002,51 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     sql.exec("DELETE FROM settled_leases WHERE settled_at <= ?", now - SETTLED_LEASE_TTL_MS);
     sql.exec("DELETE FROM latency_samples WHERE recorded_at <= ?", now - SETTLED_LEASE_TTL_MS);
 
-    // Hourly sub-tick (WP-5.10 T-5.10.1): compute and cache shard stats snapshot
+    // Hourly sub-tick (WP-5.10 T-5.10.1 & WP-5.12 T-5.12.1): compute and cache shard stats snapshot + pool:bands
     const currentHourBucket = String(Math.floor(now / 3_600_000));
     if (this.getMeta("last_hourly_tick") !== currentHourBucket) {
       const st = await this.stats();
       this.setMeta("last_hourly_tick", currentHourBucket);
       this.setMeta("hourly_stats_json", JSON.stringify(st));
+      const bandCap =
+        st.utilisationPct < 60
+          ? 450
+          : st.utilisationPct < 80
+          ? 300
+          : st.utilisationPct < 95
+          ? 150
+          : 100;
+      const prevBandCap = Number(this.getMeta("pool:band_cap") ?? "0");
+      this.setMeta("pool:band_cap", String(bandCap));
+      this.setMeta(
+        "pool:bands",
+        JSON.stringify({
+          utilisationPct: st.utilisationPct,
+          bandCap,
+          updatedAt: now,
+        })
+      );
+      const shardProv = this.getMeta("provider");
+      const coordNs = (this.env as unknown as { POOL_COORDINATOR?: DurableObjectNamespace })
+        ?.POOL_COORDINATOR;
+      if (
+        prevBandCap !== bandCap &&
+        shardProv &&
+        coordNs &&
+        typeof coordNs.idFromName === "function" &&
+        typeof coordNs.get === "function"
+      ) {
+        try {
+          const bandsStub = coordNs.get(coordNs.idFromName("pool:bands")) as unknown as {
+            setPoolBand?(provider: string, utilisationPct: number, bandCap: number): Promise<void>;
+          };
+          if (typeof bandsStub.setPoolBand === "function") {
+            await bandsStub.setPoolBand(shardProv, st.utilisationPct, bandCap);
+          }
+        } catch (err) {
+          void err;
+        }
+      }
     }
 
     // Expire ROTATING project hashes into TOMBSTONED after 30 minutes (WP-5.11 T-5.11.3)
@@ -2064,6 +2103,68 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
 
     return new Response("Not Found", { status: 404 });
+  }
+
+  /**
+   * Stores a provider band entry in `pool:bands` (WP-5.12 T-5.12.1).
+   */
+  public async setPoolBand(
+    provider: string,
+    utilisationPct: number,
+    bandCap: number
+  ): Promise<void> {
+    this.ensureSchema();
+    const canon = canonicalCoordinatorProvider(provider);
+    const existingRaw = this.getMeta("pool:bands_map");
+    let map: Record<string, { utilisationPct: number; bandCap: number; updatedAt: number }> = {};
+    if (existingRaw) {
+      try {
+        map = JSON.parse(existingRaw) as typeof map;
+      } catch (err) {
+        void err;
+      }
+    }
+    map[canon] = {
+      utilisationPct: Math.trunc(utilisationPct),
+      bandCap: Math.trunc(bandCap),
+      updatedAt: this.clock.now(),
+    };
+    this.setMeta("pool:bands_map", JSON.stringify(map));
+  }
+
+  /**
+   * Returns the current `pool:bands` map (WP-5.12 T-5.12.1).
+   */
+  public async getPoolBands(): Promise<
+    Record<string, { utilisationPct: number; bandCap: number; updatedAt: number }>
+  > {
+    this.ensureSchema();
+    const existingRaw = this.getMeta("pool:bands_map");
+    if (existingRaw) {
+      try {
+        return JSON.parse(existingRaw) as Record<
+          string,
+          { utilisationPct: number; bandCap: number; updatedAt: number }
+        >;
+      } catch (err) {
+        void err;
+      }
+    }
+    const selfBands = this.getMeta("pool:bands");
+    const prov = this.getMeta("provider");
+    if (selfBands && prov) {
+      try {
+        const parsed = JSON.parse(selfBands) as {
+          utilisationPct: number;
+          bandCap: number;
+          updatedAt: number;
+        };
+        return { [prov]: parsed };
+      } catch (err) {
+        void err;
+      }
+    }
+    return {};
   }
 
   /**

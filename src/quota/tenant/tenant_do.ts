@@ -15,7 +15,9 @@ import {
 import { getTierLimits } from "../limits";
 import { Clock, systemClock } from "../../utils/clock";
 import {
-  calculateMultiplierCeiling,
+  calculateBandCapPct,
+  calculateMultiplierPct,
+  calculateVestingCapPct,
   determineJailStatus,
   nightlyReset,
 } from "./debt";
@@ -72,6 +74,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private trustedContributor: boolean = false;
   private consecutiveDebtFreeDays: number = 0;
   private multiplierCeiling: number = 100;
+  private vestingCap: number | undefined = undefined;
+  private bandCap: number | undefined = undefined;
   private antiCyclingUntil: number = 0;
   private standingDirty = false;
   private lastResetDay: string | null = null;
@@ -117,6 +121,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.trustedContributor = false;
     this.consecutiveDebtFreeDays = 0;
     this.multiplierCeiling = 100;
+    this.vestingCap = undefined;
+    this.bandCap = undefined;
     this.antiCyclingUntil = 0;
     this.standingDirty = false;
     this.lastResetDay = null;
@@ -501,7 +507,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       multiplierPct: this.multiplierCeiling,
       trustedContributor: this.trustedContributor,
       consecutiveDebtFreeDays: this.consecutiveDebtFreeDays,
-      jailStatus: determineJailStatus(this.communityDebtCu, this.multiplierCeiling),
+      jailStatus: determineJailStatus(this.communityDebtCu, contributed24h),
     };
   }
 
@@ -530,16 +536,74 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       contributed24h === 0n &&
       this.communityDebtCu === 0n &&
       !this.trustedContributor &&
-      this.consecutiveDebtFreeDays === 0
+      this.consecutiveDebtFreeDays === 0 &&
+      this.vestingCap === undefined
     ) {
       this.multiplierCeiling = 100;
       return;
     }
-    this.multiplierCeiling = calculateMultiplierCeiling(
-      this.communityDebtCu,
+    this.multiplierCeiling = calculateMultiplierPct({
+      debtCu: this.communityDebtCu,
       contributed24h,
-      this.trustedContributor
-    );
+      trusted: this.trustedContributor,
+      vestingCap: this.vestingCap,
+      bandCap: this.bandCap,
+    });
+  }
+
+  private async refreshMultiplierCaps(nowMs = this.now()): Promise<void> {
+    const envObj = this.env as
+      | { DB?: D1Database; POOL_COORDINATOR?: DurableObjectNamespace }
+      | undefined;
+    const db = envObj?.DB;
+    if (db && typeof db.prepare === "function" && this.tenantId) {
+      try {
+        const res = await db
+          .prepare(
+            `SELECT status, community_routing_status, pool_type, drain_state, created_at
+               FROM api_keys
+              WHERE tenant_id = ?
+                AND pool_type = 'COMMUNITY'
+                AND upper(status) != 'REVOKED'`
+          )
+          .bind(this.tenantId)
+          .all<{
+            status: string;
+            community_routing_status: string | null;
+            pool_type: string;
+            drain_state: string | null;
+            created_at: number | string | null;
+          }>();
+        const rows = res.results ?? [];
+        if (rows.length > 0) {
+          this.vestingCap = calculateVestingCapPct(rows, this.trustedContributor, nowMs);
+        }
+      } catch (err) {
+        void err;
+      }
+    }
+
+    const coordNs = envObj?.POOL_COORDINATOR;
+    if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+      try {
+        const bandsStub = coordNs.get(coordNs.idFromName("pool:bands")) as unknown as {
+          getPoolBands?(): Promise<
+            Record<string, { utilisationPct: number; bandCap: number; updatedAt: number }>
+          >;
+        };
+        if (typeof bandsStub.getPoolBands === "function") {
+          const bands = await bandsStub.getPoolBands();
+          await this.ctx.storage.put("pool:bands", bands);
+          const entries = Object.values(bands);
+          if (entries.length > 0) {
+            const maxUtil = Math.max(...entries.map((e) => Number(e.utilisationPct ?? 0)));
+            this.bandCap = calculateBandCapPct(maxUtil, this.trustedContributor);
+          }
+        }
+      } catch (err) {
+        void err;
+      }
+    }
   }
 
   private async pushOwnerDebtToCoordinators(): Promise<void> {
@@ -577,7 +641,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     if (!db || typeof db.prepare !== "function") {
       return;
     }
-    const jailStatus = determineJailStatus(this.communityDebtCu, this.multiplierCeiling);
+    const jailStatus = determineJailStatus(this.communityDebtCu, contributed24h);
     try {
       await db
         .prepare(
@@ -614,7 +678,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       return;
     }
     const contributed24h = this.getContributed24h();
-    const jailStatus = determineJailStatus(this.communityDebtCu, this.multiplierCeiling);
+    const jailStatus = determineJailStatus(this.communityDebtCu, contributed24h);
     const nowIso = new Date(this.now()).toISOString();
     try {
       await db
@@ -683,6 +747,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   public async alarm(): Promise<void> {
     await this.ensureLoaded();
     const nowMs = this.now();
+    await this.refreshMultiplierCaps(nowMs);
     const todayDay = this.getUtcDay(nowMs);
 
     let daysToReset: string[] = [];
@@ -706,6 +771,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
         trusted: this.trustedContributor,
         streak: this.consecutiveDebtFreeDays,
         multiplierCeiling: this.multiplierCeiling,
+        vestingCap: this.vestingCap,
+        bandCap: this.bandCap,
       });
 
       this.communityDebtCu = updated.debtCu;
