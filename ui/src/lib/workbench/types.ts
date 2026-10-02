@@ -29,7 +29,6 @@ export interface TierMatrixItem {
   quotaText: string;
   description: string;
   footerText: string;
-  dailyUsagePercent: number;
   minWidth: string;
 }
 
@@ -72,7 +71,6 @@ export const TIER_MATRIX: TierMatrixItem[] = [
     quotaText: 'Unlimited RPM / RPD',
     description: 'Full Platform Control & Root Secrets',
     footerText: 'System Operator',
-    dailyUsagePercent: 12,
     minWidth: 'min-w-[210px]',
   },
   {
@@ -84,7 +82,6 @@ export const TIER_MATRIX: TierMatrixItem[] = [
     quotaText: 'Unlimited RPM / RPD',
     description: 'High-Volume Enterprise Proxy Routing',
     footerText: 'Tier 5 Sybil Required',
-    dailyUsagePercent: 35,
     minWidth: 'min-w-[210px]',
   },
   {
@@ -96,7 +93,6 @@ export const TIER_MATRIX: TierMatrixItem[] = [
     quotaText: '60 RPM • 10,000 RPD',
     description: 'Up to 10 Projects • Priority Edge',
     footerText: 'Upgrade Available',
-    dailyUsagePercent: 45,
     minWidth: 'min-w-[210px]',
   },
   {
@@ -108,7 +104,6 @@ export const TIER_MATRIX: TierMatrixItem[] = [
     quotaText: '20 RPM • 2,000 RPD',
     description: 'Up to 3 Projects • Standard Fallback',
     footerText: 'Active Tier',
-    dailyUsagePercent: 68,
     minWidth: 'min-w-[230px]',
   },
   {
@@ -120,7 +115,6 @@ export const TIER_MATRIX: TierMatrixItem[] = [
     quotaText: '10 RPM • 500 RPD',
     description: '2 Projects • Community Nodes',
     footerText: 'Unlocked',
-    dailyUsagePercent: 55,
     minWidth: 'min-w-[210px]',
   },
   {
@@ -132,7 +126,6 @@ export const TIER_MATRIX: TierMatrixItem[] = [
     quotaText: '2 RPM • 50 RPD',
     description: 'Sandboxed • Heavy Throttling',
     footerText: 'Baseline',
-    dailyUsagePercent: 84,
     minWidth: 'min-w-[210px]',
   },
   {
@@ -144,7 +137,6 @@ export const TIER_MATRIX: TierMatrixItem[] = [
     quotaText: '20 RPM Shared • 3/IP',
     description: 'Ephemeral Sessions • Zero Persistence',
     footerText: 'Public Sandbox',
-    dailyUsagePercent: 90,
     minWidth: 'min-w-[210px]',
   },
 ];

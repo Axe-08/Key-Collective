@@ -179,11 +179,11 @@
         {:else}
           {#each filteredKeys as key (key.id)}
             {@const rpmUsed = key.requests_this_min || 0}
-            {@const rpmLimit = key.rpm_limit || 60}
-            {@const rpmPct = Math.min(100, Math.round((rpmUsed / rpmLimit) * 100))}
+            {@const rpmLimit = key.rpm_limit ?? null}
+            {@const rpmPct = rpmLimit ? Math.min(100, Math.round((rpmUsed / rpmLimit) * 100)) : 0}
             {@const rpdUsed = key.requests_today || 0}
-            {@const rpdLimit = key.rpd_limit || 10000}
-            {@const rpdPct = Math.min(100, Math.round((rpdUsed / rpdLimit) * 100))}
+            {@const rpdLimit = key.rpd_limit ?? null}
+            {@const rpdPct = rpdLimit ? Math.min(100, Math.round((rpdUsed / rpdLimit) * 100)) : 0}
             {@const cooldownSec = getCooldownSeconds(key.cooldown_until)}
 
             <tr class="hover:bg-surface-container-high/30 transition-colors group {key.status === 'rate_limited' ? 'bg-tertiary/5' : ''}">
@@ -240,7 +240,7 @@
               <td class="py-3 px-3">
                 <div class="flex items-center gap-2 font-mono">
                   <span class="{key.status === 'rate_limited' ? 'text-tertiary font-medium' : 'text-on-surface font-medium'}">
-                    {rpmUsed} / {rpmLimit}
+                    {rpmUsed} / {rpmLimit ?? '—'}
                   </span>
                   <div class="w-12 bg-surface-container-highest h-1 rounded-full overflow-hidden">
                     <div

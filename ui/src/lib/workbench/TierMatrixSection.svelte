@@ -60,19 +60,6 @@
           <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-snug">
             {tier.description}
           </p>
-
-          {#if isActive}
-            <!-- Daily Quota Gauge on active tier -->
-            <div class="mt-3 space-y-1">
-              <div class="flex justify-between font-label-sm text-label-sm font-mono">
-                <span class="text-outline">Daily Quota Usage</span>
-                <span class="text-primary font-semibold">{tier.dailyUsagePercent}%</span>
-              </div>
-              <div class="h-1.5 w-full bg-surface-container-lowest rounded-full overflow-hidden">
-                <div class="h-full bg-primary rounded-full" style="width: {tier.dailyUsagePercent}%"></div>
-              </div>
-            </div>
-          {/if}
         </div>
 
         <div class="mt-3 pt-2 {isActive ? 'border-t border-primary/20 flex items-center gap-1 text-primary font-medium' : 'border-t border-outline-variant/10 text-outline'} font-label-sm text-label-sm font-mono">

@@ -34,33 +34,33 @@
       failureCount: 0,
       failureThreshold: 5,
       lastTrippedAt: null,
-      avgLatencyMs: 238,
+      avgLatencyMs: 0,
     },
     groq: {
       state: 'NORMAL',
       failureCount: 0,
       failureThreshold: 5,
       lastTrippedAt: null,
-      avgLatencyMs: 114,
+      avgLatencyMs: 0,
     },
     cerebras: {
       state: 'NORMAL',
       failureCount: 0,
       failureThreshold: 5,
       lastTrippedAt: null,
-      avgLatencyMs: 79,
+      avgLatencyMs: 0,
     },
     deepseek: {
       state: 'NORMAL',
-      failureCount: 1,
+      failureCount: 0,
       failureThreshold: 5,
       lastTrippedAt: null,
-      avgLatencyMs: 385,
+      avgLatencyMs: 0,
     },
   });
 
   // Live tenants and audit logs from D1 database (zero mock data)
-  let tenants = $state<any[]>([]);
+  let tenants = $state<Record<string, unknown>[]>([]);
   let auditLogs = $state<AuditLogEntry[]>([]);
   let poolSummary = $state<{
     totalKeys: number;
@@ -150,8 +150,10 @@
 
   // Administrative Action Handler (Tier update, Quarantine, Quota Reset)
   async function handleAdminAction(payload: AdminActionPayload) {
+    const t0 = performance.now();
     if (payload.action === 'UPDATE_TIER' && payload.newTier) {
       await api.updateTenantTier(payload.targetTenantId, payload.newTier, payload.reason);
+      const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
       auditLogs = [
         {
           id: `aud_${Date.now().toString(36)}`,
@@ -160,13 +162,14 @@
           action: 'UPDATE_TIER',
           target: `${payload.targetTenantId} -> ${payload.newTier}`,
           reason: payload.reason,
-          syncDurationMs: 2.5,
+          syncDurationMs,
         },
         ...auditLogs,
       ];
       await loadAdminData();
     } else if (payload.action === 'QUARANTINE') {
       await api.quarantineTenant(payload.targetTenantId, true, payload.reason);
+      const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
       auditLogs = [
         {
           id: `aud_${Date.now().toString(36)}`,
@@ -175,13 +178,14 @@
           action: 'QUARANTINE_TENANT',
           target: payload.targetTenantId,
           reason: payload.reason,
-          syncDurationMs: 3.1,
+          syncDurationMs,
         },
         ...auditLogs,
       ];
       await loadAdminData();
     } else if (payload.action === 'UNQUARANTINE') {
       await api.quarantineTenant(payload.targetTenantId, false, payload.reason);
+      const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
       auditLogs = [
         {
           id: `aud_${Date.now().toString(36)}`,
@@ -190,13 +194,14 @@
           action: 'UNQUARANTINE_TENANT',
           target: payload.targetTenantId,
           reason: payload.reason,
-          syncDurationMs: 2.1,
+          syncDurationMs,
         },
         ...auditLogs,
       ];
       await loadAdminData();
     } else if (payload.action === 'RESET_QUOTA') {
       await api.updateTenantTier(payload.targetTenantId, 'builder', 'Reset quota');
+      const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
       auditLogs = [
         {
           id: `aud_${Date.now().toString(36)}`,
@@ -205,7 +210,7 @@
           action: 'RESET_QUOTA',
           target: payload.targetTenantId,
           reason: payload.reason,
-          syncDurationMs: 1.8,
+          syncDurationMs,
         },
         ...auditLogs,
       ];
@@ -214,7 +219,9 @@
   }
 
   async function handleKeyRoutingStatus(keyId: string, status: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION') {
+    const t0 = performance.now();
     await api.updateKeyRoutingStatus(keyId, status);
+    const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
     auditLogs = [
       {
         id: `aud_${Date.now().toString(36)}`,
@@ -223,7 +230,7 @@
         action: `KEY_${status}`,
         target: keyId,
         reason: `Key status set to ${status}`,
-        syncDurationMs: 2.0,
+        syncDurationMs,
       },
       ...auditLogs,
     ];
@@ -231,7 +238,9 @@
   }
 
   async function handleKeyPoolMode(keyId: string, poolType: 'COMMUNITY' | 'PRIVATE') {
+    const t0 = performance.now();
     await api.updateKeyPoolMode(keyId, poolType);
+    const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
     auditLogs = [
       {
         id: `aud_${Date.now().toString(36)}`,
@@ -240,7 +249,7 @@
         action: `KEY_POOL_${poolType}`,
         target: keyId,
         reason: `Key pool mode switched to ${poolType}`,
-        syncDurationMs: 2.0,
+        syncDurationMs,
       },
       ...auditLogs,
     ];
@@ -249,7 +258,9 @@
 
   async function handleDeleteKey(keyId: string) {
     if (confirm('Permanently remove this API key from the collective pool?')) {
+      const t0 = performance.now();
       await api.adminDeleteKey(keyId);
+      const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
       auditLogs = [
         {
           id: `aud_${Date.now().toString(36)}`,
@@ -258,7 +269,7 @@
           action: 'KEY_DELETED',
           target: keyId,
           reason: 'Key removed by administrator',
-          syncDurationMs: 2.0,
+          syncDurationMs,
         },
         ...auditLogs,
       ];
@@ -267,7 +278,9 @@
   }
 
   async function handleManagePool(action: 'ACTIVATE_ALL_OBSERVATION' | 'PURGE_QUARANTINED' | 'RESET_ALL_DEBT') {
+    const t0 = performance.now();
     await api.manageCommunityPool(action);
+    const syncDurationMs = Math.round((performance.now() - t0) * 10) / 10;
     auditLogs = [
       {
         id: `aud_${Date.now().toString(36)}`,
@@ -276,7 +289,7 @@
         action: `POOL_${action}`,
         target: 'COMMUNITY_POOL',
         reason: `Admin trigger: ${action}`,
-        syncDurationMs: 3.5,
+        syncDurationMs,
       },
       ...auditLogs,
     ];

@@ -144,10 +144,10 @@
                 <!-- Created / Last Used -->
                 <td class="py-3 px-4 font-code-sm text-code-sm font-mono">
                   <div class="{key.isRevoked ? 'text-outline' : 'text-on-surface'}">
-                    {key.displayTime || 'Just now'}
+                    {key.displayTime || '—'}
                   </div>
                   <div class="text-outline text-[10px]">
-                    {key.displayCreated || 'Oct 14, 2024'}
+                    {key.displayCreated || '—'}
                   </div>
                 </td>
 

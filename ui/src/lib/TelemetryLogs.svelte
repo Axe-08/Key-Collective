@@ -122,13 +122,13 @@
               <span class="text-tertiary font-medium px-1 rounded bg-tertiary/20">429 LIMIT</span>
             </div>
             <div class="text-tertiary font-medium flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span>{log.model || 'gemini-1.5-pro'}</span>
+              <span>{log.model || '—'}</span>
               <span class="text-outline">→</span>
               <span class="text-on-surface">{log.key_id}</span>
             </div>
             <div class="text-label-sm font-label-sm text-secondary flex items-center gap-1 font-mono">
               <span class="material-symbols-outlined text-[12px]" data-icon="shield">shield</span>
-              <span>Auto-rerouted to Key #04 in 8ms (Shield Intercept)</span>
+              <span>{log.reason || 'Shield rate limit intercept'}</span>
             </div>
           </div>
         {:else if log.status_code >= 200 && log.status_code < 300}
@@ -140,14 +140,14 @@
             </div>
             <div class="text-on-surface flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span class="{log.provider === 'gemini' ? 'text-primary' : 'text-tertiary'} font-medium">
-                {log.model || (log.provider === 'gemini' ? 'gemini-2.5-flash' : 'llama-3.3-70b-versatile')}
+                {log.model || '—'}
               </span>
               <span class="text-outline">→</span>
-              <span class="text-on-surface">{log.key_id} ({log.provider === 'gemini' ? 'SIN-Edge' : 'Groq'})</span>
+              <span class="text-on-surface">{log.key_id} ({log.provider})</span>
             </div>
             <div class="flex items-center justify-between text-label-sm font-label-sm text-outline pt-0.5 font-mono">
               <span>{Math.round(log.latency_ms)}ms</span>
-              <span>prompt: {log.bytes_in || 410} tok • comp: {log.bytes_out || 89} tok</span>
+              <span>prompt: {log.prompt_tokens ?? log.bytes_in ?? '—'} tok • comp: {log.completion_tokens ?? log.bytes_out ?? '—'} tok</span>
             </div>
           </div>
         {:else}
@@ -158,7 +158,7 @@
               <span class="text-error font-medium px-1 rounded bg-error/20">{log.status_code} ERROR</span>
             </div>
             <div class="text-error font-medium flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span>{log.model || 'upstream-service'}</span>
+              <span>{log.model || '—'}</span>
               <span class="text-outline">→</span>
               <span class="text-on-surface">{log.key_id}</span>
             </div>

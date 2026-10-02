@@ -174,16 +174,16 @@ Plan: `docs/PHASE6_PLAN.md`
 - [x] T-6.5.6 Update GEMINI.md and CONTEXT.md invariant #4 to CU
 
 ### WP-6.1
-- [ ] T-6.1.1 Audit surviving invented-data components
-- [ ] T-6.1.2 AdminView.svelte — remove fake audit rows and syncDurationMs
-- [ ] T-6.1.3 CircuitBreakerControls.svelte — remove hard-coded latencies
-- [ ] T-6.1.4 TelemetryLogs.svelte — remove invented model/token data
-- [ ] T-6.1.5 TopNavBar.svelte — remove hard-coded trust/tier/name
-- [ ] T-6.1.6 DebtLedgerWidget.svelte — remove standing fallback defaults
-- [ ] T-6.1.7 KeysTable.svelte — remove RPD/RPM fallbacks
-- [ ] T-6.1.8 MetricCards.svelte — remove $1.00 budget ring, use CU
-- [ ] T-6.1.9 Workbench.svelte — remove assignedRpm formula and hard-coded timestamp
-- [ ] T-6.1.10 CI guard scripts/check-ui-literals.mjs
+- [x] T-6.1.1 Audit surviving invented-data components
+- [x] T-6.1.2 AdminView.svelte — remove fake audit rows and syncDurationMs
+- [x] T-6.1.3 CircuitBreakerControls.svelte — remove hard-coded latencies
+- [x] T-6.1.4 TelemetryLogs.svelte — remove invented model/token data
+- [x] T-6.1.5 TopNavBar.svelte — remove hard-coded trust/tier/name
+- [x] T-6.1.6 DebtLedgerWidget.svelte — remove standing fallback defaults
+- [x] T-6.1.7 KeysTable.svelte — remove RPD/RPM fallbacks
+- [x] T-6.1.8 MetricCards.svelte — remove $1.00 budget ring, use CU
+- [x] T-6.1.9 Workbench.svelte — remove assignedRpm formula and hard-coded timestamp
+- [x] T-6.1.10 CI guard scripts/check-ui-literals.mjs
 
 ### WP-6.3
 - [ ] T-6.3.1 Standing data types (ui/src/lib/standing/types.ts)

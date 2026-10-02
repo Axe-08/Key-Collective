@@ -6,8 +6,6 @@
   interface ExtendedTenantRow extends TenantSurveillanceRow {
     communityDebtCu?: number;
     community_debt_cu?: number;
-    communityDebtMicroCu?: number;
-    community_debt_micro_cu?: number;
     todaySpendCu?: number;
     keys?: Array<{
       id: string;
@@ -97,8 +95,8 @@
             {@const nearCap = isAnomaly(t)}
             {@const rpmSat = t.rpmLimit === Infinity ? 0 : Math.min(100, Math.round((t.currentRpm / t.rpmLimit) * 100))}
             {@const isExpanded = expandedTenantIds.includes(t.tenantId)}
-            {@const debt = t.communityDebtCu ?? t.community_debt_cu ?? t.communityDebtMicroCu ?? t.community_debt_micro_cu ?? 0}
-            {@const spend = t.todaySpendCu ?? t.todaySpendMicrodollars ?? 0}
+            {@const debt = t.communityDebtCu ?? t.community_debt_cu ?? 0}
+            {@const spend = t.todaySpendCu ?? 0}
             {@const tenantKeys = t.keys ?? []}
 
             <tr class="hover:bg-surface-container/40 transition-colors {t.isQuarantined ? 'bg-error-container/5' : ''}">
