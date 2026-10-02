@@ -7,10 +7,11 @@
  * - Strict type-guarding and canonical day formatting.
  */
 
-import { MICRODOLLAR_MULTIPLIER } from "../../../constants/financial";
 import type { CostLedgerEvent, ModelPricing } from "../../../types/models";
 import { InvalidCostLedgerEventError } from "./errors";
 import type { DailySpendRollup } from "./types";
+
+const MICRODOLLAR_MULTIPLIER = 1_000_000n;
 
 /**
  * Validates that an input value is a valid int64 microdollar amount.

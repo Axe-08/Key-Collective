@@ -262,15 +262,8 @@ export async function executeCascadeRouting(
     try {
       const chatRes = await context.upstreamClient.chat(chatRequest);
 
-      // 6. Calculate or verify fixed-point microdollar cost
-      let costMicrodollars = chatRes.costMicrodollars;
-      if ((costMicrodollars === 0n || costMicrodollars === undefined) && chatRes.usage) {
-        try {
-          costMicrodollars = context.registry.calculateCost(candidate.id, chatRes.usage);
-        } catch {
-          costMicrodollars = 0n;
-        }
-      }
+      // 6. Cost in microdollars (deprecated, defaults to 0n)
+      const costMicrodollars = chatRes.costMicrodollars ?? 0n;
 
       if (useLeases && activeLease && activeLeaseCtx && leaseProvider) {
         // For non-streaming requests, settle immediately (idempotent if also settled in postWork)

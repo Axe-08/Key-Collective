@@ -10,9 +10,9 @@
  *
  * Non-streaming responses additionally carry:
  * - x-kc-cu: string (when present in ctx)
- * - x-kc-cost-microdollars: string (when present in ctx, preserved until WP-6.5)
  *
- * Forbidden internal routing headers stripped:
+ * Forbidden internal and deprecated headers stripped:
+ * - x-kc-cost-microdollars
  * - x-kc-tenant-id
  * - x-kc-trace-id
  * - x-kc-model
@@ -108,13 +108,6 @@ export function applyKcHeaders(res: Response, ctx: KcHeaderContext = {}): Respon
     if (cu !== null && cu !== undefined) {
       headers.set("x-kc-cu", cu);
     }
-    const costMicrodollars =
-      ctx.costMicrodollars !== undefined
-        ? String(ctx.costMicrodollars)
-        : headers.get("x-kc-cost-microdollars");
-    if (costMicrodollars !== null && costMicrodollars !== undefined) {
-      headers.set("x-kc-cost-microdollars", costMicrodollars);
-    }
   } else {
     headers.delete("x-kc-cu");
   }
@@ -124,7 +117,8 @@ export function applyKcHeaders(res: Response, ctx: KcHeaderContext = {}): Respon
     headers.set("x-kc-commons-notice", commonsNotice);
   }
 
-  // Strip internal routing headers
+  // Strip deprecated and internal routing headers
+  headers.delete("x-kc-cost-microdollars");
   headers.delete("x-kc-tenant-id");
   headers.delete("x-kc-trace-id");
   headers.delete("x-kc-model");

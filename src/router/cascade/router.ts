@@ -69,13 +69,6 @@ export class CascadeRouter implements RouterContract {
       options.upstreamClient ??
       new UpstreamClient({
         keyPool: this.keyPool,
-        costCalculator: (model, usage) => {
-          try {
-            return this.registry.calculateCost(model, usage);
-          } catch {
-            return 0n;
-          }
-        },
       });
   }
 
