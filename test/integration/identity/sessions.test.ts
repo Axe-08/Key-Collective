@@ -109,7 +109,7 @@ describe("console sessions", () => {
     expect(res.status).toBe(200);
   });
 
-  it("[3] the legacy bearer token still works on console /api/* without CSRF", async () => {
+  it("[3] a bearer token is rejected with 401 on console /api/* (sessions only, WP-7.2)", async () => {
     const user = await createUser();
     const bearer = await createApiKey(user);
 
@@ -120,8 +120,8 @@ describe("console sessions", () => {
       body: JSON.stringify({ name: "bearer-probe" }),
     });
 
-    expect(read.status).toBe(200);
-    expect([401, 403]).not.toContain(write.status);
+    expect(read.status).toBe(401);
+    expect(write.status).toBe(401);
   });
 
   it("[4] api.* ignores the session cookie", async () => {

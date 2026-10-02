@@ -97,7 +97,7 @@ describe("registration consent", () => {
 
     expect(bySession.status).toBe(403);
     expect(await bySession.json()).toEqual({ error: "consent_required" });
-    expect(byBearer.status).toBe(403);
+    expect(byBearer.status).toBe(401);
     expect(sessionInfo.status).toBe(200);
   });
 

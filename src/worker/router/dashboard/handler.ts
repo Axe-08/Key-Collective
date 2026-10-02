@@ -108,15 +108,8 @@ export class DashboardRouter {
       tenantId = session.userId;
     }
 
-    // 2. Legacy bearer token (never needs CSRF)
+    // 2. Legacy bearer token retired in WP-7.2 (T-7.2.1); archived to archives/src/worker/router/dashboard/bearer_auth.ts
     let rawToken: string | undefined;
-    const authHeader =
-      request.headers.get("authorization") ||
-      request.headers.get("Authorization");
-
-    if (!session && authHeader && authHeader.startsWith("Bearer ")) {
-      rawToken = authHeader.substring(7).trim();
-    }
 
     if (!session && !rawToken) {
       const cookieHeader = request.headers.get("cookie") || request.headers.get("Cookie");

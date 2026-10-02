@@ -46,6 +46,19 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
               return { success: true, meta: { changes: 1 } };
             },
             async first() {
+              if (query.includes("FROM sessions s JOIN users u")) {
+                const u = users.get("usr_gh_testdev");
+                if (u) {
+                  return {
+                    user_id: u.id,
+                    kind: "console",
+                    expires_at: "2099-01-01T00:00:00Z",
+                    email: u.email,
+                    role: u.role,
+                  };
+                }
+                return null;
+              }
               if (query.includes("SELECT id, email, tier, role, sybil_score FROM users WHERE id = ?")) {
                 const [id] = args;
                 return users.get(id) || null;
@@ -96,7 +109,7 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
     });
 
     const req = new Request("https://key-col.axe08.tech/api/session", {
-      headers: { authorization: "Bearer user-token-123" },
+      headers: { cookie: "kc_session=user-session-123" },
     });
     const res = await router.handle(req, "/api/session", "GET", env);
     expect(res.status).toBe(200);
@@ -116,14 +129,22 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
   });
 
   it("GET /api/telemetry/stream rejects unauthenticated visitors (WP-0.1)", async () => {
+    users.clear();
     const req = new Request("https://key-col.axe08.tech/api/telemetry/stream");
     const res = await router.handle(req, "/api/telemetry/stream", "GET", env);
     expect(res.status).toBe(401);
   });
 
   it("GET /api/telemetry/stream returns SSE headers and readable stream", async () => {
+    users.set("usr_gh_testdev", {
+      id: "usr_gh_testdev",
+      email: "testdev@github.com",
+      tier: "builder",
+      role: "user",
+      sybil_score: 92,
+    });
     const req = new Request("https://key-col.axe08.tech/api/telemetry/stream", {
-      headers: { authorization: "Bearer user-token-123" },
+      headers: { cookie: "kc_session=user-session-123" },
     });
     const res = await router.handle(req, "/api/telemetry/stream", "GET", env);
     expect(res.status).toBe(200);
