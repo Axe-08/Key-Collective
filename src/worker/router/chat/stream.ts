@@ -81,14 +81,6 @@ export function handleStreamingResponse(
       }
     }
 
-    if (deps.modelRegistry) {
-      try {
-        return deps.modelRegistry.calculateCost(cascadeRes.model, effectiveUsage);
-      } catch {
-        return 0n;
-      }
-    }
-
     return 0n;
   };
 
@@ -114,15 +106,8 @@ export function handleStreamingResponse(
         null;
     }
 
-    // 2. Calculate exact cost in fixed-point microdollars (int64 / bigint)
-    let costMicrodollars = 0n;
-    if (usage) {
-      try {
-        costMicrodollars = deps.modelRegistry.calculateCost(cascadeRes.model, usage);
-      } catch {
-        costMicrodollars = 0n;
-      }
-    }
+    // 2. Cost in microdollars (deprecated, defaults to 0n)
+    const costMicrodollars = 0n;
 
     const cuWeight = getCalculatedCu(usage);
     const statusCode = errorOccurred ? 500 : 200;
@@ -184,12 +169,14 @@ export function handleStreamingResponse(
 
     // 5. Update AuthToken spend in D1
     const authTokensRepo = deps.getAuthTokensRepo(env);
-    if (authContext.token && authTokensRepo && costMicrodollars > 0n) {
+    const tokenSpend = cuWeight > 0n ? cuWeight : costMicrodollars;
+    if (authContext.token && authTokensRepo && tokenSpend > 0n) {
       try {
         await authTokensRepo.recordSpend(
           authContext.token.id,
           authContext.tenantId,
-          costMicrodollars
+          tokenSpend,
+          cuWeight > 0n ? cuWeight : undefined
         );
       } catch {
         // Non-blocking hot path invariant

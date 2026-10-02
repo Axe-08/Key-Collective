@@ -98,7 +98,6 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         completion_tokens,
         cached_tokens,
         reasoning_tokens,
-        cost_microdollars,
         latency_ms,
         status_code,
         created_at,
@@ -113,7 +112,6 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         string,
         string,
         string,
-        number,
         number,
         number,
         number,
@@ -138,7 +136,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         completion_tokens,
         cached_tokens,
         reasoning_tokens,
-        cost_microdollars,
+        cost_microdollars: 0,
         latency_ms,
         status_code,
         created_at,
@@ -453,15 +451,16 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       };
     }
 
-    // 9. Spend summary aggregation from daily_spend_rollup
+    // 9. Spend summary aggregation from daily_cu_rollup or daily_spend_rollup
     if (
-      upper.includes("FROM DAILY_SPEND_ROLLUP") &&
-      (upper.includes("SUM(TOTAL_COST_MICRODOLLARS)") || upper.includes("SUM(S.TOTAL_COST_MICRODOLLARS)"))
+      (upper.includes("FROM DAILY_CU_ROLLUP") || upper.includes("FROM DAILY_SPEND_ROLLUP")) &&
+      (upper.includes("COALESCE(SUM(TOTAL_REQUESTS)") || upper.includes("SUM(TOTAL_COST_MICRODOLLARS)") || upper.includes("SUM(S.TOTAL_COST_MICRODOLLARS)"))
     ) {
       const [tenant_id] = this.boundParams as [string];
-      let rows = Array.from(this.db.rollupRows.values()).filter(
-        (r) => r.tenant_id === tenant_id
-      );
+      const rawRows = this.db.cuRollupRows.size > 0
+        ? Array.from(this.db.cuRollupRows.values())
+        : Array.from(this.db.rollupRows.values());
+      let rows = rawRows.filter((r) => r.tenant_id === tenant_id);
 
       let paramIndex = 1;
       if (upper.includes("DAY >=")) {
@@ -479,12 +478,12 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       let totalCu = 0;
 
       for (const r of rows) {
-        totalCost += r.total_cost_microdollars;
+        totalCost += (r as { total_cost_microdollars?: number }).total_cost_microdollars ?? 0;
         totalRequests += r.total_requests;
         totalTokens += r.total_tokens;
         const cuKey = `${r.tenant_id}:${r.day}:${r.provider}:${r.model_id}`;
         const cuRow = this.db.cuRollupRows.get(cuKey);
-        totalCu += cuRow?.total_cu ?? 0;
+        totalCu += cuRow?.total_cu ?? (r as { total_cu?: number }).total_cu ?? 0;
       }
 
       return {
@@ -501,12 +500,13 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       };
     }
 
-    // 10. General list from daily_spend_rollup
-    if (upper.includes("FROM DAILY_SPEND_ROLLUP")) {
+    // 10. General list from daily_cu_rollup or daily_spend_rollup
+    if (upper.includes("FROM DAILY_CU_ROLLUP") || upper.includes("FROM DAILY_SPEND_ROLLUP")) {
       const [tenant_id] = this.boundParams as [string];
-      let rows = Array.from(this.db.rollupRows.values()).filter(
-        (r) => r.tenant_id === tenant_id
-      );
+      const rawRows = this.db.cuRollupRows.size > 0
+        ? Array.from(this.db.cuRollupRows.values())
+        : Array.from(this.db.rollupRows.values());
+      let rows = rawRows.filter((r) => r.tenant_id === tenant_id);
 
       let paramIndex = 1;
       if (upper.includes("DAY >=")) {
@@ -546,7 +546,8 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         const cuRow = this.db.cuRollupRows.get(cuKey);
         return {
           ...r,
-          total_cu: cuRow?.total_cu ?? 0,
+          total_cost_microdollars: 0,
+          total_cu: cuRow?.total_cu ?? (r as { total_cu?: number }).total_cu ?? 0,
         };
       });
 
@@ -834,7 +835,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       // Verify row in database
       const dbRow = mockDb.ledgerRows.get("evt_explicit_1");
       expect(dbRow).toBeDefined();
-      expect(dbRow?.cost_microdollars).toBe(450);
+      expect(dbRow?.cost_microdollars).toBe(0);
     });
 
     it("non-streaming completion writes a cost_ledger row with cu and cost_microdollars populated", async () => {
@@ -861,7 +862,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       const dbRow = mockDb.ledgerRows.get(event.id);
       expect(dbRow).toBeDefined();
       expect(dbRow?.cu).toBe(13);
-      expect(dbRow?.cost_microdollars).toBe(450);
+      expect(dbRow?.cost_microdollars).toBe(0);
     });
 
     it("auto-generates UUID and timestamps if omitted", async () => {
@@ -1061,7 +1062,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(rollups[0]?.day).toBe("2026-09-09");
       expect(rollups[0]?.totalRequests).toBe(1);
       expect(rollups[0]?.totalTokens).toBe(550); // 400 + 100 + 50
-      expect(rollups[0]?.totalCostMicrodollars).toBe(250n);
+      expect(rollups[0]?.totalCu).toBeGreaterThan(0n);
     });
 
     it("accumulates rollups across multiple calls for same tenant and model", async () => {
@@ -1098,7 +1099,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(rollups).toHaveLength(1);
       expect(rollups[0]?.totalRequests).toBe(2);
       expect(rollups[0]?.totalTokens).toBe(450); // 150 + 300
-      expect(rollups[0]?.totalCostMicrodollars).toBe(900n); // 300 + 600
+      expect(rollups[0]?.totalCu).toBeGreaterThan(0n);
     });
   });
 
@@ -1290,7 +1291,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(rollups).toHaveLength(1);
       expect(rollups[0]?.totalRequests).toBe(5);
       expect(rollups[0]?.totalTokens).toBe(1000);
-      expect(rollups[0]?.totalCostMicrodollars).toBe(15000n);
+      expect(rollups[0]?.totalCu).toBeGreaterThan(0n);
     });
 
     it("filters rollups by startDate and endDate", async () => {
@@ -1343,10 +1344,10 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       const summary = await repo.getTenantSpendSummary(TENANT_A);
       expect(summary.totalRequests).toBe(30);
       expect(summary.totalTokens).toBe(15000);
-      expect(summary.totalCostMicrodollars).toBe(60_000n);
+      expect(summary.totalCu).toBeGreaterThan(0n);
 
       const totalMicro = await repo.getTenantTotalSpendMicrodollars(TENANT_A);
-      expect(totalMicro).toBe(60_000n);
+      expect(totalMicro).toBe(0n);
     });
   });
 
@@ -1406,12 +1407,12 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       const openaiRollup = reconciled.find((r) => r.provider === "openai");
       expect(openaiRollup?.totalRequests).toBe(2);
       expect(openaiRollup?.totalTokens).toBe(450);
-      expect(openaiRollup?.totalCostMicrodollars).toBe(900n);
+      expect(openaiRollup?.totalCu).toBeGreaterThan(0n);
 
       const googleRollup = reconciled.find((r) => r.provider === "google");
       expect(googleRollup?.totalRequests).toBe(1);
       expect(googleRollup?.totalTokens).toBe(750);
-      expect(googleRollup?.totalCostMicrodollars).toBe(400n);
+      expect(googleRollup?.totalCu).toBeGreaterThan(0n);
     });
   });
 

@@ -119,12 +119,12 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         tenant_id,
         encrypted_token_b64,
         nonce_b64,
-        budget_microdollars,
-        spent_microdollars,
         allowed_providers,
         rpm_limit,
         expires_at,
         created_at,
+        budget_cu,
+        spent_cu,
       ] = this.boundParams;
 
       // Check unique constraint on hash_sha256
@@ -140,12 +140,14 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         tenant_id: String(tenant_id),
         encrypted_token_b64: (encrypted_token_b64 as string | null) ?? null,
         nonce_b64: (nonce_b64 as string | null) ?? null,
-        budget_microdollars: Number(budget_microdollars),
-        spent_microdollars: Number(spent_microdollars),
+        budget_microdollars: 0,
+        spent_microdollars: 0,
         allowed_providers: String(allowed_providers),
         rpm_limit: Number(rpm_limit),
         expires_at: (expires_at as string | null) ?? null,
         created_at: String(created_at),
+        budget_cu: budget_cu !== undefined && budget_cu !== null ? String(budget_cu) : null,
+        spent_cu: spent_cu !== undefined && spent_cu !== null ? String(spent_cu) : "0",
       };
 
       this.db.rows.set(row.id, row);
@@ -242,29 +244,35 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       };
     }
 
-    // 8. UPDATE AUTH_TOKENS SET BUDGET_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?
-    if (upper === "UPDATE AUTH_TOKENS SET BUDGET_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?") {
-      const budget = Number(this.boundParams[0]);
+    // 8. UPDATE AUTH_TOKENS SET BUDGET_CU = ? WHERE ID = ? AND TENANT_ID = ?
+    if (
+      upper === "UPDATE AUTH_TOKENS SET BUDGET_CU = ? WHERE ID = ? AND TENANT_ID = ?" ||
+      upper === "UPDATE AUTH_TOKENS SET BUDGET_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?"
+    ) {
+      const budget = this.boundParams[0] !== null ? String(this.boundParams[0]) : null;
       const id = String(this.boundParams[1]);
       const tenantId = String(this.boundParams[2]);
 
       const found = this.db.rows.get(id);
       if (found && found.tenant_id === tenantId) {
-        found.budget_microdollars = budget;
+        found.budget_cu = budget;
         return { success: true, meta: createMeta(1), results: [] };
       }
       return { success: true, meta: createMeta(0), results: [] };
     }
 
-    // 9. UPDATE AUTH_TOKENS SET SPENT_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?
-    if (upper === "UPDATE AUTH_TOKENS SET SPENT_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?") {
-      const spent = Number(this.boundParams[0]);
+    // 9. UPDATE AUTH_TOKENS SET SPENT_CU = ? WHERE ID = ? AND TENANT_ID = ?
+    if (
+      upper === "UPDATE AUTH_TOKENS SET SPENT_CU = ? WHERE ID = ? AND TENANT_ID = ?" ||
+      upper === "UPDATE AUTH_TOKENS SET SPENT_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?"
+    ) {
+      const spent = String(this.boundParams[0]);
       const id = String(this.boundParams[1]);
       const tenantId = String(this.boundParams[2]);
 
       const found = this.db.rows.get(id);
       if (found && found.tenant_id === tenantId) {
-        found.spent_microdollars = spent;
+        found.spent_cu = spent;
         return { success: true, meta: createMeta(1), results: [] };
       }
       return { success: true, meta: createMeta(0), results: [] };
@@ -300,6 +308,8 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         for (let i = 0; i < clauses.length; i++) {
           const col = clauses[i];
           const val = this.boundParams[i];
+          if (col === "budget_cu") found.budget_cu = val !== null ? String(val) : null;
+          if (col === "spent_cu") found.spent_cu = String(val);
           if (col === "budget_microdollars") found.budget_microdollars = Number(val);
           if (col === "spent_microdollars") found.spent_microdollars = Number(val);
           if (col === "allowed_providers") found.allowed_providers = String(val);

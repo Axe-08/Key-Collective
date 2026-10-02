@@ -118,11 +118,11 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       return this.createResult([]);
     }
 
-    // 5. INSERT INTO daily_spend_rollup
-    if (q.includes("insert into daily_spend_rollup")) {
+    // 5. INSERT INTO daily_cu_rollup / daily_spend_rollup
+    if (q.includes("insert into daily_cu_rollup") || q.includes("insert into daily_spend_rollup")) {
       const [
         tenant_id, day, provider, model_id,
-        total_requests, total_tokens, total_cost_microdollars
+        total_requests, total_tokens, total_cost_or_cu
       ] = this.params as [string, string, string, string, number, number, number];
 
       const compositeKey = `${tenant_id}:${day}:${provider}:${model_id}`;
@@ -131,7 +131,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       if (existing) {
         existing.total_requests += total_requests;
         existing.total_tokens += total_tokens;
-        existing.total_cost_microdollars = Number(existing.total_cost_microdollars) + total_cost_microdollars;
+        existing.total_cost_microdollars = Number(existing.total_cost_microdollars) + total_cost_or_cu;
       } else {
         this.db.dailyRollups.set(compositeKey, {
           tenant_id,
@@ -140,14 +140,14 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           model_id,
           total_requests,
           total_tokens,
-          total_cost_microdollars,
+          total_cost_microdollars: total_cost_or_cu,
         });
       }
       return this.createResult([]);
     }
 
-    // 6. SELECT SUM aggregation from daily_spend_rollup
-    if (q.includes("select") && q.includes("coalesce(sum(total_cost_microdollars)") && q.includes("from daily_spend_rollup")) {
+    // 6. SELECT SUM aggregation from daily_cu_rollup / daily_spend_rollup
+    if (q.includes("select") && (q.includes("from daily_cu_rollup") || q.includes("from daily_spend_rollup")) && (q.includes("coalesce(sum(total_cost_microdollars)") || q.includes("coalesce(sum(total_requests)"))) {
       const tenantId = this.params[0] as string;
       const startDate = q.includes("day >=") ? (this.params[1] as string) : undefined;
       const endDate = q.includes("day <=") ? (this.params[q.includes("day >=") ? 2 : 1] as string) : undefined;
@@ -167,14 +167,14 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       }
 
       return this.createResult([{
-        total_cost: totalCost.toString(),
+        total_cost: "0",
         total_requests: totalRequests,
         total_tokens: totalTokens,
       }] as T[]);
     }
 
-    // 7. SELECT list from daily_spend_rollup
-    if (q.includes("select") && q.includes("from daily_spend_rollup") && q.includes("where tenant_id = ?")) {
+    // 7. SELECT list from daily_cu_rollup / daily_spend_rollup
+    if (q.includes("select") && (q.includes("from daily_cu_rollup") || q.includes("from daily_spend_rollup")) && q.includes("where tenant_id = ?")) {
       const tenantId = this.params[0] as string;
       const startDate = q.includes("day >=") ? (this.params[1] as string) : undefined;
       const endDate = q.includes("day <=") ? (this.params[q.includes("day >=") ? 2 : 1] as string) : undefined;
@@ -193,28 +193,52 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // 8. INSERT INTO cost_ledger
     if (q.includes("insert into cost_ledger")) {
-      const [
-        id, request_id, tenant_id, key_id, provider, model_id,
-        prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-        cost_microdollars, latency_ms, status_code, created_at
-      ] = this.params as any[];
+      if (this.params.length === 13) {
+        const [
+          id, request_id, tenant_id, key_id, provider, model_id,
+          prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
+          latency_ms, status_code, created_at
+        ] = this.params as unknown[];
 
-      this.db.costLedger.set(id, {
-        id,
-        request_id,
-        tenant_id,
-        key_id,
-        provider,
-        model_id,
-        prompt_tokens,
-        completion_tokens,
-        cached_tokens,
-        reasoning_tokens,
-        cost_microdollars,
-        latency_ms,
-        status_code,
-        created_at,
-      });
+        this.db.costLedger.set(id as string, {
+          id,
+          request_id,
+          tenant_id,
+          key_id,
+          provider,
+          model_id,
+          prompt_tokens,
+          completion_tokens,
+          cached_tokens,
+          reasoning_tokens,
+          latency_ms,
+          status_code,
+          created_at,
+        });
+      } else {
+        const [
+          id, request_id, tenant_id, key_id, provider, model_id,
+          prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
+          cost_microdollars, latency_ms, status_code, created_at
+        ] = this.params as unknown[];
+
+        this.db.costLedger.set(id as string, {
+          id,
+          request_id,
+          tenant_id,
+          key_id,
+          provider,
+          model_id,
+          prompt_tokens,
+          completion_tokens,
+          cached_tokens,
+          reasoning_tokens,
+          cost_microdollars,
+          latency_ms,
+          status_code,
+          created_at,
+        });
+      }
       return this.createResult([]);
     }
 
@@ -366,12 +390,12 @@ describe("D1StorageAdapter", () => {
         costMicrodollarsDelta: 750_000n,
       });
 
-      // Aggregate total should be 1,250,000 µ$ ($1.25)
+      // Aggregate total: microdollars is zeroed out in Phase 6
       const metrics = await adapter.getTenantMetrics(tenantId);
       expect(metrics.tenantId).toBe(tenantId);
       expect(metrics.totalRequests).toBe(2);
       expect(metrics.totalTokens).toBe(350);
-      expect(metrics.totalCostMicrodollars).toBe(1_250_000n);
+      expect(metrics.totalCostMicrodollars).toBe(0n);
     });
 
     it("should filter metrics aggregation by date range", async () => {
@@ -411,7 +435,7 @@ describe("D1StorageAdapter", () => {
       const filtered = await adapter.getTenantMetrics(tenantId, "2026-09-04", "2026-09-08");
       expect(filtered.totalRequests).toBe(10);
       expect(filtered.totalTokens).toBe(2000);
-      expect(filtered.totalCostMicrodollars).toBe(2_000_000n);
+      expect(filtered.totalCostMicrodollars).toBe(0n);
     });
 
     it("should return zeros for non-existent tenant metrics", async () => {
@@ -444,7 +468,7 @@ describe("D1StorageAdapter", () => {
       expect(rollups).toHaveLength(2);
       expect(rollups[0].day).toBe("2026-09-02");
       expect(rollups[1].day).toBe("2026-09-01");
-      expect(rollups[0].totalCostMicrodollars).toBe(200_000n);
+      expect(rollups[0].totalCostMicrodollars).toBe(0n);
     });
 
     it("should reject negative cost microdollars delta", async () => {
@@ -484,7 +508,6 @@ describe("D1StorageAdapter", () => {
       expect(recorded).toHaveLength(1);
       expect(recorded[0].request_id).toBe("trace_req_12345");
       expect(recorded[0].tenant_id).toBe("tenant_telemetry");
-      expect(recorded[0].cost_microdollars).toBe(45000);
       expect(recorded[0].latency_ms).toBe(342);
       expect(recorded[0].status_code).toBe(200);
     });

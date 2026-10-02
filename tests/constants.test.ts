@@ -13,21 +13,6 @@ import {
   isValidNonceLength,
   isValidKeyLength,
   maskApiKey,
-  // Financial
-  MICRODOLLAR_MULTIPLIER,
-  MICRODOLLARS_PER_DOLLAR,
-  ONE_MICRODOLLAR,
-  ONE_CENT_MICRODOLLARS,
-  ONE_DOLLAR_MICRODOLLARS,
-  DEFAULT_MAX_BUDGET_MICRODOLLARS,
-  DEFAULT_BUDGET_ALERT_THRESHOLD_PERCENT,
-  MIN_MICRODOLLARS,
-  dollarsToMicrodollars,
-  microdollarsToDollars,
-  centsToMicrodollars,
-  microdollarsToCents,
-  formatMicrodollars,
-  isValidMicrodollarAmount,
   // Limits
   DEFAULT_CIRCUIT_BREAKER_THRESHOLD,
   DEFAULT_RPM_LIMIT,
@@ -108,116 +93,7 @@ describe("Cryptographic Constants & Utilities (LLD 1.2)", () => {
   });
 });
 
-describe("Financial Constants & Microdollars Logic (LLD 1.1)", () => {
-  it("defines fixed-point microdollar multipliers and base amounts", () => {
-    expect(MICRODOLLAR_MULTIPLIER).toBe(1_000_000n);
-    expect(MICRODOLLARS_PER_DOLLAR).toBe(1_000_000n);
-    expect(ONE_MICRODOLLAR).toBe(1n);
-    expect(ONE_CENT_MICRODOLLARS).toBe(10_000n);
-    expect(ONE_DOLLAR_MICRODOLLARS).toBe(1_000_000n);
-    expect(DEFAULT_MAX_BUDGET_MICRODOLLARS).toBe(100_000_000n);
-    expect(DEFAULT_BUDGET_ALERT_THRESHOLD_PERCENT).toBe(80);
-    expect(MIN_MICRODOLLARS).toBe(0n);
-  });
 
-  describe("dollarsToMicrodollars", () => {
-    it("converts whole integer dollars", () => {
-      expect(dollarsToMicrodollars(1)).toBe(1_000_000n);
-      expect(dollarsToMicrodollars(100)).toBe(100_000_000n);
-      expect(dollarsToMicrodollars("5")).toBe(5_000_000n);
-      expect(dollarsToMicrodollars("0")).toBe(0n);
-    });
-
-    it("converts exact decimal fractions without floating-point error", () => {
-      expect(dollarsToMicrodollars("0.000001")).toBe(1n);
-      expect(dollarsToMicrodollars("0.000005")).toBe(5n);
-      expect(dollarsToMicrodollars("0.01")).toBe(10_000n);
-      expect(dollarsToMicrodollars("1.50")).toBe(1_500_000n);
-      expect(dollarsToMicrodollars("12.345678")).toBe(12_345_678n);
-    });
-
-    it("handles negative amounts correctly", () => {
-      expect(dollarsToMicrodollars("-1.50")).toBe(-1_500_000n);
-      expect(dollarsToMicrodollars("-0.000001")).toBe(-1n);
-    });
-
-    it("truncates sub-microdollar precision beyond 6 decimals", () => {
-      expect(dollarsToMicrodollars("1.123456789")).toBe(1_123_456n);
-    });
-
-    it("throws on malformed dollar strings", () => {
-      expect(() => dollarsToMicrodollars("abc")).toThrow(TypeError);
-      expect(() => dollarsToMicrodollars("$12.34")).toThrow(TypeError);
-      expect(() => dollarsToMicrodollars("1.2.3")).toThrow(TypeError);
-    });
-  });
-
-  describe("microdollarsToDollars", () => {
-    it("converts microdollars to decimal numbers for presentation", () => {
-      expect(microdollarsToDollars(1_000_000n)).toBe(1.0);
-      expect(microdollarsToDollars(1_500_000n)).toBe(1.5);
-      expect(microdollarsToDollars(10_000n)).toBe(0.01);
-      expect(microdollarsToDollars(1n)).toBe(0.000001);
-      expect(microdollarsToDollars(0n)).toBe(0);
-    });
-  });
-
-  describe("cents and microdollars conversions", () => {
-    it("converts cents to microdollars", () => {
-      expect(centsToMicrodollars(1)).toBe(10_000n);
-      expect(centsToMicrodollars(50)).toBe(500_000n);
-      expect(centsToMicrodollars(100n)).toBe(1_000_000n);
-    });
-
-    it("converts microdollars to whole cents (truncated)", () => {
-      expect(microdollarsToCents(500_000n)).toBe(50n);
-      expect(microdollarsToCents(10_000n)).toBe(1n);
-      expect(microdollarsToCents(9_999n)).toBe(0n);
-    });
-  });
-
-  describe("formatMicrodollars", () => {
-    it("formats standard amounts in auto precision", () => {
-      expect(formatMicrodollars(1_500_000n)).toBe("$1.50");
-      expect(formatMicrodollars(0n)).toBe("$0.00");
-      expect(formatMicrodollars(10_000n)).toBe("$0.01");
-      expect(formatMicrodollars(12n)).toBe("$0.000012");
-      expect(formatMicrodollars(1_234_567n)).toBe("$1.234567");
-    });
-
-    it("formats with cents-only precision", () => {
-      expect(formatMicrodollars(1_500_000n, { precision: "cents" })).toBe("$1.50");
-      expect(formatMicrodollars(1_234_567n, { precision: "cents" })).toBe("$1.23");
-    });
-
-    it("formats with microdollars full 6-digit precision", () => {
-      expect(formatMicrodollars(1_500_000n, { precision: "microdollars" })).toBe("$1.500000");
-      expect(formatMicrodollars(12n, { precision: "microdollars" })).toBe("$0.000012");
-    });
-
-    it("formats negative microdollar amounts", () => {
-      expect(formatMicrodollars(-1_500_000n)).toBe("-$1.50");
-      expect(formatMicrodollars(-12n)).toBe("-$0.000012");
-    });
-
-    it("formats without currency symbol when requested", () => {
-      expect(formatMicrodollars(1_500_000n, { includeSymbol: false })).toBe("1.50");
-    });
-  });
-
-  describe("isValidMicrodollarAmount", () => {
-    it("validates non-negative bigint microdollars", () => {
-      expect(isValidMicrodollarAmount(0n)).toBe(true);
-      expect(isValidMicrodollarAmount(100n)).toBe(true);
-      expect(isValidMicrodollarAmount(1_000_000n)).toBe(true);
-      expect(isValidMicrodollarAmount(-1n)).toBe(false);
-      expect(isValidMicrodollarAmount(100)).toBe(false);
-      expect(isValidMicrodollarAmount("100")).toBe(false);
-      expect(isValidMicrodollarAmount(null)).toBe(false);
-      expect(isValidMicrodollarAmount(undefined)).toBe(false);
-    });
-  });
-});
 
 describe("System Limits & Circuit Breaker Constants (LLD 1.3)", () => {
   it("defines standard circuit breaker invariants", () => {

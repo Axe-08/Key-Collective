@@ -371,7 +371,7 @@ export async function handleAdminRequest(
           .run();
       } else if (body.action === 'RESET_ALL_DEBT') {
         await db
-          .prepare("UPDATE contributor_standing SET community_debt_micro_cu = 0")
+          .prepare("UPDATE contributor_standing SET community_debt_cu = 0")
           .run();
       } else if (body.action === 'PURGE_ALL_KEYS') {
         await db
@@ -699,17 +699,17 @@ export async function handleAdminRequest(
 
       try {
         const dRes = await db
-          .prepare("SELECT tenant_id, community_debt_micro_cu FROM contributor_standing")
-          .all<{ tenant_id: string; community_debt_micro_cu: number }>();
+          .prepare("SELECT tenant_id, community_debt_cu FROM contributor_standing")
+          .all<{ tenant_id: string; community_debt_cu: number }>();
         for (const row of dRes.results || []) {
-          debtMap.set(row.tenant_id, row.community_debt_micro_cu || 0);
+          debtMap.set(row.tenant_id, row.community_debt_cu || 0);
         }
       } catch { /* ignore */ }
 
       try {
         const sRes = await db
           .prepare(
-            "SELECT tenant_id, SUM(cost_microdollars) as spend_today FROM cost_ledger WHERE created_at >= date('now', 'start of day') GROUP BY tenant_id"
+            "SELECT tenant_id, SUM(cu) as spend_today FROM cost_ledger WHERE created_at >= date('now', 'start of day') GROUP BY tenant_id"
           )
           .all<{ tenant_id: string; spend_today: number }>();
         for (const row of sRes.results || []) {
@@ -856,8 +856,10 @@ export async function handleAdminRequest(
         sybilScore: user?.sybil_score ?? (tier === 'admin' ? 100 : tier === 'demo' ? 20 : 92),
         is_quarantined: isQuar ? 1 : 0,
         isQuarantined: isQuar,
+        communityDebtCu: debtMap.get(tid) ?? 0,
         communityDebtMicroCu: debtMap.get(tid) ?? 0,
         community_debt_micro_cu: debtMap.get(tid) ?? 0,
+        todaySpendCu: spendMap.get(tid) ?? 0,
         todaySpendMicrodollars: spendMap.get(tid) ?? 0,
         activeKeyCount: activeKeys.length,
         currentRpm: tenantRpmMap.get(tid) ?? 0,

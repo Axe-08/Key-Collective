@@ -267,11 +267,12 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // UPDATE AUTH_TOKENS
     if (upper.includes("UPDATE") && upper.includes("AUTH_TOKENS")) {
-      if (upper.includes("SPENT_MICRODOLLARS")) {
+      if (upper.includes("SPENT_CU") || upper.includes("SPENT_MICRODOLLARS")) {
         const newSpent = Number(this.boundParams[0]);
         const id = String(this.boundParams[1]);
         const row = this.db.tokens.get(id);
         if (row) {
+          row.spent_cu = String(newSpent);
           row.spent_microdollars = newSpent;
         }
       }
@@ -284,41 +285,83 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // INSERT INTO COST_LEDGER
     if (upper.includes("INSERT INTO COST_LEDGER")) {
-      const [
-        id,
-        request_id,
-        tenant_id,
-        key_id,
-        provider,
-        model_id,
-        prompt_tokens,
-        completion_tokens,
-        cached_tokens,
-        reasoning_tokens,
-        cost_microdollars,
-        latency_ms,
-        status_code,
-        error_message,
-        created_at,
-      ] = this.boundParams;
+      if (this.boundParams.length === 17) {
+        const [
+          id,
+          request_id,
+          tenant_id,
+          key_id,
+          provider,
+          model_id,
+          prompt_tokens,
+          completion_tokens,
+          cached_tokens,
+          reasoning_tokens,
+          latency_ms,
+          status_code,
+          created_at,
+          cu,
+          usage_estimated,
+          borrowed,
+          lender_tenant_id,
+        ] = this.boundParams;
 
-      this.db.ledgerEvents.push({
-        id: String(id),
-        requestId: String(request_id),
-        tenantId: String(tenant_id),
-        keyId: String(key_id),
-        provider: String(provider),
-        modelId: String(model_id),
-        promptTokens: Number(prompt_tokens),
-        completionTokens: Number(completion_tokens),
-        cachedTokens: Number(cached_tokens),
-        reasoningTokens: Number(reasoning_tokens),
-        costMicrodollars: BigInt(cost_microdollars as string | number),
-        latencyMs: Number(latency_ms),
-        statusCode: Number(status_code),
-        errorMessage: error_message ? String(error_message) : undefined,
-        createdAt: String(created_at),
-      });
+        this.db.ledgerEvents.push({
+          id: String(id),
+          requestId: String(request_id),
+          tenantId: String(tenant_id),
+          keyId: String(key_id),
+          provider: String(provider),
+          modelId: String(model_id),
+          promptTokens: Number(prompt_tokens),
+          completionTokens: Number(completion_tokens),
+          cachedTokens: Number(cached_tokens),
+          reasoningTokens: Number(reasoning_tokens),
+          costMicrodollars: 0n,
+          latencyMs: Number(latency_ms),
+          statusCode: Number(status_code),
+          createdAt: String(created_at),
+          cu: BigInt((cu as number | string | bigint) ?? 0),
+          borrowed: Number(borrowed),
+          lenderTenantId: lender_tenant_id ? String(lender_tenant_id) : undefined,
+        });
+      } else {
+        const [
+          id,
+          request_id,
+          tenant_id,
+          key_id,
+          provider,
+          model_id,
+          prompt_tokens,
+          completion_tokens,
+          cached_tokens,
+          reasoning_tokens,
+          cost_microdollars,
+          latency_ms,
+          status_code,
+          error_message,
+          created_at,
+        ] = this.boundParams;
+
+        this.db.ledgerEvents.push({
+          id: String(id),
+          requestId: String(request_id),
+          tenantId: String(tenant_id),
+          keyId: String(key_id),
+          provider: String(provider),
+          modelId: String(model_id),
+          promptTokens: Number(prompt_tokens),
+          completionTokens: Number(completion_tokens),
+          cachedTokens: Number(cached_tokens),
+          reasoningTokens: Number(reasoning_tokens),
+          costMicrodollars: BigInt(cost_microdollars as string | number),
+          latencyMs: Number(latency_ms),
+          statusCode: Number(status_code),
+          errorMessage: error_message ? String(error_message) : undefined,
+          createdAt: String(created_at),
+        });
+      }
 
       return {
         results: [],
@@ -792,7 +835,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(body.choices[0].message.content).toBe("The capital of France is Paris.");
       expect(body.usage.prompt_tokens).toBe(15);
       expect(body.usage.completion_tokens).toBe(8);
-      expect(BigInt(body.cost_microdollars)).toBeGreaterThan(0n);
+      expect(BigInt(body.cost_microdollars)).toBe(0n);
 
       // Flush background execution context promises (non-blocking telemetry & D1 writes)
       await ctx.flush();
@@ -806,12 +849,12 @@ describe("Worker Integration Tests (T4)", () => {
       expect(ledgerEntry.provider).toBe("google");
       expect(ledgerEntry.promptTokens).toBe(15);
       expect(ledgerEntry.completionTokens).toBe(8);
-      expect(ledgerEntry.costMicrodollars).toBeGreaterThan(0n);
+      expect(ledgerEntry.costMicrodollars ?? 0n).toBe(0n);
       expect(ledgerEntry.statusCode).toBe(200);
 
       // Verify D1 Token spend increment
       const updatedToken = mockDb.tokens.get("token-valid-id");
-      expect(updatedToken?.spent_microdollars).toBeGreaterThan(100_000);
+      expect(BigInt(updatedToken?.spent_cu ?? 0)).toBeGreaterThan(0n);
 
       // Verify Telemetry emission
       expect(emittedTelemetry).toHaveLength(1);
@@ -905,7 +948,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(ledgerEntry.requestId).toBe("trace-integration-tc02");
       expect(ledgerEntry.promptTokens).toBe(250);
       expect(ledgerEntry.completionTokens).toBe(120);
-      expect(ledgerEntry.costMicrodollars).toBeGreaterThan(0n);
+      expect(ledgerEntry.costMicrodollars ?? 0n).toBe(0n);
       expect(ledgerEntry.statusCode).toBe(200);
 
       // Verify Telemetry event

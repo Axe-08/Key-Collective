@@ -18,12 +18,6 @@ import {
   ModelProvider,
   ModelPricing,
 } from "../../types/models";
-import {
-  MICRODOLLAR_MULTIPLIER,
-  dollarsToMicrodollars,
-  microdollarsToDollars,
-  formatMicrodollars,
-} from "../../constants/financial";
 import { ceilDiv } from "../../constants/credits";
 import {
   ModelNotFoundError,
@@ -508,96 +502,7 @@ export class ModelRegistry implements IModelRegistry {
    * Zero floating-point arithmetic:
    * promptCost = (promptTokens * inputCost) // 1_000_000n
    * outputCost = ((completionTokens + reasoningTokens) * outputCost) // 1_000_000n
-   * cacheCost = (cachedTokens * cacheReadCost) // 1_000_000n
-   *
-   * @deprecated Use calculateCu instead. Kept until WP-7.3.
-   */
-  public calculateCost(modelIdOrAlias: string, usage: TokenUsage): bigint {
-    const model = this.resolveModelOrThrow(modelIdOrAlias);
-    return this.calculateCostForModel(model, usage);
-  }
 
-  /**
-   * Calculates exact cost directly from a ModelDef instance without re-resolving.
-   *
-   * @deprecated Use calculateCu instead. Kept until WP-7.3.
-   */
-  public calculateCostForModel(
-    model: ModelDef<bigint>,
-    usage: TokenUsage
-  ): bigint {
-    const promptTokens = BigInt(Math.max(0, Math.trunc(usage.promptTokens)));
-    const completionTokens = BigInt(Math.max(0, Math.trunc(usage.completionTokens)));
-    const reasoningTokens = BigInt(Math.max(0, Math.trunc(usage.reasoningTokens ?? 0)));
-    const cachedTokens = BigInt(Math.max(0, Math.trunc(usage.cachedTokens ?? 0)));
-
-    const inputCost =
-      (promptTokens * model.inputCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
-    const outputCost =
-      ((completionTokens + reasoningTokens) * model.outputCostPerMTokMicro) /
-      MICRODOLLAR_MULTIPLIER;
-    const cacheCost =
-      (cachedTokens * model.cacheReadCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
-
-    return inputCost + outputCost + cacheCost;
-  }
-
-  /**
-   * Returns a detailed breakdown of costs across prompt, completion, reasoning, and cache.
-   *
-   * @deprecated Use calculateCu instead. Kept until WP-7.3.
-   */
-  public calculateCostBreakdown(
-    modelIdOrAlias: string,
-    usage: TokenUsage
-  ): CostBreakdown {
-    const model = this.resolveModelOrThrow(modelIdOrAlias);
-
-    const promptTokens = BigInt(Math.max(0, Math.trunc(usage.promptTokens)));
-    const completionTokens = BigInt(Math.max(0, Math.trunc(usage.completionTokens)));
-    const reasoningTokens = BigInt(Math.max(0, Math.trunc(usage.reasoningTokens ?? 0)));
-    const cachedTokens = BigInt(Math.max(0, Math.trunc(usage.cachedTokens ?? 0)));
-
-    const promptCost =
-      (promptTokens * model.inputCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
-    const reasoningCost =
-      (reasoningTokens * model.outputCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
-    const completionCost =
-      (completionTokens * model.outputCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
-    const cacheCost =
-      (cachedTokens * model.cacheReadCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
-
-    // Total combines total output tokens (completion + reasoning) cleanly
-    const totalOutputCost =
-      ((completionTokens + reasoningTokens) * model.outputCostPerMTokMicro) /
-      MICRODOLLAR_MULTIPLIER;
-    const totalCost = promptCost + totalOutputCost + cacheCost;
-
-    return {
-      promptCostMicrodollars: promptCost,
-      completionCostMicrodollars: completionCost,
-      reasoningCostMicrodollars: reasoningCost,
-      cacheReadCostMicrodollars: cacheCost,
-      totalCostMicrodollars: totalCost,
-    };
-  }
-
-  /**
-   * Calculates estimated cost in microdollars based on expected token counts.
-   * Useful for pre-flight budget checks before executing upstream calls.
-   *
-   * @deprecated Use calculateCu instead. Kept until WP-7.3.
-   */
-  public calculateEstimatedCost(
-    modelIdOrAlias: string,
-    estimatedPromptTokens: number,
-    estimatedCompletionTokens = 0
-  ): bigint {
-    return this.calculateCost(modelIdOrAlias, {
-      promptTokens: estimatedPromptTokens,
-      completionTokens: estimatedCompletionTokens,
-    });
-  }
 
   /**
    * Retrieves pricing structure for a model or alias.
@@ -692,46 +597,6 @@ export class ModelRegistry implements IModelRegistry {
   // Static Financial Utilities
   // ==========================================
 
-  /**
-   * Computes token cost in microdollars using fixed-point integer math.
-   * (tokens * costPerMTokMicro) // 1_000_000n
-   *
-   * @deprecated Use Credit Units instead. Kept until WP-7.3.
-   */
-  public static calculateTokenCost(
-    tokens: bigint | number,
-    costPerMTokMicro: bigint
-  ): bigint {
-    const tok = typeof tokens === "bigint" ? tokens : BigInt(Math.max(0, Math.trunc(tokens)));
-    return (tok * costPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
-  }
-
-  /**
-   * Converts USD dollar amount to microdollars (bigint).
-   */
-  public static dollarsToMicrodollars(dollars: number | string): bigint {
-    return dollarsToMicrodollars(dollars);
-  }
-
-  /**
-   * Converts microdollars to USD dollars (number, for presentation only).
-   */
-  public static microdollarsToDollars(microdollars: bigint): number {
-    return microdollarsToDollars(microdollars);
-  }
-
-  /**
-   * Formats microdollars into human-readable USD string.
-   */
-  public static formatMicrodollars(
-    microdollars: bigint,
-    options?: {
-      includeSymbol?: boolean;
-      precision?: "cents" | "microdollars" | "auto";
-    }
-  ): string {
-    return formatMicrodollars(microdollars, options);
-  }
 }
 
 /**

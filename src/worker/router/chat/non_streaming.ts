@@ -91,12 +91,14 @@ export async function handleNonStreamingResponse(
 
     // 3. Update AuthToken spend in D1
     const authTokensRepo = deps.getAuthTokensRepo(env);
-    if (authContext.token && authTokensRepo && costMicrodollars > 0n) {
+    const tokenSpend = cu > 0n ? cu : costMicrodollars;
+    if (authContext.token && authTokensRepo && tokenSpend > 0n) {
       try {
         await authTokensRepo.recordSpend(
           authContext.token.id,
           authContext.tenantId,
-          costMicrodollars
+          tokenSpend,
+          cu > 0n ? cu : undefined
         );
       } catch {
         // Non-blocking hot path invariant
@@ -188,12 +190,11 @@ export async function handleNonStreamingResponse(
   };
 
   let calculatedCu = cu;
-  if (calculatedCu === 0n && (upstreamJson.usage || costMicrodollars > 0n)) {
+  if (calculatedCu === 0n && (upstreamJson.usage || cascadeRes.usage)) {
     if (deps.modelRegistry) {
       try {
         const registry = deps.modelRegistry as unknown as {
           calculateCu?: (model: string, usage: TokenUsage) => bigint;
-          calculateCost?: (model: string, usage: TokenUsage) => bigint;
         };
         if (typeof registry.calculateCu === "function") {
           calculatedCu = registry.calculateCu(cascadeRes.model, effectiveUsage);
@@ -209,18 +210,6 @@ export async function handleNonStreamingResponse(
       } catch {
         // Fall back below
       }
-    }
-
-    if (calculatedCu === 0n && deps.modelRegistry) {
-      try {
-        calculatedCu = deps.modelRegistry.calculateCost(cascadeRes.model, effectiveUsage);
-      } catch {
-        // Fall back below
-      }
-    }
-
-    if (calculatedCu === 0n && costMicrodollars > 0n) {
-      calculatedCu = costMicrodollars;
     }
   }
 
@@ -305,7 +294,6 @@ export async function handleNonStreamingResponse(
     provider: cascadeRes.provider,
     attempts: cascadeRes.attempts,
     cu: calculatedCu.toString(),
-    costMicrodollars: costMicrodollars.toString(),
     isStream: false,
     commonsNotice: cascadeRes.lease?.commonsNotice,
   });

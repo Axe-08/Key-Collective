@@ -135,14 +135,6 @@ export interface IModelRegistry {
     maxOutputTokens?: number
   ): void;
 
-  calculateCost(modelIdOrAlias: string, usage: TokenUsage): bigint;
-  calculateCostForModel(model: ModelDef<bigint>, usage: TokenUsage): bigint;
-  calculateCostBreakdown(modelIdOrAlias: string, usage: TokenUsage): CostBreakdown;
-  calculateEstimatedCost(
-    modelIdOrAlias: string,
-    estimatedPromptTokens: number,
-    estimatedCompletionTokens?: number
-  ): bigint;
   getPricing(modelIdOrAlias: string): ModelPricing<bigint>;
 
   findCandidates(criteria?: ModelFilterCriteria): ModelDef<bigint>[];

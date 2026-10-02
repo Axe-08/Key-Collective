@@ -1,11 +1,14 @@
 <script lang="ts">
   import type { TenantSurveillanceRow } from '../../../../../src/contracts/v3_5_types';
-  import { formatMicrodollars } from '../../types';
+  import { formatCu } from '../../types';
   import { isAnomaly, getTierBadgeClass, getAuthProviderIcon, formatRelativeTime } from './helpers';
 
   interface ExtendedTenantRow extends TenantSurveillanceRow {
+    communityDebtCu?: number;
+    community_debt_cu?: number;
     communityDebtMicroCu?: number;
     community_debt_micro_cu?: number;
+    todaySpendCu?: number;
     keys?: Array<{
       id: string;
       tenant_id?: string;
@@ -54,12 +57,9 @@
     }
   }
 
-  function formatDebt(debtMicroCu?: number): string {
-    const val = debtMicroCu ?? 0;
-    if (val === 0) return '0 µCU';
-    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)} CU`;
-    if (val >= 1_000) return `${(val / 1_000).toFixed(1)} mCU`;
-    return `${val} µCU`;
+  function formatDebt(debtCu?: number): string {
+    const val = debtCu ?? 0;
+    return `${formatCu(val)} CU`;
   }
 </script>
 
@@ -97,7 +97,8 @@
             {@const nearCap = isAnomaly(t)}
             {@const rpmSat = t.rpmLimit === Infinity ? 0 : Math.min(100, Math.round((t.currentRpm / t.rpmLimit) * 100))}
             {@const isExpanded = expandedTenantIds.includes(t.tenantId)}
-            {@const debt = t.communityDebtMicroCu ?? t.community_debt_micro_cu ?? 0}
+            {@const debt = t.communityDebtCu ?? t.community_debt_cu ?? t.communityDebtMicroCu ?? t.community_debt_micro_cu ?? 0}
+            {@const spend = t.todaySpendCu ?? t.todaySpendMicrodollars ?? 0}
             {@const tenantKeys = t.keys ?? []}
 
             <tr class="hover:bg-surface-container/40 transition-colors {t.isQuarantined ? 'bg-error-container/5' : ''}">
@@ -166,19 +167,19 @@
                 </div>
               </td>
 
-              <!-- Today Spend Microdollars -->
-              <td class="py-3 px-3 text-secondary font-semibold" title="{t.todaySpendMicrodollars} µ$">
-                {formatMicrodollars(t.todaySpendMicrodollars)}
+              <!-- Today Spend CU -->
+              <td class="py-3 px-3 text-secondary font-semibold" title="{spend} CU">
+                {formatCu(spend)} CU
               </td>
 
-              <!-- Community Debt Micro-CU -->
+              <!-- Community Debt CU -->
               <td class="py-3 px-3">
                 {#if debt > 0}
                   <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
                     ⚠️ {formatDebt(debt)}
                   </span>
                 {:else}
-                  <span class="text-outline text-[11px]">0 µCU</span>
+                  <span class="text-outline text-[11px]">0 CU</span>
                 {/if}
               </td>
 

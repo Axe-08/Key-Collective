@@ -27,27 +27,16 @@ export async function saveRollup(db: D1Database, rollup: RollupInput): Promise<v
   if (!rollup.modelId || rollup.modelId.trim().length === 0) {
     throw new Error("Model ID cannot be empty");
   }
-  assertValidMicrodollars(rollup.costMicrodollarsDelta);
+  if (rollup.costMicrodollarsDelta !== undefined) {
+    assertValidMicrodollars(rollup.costMicrodollarsDelta);
+  }
 
   const requestsDelta = Math.max(0, Math.trunc(rollup.requestsDelta ?? 1));
   const tokensDelta = Math.max(0, Math.trunc(rollup.tokensDelta ?? 0));
-  const costDelta = Number(rollup.costMicrodollarsDelta);
 
   const cuDelta = (rollup as { cuDelta?: bigint | number }).cuDelta !== undefined
     ? Number((rollup as { cuDelta?: bigint | number }).cuDelta)
     : Math.max(0, Math.floor((tokensDelta + 999) / 1000));
-
-  const query = `
-    INSERT INTO daily_spend_rollup (
-      tenant_id, day, provider, model_id,
-      total_requests, total_tokens, total_cost_microdollars
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT (tenant_id, day, provider, model_id)
-    DO UPDATE SET
-      total_requests = total_requests + excluded.total_requests,
-      total_tokens = total_tokens + excluded.total_tokens,
-      total_cost_microdollars = total_cost_microdollars + excluded.total_cost_microdollars
-  `;
 
   const cuQuery = `
     INSERT INTO daily_cu_rollup (
@@ -61,19 +50,7 @@ export async function saveRollup(db: D1Database, rollup: RollupInput): Promise<v
       total_cu = total_cu + excluded.total_cu
   `;
 
-  const spendStmt = db
-    .prepare(query)
-    .bind(
-      rollup.tenantId.trim(),
-      rollup.day.trim(),
-      rollup.provider.trim(),
-      rollup.modelId.trim(),
-      requestsDelta,
-      tokensDelta,
-      costDelta
-    );
-
-  const cuStmt = db
+  await db
     .prepare(cuQuery)
     .bind(
       rollup.tenantId.trim(),
@@ -83,9 +60,8 @@ export async function saveRollup(db: D1Database, rollup: RollupInput): Promise<v
       requestsDelta,
       tokensDelta,
       cuDelta
-    );
-
-  await db.batch([spendStmt, cuStmt]);
+    )
+    .run();
 }
 
 export async function getTenantMetrics(
@@ -98,10 +74,10 @@ export async function getTenantMetrics(
 
   let query = `
     SELECT
-      COALESCE(SUM(total_cost_microdollars), 0) as total_cost,
+      0 as total_cost,
       COALESCE(SUM(total_requests), 0) as total_requests,
       COALESCE(SUM(total_tokens), 0) as total_tokens
-    FROM daily_spend_rollup
+    FROM daily_cu_rollup
     WHERE tenant_id = ?
   `;
   const params: unknown[] = [tenantId.trim()];
@@ -118,10 +94,6 @@ export async function getTenantMetrics(
 
   const row = await db.prepare(query).bind(...params).first<AggregateDbRow>();
 
-  const totalCost =
-    row?.total_cost !== undefined && row.total_cost !== null
-      ? BigInt(row.total_cost)
-      : 0n;
   const totalRequests =
     row?.total_requests !== undefined && row.total_requests !== null
       ? Number(row.total_requests)
@@ -133,7 +105,7 @@ export async function getTenantMetrics(
 
   return {
     tenantId: tenantId.trim(),
-    totalCostMicrodollars: totalCost,
+    totalCostMicrodollars: 0n,
     totalRequests,
     totalTokens,
   };
@@ -155,8 +127,8 @@ export async function getDailyRollups(
       model_id,
       total_requests,
       total_tokens,
-      total_cost_microdollars
-    FROM daily_spend_rollup
+      0 as total_cost_microdollars
+    FROM daily_cu_rollup
     WHERE tenant_id = ?
   `;
   const params: unknown[] = [tenantId.trim()];
@@ -183,6 +155,6 @@ export async function getDailyRollups(
     modelId: r.model_id,
     totalRequests: Number(r.total_requests),
     totalTokens: Number(r.total_tokens),
-    totalCostMicrodollars: BigInt(r.total_cost_microdollars),
+    totalCostMicrodollars: 0n,
   }));
 }

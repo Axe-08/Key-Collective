@@ -35,8 +35,8 @@ export interface CostLedgerEvent<TCost = bigint> {
   cachedTokens: number;
   /** Reasoning / thought tokens consumed */
   reasoningTokens: number;
-  /** Total transaction cost in int64 microdollars */
-  costMicrodollars: TCost;
+  /** Total transaction cost in int64 microdollars (deprecated, omitted in Phase 6) */
+  costMicrodollars?: TCost;
   /** Total upstream latency in milliseconds */
   latencyMs: number;
   /** HTTP status code returned by upstream */
@@ -77,8 +77,8 @@ export interface CostLedgerEventInput {
   cachedTokens?: number;
   /** Number of reasoning/thought tokens */
   reasoningTokens?: number;
-  /** Transaction cost in int64 microdollars (must be integer, zero floating-point) */
-  costMicrodollars: bigint | number;
+  /** Transaction cost in int64 microdollars (deprecated, optional in Phase 6) */
+  costMicrodollars?: bigint | number;
   /** Upstream latency in milliseconds */
   latencyMs?: number;
   /** HTTP status code returned by upstream */
@@ -112,8 +112,8 @@ export interface DailySpendRollup<TCost = bigint> {
   totalRequests: number;
   /** Total tokens processed (prompt + completion + reasoning) */
   totalTokens: number;
-  /** Total financial spend in int64 microdollars */
-  totalCostMicrodollars: TCost;
+  /** Total financial spend in int64 microdollars (deprecated) */
+  totalCostMicrodollars?: TCost;
   /** Total Credit Units */
   totalCu: bigint;
 }
@@ -143,8 +143,8 @@ export interface DailySpendRollupInput {
   requestsDelta?: number;
   /** Tokens delta to increment (defaults to 0) */
   tokensDelta?: number;
-  /** Cost delta in int64 microdollars to increment (must be integer) */
-  costMicrodollarsDelta: bigint | number;
+  /** Cost delta in int64 microdollars to increment (deprecated, optional) */
+  costMicrodollarsDelta?: bigint | number;
   /** CU delta to increment */
   cuDelta?: bigint | number;
 }
@@ -196,10 +196,10 @@ export interface ListDailyRollupsOptions {
  */
 export interface TenantSpendSummary {
   tenantId: string;
-  totalCostMicrodollars: bigint;
+  totalCostMicrodollars?: bigint;
   totalRequests: number;
   totalTokens: number;
-  totalCu?: bigint;
+  totalCu: bigint;
   periodStart?: string;
   periodEnd?: string;
 }
@@ -218,7 +218,7 @@ export interface CostLedgerDbRow {
   completion_tokens: number;
   cached_tokens: number;
   reasoning_tokens: number;
-  cost_microdollars: number | string | bigint;
+  cost_microdollars?: number | string | bigint | null;
   latency_ms: number;
   status_code: number;
   created_at: string;
@@ -238,7 +238,7 @@ export interface DailySpendRollupDbRow {
   model_id: string;
   total_requests: number;
   total_tokens: number;
-  total_cost_microdollars: number | string | bigint;
+  total_cost_microdollars?: number | string | bigint | null;
   total_cu?: number | string | bigint | null;
 }
 
@@ -261,6 +261,6 @@ export interface ReconcileRollupDbRow {
   model_id: string;
   total_requests: number;
   total_tokens: number;
-  total_cost_microdollars: number | string | bigint;
+  total_cost_microdollars?: number | string | bigint | null;
   total_cu?: number | string | bigint | null;
 }

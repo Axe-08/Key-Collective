@@ -372,128 +372,12 @@ describe("ModelRegistry", () => {
     });
   });
 
-  describe("Fixed-Point Microdollar Pricing Math (tc-09)", () => {
-    it("calculates exact cost matching tc-09 golden test case", () => {
-      // tc-09 specification:
-      // input_cost: 150_000 microdollars (bash.15/1M)
-      // output_cost: 600_000 microdollars (bash.60/1M)
-      // prompt_tokens: 1000
-      // completion_tokens: 500
-      // expected: (1000 * 150_000 / 1_000_000) + (500 * 600_000 / 1_000_000) = 150 + 300 = 450 microdollars
-      const testModel: ModelDef<bigint> = {
-        id: "tc-09-model",
-        provider: "openai",
-        logicalAliases: ["tc-09"],
-        contextWindow: 128_000,
-        maxOutputTokens: 4096,
-        inputCostPerMTokMicro: 150_000n,
-        outputCostPerMTokMicro: 600_000n,
-        cacheReadCostPerMTokMicro: 0n,
-        supportsTools: true,
-        supportsVision: false,
-        supportsJsonSchema: true,
-        isActive: true,
-      };
-
-      const reg = new ModelRegistry([testModel]);
-      const cost = reg.calculateCost("tc-09-model", {
-        promptTokens: 1000,
-        completionTokens: 500,
-      });
-
-      expect(cost).toBe(450n);
-    });
-
-    it("calculates cost with cached tokens and reasoning tokens", () => {
-      // prompt: 2000 tokens @ 1_000_000 µ$/1M = 2 µ$
-      // cached: 5000 tokens @ 200_000 µ$/1M = 1 µ$
-      // completion: 1000 tokens @ 3_000_000 µ$/1M = 3 µ$
-      // reasoning: 1000 tokens @ 3_000_000 µ$/1M = 3 µ$
-      // total expected = 2 + 1 + 3 + 3 = 9 µ$
-      const model: ModelDef<bigint> = {
-        id: "reasoning-cache-model",
-        provider: "google",
-        logicalAliases: ["rc-model"],
-        contextWindow: 100_000,
-        maxOutputTokens: 8192,
-        inputCostPerMTokMicro: 1_000_000n,
-        outputCostPerMTokMicro: 3_000_000n,
-        cacheReadCostPerMTokMicro: 200_000n,
-        supportsTools: true,
-        supportsVision: true,
-        supportsJsonSchema: true,
-        isActive: true,
-      };
-
-      const reg = new ModelRegistry([model]);
-      const cost = reg.calculateCost("reasoning-cache-model", {
-        promptTokens: 2000,
-        completionTokens: 1000,
-        cachedTokens: 5000,
-        reasoningTokens: 1000,
-      });
-
-      expect(cost).toBe(9000n);
-    });
-
-    it("returns detailed cost breakdown with identical sum", () => {
-      const usage: TokenUsage = {
-        promptTokens: 1000,
-        completionTokens: 500,
-        cachedTokens: 2000,
-        reasoningTokens: 300,
-      };
-
-      const breakdown = registry.calculateCostBreakdown("gemini-2.0-flash", usage);
-      const directCost = registry.calculateCost("gemini-2.0-flash", usage);
-
-      expect(breakdown.totalCostMicrodollars).toBe(directCost);
-      expect(
-        breakdown.promptCostMicrodollars +
-          breakdown.completionCostMicrodollars +
-          breakdown.reasoningCostMicrodollars +
-          breakdown.cacheReadCostMicrodollars
-      ).toBe(breakdown.totalCostMicrodollars);
-    });
-
-    it("handles zero tokens without errors", () => {
-      const cost = registry.calculateCost("gemini-2.0-flash", {
-        promptTokens: 0,
-        completionTokens: 0,
-      });
-      expect(cost).toBe(0n);
-    });
-
-    it("enforces zero floating-point math on integer division truncations", () => {
-      // 1 token @ 150_000 µ$/1M: 1 * 150_000 / 1_000_000 = 0 (truncated integer division)
-      const cost = ModelRegistry.calculateTokenCost(1, 150_000n);
-      expect(cost).toBe(0n);
-
-      // 7 tokens @ 150_000 µ$/1M: 7 * 150_000 = 1_050_000 / 1_000_000 = 1 µ$
-      const cost7 = ModelRegistry.calculateTokenCost(7, 150_000n);
-      expect(cost7).toBe(1n);
-    });
-
-    it("calculates pre-flight estimated cost", () => {
-      const estimated = registry.calculateEstimatedCost("gemini-2.0-flash", 10_000, 2_000);
-      // prompt: 10_000 * 100_000 / 1_000_000 = 1000 µ$ (bash.001)
-      // completion: 2_000 * 400_000 / 1_000_000 = 800 µ$ (bash.0008)
-      // total = 1800 µ$
-      expect(estimated).toBe(1800n);
-    });
-
+  describe("Model Pricing", () => {
     it("getPricing returns correct pricing structure", () => {
       const pricing = registry.getPricing("gemini-2.0-flash");
       expect(pricing.inputCostPerMTokMicro).toBe(100_000n);
       expect(pricing.outputCostPerMTokMicro).toBe(400_000n);
       expect(pricing.cacheReadCostPerMTokMicro).toBe(25_000n);
-    });
-
-    it("static financial conversion helpers work accurately", () => {
-      expect(ModelRegistry.dollarsToMicrodollars("1.25")).toBe(1_250_000n);
-      expect(ModelRegistry.microdollarsToDollars(1_250_000n)).toBe(1.25);
-      expect(ModelRegistry.formatMicrodollars(1_250_000n)).toBe("$1.25");
-      expect(ModelRegistry.formatMicrodollars(1_500_000n)).toBe("$1.50");
     });
   });
 

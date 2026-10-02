@@ -114,7 +114,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
     // Verify headers
     expect(response.headers.get("x-kc-cu")).toBe(expectedCu.toString());
     expect(response.headers.get("x-kc-cu")).toBe("13");
-    expect(response.headers.get("x-kc-cost-microdollars")).toBe("5000");
+    expect(response.headers.get("x-kc-cost-microdollars")).toBeNull();
     expect(response.headers.get("x-kc-model-used")).toBe(modelDef.id);
     expect(response.headers.get("x-kc-model")).toBeNull();
     expect(response.headers.get("x-kc-provider")).toBe(modelDef.provider);
@@ -180,7 +180,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
     // Verify headers
     expect(response.headers.get("x-kc-cu")).toBe(expectedCu.toString());
     expect(response.headers.get("x-kc-cu")).toBe("16");
-    expect(response.headers.get("x-kc-cost-microdollars")).toBe("9000");
+    expect(response.headers.get("x-kc-cost-microdollars")).toBeNull();
 
     // Verify kc_api response payload
     const body = (await response.json()) as {
@@ -246,7 +246,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-kc-cu")).toBe("69");
-    expect(response.headers.get("x-kc-cost-microdollars")).toBe("12000");
+    expect(response.headers.get("x-kc-cost-microdollars")).toBeNull();
 
     const body = (await response.json()) as {
       usage: {
@@ -284,7 +284,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-kc-cu")).toBe("0");
-    expect(response.headers.get("x-kc-cost-microdollars")).toBe("0");
+    expect(response.headers.get("x-kc-cost-microdollars")).toBeNull();
 
     const body = (await response.json()) as {
       usage: {

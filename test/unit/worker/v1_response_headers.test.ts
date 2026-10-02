@@ -88,7 +88,6 @@ describe("applyKcHeaders Unit Tests", () => {
       modelUsed: "gemini-2.0-flash",
       provider: "google",
       cu: 42,
-      costMicrodollars: 1000,
       isStream: false,
     });
 
@@ -97,7 +96,7 @@ describe("applyKcHeaders Unit Tests", () => {
     expect(res.headers.get("x-kc-provider")).toBe("google");
     expect(res.headers.get("x-kc-attempts")).toBe("1");
     expect(res.headers.get("x-kc-cu")).toBe("42");
-    expect(res.headers.get("x-kc-cost-microdollars")).toBe("1000");
+    expect(res.headers.get("x-kc-cost-microdollars")).toBeNull();
 
     // Strictly verify stripped internal headers
     expect(res.headers.get("x-kc-tenant-id")).toBeNull();
@@ -210,7 +209,7 @@ describe("V1 Response Headers Enforcement via RouterHandler", () => {
     expect(res.headers.get("x-kc-provider")).toBe("google");
     expect(res.headers.get("x-kc-attempts")).toBe("1");
     expect(res.headers.get("x-kc-cu")).toBeTruthy();
-    expect(res.headers.get("x-kc-cost-microdollars")).toBeDefined();
+    expect(res.headers.get("x-kc-cost-microdollars")).toBeNull();
 
     // Verify information boundary: no tenant-id or trace-id leaked
     expect(res.headers.get("x-kc-tenant-id")).toBeNull();

@@ -501,7 +501,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       expect(ledgerEvent.provider).toBe("google");
       expect(ledgerEvent.promptTokens).toBe(100);
       expect(ledgerEvent.completionTokens).toBe(50);
-      expect(ledgerEvent.costMicrodollars).toBeGreaterThan(0n);
+      expect(ledgerEvent.costMicrodollars ?? 0n).toBe(0n);
       expect(ledgerEvent.statusCode).toBe(200);
 
       // Verify AuthToken spend update
@@ -601,7 +601,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       expect(ledgerEvent.requestId).toBe("trace-tc02");
       expect(ledgerEvent.promptTokens).toBe(1000);
       expect(ledgerEvent.completionTokens).toBe(500);
-      expect(ledgerEvent.costMicrodollars).toBeGreaterThan(0n);
+      expect(ledgerEvent.costMicrodollars ?? 0n).toBe(0n);
       expect(ledgerEvent.statusCode).toBe(200);
 
       // Assert telemetry emitted

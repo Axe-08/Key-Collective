@@ -115,13 +115,7 @@ export function formatCu(cu: number | bigint): string {
   return cu.toLocaleString('en-US');
 }
 
-/** @deprecated Use CU */
-export type Microdollars = CU;
 
-/** @deprecated Use formatCu */
-export function formatMicrodollars(amount: Microdollars): string {
-  return formatCu(amount);
-}
 
 export interface DebtEntry {
   id: string;

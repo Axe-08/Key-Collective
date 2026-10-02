@@ -82,7 +82,9 @@ export class CostLedgerRepository {
 
     const id = input.id ?? crypto.randomUUID();
     const createdAt = this.normalizeCreatedAt(input.createdAt);
-    const costBigInt = validateMicrodollars(input.costMicrodollars, "costMicrodollars");
+    const costBigInt = input.costMicrodollars !== undefined
+      ? validateMicrodollars(input.costMicrodollars, "costMicrodollars")
+      : 0n;
     const promptTokens = Math.max(0, Math.trunc(input.promptTokens ?? 0));
     const completionTokens = Math.max(0, Math.trunc(input.completionTokens ?? 0));
     const cachedTokens = Math.max(0, Math.trunc(input.cachedTokens ?? 0));
@@ -100,9 +102,9 @@ export class CostLedgerRepository {
       INSERT INTO cost_ledger (
         id, request_id, tenant_id, key_id, provider, model_id,
         prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-        cost_microdollars, latency_ms, status_code, created_at,
+        latency_ms, status_code, created_at,
         cu, usage_estimated, borrowed, lender_tenant_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
@@ -119,7 +121,6 @@ export class CostLedgerRepository {
           completionTokens,
           cachedTokens,
           reasoningTokens,
-          this.toSqlInteger(costBigInt),
           latencyMs,
           input.statusCode,
           createdAt,
@@ -176,9 +177,9 @@ export class CostLedgerRepository {
       INSERT INTO cost_ledger (
         id, request_id, tenant_id, key_id, provider, model_id,
         prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-        cost_microdollars, latency_ms, status_code, created_at,
+        latency_ms, status_code, created_at,
         cu, usage_estimated, borrowed, lender_tenant_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     for (const input of inputs) {
@@ -186,7 +187,9 @@ export class CostLedgerRepository {
 
       const id = input.id ?? crypto.randomUUID();
       const createdAt = this.normalizeCreatedAt(input.createdAt);
-      const costBigInt = validateMicrodollars(input.costMicrodollars, "costMicrodollars");
+      const costBigInt = input.costMicrodollars !== undefined
+        ? validateMicrodollars(input.costMicrodollars, "costMicrodollars")
+        : 0n;
       const promptTokens = Math.max(0, Math.trunc(input.promptTokens ?? 0));
       const completionTokens = Math.max(0, Math.trunc(input.completionTokens ?? 0));
       const cachedTokens = Math.max(0, Math.trunc(input.cachedTokens ?? 0));
@@ -211,7 +214,6 @@ export class CostLedgerRepository {
         completionTokens,
         cachedTokens,
         reasoningTokens,
-        this.toSqlInteger(costBigInt),
         latencyMs,
         input.statusCode,
         createdAt,
@@ -271,7 +273,9 @@ export class CostLedgerRepository {
     const id = input.id ?? crypto.randomUUID();
     const createdAt = this.normalizeCreatedAt(input.createdAt);
     const day = formatCalendarDay(createdAt);
-    const costBigInt = validateMicrodollars(input.costMicrodollars, "costMicrodollars");
+    const costBigInt = input.costMicrodollars !== undefined
+      ? validateMicrodollars(input.costMicrodollars, "costMicrodollars")
+      : 0n;
     const promptTokens = Math.max(0, Math.trunc(input.promptTokens ?? 0));
     const completionTokens = Math.max(0, Math.trunc(input.completionTokens ?? 0));
     const cachedTokens = Math.max(0, Math.trunc(input.cachedTokens ?? 0));
@@ -290,21 +294,9 @@ export class CostLedgerRepository {
       INSERT INTO cost_ledger (
         id, request_id, tenant_id, key_id, provider, model_id,
         prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
-        cost_microdollars, latency_ms, status_code, created_at,
+        latency_ms, status_code, created_at,
         cu, usage_estimated, borrowed, lender_tenant_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const spendRollupQuery = `
-      INSERT INTO daily_spend_rollup (
-        tenant_id, day, provider, model_id,
-        total_requests, total_tokens, total_cost_microdollars
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (tenant_id, day, provider, model_id)
-      DO UPDATE SET
-        total_requests = total_requests + excluded.total_requests,
-        total_tokens = total_tokens + excluded.total_tokens,
-        total_cost_microdollars = total_cost_microdollars + excluded.total_cost_microdollars
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const cuRollupQuery = `
@@ -330,7 +322,6 @@ export class CostLedgerRepository {
       completionTokens,
       cachedTokens,
       reasoningTokens,
-      this.toSqlInteger(costBigInt),
       latencyMs,
       input.statusCode,
       createdAt,
@@ -338,16 +329,6 @@ export class CostLedgerRepository {
       usageEstimated,
       borrowed,
       lenderTenantId
-    );
-
-    const spendRollupStmt = this.db.prepare(spendRollupQuery).bind(
-      input.tenantId.trim(),
-      day,
-      input.provider.trim(),
-      input.modelId.trim(),
-      1,
-      totalTokens,
-      this.toSqlInteger(costBigInt)
     );
 
     const cuRollupStmt = this.db.prepare(cuRollupQuery).bind(
@@ -361,7 +342,7 @@ export class CostLedgerRepository {
     );
 
     try {
-      await this.db.batch([ledgerStmt, spendRollupStmt, cuRollupStmt]);
+      await this.db.batch([ledgerStmt, cuRollupStmt]);
     } catch (err: unknown) {
       throw new CostLedgerError(
         `Failed to record cost ledger event with rollup: ${
@@ -557,24 +538,11 @@ export class CostLedgerRepository {
     }
 
     const day = formatCalendarDay(input.day);
-    const costBigInt = validateMicrodollars(input.costMicrodollarsDelta, "costMicrodollarsDelta");
     const requestsDelta = Math.max(0, Math.trunc(input.requestsDelta ?? 1));
     const tokensDelta = Math.max(0, Math.trunc(input.tokensDelta ?? 0));
     const cuDelta = input.cuDelta !== undefined
       ? validateMicrodollars(input.cuDelta, "cuDelta")
       : BigInt(Math.max(0, Math.floor((tokensDelta + 999) / 1000)));
-
-    const spendQuery = `
-      INSERT INTO daily_spend_rollup (
-        tenant_id, day, provider, model_id,
-        total_requests, total_tokens, total_cost_microdollars
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (tenant_id, day, provider, model_id)
-      DO UPDATE SET
-        total_requests = total_requests + excluded.total_requests,
-        total_tokens = total_tokens + excluded.total_tokens,
-        total_cost_microdollars = total_cost_microdollars + excluded.total_cost_microdollars
-    `;
 
     const cuQuery = `
       INSERT INTO daily_cu_rollup (
@@ -589,19 +557,7 @@ export class CostLedgerRepository {
     `;
 
     try {
-      const spendStmt = this.db
-        .prepare(spendQuery)
-        .bind(
-          input.tenantId.trim(),
-          day,
-          input.provider.trim(),
-          input.modelId.trim(),
-          requestsDelta,
-          tokensDelta,
-          this.toSqlInteger(costBigInt)
-        );
-
-      const cuStmt = this.db
+      await this.db
         .prepare(cuQuery)
         .bind(
           input.tenantId.trim(),
@@ -611,9 +567,8 @@ export class CostLedgerRepository {
           requestsDelta,
           tokensDelta,
           this.toSqlInteger(cuDelta)
-        );
-
-      await this.db.batch([spendStmt, cuStmt]);
+        )
+        .run();
     } catch (err: unknown) {
       throw new CostLedgerError(
         `Failed to upsert daily spend rollup: ${
@@ -638,43 +593,41 @@ export class CostLedgerRepository {
 
     let sql = `
       SELECT
-        s.tenant_id,
-        s.day,
-        s.provider,
-        s.model_id,
-        s.total_requests,
-        s.total_tokens,
-        s.total_cost_microdollars,
-        COALESCE(c.total_cu, 0) as total_cu
-      FROM daily_spend_rollup s
-      LEFT JOIN daily_cu_rollup c
-        ON s.tenant_id = c.tenant_id AND s.day = c.day AND s.provider = c.provider AND s.model_id = c.model_id
-      WHERE s.tenant_id = ?
+        tenant_id,
+        day,
+        provider,
+        model_id,
+        total_requests,
+        total_tokens,
+        0 as total_cost_microdollars,
+        total_cu
+      FROM daily_cu_rollup
+      WHERE tenant_id = ?
     `;
     const bindings: unknown[] = [tenantId.trim()];
 
     if (options.startDate) {
-      sql += " AND s.day >= ?";
+      sql += " AND day >= ?";
       bindings.push(formatCalendarDay(options.startDate));
     }
 
     if (options.endDate) {
-      sql += " AND s.day <= ?";
+      sql += " AND day <= ?";
       bindings.push(formatCalendarDay(options.endDate));
     }
 
     if (options.provider) {
-      sql += " AND s.provider = ?";
+      sql += " AND provider = ?";
       bindings.push(options.provider.trim());
     }
 
     if (options.modelId) {
-      sql += " AND s.model_id = ?";
+      sql += " AND model_id = ?";
       bindings.push(options.modelId.trim());
     }
 
     const order = options.order?.toUpperCase() === "ASC" ? "ASC" : "DESC";
-    sql += ` ORDER BY s.day ${order}`;
+    sql += ` ORDER BY day ${order}`;
 
     if (options.limit && options.limit > 0) {
       sql += " LIMIT ?";
@@ -714,14 +667,12 @@ export class CostLedgerRepository {
 
     let sql = `
       SELECT
-        COALESCE(SUM(s.total_cost_microdollars), 0) as total_cost,
-        COALESCE(SUM(s.total_requests), 0) as total_requests,
-        COALESCE(SUM(s.total_tokens), 0) as total_tokens,
-        COALESCE(SUM(c.total_cu), 0) as total_cu
-      FROM daily_spend_rollup s
-      LEFT JOIN daily_cu_rollup c
-        ON s.tenant_id = c.tenant_id AND s.day = c.day AND s.provider = c.provider AND s.model_id = c.model_id
-      WHERE s.tenant_id = ?
+        0 as total_cost,
+        COALESCE(SUM(total_requests), 0) as total_requests,
+        COALESCE(SUM(total_tokens), 0) as total_tokens,
+        COALESCE(SUM(total_cu), 0) as total_cu
+      FROM daily_cu_rollup
+      WHERE tenant_id = ?
     `;
     const bindings: unknown[] = [tenantId.trim()];
 
@@ -730,25 +681,24 @@ export class CostLedgerRepository {
 
     if (options.startDate) {
       periodStart = formatCalendarDay(options.startDate);
-      sql += " AND s.day >= ?";
+      sql += " AND day >= ?";
       bindings.push(periodStart);
     }
 
     if (options.endDate) {
       periodEnd = formatCalendarDay(options.endDate);
-      sql += " AND s.day <= ?";
+      sql += " AND day <= ?";
       bindings.push(periodEnd);
     }
 
     try {
       const row = await this.db.prepare(sql).bind(...bindings).first<AggregateDbRow>();
-      const totalCostRaw = row?.total_cost ?? 0;
       const totalRequestsRaw = row?.total_requests ?? 0;
       const totalTokensRaw = row?.total_tokens ?? 0;
 
       return {
         tenantId: tenantId.trim(),
-        totalCostMicrodollars: BigInt(totalCostRaw),
+        totalCostMicrodollars: 0n,
         totalRequests: Number(totalRequestsRaw),
         totalTokens: Number(totalTokensRaw),
         totalCu: BigInt(row?.total_cu ?? 0),
@@ -773,7 +723,7 @@ export class CostLedgerRepository {
     options: { startDate?: string | Date; endDate?: string | Date } = {}
   ): Promise<bigint> {
     const summary = await this.getTenantSpendSummary(tenantId, options);
-    return summary.totalCostMicrodollars;
+    return summary.totalCostMicrodollars ?? 0n;
   }
 
   /**
@@ -799,7 +749,6 @@ export class CostLedgerRepository {
         model_id,
         COUNT(*) as total_requests,
         SUM(prompt_tokens + completion_tokens + reasoning_tokens) as total_tokens,
-        SUM(cost_microdollars) as total_cost_microdollars,
         SUM(COALESCE(cu, 10 + ((prompt_tokens + 999) / 1000) + (((completion_tokens + reasoning_tokens) * 4 + 999) / 1000))) as total_cu
       FROM cost_ledger
       WHERE tenant_id = ? AND substr(created_at, 1, 10) = ?
@@ -815,29 +764,16 @@ export class CostLedgerRepository {
       const rows = aggResult.results ?? [];
 
       // Delete existing rollup rows for this tenant and day to overwrite cleanly
-      const deleteSpendQuery = `
-        DELETE FROM daily_spend_rollup
-        WHERE tenant_id = ? AND day = ?
-      `;
-
       const deleteCuQuery = `
         DELETE FROM daily_cu_rollup
         WHERE tenant_id = ? AND day = ?
       `;
 
       const statements: D1PreparedStatement[] = [
-        this.db.prepare(deleteSpendQuery).bind(tenantId.trim(), dayStr),
         this.db.prepare(deleteCuQuery).bind(tenantId.trim(), dayStr),
       ];
 
       const reconciledRollups: DailySpendRollup[] = [];
-
-      const insertSpendQuery = `
-        INSERT INTO daily_spend_rollup (
-          tenant_id, day, provider, model_id,
-          total_requests, total_tokens, total_cost_microdollars
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
 
       const insertCuQuery = `
         INSERT INTO daily_cu_rollup (
@@ -847,23 +783,11 @@ export class CostLedgerRepository {
       `;
 
       for (const r of rows) {
-        const costBigInt = BigInt(r.total_cost_microdollars ?? 0);
         const cuBigInt = BigInt(r.total_cu ?? 0);
         const requests = Number(r.total_requests ?? 0);
         const tokens = Number(r.total_tokens ?? 0);
 
         statements.push(
-          this.db
-            .prepare(insertSpendQuery)
-            .bind(
-              tenantId.trim(),
-              dayStr,
-              r.provider,
-              r.model_id,
-              requests,
-              tokens,
-              this.toSqlInteger(costBigInt)
-            ),
           this.db
             .prepare(insertCuQuery)
             .bind(
@@ -884,7 +808,7 @@ export class CostLedgerRepository {
           modelId: r.model_id,
           totalRequests: requests,
           totalTokens: tokens,
-          totalCostMicrodollars: costBigInt,
+          totalCostMicrodollars: 0n,
           totalCu: cuBigInt,
         });
       }
@@ -1042,7 +966,9 @@ export class CostLedgerRepository {
       completionTokens,
       cachedTokens,
       reasoningTokens,
-      costMicrodollars: BigInt(row.cost_microdollars),
+      costMicrodollars: row.cost_microdollars !== null && row.cost_microdollars !== undefined
+        ? BigInt(row.cost_microdollars)
+        : 0n,
       latencyMs: Number(row.latency_ms),
       statusCode: Number(row.status_code),
       createdAt: row.created_at,
@@ -1064,7 +990,9 @@ export class CostLedgerRepository {
       modelId: row.model_id,
       totalRequests: Number(row.total_requests),
       totalTokens: Number(row.total_tokens),
-      totalCostMicrodollars: BigInt(row.total_cost_microdollars),
+      totalCostMicrodollars: row.total_cost_microdollars !== null && row.total_cost_microdollars !== undefined
+        ? BigInt(row.total_cost_microdollars)
+        : 0n,
       totalCu: BigInt(row.total_cu ?? 0),
     };
   }

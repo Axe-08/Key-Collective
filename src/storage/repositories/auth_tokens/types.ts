@@ -15,8 +15,8 @@ export interface AuthTokenRow {
   tenant_id: string;
   encrypted_token_b64: string | null;
   nonce_b64: string | null;
-  budget_microdollars: number | bigint;
-  spent_microdollars: number | bigint;
+  budget_microdollars?: number | bigint;
+  spent_microdollars?: number | bigint;
   allowed_providers: string;
   rpm_limit: number;
   expires_at: string | null;
@@ -41,9 +41,9 @@ export interface AuthTokenRecord {
   encryptedTokenB64?: string | null;
   /** 12-byte initialization vector / nonce in base64 format */
   nonceB64?: string | null;
-  /** Spending budget ceiling in int64 microdollars (0n = unlimited / no ceiling) */
+  /** Spending budget ceiling in int64 microdollars (deprecated, defaults to 0n) */
   budgetMicrodollars: Microdollars;
-  /** Total spend accumulated in int64 microdollars */
+  /** Total spend accumulated in int64 microdollars (deprecated, defaults to 0n) */
   spentMicrodollars: Microdollars;
   /** List of allowed model provider names (empty array means all providers allowed) */
   allowedProviders: string[];

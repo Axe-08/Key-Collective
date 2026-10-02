@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Microdollars, formatMicrodollars } from '../types';
+  import { type CU, formatCu } from '../types';
 
   export interface ProviderMatrixItem {
     readonly provider: 'gemini' | 'groq' | 'cerebras' | 'deepseek';
@@ -18,7 +18,7 @@
     clusterRpmMax = 100,
     tokenVelocityTpm = 0,
     tokenVelocityMaxTpm = 40000,
-    spendRateMicrodollarsPerHour = 0,
+    spendRateCuPerHour = 0,
     upstreamLatencyMs = 0,
     rotationFairnessScore = 100,
     providers = [],
@@ -27,7 +27,7 @@
     clusterRpmMax?: number;
     tokenVelocityTpm?: number;
     tokenVelocityMaxTpm?: number;
-    spendRateMicrodollarsPerHour?: Microdollars;
+    spendRateCuPerHour?: CU;
     upstreamLatencyMs?: number;
     rotationFairnessScore?: number;
     providers?: ProviderMatrixItem[];
@@ -45,7 +45,7 @@
 
   let rpmPercentage = $derived(Math.round((clusterRpmCurrent / clusterRpmMax) * 100));
   let tpmPercentage = $derived(Math.round((tokenVelocityTpm / tokenVelocityMaxTpm) * 100));
-  let spendPerHourUsd = $derived(formatMicrodollars(spendRateMicrodollarsPerHour));
+  let spendPerHourCu = $derived(formatCu(spendRateCuPerHour));
 </script>
 
 <div class="space-y-6">
@@ -190,14 +190,14 @@
       </div>
     </div>
 
-    <!-- DIAL 3: Microdollar Cost Trajectory -->
+    <!-- DIAL 3: Credit Unit Cost Trajectory -->
     <div class="specular-card rounded-xl bg-surface-container-low/90 backdrop-blur-md p-5 flex flex-col items-center justify-between text-center relative overflow-hidden group hover:border-amber-500/40 transition-all">
       <div class="w-full flex items-center justify-between text-label-sm font-label-sm text-outline">
         <span class="flex items-center gap-1 font-mono uppercase tracking-wider">
           <span class="material-symbols-outlined text-[15px] text-amber-400">price_change</span>
           Cost Velocity
         </span>
-        <span class="font-mono text-amber-300 font-bold">µ$ RATE</span>
+        <span class="font-mono text-amber-300 font-bold">CU RATE</span>
       </div>
 
       <!-- Circular SVG Gauge -->
@@ -220,7 +220,7 @@
             stroke-width="7"
             stroke-linecap="round"
             stroke-dasharray={CIRCUMFERENCE}
-            stroke-dashoffset={calculateDashOffset(spendRateMicrodollarsPerHour, 1000000)}
+            stroke-dashoffset={calculateDashOffset(spendRateCuPerHour, 10000)}
             fill="transparent"
             class="transition-all duration-700 ease-out"
           />
@@ -236,17 +236,17 @@
         <!-- Center Readout -->
         <div class="absolute inset-0 flex flex-col items-center justify-center">
           <span class="text-[18px] font-bold font-mono text-amber-300 tracking-tight leading-none">
-            {spendPerHourUsd}
+            {spendPerHourCu}
           </span>
           <span class="text-[10px] font-mono text-outline uppercase tracking-wider mt-0.5">
-            Per Hour
+            CU / Hour
           </span>
         </div>
       </div>
 
       <div class="w-full pt-2 border-t border-outline-variant/20 flex justify-between text-[11px] font-mono text-on-surface-variant">
         <span>Fixed-Point</span>
-        <span class="text-amber-300 font-mono">{spendRateMicrodollarsPerHour.toLocaleString()} µ$/h</span>
+        <span class="text-amber-300 font-mono">{spendRateCuPerHour.toLocaleString()} CU/h</span>
       </div>
     </div>
 
