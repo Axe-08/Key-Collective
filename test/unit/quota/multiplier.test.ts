@@ -253,3 +253,97 @@ describe("WP-5.12 T-5.12.1 — calculateMultiplierPct with vesting_cap, debt_cap
     expect(determineJailStatus(2n, 0n)).toBe("HARD_JAIL");
   });
 });
+
+import { evaluateQuota } from "../../../src/quota/tenant/evaluator";
+import { getTierLimits } from "../../../src/quota/limits";
+
+describe("WP-5.12 T-5.12.2 — Quota evaluator scales effective_limit by multiplier_pct", () => {
+  it("scales SOFT_WARNING tenant RPM and RPD ceilings by 1.5x (multiplier_pct = 150) while non-contributor stays at tier limits", () => {
+    const now = Date.UTC(2030, 0, 2, 12, 0, 0);
+    const tierLimits = getTierLimits("builder"); // rpmLimit: 10, rpdLimit: 250
+
+    // 1. Non-contributor (multiplierCeiling = 100) stays at base tier limits (10 RPM, 250 RPD)
+    const nonContributorRes = evaluateQuota(
+      { count: 1, costMicrodollars: 0n },
+      {
+        tenantId: "tenant-non-contrib",
+        tier: "builder",
+        entries: [
+          {
+            timestamp: now - 5_000,
+            count: tierLimits.rpmLimit,
+            costMicrodollars: "0",
+          },
+        ],
+        totalCostMicrodollars: 0n,
+        communityDebtMicroCu: 0n,
+        dailyContributedCu: 0n,
+        trustedContributor: false,
+        consecutiveDebtFreeDays: 0,
+        multiplierCeiling: 100,
+        rpmWindowMs: 60_000,
+        rpdWindowMs: 86_400_000,
+        now,
+      }
+    );
+    expect(nonContributorRes.result.allowed).toBe(false);
+    expect(nonContributorRes.result.rpmLimit).toBe(tierLimits.rpmLimit);
+    expect(nonContributorRes.result.rpdLimit).toBe(tierLimits.rpdLimit);
+
+    // 2. SOFT_WARNING tenant (multiplierCeiling = 150) has RPM ceiling = tier_rpm * 1.5 = 15, RPD = 375
+    const softWarningAllowed = evaluateQuota(
+      { count: 1, costMicrodollars: 0n },
+      {
+        tenantId: "tenant-soft-warning",
+        tier: "builder",
+        entries: [
+          {
+            timestamp: now - 5_000,
+            count: tierLimits.rpmLimit, // 10 requests already used, allowed up to 15
+            costMicrodollars: "0",
+          },
+        ],
+        totalCostMicrodollars: 0n,
+        communityDebtMicroCu: 75n,
+        dailyContributedCu: 100n,
+        trustedContributor: false,
+        consecutiveDebtFreeDays: 0,
+        multiplierCeiling: 150,
+        rpmWindowMs: 60_000,
+        rpdWindowMs: 86_400_000,
+        now,
+      }
+    );
+    expect(softWarningAllowed.result.allowed).toBe(true);
+    expect(softWarningAllowed.result.rpmLimit).toBe(Math.floor((tierLimits.rpmLimit * 150) / 100));
+    expect(softWarningAllowed.result.rpdLimit).toBe(Math.floor((tierLimits.rpdLimit * 150) / 100));
+
+    // Request #16 exceeds the 15 RPM effective limit
+    const softWarningBlocked = evaluateQuota(
+      { count: 1, costMicrodollars: 0n },
+      {
+        tenantId: "tenant-soft-warning",
+        tier: "builder",
+        entries: [
+          {
+            timestamp: now - 5_000,
+            count: Math.floor((tierLimits.rpmLimit * 150) / 100),
+            costMicrodollars: "0",
+          },
+        ],
+        totalCostMicrodollars: 0n,
+        communityDebtMicroCu: 75n,
+        dailyContributedCu: 100n,
+        trustedContributor: false,
+        consecutiveDebtFreeDays: 0,
+        multiplierCeiling: 150,
+        rpmWindowMs: 60_000,
+        rpdWindowMs: 86_400_000,
+        now,
+      }
+    );
+    expect(softWarningBlocked.result.allowed).toBe(false);
+    expect(softWarningBlocked.result.rpmLimit).toBe(Math.floor((tierLimits.rpmLimit * 150) / 100));
+  });
+});
+
