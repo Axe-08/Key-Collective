@@ -16,15 +16,16 @@
 <script lang="ts">
   import LinkGithubButton from './LinkGithubButton.svelte';
   import { onMount } from 'svelte';
-  import DebtLedgerWidget from './DebtLedgerWidget.svelte';
+  import StandingCard from './standing/StandingCard.svelte';
+  import type { ContributorStandingData } from './standing/types';
 
   // communityPool comes from GET /api/session rights (WP-3.3); without it the tab is locked (D-05).
   let { initialMetrics, communityPool = false, tenantId = '' }: { initialMetrics?: PoolMetrics, communityPool?: boolean, tenantId?: string } = $props();
 
   let activeSubTab = $state<'community' | 'providers' | 'contribution'>('community');
   
-  let telemetry = $state<any>(null);
-  let standing = $state<any>(null);
+  let telemetry = $state<Record<string, unknown> | null>(null);
+  let standing = $state<ContributorStandingData | null>(null);
   let loading = $state(true);
 
   onMount(async () => {
@@ -192,13 +193,13 @@
             <div class="bg-surface-container/60 border border-outline-variant/30 rounded-xl p-4 text-on-surface">
               <div class="text-sm text-on-surface-variant">CU Balance / Debt</div>
               <div class="text-lg font-semibold mt-1">
-                {standing?.community_debt_cu ?? 0} &micro;CU debt / {standing?.daily_contributed_cu ?? 0} &micro;CU contributed
+                {standing?.community_debt_cu ?? 0} CU debt / {standing?.contributed_cu_24h ?? standing?.daily_contributed_cu ?? 0} CU contributed
               </div>
             </div>
           </div>
           
           <div class="mt-6 border-t border-outline-variant/30 pt-4">
-            <DebtLedgerWidget {tenantId} />
+            <StandingCard {standing} {tenantId} />
           </div>
         </div>
       {/if}

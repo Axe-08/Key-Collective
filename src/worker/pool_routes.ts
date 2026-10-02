@@ -113,6 +113,15 @@ interface LiveStandingState {
   trustedContributor?: boolean;
   consecutiveDebtFreeDays?: number;
   jailStatus: 'PRISTINE' | 'SOFT_WARNING' | 'HARD_JAIL';
+  caps?: {
+    vesting: number;
+    debt: number;
+    band: number;
+  };
+  recovery?: {
+    debt_decay: string;
+    estimated_days: number;
+  };
 }
 
 async function fetchLiveStandingFromDO(
@@ -168,6 +177,15 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
       trusted_contributor: false,
       jail_status: 'PRISTINE',
       consecutive_debt_free_days: 0,
+      caps: {
+        vesting: 450,
+        debt: 450,
+        band: 450,
+      },
+      recovery: {
+        debt_decay: '20% per day at 00:00 UTC',
+        estimated_days: 0,
+      },
     });
   }
 
@@ -196,6 +214,15 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
     trusted_contributor: Boolean(doState.trustedContributor),
     jail_status: doState.jailStatus ?? 'PRISTINE',
     consecutive_debt_free_days: doState.consecutiveDebtFreeDays ?? 0,
+    caps: doState.caps ?? {
+      vesting: 450,
+      debt: debt > contributed ? 100 : 450,
+      band: 450,
+    },
+    recovery: doState.recovery ?? {
+      debt_decay: '20% per day at 00:00 UTC',
+      estimated_days: 0,
+    },
   });
 }
 
