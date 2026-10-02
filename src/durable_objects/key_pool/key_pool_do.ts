@@ -22,7 +22,6 @@ import {
 import {
   CapacitySummary,
   KeySelector,
-  SelectKeyOptions,
 } from "../key_selector";
 import { RateLimiter, RateLimiterMetrics } from "../rate_limiter";
 import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
@@ -72,7 +71,6 @@ interface PrivateLeaseRecord {
 
 declare module "./types" {
   interface KeyPoolDOOptions {
-    statusCacheTtlMs?: number;
     /** Injectable Clock for deterministic testing */
     clock?: Clock;
   }
@@ -85,8 +83,6 @@ declare module "./types" {
 export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolContract {
   public tenantId!: string;
   private tenantBound = false;
-  public statusCacheTtlMs!: number;
-  private statusCache!: Map<string, { status: string; cachedAt: number }>;
   private storageKeyPrefix!: string;
   private clock!: Clock;
   private timeProvider!: () => number;
@@ -127,7 +123,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
   private initKeyPoolInstance(options?: KeyPoolDOOptions): void {
     this.tenantBound = false;
-    this.statusCache = new Map<string, { status: string; cachedAt: number }>();
     this.storageKeyPrefix = "pool:";
     this.isLoaded = false;
     this.privateReconciled = false;
@@ -138,7 +133,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
     this.clock = options?.clock ?? systemClock;
     this.timeProvider = options?.timeProvider ?? (() => this.clock.now());
-    this.statusCacheTtlMs = options?.statusCacheTtlMs ?? 60_000;
 
     // Resolve tenant ID strictly:
     const namedTenant = options?.tenantId ?? this.ctx.id.name;
@@ -316,20 +310,9 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       try {
         const stmt = this.env.DB.prepare(
           `SELECT k.id, k.tenant_id, k.label, k.provider, k.encrypted_key_b64, k.nonce_b64,
-                  k.rpm_limit, k.rpd_limit, k.priority, k.status, k.pool_type,
-                  COALESCE(cs.community_debt_cu, 0) as owner_debt
+                  k.rpm_limit, k.rpd_limit, k.priority, k.status, k.pool_type
            FROM api_keys k
-           LEFT JOIN contributor_standing cs ON cs.tenant_id = k.tenant_id
-           WHERE k.status = 'HEALTHY'
-             AND (k.tenant_id = ? OR (k.pool_type = 'COMMUNITY' AND k.community_routing_status = 'ACTIVE'
-                  -- D-21: another tenant's key is lent only while its owner holds communityPool
-                  AND EXISTS (
-                    SELECT 1 FROM users u
-                     WHERE u.id = k.tenant_id AND u.registration_status = 'ACTIVE'
-                       AND COALESCE(u.is_quarantined, 0) = 0 AND u.community_eligible = 1
-                       AND EXISTS (SELECT 1 FROM user_identities i WHERE i.user_id = u.id AND i.provider = 'google')
-                       AND EXISTS (SELECT 1 FROM user_identities i WHERE i.user_id = u.id AND i.provider = 'github')
-                  )))`
+           WHERE k.tenant_id = ? AND k.status = 'HEALTHY'`
         ).bind(this.tenantId);
         const result = await stmt.all<{
           id: string;
@@ -343,32 +326,21 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
           priority: number;
           status: string;
           pool_type?: string;
-          owner_debt?: number;
         }>();
         if (result.results && result.results.length > 0) {
-          const d1Keys: EncryptedKey[] = result.results.map((row) => {
-            const isOwnKey = row.tenant_id === this.tenantId;
-
-            let calculatedPriority = isOwnKey ? 10000 : 0;
-            if (!isOwnKey) {
-              const debtBoost = Math.min(5000, Math.floor(Number(row.owner_debt ?? 0) / 1000));
-              calculatedPriority += debtBoost;
-            }
-
-            return {
-              id: row.id,
-              tenantId: isOwnKey ? this.tenantId : row.tenant_id,
-              provider: row.provider,
-              ciphertext: row.encrypted_key_b64,
-              nonce: row.nonce_b64,
-              label: row.label,
-              priority: calculatedPriority,
-              rpmLimit: row.rpm_limit,
-              rpdLimit: row.rpd_limit,
-              status: normaliseKeyStatus(row.status),
-              poolType: row.pool_type != null ? normalisePoolType(row.pool_type) : (isOwnKey ? "PRIVATE" : "COMMUNITY"),
-            };
-          });
+          const d1Keys: EncryptedKey[] = result.results.map((row) => ({
+            id: row.id,
+            tenantId: this.tenantId,
+            provider: row.provider,
+            ciphertext: row.encrypted_key_b64,
+            nonce: row.nonce_b64,
+            label: row.label,
+            priority: 10000,
+            rpmLimit: row.rpm_limit,
+            rpdLimit: row.rpd_limit,
+            status: normaliseKeyStatus(row.status),
+            poolType: row.pool_type != null ? normalisePoolType(row.pool_type) : "PRIVATE",
+          }));
           for (const k of d1Keys) {
             this.keysMap.set(k.id, k);
           }
@@ -481,7 +453,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     for (const [id, k] of Array.from(this.keysMap.entries())) {
       if (k.tenantId === this.tenantId && !seenIds.has(id)) {
         this.keysMap.delete(id);
-        this.statusCache.delete(id);
         this.keySelector.removeKey(id);
       }
     }
@@ -554,7 +525,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
   public clearMemoryCache(): void {
     this.keysMap.clear();
-    this.statusCache.clear();
     this.leasesMap.clear();
     this.isLoaded = false;
     this.privateReconciled = false;
@@ -618,7 +588,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
   public async removeKey(keyId: string): Promise<boolean> {
     await this.ensureLoaded();
-    this.statusCache.delete(keyId);
     const removedFromMap = this.keysMap.delete(keyId);
     const removedFromSelector = this.keySelector.removeKey(keyId);
     if (removedFromMap || removedFromSelector) {
@@ -938,7 +907,6 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
   public async clearKeys(): Promise<void> {
     this.keysMap.clear();
-    this.statusCache.clear();
     this.keySelector.clearKeys();
     this.isLoaded = true;
     await this.persistKeys();
@@ -948,87 +916,14 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
   // KeyPoolContract Implementation (LLD 3.4)
   // =========================================================================
 
-  private async checkD1KeyStatus(keyId: string): Promise<string | null> {
-    const now = this.now();
-    const cached = this.statusCache.get(keyId);
-
-    if (cached !== undefined && this.statusCacheTtlMs > 0 && (now - cached.cachedAt) <= this.statusCacheTtlMs) {
-      return cached.status;
-    }
-
-    if (!this.env.DB || typeof this.env.DB.prepare !== "function") {
-      return cached?.status ?? null;
-    }
-
-    try {
-      const row = await this.env.DB.prepare("SELECT status FROM api_keys WHERE id = ?")
-        .bind(keyId)
-        .first<{ status: string }>();
-
-      const status = row?.status ?? null;
-      if (status !== null) {
-        if (this.statusCacheTtlMs > 0) {
-          this.statusCache.set(keyId, { status, cachedAt: now });
-        } else {
-          this.statusCache.delete(keyId);
-        }
-      }
-      return status;
-    } catch {
-      return cached?.status ?? null;
-    }
-  }
-
-  public async getKey(provider: string, tenantId?: string): Promise<string> {
-    if (!provider || provider.trim().length === 0) {
-      throw new InvalidKeyError("Provider parameter cannot be empty");
-    }
-    if (tenantId) {
-      this.assertTenant(tenantId);
-    }
-
-    await this.ensureLoaded();
-
-    while (true) {
-      const selected = await this.keySelector.selectKey(provider);
-
-      const isNotOwned = selected.tenantId !== this.tenantId;
-      if (isNotOwned && this.env.DB && typeof this.env.DB.prepare === "function") {
-        const status = await this.checkD1KeyStatus(selected.id);
-        if (status && status.toUpperCase() === "REVOKED") {
-          await this.removeKey(selected.id);
-          continue;
-        }
-      }
-
-      return selected.id;
-    }
-  }
-
-  public async getKeyDetails(
-    provider: string,
-    options?: SelectKeyOptions<EncryptedKey>
-  ): Promise<EncryptedKey> {
+  public async getKey(provider: string): Promise<string> {
     if (!provider || provider.trim().length === 0) {
       throw new InvalidKeyError("Provider parameter cannot be empty");
     }
 
     await this.ensureLoaded();
-
-    while (true) {
-      const selected = await this.keySelector.selectKey(provider, options);
-
-      const isNotOwned = selected.tenantId !== this.tenantId;
-      if (isNotOwned && this.env.DB && typeof this.env.DB.prepare === "function") {
-        const status = await this.checkD1KeyStatus(selected.id);
-        if (status && status.toUpperCase() === "REVOKED") {
-          await this.removeKey(selected.id);
-          continue;
-        }
-      }
-
-      return { ...selected };
-    }
+    const selected = await this.keySelector.selectKey(provider);
+    return selected.id;
   }
 
   public async recordUsage(

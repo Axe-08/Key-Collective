@@ -33,3 +33,15 @@ describe("Legacy Routing Engine Retired (T-7.5.1)", () => {
     expect(fs.existsSync(path.resolve(process.cwd(), "archives/src/router/leases/engine.ts"))).toBe(true);
   });
 });
+
+describe("KeyPoolDO Private Keys Only & Legacy getKey Archived (T-7.5.2)", () => {
+  it("KeyPoolDO does not load other tenants' COMMUNITY keys or define legacy getKey(provider, tenantId)", () => {
+    const doPath = path.resolve(process.cwd(), "src/durable_objects/key_pool/key_pool_do.ts");
+    const content = fs.readFileSync(doPath, "utf-8");
+
+    expect(content).not.toMatch(/k\.pool_type\s*=\s*'COMMUNITY'\s*AND\s*k\.community_routing_status/);
+    expect(content).not.toMatch(/getKey\b.*provider.*tenantId/);
+    expect(content).not.toMatch(/checkD1KeyStatus/);
+    expect(fs.existsSync(path.resolve(process.cwd(), "archives/src/durable_objects/key_pool/legacy_get_key.ts"))).toBe(true);
+  });
+});
