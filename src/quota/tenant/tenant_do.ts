@@ -772,6 +772,16 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     return calculateUsage(this.entries, this.rpdWindowMs, this.now(), projectId);
   }
 
+  public async getPersonalRequestCount(targetTenantId?: string): Promise<number> {
+    await this.ensureLoaded();
+    if (targetTenantId) {
+      this.assertTenant(targetTenantId);
+    }
+    const now = this.now();
+    this.pruneEntries(now);
+    return calculateUsage(this.entries, this.rpdWindowMs, now);
+  }
+
   public getTotalCostMicrodollars(): bigint {
     return this.totalCostMicrodollars;
   }

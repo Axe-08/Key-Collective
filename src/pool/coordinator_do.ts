@@ -1827,6 +1827,30 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
+   * Returns all non-revoked, non-quarantined community keys owned by `owner` in this shard (WP-5.9 T-5.9.1).
+   */
+  public async getOwnerCommunityKeys(
+    owner: string
+  ): Promise<Array<{ keyId: string; provider: string; status: CoordinatorKeyStatus }>> {
+    const sql = this.ensureSchema();
+    const rows = sql
+      .exec(
+        `SELECT key_id, provider, status
+           FROM keys
+          WHERE owner = ?
+            AND status NOT IN ('REVOKED', 'QUARANTINED')
+          ORDER BY key_id ASC`,
+        owner
+      )
+      .toArray();
+    return rows.map((r) => ({
+      keyId: String(r.key_id),
+      provider: String(r.provider),
+      status: String(r.status) as CoordinatorKeyStatus,
+    }));
+  }
+
+  /**
    * 60-second alarm:
    * - Promotes OBSERVATION keys past `observation_until`
    * - Reactivates COOLDOWN keys past `reactivate_at`

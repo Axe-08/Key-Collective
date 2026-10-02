@@ -145,7 +145,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.8.3 Leaky-bucket retry near provider reset window in orchestrator
 
 ### WP-5.9
-- [ ] T-5.9.1 Passive contributor canary in KeyPoolDO midnight alarm via checkProofOfLife
+- [x] T-5.9.1 Passive contributor canary in KeyPoolDO midnight alarm via checkProofOfLife
 
 ### WP-5.10
 - [ ] T-5.10.1 Coordinator hourly stats (capacity utilisation, p90 latency, w_provider_pct)
