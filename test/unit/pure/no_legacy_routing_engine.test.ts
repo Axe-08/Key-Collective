@@ -45,3 +45,14 @@ describe("KeyPoolDO Private Keys Only & Legacy getKey Archived (T-7.5.2)", () =>
     expect(fs.existsSync(path.resolve(process.cwd(), "archives/src/durable_objects/key_pool/legacy_get_key.ts"))).toBe(true);
   });
 });
+
+describe("wrangler.jsonc & package.json Clean of ROUTING_ENGINE (T-7.5.3)", () => {
+  it("wrangler.jsonc and package.json contain zero occurrences of ROUTING_ENGINE or test:workers:legacy", () => {
+    const wrangler = fs.readFileSync(path.resolve(process.cwd(), "wrangler.jsonc"), "utf-8");
+    const pkg = fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8");
+
+    expect(wrangler).not.toMatch(/ROUTING_ENGINE/);
+    expect(pkg).not.toMatch(/ROUTING_ENGINE|test:workers:legacy/);
+  });
+});
+
