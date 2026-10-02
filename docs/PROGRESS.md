@@ -221,7 +221,7 @@ Plan: `docs/PHASE7_PLAN.md`
 
 ### WP-7.4
 - [x] T-7.4.1 Rename coordinator SQLite dispatched columns
-- [ ] T-7.4.2 Migration 0024_key_schema_contract.sql
+- [x] T-7.4.2 Migration 0024_key_schema_contract.sql
 - [ ] T-7.4.3 Clean normaliseKeyStatus legacy branches
 
 ### WP-7.5

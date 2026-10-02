@@ -248,13 +248,6 @@ describe("WP-5.10 T-5.10.2 — Truthful telemetry endpoints", () => {
       rpdLimit: 1000,
     });
 
-    // Write bogus stale values to D1 api_keys.dispatches_today / dispatches_communal to prove get_keys ignores D1
-    await env.DB.prepare(
-      "UPDATE api_keys SET dispatches_today = 999, dispatches_communal = 888 WHERE id = ?"
-    )
-      .bind(key.id)
-      .run();
-
     const googleStub = getCoordinatorStub("pool:google");
     const t0 = Date.UTC(2030, 5, 2, 11, 0, 0);
     await runInDurableObject(googleStub, async (coord: PoolCoordinatorDO) => {
