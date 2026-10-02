@@ -277,13 +277,12 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
     contributed = Number(doState.contributedCu24h ?? doState.dailyContributedCu ?? 0);
   } else {
     const standing = await db.prepare(
-      `SELECT community_debt_cu, community_debt_micro_cu, daily_contributed_cu FROM contributor_standing WHERE tenant_id = ?`
+      `SELECT community_debt_cu, daily_contributed_cu FROM contributor_standing WHERE tenant_id = ?`
     ).bind(tenantId).first<{
       community_debt_cu?: number;
-      community_debt_micro_cu?: number;
       daily_contributed_cu: number;
     }>();
-    debt = standing?.community_debt_cu ?? standing?.community_debt_micro_cu ?? 0;
+    debt = standing?.community_debt_cu ?? 0;
     contributed = standing?.daily_contributed_cu ?? 0;
   }
 

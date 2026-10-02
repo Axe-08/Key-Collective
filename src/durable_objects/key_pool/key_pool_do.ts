@@ -317,7 +317,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
         const stmt = this.env.DB.prepare(
           `SELECT k.id, k.tenant_id, k.label, k.provider, k.encrypted_key_b64, k.nonce_b64,
                   k.rpm_limit, k.rpd_limit, k.priority, k.status, k.pool_type,
-                  COALESCE(cs.community_debt_micro_cu, 0) as owner_debt
+                  COALESCE(cs.community_debt_cu, 0) as owner_debt
            FROM api_keys k
            LEFT JOIN contributor_standing cs ON cs.tenant_id = k.tenant_id
            WHERE upper(k.status) = 'HEALTHY'

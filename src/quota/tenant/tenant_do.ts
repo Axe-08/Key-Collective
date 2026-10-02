@@ -686,7 +686,6 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           `INSERT INTO contributor_standing (
              tenant_id,
              community_debt_cu,
-             community_debt_micro_cu,
              contributed_cu_24h,
              daily_contributed_cu,
              multiplier_pct,
@@ -697,10 +696,9 @@ export class TenantQuotaDO extends DurableObject<unknown> {
              consecutive_debt_free_days,
              last_reset_day,
              updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(tenant_id) DO UPDATE SET
              community_debt_cu = excluded.community_debt_cu,
-             community_debt_micro_cu = excluded.community_debt_micro_cu,
              contributed_cu_24h = excluded.contributed_cu_24h,
              daily_contributed_cu = excluded.daily_contributed_cu,
              multiplier_pct = excluded.multiplier_pct,
@@ -714,7 +712,6 @@ export class TenantQuotaDO extends DurableObject<unknown> {
         )
         .bind(
           this.tenantId,
-          parseInt(this.communityDebtCu.toString(), 10),
           parseInt(this.communityDebtCu.toString(), 10),
           parseInt(contributed24h.toString(), 10),
           parseInt(contributed24h.toString(), 10),

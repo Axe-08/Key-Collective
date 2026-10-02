@@ -37,7 +37,8 @@ export type ApiKey = z.infer<typeof ApiKeySchema>;
 
 export const CommunityDebtLedgerSchema = z.object({
   tenant_id: z.string().min(1),
-  community_debt_micro_cu: z.number().int().nonnegative(),
+  community_debt_cu: z.number().int().nonnegative().optional(),
+  community_debt_micro_cu: z.number().int().nonnegative().optional(),
   daily_free_draw_micro_cu: z.number().int().nonnegative(),
   daily_consumed_from_pool_micro_cu: z.number().int().nonnegative(),
   last_decay_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
