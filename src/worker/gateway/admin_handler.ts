@@ -352,6 +352,48 @@ export async function handleAdminRequest(
     return options.cors !== false ? applyCors(res) : res;
   }
 
+  // 2.66 Admin Maintenance: Suspend unclaimed legacy GitHub accounts (WP-7.2 T-7.2.2)
+  if (method === "POST" && pathname === "/api/admin/maintenance/suspend-unclaimed-legacy") {
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (!db || typeof db.prepare !== "function") {
+      const res = Response.json(
+        { success: false, error: "Database not configured" },
+        { status: 500 }
+      );
+      return options.cors !== false ? applyCors(res) : res;
+    }
+
+    const updateUsersRes = await db
+      .prepare(
+        "UPDATE users SET registration_status = 'SUSPENDED' WHERE (id LIKE 'gh_%' OR id LIKE 'usr_gh_%') AND registration_status = 'ACTIVE'"
+      )
+      .run();
+    const suspendedUsers = updateUsersRes?.meta?.changes ?? 0;
+
+    await db
+      .prepare(
+        "UPDATE api_keys SET status = 'QUARANTINED', community_routing_status = 'QUARANTINED' WHERE tenant_id IN (SELECT id FROM users WHERE registration_status = 'SUSPENDED' AND (id LIKE 'gh_%' OR id LIKE 'usr_gh_%'))"
+      )
+      .run();
+
+    const actor = await getAdminActor(request, db);
+    const clientIp = request.headers.get("cf-connecting-ip") || "127.0.0.1";
+    await logAdminAudit(
+      db,
+      actor,
+      "SUSPEND_UNCLAIMED_LEGACY",
+      "legacy_accounts",
+      { suspended_users: suspendedUsers },
+      clientIp
+    );
+
+    const res = Response.json({
+      success: true,
+      suspended_users: suspendedUsers,
+    });
+    return options.cors !== false ? applyCors(res) : res;
+  }
+
   // 2.7 Admin Community Pool Management (POST /api/admin/pool/manage)
   if (method === "POST" && pathname === "/api/admin/pool/manage") {
     let body: { action?: string } = {};
