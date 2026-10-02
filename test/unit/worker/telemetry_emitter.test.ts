@@ -79,13 +79,6 @@ describe("TelemetryEmitter & Validation", () => {
       expect(validateTelemetryEvent({ ...validEvent, latencyMs: Infinity }).valid).toBe(false);
     });
 
-    it("rejects invalid costMicrodollars (must be non-negative bigint)", () => {
-      // number instead of bigint
-      expect(validateTelemetryEvent({ ...validEvent, costMicrodollars: 2500 as unknown as bigint }).valid).toBe(false);
-      // negative bigint
-      expect(validateTelemetryEvent({ ...validEvent, costMicrodollars: -1n }).valid).toBe(false);
-    });
-
     it("validates optional non-negative cu", () => {
       expect(validateTelemetryEvent({ ...validEvent, cu: 100n }).valid).toBe(true);
       expect(validateTelemetryEvent({ ...validEvent, cu: 0n }).valid).toBe(true);
@@ -96,6 +89,16 @@ describe("TelemetryEmitter & Validation", () => {
       expect(validateTelemetryEvent({ ...validEvent, cu: 100 as unknown as bigint }).valid).toBe(false);
       // negative bigint
       expect(validateTelemetryEvent({ ...validEvent, cu: -1n }).valid).toBe(false);
+    });
+
+    it("does not require or validate costMicrodollars in telemetry_emitter.ts (T-7.3.2)", async () => {
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const src = fs.readFileSync(
+        path.resolve(process.cwd(), "src/worker/telemetry_emitter.ts"),
+        "utf-8"
+      );
+      expect(src).not.toMatch(/costMicrodollars|microdollar|Microdollar/);
     });
 
     it("rejects invalid metadata", () => {
@@ -113,7 +116,7 @@ describe("TelemetryEmitter & Validation", () => {
 
   describe("defaultDataPointMapper", () => {
     it("maps standard TelemetryEvent to AnalyticsEngineDataPoint correctly", () => {
-      const point = defaultDataPointMapper(validEvent);
+      const point = defaultDataPointMapper({ ...validEvent, cu: 2500n });
 
       expect(point.indexes).toEqual(["tenant-omega"]);
       expect(point.blobs?.[0]).toBe("tenant-omega");
@@ -208,7 +211,6 @@ describe("TelemetryEmitter & Validation", () => {
       expect(event.timestamp).toBeGreaterThanOrEqual(before);
       expect(event.timestamp).toBeLessThanOrEqual(after);
       expect(event.latencyMs).toBe(0);
-      expect(event.costMicrodollars).toBe(0n);
       expect(event.metadata).toEqual({});
     });
 
@@ -220,7 +222,6 @@ describe("TelemetryEmitter & Validation", () => {
         timestamp: 1000,
         eventType: "rate_limit_exceeded",
         latencyMs: 12,
-        costMicrodollars: 500n,
         cu: 50n,
         metadata: { path: "/v1/chat/completions" },
       });
@@ -229,7 +230,6 @@ describe("TelemetryEmitter & Validation", () => {
       expect(event.tenantId).toBe("t-custom");
       expect(event.timestamp).toBe(1000);
       expect(event.latencyMs).toBe(12);
-      expect(event.costMicrodollars).toBe(500n);
       expect(event.cu).toBe(50n);
       expect(event.metadata).toEqual({ path: "/v1/chat/completions" });
     });
