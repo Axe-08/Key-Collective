@@ -95,126 +95,114 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
     });
   });
 
-  describe("2. Legacy Routes & Deprecation Headers", () => {
-    it("serves POST /v1/chat/completions on console.* with Deprecation, Sunset, Link headers", async () => {
+  describe("2. Retired Legacy Routes & Absence of Deprecation Headers (WP-7.1)", () => {
+    it("returns 404 for POST /v1/chat/completions on console.*", async () => {
       const res = await fetchWorker("https://console.test/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
       });
-
-      // Equivalent to api.* (401 unauthenticated)
-      expect(res.status).toBe(401);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves GET /v1/health on console.* with 200 and legacy headers", async () => {
+    it("returns 404 for GET /v1/health on console.*", async () => {
       const res = await fetchWorker("https://console.test/v1/health", { method: "GET" });
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as { status: string };
-      expect(["ok", "healthy"]).toContain(data.status);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves POST /v1/chat/completions on apex with legacy headers", async () => {
+    it("redirects POST /v1/chat/completions on apex to console.* with 308", async () => {
       const res = await fetchWorker("https://apex.test/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
       });
-      expect(res.status).toBe(401);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(308);
+      expect(res.headers.get("location")).toBe("https://console.test/v1/chat/completions");
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves alias POST /chat/completions on api.* with legacy headers", async () => {
+    it("redirects GET /v1/models on apex to console.* with 301", async () => {
+      const res = await fetchWorker("https://apex.test/v1/models", {
+        method: "GET",
+      });
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe("https://console.test/v1/models");
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
+    });
+
+    it("returns 404 for retired alias POST /chat/completions on api.*", async () => {
       const res = await fetchWorker("https://api.test/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
       });
-      expect(res.status).toBe(401);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves alias POST /v1/route on api.* with legacy headers", async () => {
+    it("returns 404 for retired alias POST /v1/route on api.*", async () => {
       const res = await fetchWorker("https://api.test/v1/route", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
       });
-      expect(res.status).toBe(401);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves alias POST / on api.* with legacy headers", async () => {
+    it("returns 404 for retired alias POST / on api.*", async () => {
       const res = await fetchWorker("https://api.test/", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
       });
-      expect(res.status).toBe(401);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves alias GET /models on api.* with legacy headers", async () => {
+    it("returns 404 for retired alias GET /models on api.*", async () => {
       const res = await fetchWorker("https://api.test/models", { method: "GET" });
-      expect(res.status).toBe(200);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves alias POST /demo/token with legacy headers", async () => {
+    it("returns 404 for retired alias POST /demo/token on api.*", async () => {
       const res = await fetchWorker("https://api.test/demo/token", { method: "POST" });
-      expect(res.status).toBe(200);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("serves alias POST /api/demo/token on api.* with legacy headers", async () => {
+    it("returns 404 for retired alias POST /api/demo/token on api.*", async () => {
       const res = await fetchWorker("https://api.test/api/demo/token", { method: "POST" });
-      expect(res.status).toBe(200);
-      expect(res.headers.get("deprecation")).toBe("true");
-      expect(res.headers.get("sunset")).toBeDefined();
-      expect(res.headers.get("link")).toContain('<https://api.test/v1>; rel="successor-version"');
+      expect(res.status).toBe(404);
+      expect(res.headers.get("deprecation")).toBeNull();
+      expect(res.headers.get("sunset")).toBeNull();
     });
 
-    it("emits legacy_route_hit telemetry on legacy route access", async () => {
-      const mockTelemetry = {
-        writeDataPoint: vi.fn(),
-      };
-      const customEnv: WorkerEnv = {
-        ...workerEnv,
-        TELEMETRY: mockTelemetry as unknown as AnalyticsEngineDataset,
-      };
-
-      const customWorker = new MainWorker();
-      const req = new Request("https://api.test/chat/completions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
-      });
-
-      const res = await customWorker.fetch(req, customEnv);
-      expect(res.status).toBe(401);
-      expect(mockTelemetry.writeDataPoint).toHaveBeenCalledWith(
-        expect.objectContaining({
-          blobs: expect.arrayContaining(["legacy_route_hit", "POST /chat/completions"]),
-        })
-      );
+    it("never attaches Deprecation or Sunset headers on canonical responses across hosts", async () => {
+      const urls = [
+        "https://api.test/v1/health",
+        "https://api.test/v1/models",
+        "https://console.test/",
+        "https://admin.test/api/admin/health",
+        "https://apex.test/",
+      ];
+      for (const u of urls) {
+        const res = await fetchWorker(u, { method: "GET" });
+        expect(res.headers.get("deprecation")).toBeNull();
+        expect(res.headers.get("sunset")).toBeNull();
+      }
     });
   });
 

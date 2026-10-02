@@ -236,8 +236,8 @@ Plan: `docs/PHASE7_PLAN.md`
 
 ### WP-7.1
 - [x] T-7.1.1 Archive legacy routes and unwire
-- [ ] T-7.1.2 Route matrix integration tests
-- [ ] T-7.1.3 Remove Deprecation / Sunset header injection
+- [x] T-7.1.2 Route matrix integration tests
+- [x] T-7.1.3 Remove Deprecation / Sunset header injection
 
 ### WP-7.2
 - [ ] T-7.2.1 Remove console bearer token branch
