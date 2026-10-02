@@ -210,7 +210,50 @@ Plan: `docs/PHASE6_PLAN.md`
 - [x] T-6.4.7 Public /report page (signed-out, Turnstile)
 - [x] T-6.4.8 Notification toasts every 30s
 
-## Phases 7–8
+## Phase 7 — Contract: remove everything deprecated
 
-Not carded yet. Before each phase, write a plan like docs/PHASE6_PLAN.md, then the same loop.
+Plan: `docs/PHASE7_PLAN.md`
 
+### WP-7.3
+- [ ] T-7.3.1 Migration 0023_credit_units_contract.sql
+- [ ] T-7.3.2 Clean telemetry emitter µ$ remnants
+- [ ] T-7.3.3 Schema conformance test
+
+### WP-7.4
+- [ ] T-7.4.1 Rename coordinator SQLite dispatched columns
+- [ ] T-7.4.2 Migration 0024_key_schema_contract.sql
+- [ ] T-7.4.3 Clean normaliseKeyStatus legacy branches
+
+### WP-7.5
+- [ ] T-7.5.1 Remove ROUTING_ENGINE switch from cascade router
+- [ ] T-7.5.2 Shrink KeyPoolDO to private keys only
+- [ ] T-7.5.3 Remove ROUTING_ENGINE from wrangler.jsonc and scripts
+- [ ] T-7.5.4 Archive legacy routing tests
+
+### WP-7.6
+- [ ] T-7.6.1 Simplify resolveLeasedKey to HKDF-only
+- [ ] T-7.6.2 Archive legacy global-key decryption path in crypto.ts
+
+### WP-7.1
+- [ ] T-7.1.1 Archive legacy routes and unwire
+- [ ] T-7.1.2 Route matrix integration tests
+- [ ] T-7.1.3 Remove Deprecation / Sunset header injection
+
+### WP-7.2
+- [ ] T-7.2.1 Remove console bearer token branch
+- [ ] T-7.2.2 Add maintenance route to suspend unclaimed legacy accounts
+- [ ] T-7.2.3 Archive legacy cookie-based auth token fallback
+
+### WP-7.7
+- [ ] T-7.7.1 Archive parallel storage layer
+- [ ] T-7.7.2 Archive unused contracts and barrels
+- [ ] T-7.7.3 Archive facade modules
+- [ ] T-7.7.4 Archive one-off maintenance routes
+- [ ] T-7.7.5 Wire src/utils/logger.ts as the only logger
+- [ ] T-7.7.6 Verify sybil engine is wired
+- [ ] T-7.7.7 Create scripts/reachability.mjs and add to gate
+- [ ] T-7.7.8 Wire contracts/keys.ts (KeyStatus, PoolType enums)
+
+## Phase 8
+
+Not carded yet. Before this phase, write a plan like docs/PHASE7_PLAN.md, then the same loop.
