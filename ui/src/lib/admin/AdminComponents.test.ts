@@ -43,8 +43,8 @@ describe('WP-6.2: Admin UI Components (T-6.2.4 - T-6.2.7)', () => {
       pool_type: 'COMMUNITY',
       community_routing_status: 'ACTIVE',
       observation_until: null,
-      dispatched_today: 45,
-      dispatched_communal: 20,
+      dispatches_today: 45,
+      dispatches_communal: 20,
       created_at: Date.now(),
     },
   ];

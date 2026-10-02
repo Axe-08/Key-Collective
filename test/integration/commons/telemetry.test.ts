@@ -236,7 +236,7 @@ describe("WP-5.10 T-5.10.2 — Truthful telemetry endpoints", () => {
     expect(statsAfterGoogle).toEqual(statsBeforeGoogle);
   });
 
-  it("handleGetKeys reads per-key dispatched_today and dispatched_communal from coordinator instead of stale D1 columns", async () => {
+  it("handleGetKeys reads per-key dispatches_today and dispatches_communal from coordinator instead of stale D1 columns", async () => {
     const owner = await createUser({ github: true, eligible: true });
     const borrower = await createUser({ github: true, eligible: true });
 
@@ -248,9 +248,9 @@ describe("WP-5.10 T-5.10.2 — Truthful telemetry endpoints", () => {
       rpdLimit: 1000,
     });
 
-    // Write bogus stale values to D1 api_keys.dispatched_today / dispatched_communal to prove get_keys ignores D1
+    // Write bogus stale values to D1 api_keys.dispatches_today / dispatches_communal to prove get_keys ignores D1
     await env.DB.prepare(
-      "UPDATE api_keys SET dispatched_today = 999, dispatched_communal = 888 WHERE id = ?"
+      "UPDATE api_keys SET dispatches_today = 999, dispatches_communal = 888 WHERE id = ?"
     )
       .bind(key.id)
       .run();
@@ -268,7 +268,7 @@ describe("WP-5.10 T-5.10.2 — Truthful telemetry endpoints", () => {
         rpdLimit: 1000,
       });
 
-      // 2 communal dispatches + 1 own dispatch -> dispatched_today = 3, dispatched_communal = 2
+      // 2 communal dispatches + 1 own dispatch -> dispatches_today = 3, dispatches_communal = 2
       const l1 = await coord.lease({ tenant: borrower.id, ownOnly: false, provider: "google" });
       await coord.settle(l1!.leaseId, "ok", 10);
       const l2 = await coord.lease({ tenant: borrower.id, ownOnly: false, provider: "google" });
@@ -281,12 +281,12 @@ describe("WP-5.10 T-5.10.2 — Truthful telemetry endpoints", () => {
     expect(res.status).toBe(200);
     const items = (await res.json()) as Array<{
       id: string;
-      dispatched_today: number;
-      dispatched_communal: number;
+      dispatches_today: number;
+      dispatches_communal: number;
     }>;
     const item = items.find((i) => i.id === key.id);
     expect(item).toBeDefined();
-    expect(item!.dispatched_today).toBe(3);
-    expect(item!.dispatched_communal).toBe(2);
+    expect(item!.dispatches_today).toBe(3);
+    expect(item!.dispatches_communal).toBe(2);
   });
 });

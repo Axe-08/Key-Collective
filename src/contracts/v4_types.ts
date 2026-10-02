@@ -22,7 +22,6 @@ export const ApiKeySchema = z.object({
   pool_type: z.enum(["PRIVATE", "COMMUNITY"]),
   community_routing_status: z.enum(["OBSERVATION", "ACTIVE", "QUARANTINED", "REVOKED"]),
   project_hash_state: z.enum(["ACTIVE", "ROTATING", "TOMBSTONED"]),
-  vesting_tier: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
   observation_until: z.number().int().positive().nullable(),
   rotating_until: z.number().int().positive().nullable(),
   gcp_project_hash: z.string().length(64).nullable(),

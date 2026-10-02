@@ -30,9 +30,8 @@ export interface FormattedKeyItem {
   pool_type: "PRIVATE" | "COMMUNITY";
   community_routing_status: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED";
   observation_until: number | null;
-  dispatched_today: number;
-  dispatched_communal: number;
-  vesting_tier: number;
+  dispatches_today: number;
+  dispatches_communal: number;
   tenant_id?: string;
   is_owner: boolean;
 }
@@ -173,16 +172,6 @@ export async function handleGetKeys(
     const keySuffix = (row.key_suffix || "").slice(-4);
 
     const createdMs = toEpochMs(row.created_at);
-    const ageHours =
-      createdMs !== null ? Math.max(0, (Date.now() - createdMs) / 3_600_000) : 0;
-    const computedVestingTier =
-      normalisePoolType(row.pool_type) === "COMMUNITY"
-        ? ageHours >= 12
-          ? 2
-          : ageHours >= 2
-          ? 1
-          : 0
-        : 0;
 
     const formattedKey: FormattedKeyItem = {
       id: row.id,
@@ -203,9 +192,8 @@ export async function handleGetKeys(
       pool_type: normalisePoolType(row.pool_type),
       community_routing_status: row.community_routing_status ?? "OBSERVATION",
       observation_until: toEpochMs(row.observation_until),
-      dispatched_today: coordEntry?.dispatchedToday ?? 0,
-      dispatched_communal: coordEntry?.dispatchedCommunal ?? 0,
-      vesting_tier: computedVestingTier,
+      dispatches_today: coordEntry?.dispatchedToday ?? 0,
+      dispatches_communal: coordEntry?.dispatchedCommunal ?? 0,
       ...(isGlobal ? { tenant_id: row.tenant_id } : {}),
       is_owner: isOwner,
     };

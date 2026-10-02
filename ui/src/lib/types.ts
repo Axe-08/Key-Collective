@@ -24,8 +24,8 @@ export interface APIKey {
   pool_type?: PoolType;
   community_routing_status?: CommunityRoutingStatus;
   observation_until?: string | null;
-  dispatched_today?: number;
-  dispatched_communal?: number;
+  dispatches_today?: number;
+  dispatches_communal?: number;
   vesting_tier?: 0 | 1 | 2;
   tenant_id?: string;
   is_owner?: boolean;

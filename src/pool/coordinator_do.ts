@@ -223,8 +223,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         minute_count INTEGER NOT NULL DEFAULT 0,
         day_bucket TEXT NOT NULL DEFAULT '',
         day_count INTEGER NOT NULL DEFAULT 0,
-        dispatched_today INTEGER NOT NULL DEFAULT 0,
-        dispatched_communal INTEGER NOT NULL DEFAULT 0,
+        dispatches_today INTEGER NOT NULL DEFAULT 0,
+        dispatches_communal INTEGER NOT NULL DEFAULT 0,
         classification TEXT,
         drain_state TEXT NOT NULL DEFAULT 'OK',
         effective_rpd INTEGER,
@@ -256,8 +256,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       CREATE TABLE IF NOT EXISTS key_model_stats (
         key_id TEXT NOT NULL,
         model TEXT NOT NULL,
-        dispatched_today INTEGER NOT NULL DEFAULT 0,
-        dispatched_communal INTEGER NOT NULL DEFAULT 0,
+        dispatches_today INTEGER NOT NULL DEFAULT 0,
+        dispatches_communal INTEGER NOT NULL DEFAULT 0,
         cu_served INTEGER NOT NULL DEFAULT 0,
         classification TEXT,
         effective_rpd INTEGER,
@@ -464,15 +464,15 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           `SELECT kms.key_id,
                   k.day_bucket AS day,
                   kms.model,
-                  kms.dispatched_today,
-                  kms.dispatched_communal,
+                  kms.dispatches_today,
+                  kms.dispatches_communal,
                   kms.cu_served,
                   COALESCE(kms.classification, k.classification) AS classification
              FROM key_model_stats kms
              JOIN keys k ON k.key_id = kms.key_id
             WHERE k.day_bucket != ''
               AND k.day_bucket != ?
-              AND kms.dispatched_today > 0`,
+              AND kms.dispatches_today > 0`,
           currentDay
         )
         .toArray();
@@ -481,8 +481,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         const keyId = String(r.key_id ?? "");
         const day = String(r.day ?? "");
         const model = String(r.model ?? "default");
-        const dispatched = Number(r.dispatched_today ?? 0);
-        const communal = Number(r.dispatched_communal ?? 0);
+        const dispatched = Number(r.dispatches_today ?? 0);
+        const communal = Number(r.dispatches_communal ?? 0);
         const cuServed = parseInt(String(r.cu_served ?? 0), 10) || 0;
         const classification = typeof r.classification === "string" ? r.classification : null;
 
@@ -505,8 +505,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     // Roll day buckets and reset per-model daily counters for keys rolling to a new day
     sql.exec(
       `UPDATE key_model_stats
-          SET dispatched_today = 0,
-              dispatched_communal = 0,
+          SET dispatches_today = 0,
+              dispatches_communal = 0,
               cu_served = 0
         WHERE key_id IN (SELECT key_id FROM keys WHERE day_bucket != ?)`,
       currentDay
@@ -514,7 +514,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
 
     sql.exec(
       `UPDATE keys
-          SET day_bucket = ?, day_count = 0, dispatched_today = 0, dispatched_communal = 0
+          SET day_bucket = ?, day_count = 0, dispatches_today = 0, dispatches_communal = 0
         WHERE day_bucket != ?`,
       currentDay,
       currentDay
@@ -553,7 +553,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       `INSERT INTO keys (
          key_id, owner, provider, status, observation_until, cooldown_until, reactivate_at,
          rpm_limit, rpd_limit, minute_bucket, minute_count, day_bucket, day_count,
-         dispatched_today, dispatched_communal, classification, priority_boost, updated_at
+         dispatches_today, dispatches_communal, classification, priority_boost, updated_at
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, ?, ?, ?)
        ON CONFLICT(key_id) DO UPDATE SET
          owner = excluded.owner,
@@ -1260,8 +1260,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       const borrowedInt = borrowed ? 1 : 0;
       sql.exec(
         `UPDATE keys
-            SET dispatched_today = dispatched_today + 1,
-                dispatched_communal = dispatched_communal + ?,
+            SET dispatches_today = dispatches_today + 1,
+                dispatches_communal = dispatches_communal + ?,
                 updated_at = ?
           WHERE key_id = ?`,
         borrowedInt,
@@ -1270,11 +1270,11 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       );
 
       sql.exec(
-        `INSERT INTO key_model_stats (key_id, model, dispatched_today, dispatched_communal, cu_served)
+        `INSERT INTO key_model_stats (key_id, model, dispatches_today, dispatches_communal, cu_served)
          VALUES (?, ?, 1, ?, ?)
          ON CONFLICT(key_id, model) DO UPDATE SET
-           dispatched_today = key_model_stats.dispatched_today + 1,
-           dispatched_communal = key_model_stats.dispatched_communal + excluded.dispatched_communal,
+           dispatches_today = key_model_stats.dispatches_today + 1,
+           dispatches_communal = key_model_stats.dispatches_communal + excluded.dispatches_communal,
            cu_served = key_model_stats.cu_served + excluded.cu_served`,
         keyId,
         resolvedModel,
@@ -1406,14 +1406,14 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
 
     const modelRows = sql
       .exec(
-        "SELECT dispatched_today, dispatched_communal FROM key_model_stats WHERE key_id = ? AND model = ?",
+        "SELECT dispatches_today, dispatches_communal FROM key_model_stats WHERE key_id = ? AND model = ?",
         keyId,
         model
       )
       .toArray();
     const mRow = modelRows[0] ?? {};
-    const modelDispatched = Math.max(1, Number(mRow.dispatched_today ?? 1));
-    const modelCommunal = Math.max(0, Number(mRow.dispatched_communal ?? 0));
+    const modelDispatched = Math.max(1, Number(mRow.dispatches_today ?? 1));
+    const modelCommunal = Math.max(0, Number(mRow.dispatches_communal ?? 0));
 
     const kcSeenPct = Math.floor((modelDispatched * 100) / dailyLimit);
     const communalPct = Math.floor((modelCommunal * 100) / modelDispatched);
@@ -1578,7 +1578,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const sql = this.ensureSchema();
     const rows = sql
       .exec(
-        `SELECT key_id, owner, provider, status, rpd_limit, dispatched_today, dispatched_communal,
+        `SELECT key_id, owner, provider, status, rpd_limit, dispatches_today, dispatches_communal,
                 classification, drain_state, effective_rpd, consecutive_clean_days,
                 cooldown_until, reactivate_at
            FROM keys
@@ -1593,7 +1593,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     if (model) {
       const mRows = sql
         .exec(
-          `SELECT model, dispatched_today, dispatched_communal, cu_served, classification, effective_rpd
+          `SELECT model, dispatches_today, dispatches_communal, cu_served, classification, effective_rpd
              FROM key_model_stats
             WHERE key_id = ? AND model = ?`,
           keyId,
@@ -1604,8 +1604,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         const mr = mRows[0];
         modelStats = {
           model: String(mr.model),
-          dispatchedToday: Number(mr.dispatched_today ?? 0),
-          dispatchedCommunal: Number(mr.dispatched_communal ?? 0),
+          dispatchedToday: Number(mr.dispatches_today ?? 0),
+          dispatchedCommunal: Number(mr.dispatches_communal ?? 0),
           cuServed: parseInt(String(mr.cu_served ?? 0), 10) || 0,
           classification: typeof mr.classification === "string" ? mr.classification : null,
           effectiveRpd: typeof mr.effective_rpd === "number" ? Number(mr.effective_rpd) : null,
@@ -1619,8 +1619,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       provider: String(r.provider),
       status: String(r.status),
       rpdLimit: Number(r.rpd_limit ?? 0),
-      dispatchedToday: Number(r.dispatched_today ?? 0),
-      dispatchedCommunal: Number(r.dispatched_communal ?? 0),
+      dispatchedToday: Number(r.dispatches_today ?? 0),
+      dispatchedCommunal: Number(r.dispatches_communal ?? 0),
       classification: typeof r.classification === "string" ? r.classification : null,
       drainState: String(r.drain_state ?? "OK") === "DRAINED" ? "DRAINED" : "OK",
       effectiveRpd: typeof r.effective_rpd === "number" ? Number(r.effective_rpd) : null,
@@ -1718,7 +1718,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         `INSERT INTO keys (
            key_id, owner, provider, status, observation_until, cooldown_until, reactivate_at,
            rpm_limit, rpd_limit, minute_bucket, minute_count, day_bucket, day_count,
-           dispatched_today, dispatched_communal, classification, priority_boost, updated_at
+           dispatches_today, dispatches_communal, classification, priority_boost, updated_at
          ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, 0, ?, 0, 0, 0, NULL, 0, ?)
          ON CONFLICT(key_id) DO UPDATE SET
            owner = excluded.owner,
@@ -1789,8 +1789,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
            SUM(CASE WHEN status = 'COOLDOWN' THEN 1 ELSE 0 END) AS cooldown_keys,
            SUM(CASE WHEN status = 'QUARANTINED' THEN 1 ELSE 0 END) AS quarantined_keys,
            SUM(CASE WHEN status = 'REVOKED' THEN 1 ELSE 0 END) AS revoked_keys,
-           COALESCE(SUM(dispatched_today), 0) AS dispatched_today,
-           COALESCE(SUM(dispatched_communal), 0) AS dispatched_communal,
+           COALESCE(SUM(dispatches_today), 0) AS dispatches_today,
+           COALESCE(SUM(dispatches_communal), 0) AS dispatches_communal,
            COALESCE(SUM(CASE WHEN status = 'ACTIVE' THEN day_count ELSE 0 END), 0) AS active_day_count,
            COALESCE(SUM(CASE WHEN status = 'ACTIVE' THEN rpd_limit ELSE 0 END), 0) AS active_rpd_limit
          FROM keys`
@@ -1866,8 +1866,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       cooldownKeys,
       quarantinedKeys,
       revokedKeys,
-      dispatchedToday: Number(keyAgg.dispatched_today ?? 0),
-      dispatchedCommunal: Number(keyAgg.dispatched_communal ?? 0),
+      dispatchedToday: Number(keyAgg.dispatches_today ?? 0),
+      dispatchedCommunal: Number(keyAgg.dispatches_communal ?? 0),
       borrowerCuInWindow: parseInt(String(winAgg.total_cu ?? 0), 10) || 0,
       activeBrakes: Number(brakeAgg.cnt ?? 0),
       utilisationPct,
@@ -1892,8 +1892,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           `SELECT
              COUNT(*) AS total_keys,
              COALESCE(SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END), 0) AS active_keys,
-             COALESCE(SUM(dispatched_today), 0) AS dispatched_today,
-             COALESCE(SUM(dispatched_communal), 0) AS dispatched_communal
+             COALESCE(SUM(dispatches_today), 0) AS dispatches_today,
+             COALESCE(SUM(dispatches_communal), 0) AS dispatches_communal
            FROM keys
            WHERE owner = ? AND status != 'REVOKED'`,
           owner
@@ -1902,8 +1902,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     return {
       totalCommunityKeys: Number(row.total_keys ?? 0),
       activeCommunityKeys: Number(row.active_keys ?? 0),
-      dispatchedToday: Number(row.dispatched_today ?? 0),
-      dispatchedCommunal: Number(row.dispatched_communal ?? 0),
+      dispatchedToday: Number(row.dispatches_today ?? 0),
+      dispatchedCommunal: Number(row.dispatches_communal ?? 0),
     };
   }
 
@@ -1951,7 +1951,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const filterSet = keyIds && keyIds.length > 0 ? new Set(keyIds) : null;
     const rows = sql
       .exec(
-        `SELECT key_id, status, observation_until, dispatched_today, dispatched_communal
+        `SELECT key_id, status, observation_until, dispatches_today, dispatches_communal
            FROM keys`
       )
       .toArray();
@@ -1968,8 +1968,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       const kid = String(r.key_id);
       if (filterSet && !filterSet.has(kid)) continue;
       out[kid] = {
-        dispatchedToday: Number(r.dispatched_today ?? 0),
-        dispatchedCommunal: Number(r.dispatched_communal ?? 0),
+        dispatchedToday: Number(r.dispatches_today ?? 0),
+        dispatchedCommunal: Number(r.dispatches_communal ?? 0),
         status: String(r.status) as CoordinatorKeyStatus,
         observationUntil:
           typeof r.observation_until === "number" ? Number(r.observation_until) : null,

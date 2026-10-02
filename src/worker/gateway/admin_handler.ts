@@ -881,8 +881,8 @@ export async function handleAdminRequest(
             pool_type: k.pool_type ? normalisePoolType(k.pool_type) : 'COMMUNITY',
             community_routing_status: k.community_routing_status || 'OBSERVATION',
             observation_until: toEpochMs(k.observation_until),
-            dispatched_today: kc?.dispatchedToday ?? 0,
-            dispatched_communal: kc?.dispatchedCommunal ?? 0,
+            dispatches_today: kc?.dispatchedToday ?? 0,
+            dispatches_communal: kc?.dispatchedCommunal ?? 0,
             created_at: toEpochMs(k.created_at) ?? k.created_at,
           };
         }),
