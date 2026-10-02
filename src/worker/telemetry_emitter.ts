@@ -6,7 +6,7 @@
  * - Non-Blocking Telemetry: High-frequency telemetry streams to Workers Analytics Engine.
  *   Never block the proxy hot path on D1 writes or external sinks.
  * - Strict Typing: Strict mode, zero `any`.
- * - Fixed-Point Microdollars: All costs in `int64` microdollars (`bigint`).
+ * - Integer Credit Units: All capacity accounting is `bigint` CU.
  */
 
 import { TelemetryContract, TelemetryEvent } from "../contracts/telemetry";
@@ -54,7 +54,6 @@ export interface CreateTelemetryEventParams {
   timestamp?: number;
   eventType: string;
   latencyMs?: number;
-  costMicrodollars?: bigint;
   cu?: bigint;
   metadata?: Record<string, string>;
 }
@@ -83,7 +82,7 @@ function safeParseDouble(value: string | undefined): number {
  *     6: statusCode / status
  *     7: serialized metadata JSON
  * - doubles:
- *     0: request CU (or costMicrodollars fallback as floating-point number for aggregation)
+ *     0: request CU (as floating-point number for Analytics Engine aggregation)
  *     1: latencyMs
  *     2: timestamp
  *     3: promptTokens
@@ -117,7 +116,7 @@ export function defaultDataPointMapper(
       JSON.stringify(event.metadata),
     ],
     doubles: [
-      Number(event.cu ?? event.costMicrodollars ?? 0),
+      Number(event.cu ?? 0),
       event.latencyMs,
       event.timestamp,
       promptTokens,
@@ -180,12 +179,6 @@ export function validateTelemetryEvent(event: unknown): {
     candidate.latencyMs < 0
   ) {
     errors.push("latencyMs must be a non-negative finite number");
-  }
-
-  if (typeof candidate.costMicrodollars !== "bigint") {
-    errors.push("costMicrodollars must be a bigint");
-  } else if (candidate.costMicrodollars < 0n) {
-    errors.push("costMicrodollars cannot be negative");
   }
 
   if (candidate.cu !== undefined) {
@@ -269,7 +262,6 @@ export class TelemetryEmitter implements TelemetryContract {
       timestamp: params.timestamp ?? Date.now(),
       eventType: params.eventType,
       latencyMs: params.latencyMs ?? 0,
-      costMicrodollars: params.costMicrodollars ?? 0n,
       cu: params.cu,
       metadata: params.metadata ? { ...params.metadata } : {},
     };

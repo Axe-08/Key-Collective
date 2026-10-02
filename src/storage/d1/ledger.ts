@@ -73,7 +73,7 @@ export async function recordTelemetry(db: D1Database, event: TelemetryEvent): Pr
     throw new Error("Invalid telemetry event");
   }
   assertValidTenantId(event.tenantId);
-  assertValidMicrodollars(event.costMicrodollars);
+  assertValidMicrodollars(event.costMicrodollars ?? 0n);
 
   const keyId = event.metadata?.keyId || "system";
   const provider = event.metadata?.provider || "unknown";
@@ -87,7 +87,7 @@ export async function recordTelemetry(db: D1Database, event: TelemetryEvent): Pr
     keyId,
     provider,
     modelId,
-    costMicrodollars: event.costMicrodollars,
+    costMicrodollars: event.costMicrodollars ?? 0n,
     latencyMs: event.latencyMs,
     statusCode,
     createdAt,
