@@ -140,9 +140,9 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.7.2 Cold-start share cap (FR-12) based on owner trailing 24h CU
 
 ### WP-5.8
-- [ ] T-5.8.1 Provider reset config in src/providers/config.ts (dailyResetTz, nextProviderReset)
-- [ ] T-5.8.2 Jittered reactivate_at on RPD cooldown
-- [ ] T-5.8.3 Leaky-bucket retry near provider reset window in orchestrator
+- [x] T-5.8.1 Provider reset config in src/providers/config.ts (dailyResetTz, nextProviderReset) — used plan defaults (`America/Los_Angeles` for Google, `UTC` for Groq) since `docs/specs/provider_quotas.md` is not present
+- [x] T-5.8.2 Jittered reactivate_at on RPD cooldown
+- [x] T-5.8.3 Leaky-bucket retry near provider reset window in orchestrator
 
 ### WP-5.9
 - [ ] T-5.9.1 Passive contributor canary in KeyPoolDO midnight alarm via checkProofOfLife

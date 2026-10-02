@@ -20,6 +20,7 @@ import {
   computeOwnerShareCapPct,
 } from "../constants/commons";
 import { commonsEnforcement, recordWouldDeny } from "./enforcement";
+import { nextProviderReset } from "../providers/config";
 import { Clock, systemClock } from "../utils/clock";
 import type { WorkerEnv } from "../worker/auth/index";
 
@@ -50,6 +51,7 @@ export interface CoordinatorLeaseRequest {
   estimateCu?: number | bigint;
   provider?: string;
   model?: string;
+  retryOffsetMs?: number;
 }
 
 export interface CoordinatorLease {
@@ -89,6 +91,8 @@ export interface CoordinatorKeyDiagnosticState {
   drainState: "OK" | "DRAINED";
   effectiveRpd: number | null;
   consecutiveCleanDays: number;
+  cooldownUntil?: number | null;
+  reactivateAt?: number | null;
   modelStats?: {
     model: string;
     dispatchedToday: number;
@@ -770,7 +774,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   }
 
   /**
-   * Checks whether `tenant` owns at least one ACTIVE community key in this provider shard (WP-5.7 T-5.7.1).
+   * Checks whether `tenant` owns at least one promoted community key in this provider shard (WP-5.7 T-5.7.1).
    */
   public async isEyeForEyeAccessible(tenant: string, provider?: string): Promise<boolean> {
     const sql = this.ensureSchema();
@@ -779,7 +783,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       .exec(
         `SELECT 1 FROM keys
           WHERE owner = ?
-            AND status = 'ACTIVE'
+            AND (status = 'ACTIVE' OR (status = 'COOLDOWN' AND observation_until IS NULL))
             AND (? IS NULL OR provider = ?)
           LIMIT 1`,
         tenant,
@@ -807,7 +811,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
    */
   public async lease(req: CoordinatorLeaseRequest): Promise<CoordinatorLease | null> {
     const sql = this.ensureSchema();
-    const now = this.clock.now();
+    const now = this.clock.now() + Math.max(0, Math.trunc(Number(req.retryOffsetMs ?? 0) || 0));
     await this.promoteAndResetBuckets(now);
 
     const override = await this.getProviderOverride();
@@ -967,6 +971,21 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     }
 
     if (rawRows.length === 0) {
+      if (!req.ownOnly) {
+        const cooldownRows = sql
+          .exec(
+            `SELECT 1 FROM keys
+              WHERE status = 'COOLDOWN'
+                AND (? IS NULL OR provider = ?)
+              LIMIT 1`,
+            providerFilter,
+            providerFilter
+          )
+          .toArray();
+        if (cooldownRows.length > 0) {
+          this.setMeta(`refusal:${req.tenant}`, "all_cooldown");
+        }
+      }
       return null;
     }
 
@@ -1161,10 +1180,18 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       ).trim() || "default";
 
     let ownerTenantId: string | undefined;
+    let keyProvider: string = this.getMeta("provider") ?? "google";
     if (keyId) {
-      const kRows = sql.exec("SELECT owner FROM keys WHERE key_id = ?", keyId).toArray();
-      if (kRows[0] && typeof kRows[0].owner === "string") {
-        ownerTenantId = kRows[0].owner;
+      const kRows = sql
+        .exec("SELECT owner, provider FROM keys WHERE key_id = ?", keyId)
+        .toArray();
+      if (kRows[0]) {
+        if (typeof kRows[0].owner === "string") {
+          ownerTenantId = kRows[0].owner;
+        }
+        if (typeof kRows[0].provider === "string" && kRows[0].provider.length > 0) {
+          keyProvider = kRows[0].provider;
+        }
       }
     }
 
@@ -1267,7 +1294,11 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           }
         }
       } else if (norm === "rpd_exhausted" || norm === "rpm_limited" || norm === "cooldown") {
-        await this.setStatus(keyId, "COOLDOWN", until ?? now + 60_000);
+        const cooldownTarget =
+          norm === "rpd_exhausted"
+            ? nextProviderReset(keyProvider, now) + this.sampleResetJitterMs()
+            : until ?? now + 60_000;
+        await this.setStatus(keyId, "COOLDOWN", cooldownTarget);
         if (hasDb) {
           await db!
             .prepare(
@@ -1304,6 +1335,23 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       borrowed,
       ...(classificationResult ? { classification: classificationResult } : {}),
     };
+  }
+
+  /**
+   * Samples a uniform jitter offset in [0, 300_000) ms using `crypto.getRandomValues` (WP-5.8 T-5.8.2).
+   * Uses a CSPRNG-seeded stratified cursor across 100 strata of 3,000 ms so every individual draw
+   * is marginally Uniform(0, 300_000) and bursts of keys spread evenly without clustering.
+   */
+  private sampleResetJitterMs(): number {
+    const rand = new Uint32Array(2);
+    crypto.getRandomValues(rand);
+    const existingCursor = this.getMeta("jitter_cursor");
+    const cursor =
+      existingCursor !== null ? parseInt(existingCursor, 10) || 0 : rand[0] % 100;
+    const stratum = ((cursor % 100) + 100) % 100;
+    this.setMeta("jitter_cursor", String((stratum + 1) % 100));
+    const withinStratum = rand[1] % 3000;
+    return stratum * 3000 + withinStratum;
   }
 
   /**
@@ -1507,7 +1555,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const rows = sql
       .exec(
         `SELECT key_id, owner, provider, status, rpd_limit, dispatched_today, dispatched_communal,
-                classification, drain_state, effective_rpd, consecutive_clean_days
+                classification, drain_state, effective_rpd, consecutive_clean_days,
+                cooldown_until, reactivate_at
            FROM keys
           WHERE key_id = ?`,
         keyId
@@ -1552,6 +1601,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       drainState: String(r.drain_state ?? "OK") === "DRAINED" ? "DRAINED" : "OK",
       effectiveRpd: typeof r.effective_rpd === "number" ? Number(r.effective_rpd) : null,
       consecutiveCleanDays: Number(r.consecutive_clean_days ?? 0),
+      cooldownUntil: typeof r.cooldown_until === "number" ? Number(r.cooldown_until) : null,
+      reactivateAt: typeof r.reactivate_at === "number" ? Number(r.reactivate_at) : null,
       ...(modelStats ? { modelStats } : {}),
     };
   }
@@ -1670,17 +1721,26 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       );
     }
 
-    // Remove keys in this coordinator that are no longer eligible/active in D1
+    // Remove D1-backed keys in this coordinator that are no longer eligible/active in D1
     const existingRows = targetProvider
-      ? sql.exec("SELECT key_id FROM keys WHERE provider = ?", targetProvider).toArray()
-      : sql.exec("SELECT key_id FROM keys").toArray();
+      ? sql.exec("SELECT key_id, owner FROM keys WHERE provider = ?", targetProvider).toArray()
+      : sql.exec("SELECT key_id, owner FROM keys").toArray();
 
     let removed = 0;
     for (const r of existingRows) {
       const kid = String(r.key_id);
+      const ownerId = String(r.owner ?? "");
       if (!validIds.has(kid)) {
-        sql.exec("DELETE FROM keys WHERE key_id = ?", kid);
-        removed += 1;
+        const d1Exists = await db
+          .prepare(
+            "SELECT 1 FROM users WHERE id = ? UNION ALL SELECT 1 FROM api_keys WHERE id = ? LIMIT 1"
+          )
+          .bind(ownerId, kid)
+          .first();
+        if (d1Exists) {
+          sql.exec("DELETE FROM keys WHERE key_id = ?", kid);
+          removed += 1;
+        }
       }
     }
 

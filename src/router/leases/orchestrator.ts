@@ -27,6 +27,7 @@ import {
   type CoordinatorSettleResult,
 } from "../../pool/coordinator_do";
 import { EyeForEyeError, ProviderUnavailableError } from "../../errors/routing_errors";
+import { isWithinProviderResetWindow } from "../../providers/config";
 import type { WorkerEnv } from "../../worker/auth/types";
 
 export type LeaseSource = "private" | "own_community" | "borrowed";
@@ -88,6 +89,7 @@ interface CoordinatorRpcStub {
   ): Promise<CoordinatorSettleResult>;
   getProviderOverride?(): Promise<{ state: "TRIPPED" | "NORMAL"; until?: number | null } | null>;
   getLastRefusalReason?(tenant: string): Promise<string | null>;
+  getNow?(): Promise<number> | number;
 }
 
 interface TenantQuotaRpcStub {
@@ -260,6 +262,60 @@ export class LeaseOrchestrator implements LeaseProvider {
       const refusalReason = await coordStub.getLastRefusalReason(ctx.tenantId).catch(() => null);
       if (refusalReason === "eye_for_eye") {
         throw new EyeForEyeError(canonProvider);
+      }
+
+      // Leaky-bucket retry near provider reset window (WP-5.8 T-5.8.3):
+      // When every candidate is in COOLDOWN and `now` is within ±5 min of provider reset,
+      // retry with 250ms backoff for up to 5s total before returning null (429).
+      if (refusalReason === "all_cooldown") {
+        const nowMs =
+          typeof coordStub.getNow === "function"
+            ? await Promise.resolve(coordStub.getNow()).catch(() => Date.now())
+            : Date.now();
+        if (isWithinProviderResetWindow(canonProvider, nowMs, 300_000)) {
+          const backoffMs = 250;
+          const maxRetries = 20;
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            const retryOffsetMs = attempt * backoffMs;
+
+            const retryOwn = await coordStub.lease({
+              tenant: ctx.tenantId,
+              ownOnly: true,
+              estimateCu: estCu,
+              provider: canonProvider,
+              retryOffsetMs,
+              ...(ctx.model ? { model: ctx.model } : {}),
+            });
+            if (retryOwn) {
+              return {
+                leaseId: retryOwn.leaseId,
+                keyId: retryOwn.keyId,
+                source: "own_community",
+                ownerTenantId: retryOwn.ownerTenantId,
+                provider: retryOwn.provider,
+              };
+            }
+
+            const retryBorrowed = await coordStub.lease({
+              tenant: ctx.tenantId,
+              ownOnly: false,
+              estimateCu: estCu,
+              provider: canonProvider,
+              retryOffsetMs,
+              ...(ctx.model ? { model: ctx.model } : {}),
+            });
+            if (retryBorrowed) {
+              return {
+                leaseId: retryBorrowed.leaseId,
+                keyId: retryBorrowed.keyId,
+                source: "borrowed",
+                ownerTenantId: retryBorrowed.ownerTenantId,
+                provider: retryBorrowed.provider,
+              };
+            }
+          }
+        }
       }
     }
 
