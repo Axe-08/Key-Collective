@@ -148,7 +148,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 - [x] T-5.9.1 Passive contributor canary in KeyPoolDO midnight alarm via checkProofOfLife
 
 ### WP-5.10
-- [ ] T-5.10.1 Coordinator hourly stats (capacity utilisation, p90 latency, w_provider_pct)
+- [x] T-5.10.1 Coordinator hourly stats (capacity utilisation, p90 latency, w_provider_pct)
 - [ ] T-5.10.2 Truthful telemetry endpoints (/api/pool/telemetry, get_keys, contribution)
 
 ### WP-5.11
