@@ -146,6 +146,40 @@ export const api = {
     }
   },
 
+  async resetTenantQuota(tenantId: string, reason?: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/reset-quota`, {
+        ...sessionInit('POST'),
+        body: JSON.stringify({ reason }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async getAdminAuditLogs(limit = 50, offset = 0): Promise<{
+    events: Array<{
+      id: string;
+      admin_user_id: string | null;
+      admin_email: string;
+      action: string;
+      target: string;
+      details_json: string;
+      ip_address: string;
+      created_at: number;
+    }>;
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    const res = await fetch(`/api/admin/audit?limit=${limit}&offset=${offset}`, sessionInit('GET'));
+    if (!res.ok) {
+      throw new Error(`Failed to fetch audit logs: ${res.status}`);
+    }
+    return res.json();
+  },
+
   async updateKeyRoutingStatus(keyId: string, status: 'ACTIVE' | 'QUARANTINED' | 'OBSERVATION', reason?: string): Promise<boolean> {
     try {
       const res = await fetch(`/api/admin/keys/${encodeURIComponent(keyId)}/routing-status`, {

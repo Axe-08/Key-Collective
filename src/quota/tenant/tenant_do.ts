@@ -932,7 +932,11 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.entries = [];
     this.totalCostMicrodollars = 0n;
     this.cuUsed24h = 0n;
+    this.communityDebtCu = 0n;
+    this.standingDirty = true;
+    this.updateMultiplierCeiling();
     await this.persist();
+    await this.syncDebtState();
   }
 
   public async fetch(request: Request): Promise<Response> {
