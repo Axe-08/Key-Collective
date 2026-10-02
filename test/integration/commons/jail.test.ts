@@ -143,7 +143,6 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
 
     const res = await worker.fetch(req, {
       ...env,
-      ROUTING_ENGINE: "leases",
       COMMONS_ENFORCEMENT: "enforce",
     });
 
@@ -223,7 +222,6 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
 
     const res = await worker.fetch(req, {
       ...env,
-      ROUTING_ENGINE: "leases",
       COMMONS_ENFORCEMENT: "enforce",
     });
 
@@ -296,7 +294,6 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
 
     const res = await worker.fetch(req, {
       ...env,
-      ROUTING_ENGINE: "leases",
       COMMONS_ENFORCEMENT: "observe",
     });
 

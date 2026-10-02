@@ -81,9 +81,13 @@ export class RouterContextResolver {
       return this.options.router;
     }
 
+    const hasLeaseBindings =
+      !this.options.keyPoolFactory &&
+      Boolean(env.KEY_POOL && env.POOL_COORDINATOR);
     const client =
       this.upstreamClient ??
       new UpstreamClient({
+        keyPool: hasLeaseBindings ? undefined : keyPool,
         keyResolver: async (keyFromPool: string, provider: string) => {
           return resolvePlaintextKey(
             keyFromPool,
@@ -97,7 +101,7 @@ export class RouterContextResolver {
 
     return new CascadeRouter({
       keyPool,
-      leaseProvider: this.leaseOrchestrator,
+      leaseProvider: hasLeaseBindings ? this.leaseOrchestrator : undefined,
       leaseContext: {
         tenantId,
         env,

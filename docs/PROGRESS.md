@@ -228,7 +228,7 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.5.1 Remove ROUTING_ENGINE switch from cascade router
 - [x] T-7.5.2 Shrink KeyPoolDO to private keys only
 - [x] T-7.5.3 Remove ROUTING_ENGINE from wrangler.jsonc and scripts
-- [ ] T-7.5.4 Archive legacy routing tests
+- [x] T-7.5.4 Archive legacy routing tests
 
 ### WP-7.6
 - [ ] T-7.6.1 Simplify resolveLeasedKey to HKDF-only

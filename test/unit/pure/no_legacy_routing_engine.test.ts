@@ -56,3 +56,36 @@ describe("wrangler.jsonc & package.json Clean of ROUTING_ENGINE (T-7.5.3)", () =
   });
 });
 
+describe("Test Suite Clean of ROUTING_ENGINE (T-7.5.4)", () => {
+  it("test/ and tests/ contain zero occurrences of ROUTING_ENGINE", () => {
+    const selfPath = path.resolve(process.cwd(), "test/unit/pure/no_legacy_routing_engine.test.ts");
+    const collectFiles = (dir: string): string[] => {
+      if (!fs.existsSync(dir)) return [];
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      const results: string[] = [];
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          results.push(...collectFiles(full));
+        } else if (e.isFile() && e.name.endsWith(".ts") && full !== selfPath) {
+          results.push(full);
+        }
+      }
+      return results;
+    };
+
+    const offending: string[] = [];
+    for (const file of [
+      ...collectFiles(path.resolve(process.cwd(), "test")),
+      ...collectFiles(path.resolve(process.cwd(), "tests")),
+    ]) {
+      const content = fs.readFileSync(file, "utf-8");
+      if (/ROUTING_ENGINE/.test(content)) {
+        offending.push(path.relative(process.cwd(), file));
+      }
+    }
+
+    expect(offending).toEqual([]);
+  });
+});
+
