@@ -7,7 +7,7 @@ export const ALLOWED_RESPONSE_HEADERS: ReadonlySet<string> = new Set([
   'content-type', 'content-length', 'cache-control',
   'x-ratelimit-limit-requests', 'x-ratelimit-remaining-requests', 'x-ratelimit-reset-requests',
   'x-request-id',
-  'x-kc-request-id', 'x-kc-model-used', 'x-kc-provider', 'x-kc-trace-id',
+  'x-kc-request-id', 'x-kc-model-used', 'x-kc-provider', 'x-kc-trace-id', 'x-kc-commons-notice',
   'transfer-encoding', 'content-encoding',
 ]);
 

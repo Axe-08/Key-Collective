@@ -536,4 +536,88 @@ export function isEyeForEyeError(value: unknown): value is EyeForEyeError {
   );
 }
 
+export interface QuotaJailErrorOptions {
+  communityDebtCu: number;
+  contributedCu24h: number;
+  multiplierPct?: number;
+  estimatedDays: number;
+  message?: string;
+}
+
+/**
+ * QuotaJailError (HTTP 429)
+ * Thrown when a HARD_JAIL tenant attempts to borrow from the community pool in enforce mode
+ * and has no available own keys (WP-5.12 T-5.12.3, PRD Flow F).
+ */
+export class QuotaJailError extends DomainError {
+  public override readonly name = "QuotaJailError";
+  public readonly communityDebtCu: number;
+  public readonly contributedCu24h: number;
+  public readonly multiplier: string;
+  public readonly recovery: {
+    debt_decay: string;
+    estimated_days: number;
+  };
+
+  constructor(options: QuotaJailErrorOptions) {
+    const msg =
+      options.message ??
+      "Community debt limit reached. Only your own keys are available.";
+    const multiplierPct = options.multiplierPct ?? 100;
+    const multiplier = `${(multiplierPct / 100).toFixed(2)}x`;
+    const recovery = {
+      debt_decay: "20% per day at 00:00 UTC",
+      estimated_days: options.estimatedDays,
+    };
+    super(msg, {
+      statusCode: 429,
+      code: "quota_jail",
+      details: {
+        community_debt_cu: options.communityDebtCu,
+        contributed_cu_24h: options.contributedCu24h,
+        multiplier,
+        recovery,
+      },
+    });
+    this.communityDebtCu = options.communityDebtCu;
+    this.contributedCu24h = options.contributedCu24h;
+    this.multiplier = multiplier;
+    this.recovery = recovery;
+    Object.setPrototypeOf(this, QuotaJailError.prototype);
+  }
+
+  public override toResponse(headers?: HeadersInit): Response {
+    return new Response(
+      JSON.stringify({
+        error: {
+          type: "quota_jail",
+          code: "quota_jail",
+          message: this.message,
+          community_debt_cu: this.communityDebtCu,
+          contributed_cu_24h: this.contributedCu24h,
+          multiplier: this.multiplier,
+          recovery: this.recovery,
+        },
+      }),
+      {
+        status: 429,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          ...headers,
+        },
+      }
+    );
+  }
+}
+
+export function isQuotaJailError(value: unknown): value is QuotaJailError {
+  return (
+    value instanceof QuotaJailError ||
+    (typeof value === "object" &&
+      value !== null &&
+      (value as Record<string, unknown>).name === "QuotaJailError")
+  );
+}
+
+
 

@@ -9,6 +9,7 @@ import {
   QuotaExceededError,
   RateLimitExceededError,
 } from "../../errors/key_errors";
+import { isQuotaJailError } from "../../errors/routing_errors";
 import { sanitize } from "../error_normalizer";
 import { Logger } from "../../utils/logger";
 
@@ -59,6 +60,20 @@ export function formatRouterError(
   let rawMessage = "Internal edge routing error";
   let retryAfter: number | undefined;
   let isAuthError = false;
+
+  if (isQuotaJailError(error)) {
+    const logger = new Logger({ traceId, tenantId });
+    logger.error(error.message, {
+      name: error.name,
+      code: error.code,
+      statusCode: error.statusCode,
+      details: error.details,
+    });
+    return error.toResponse({
+      "x-kc-request-id": requestId,
+      "retry-after": String(DEFAULT_RETRY_AFTER_SECONDS),
+    });
+  }
 
   if (error instanceof RateLimitExceededError) {
     statusCode = error.statusCode;

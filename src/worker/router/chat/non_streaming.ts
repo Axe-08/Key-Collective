@@ -307,6 +307,7 @@ export async function handleNonStreamingResponse(
     cu: calculatedCu.toString(),
     costMicrodollars: costMicrodollars.toString(),
     isStream: false,
+    commonsNotice: cascadeRes.lease?.commonsNotice,
   });
 }
 

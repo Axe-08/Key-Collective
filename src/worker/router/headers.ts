@@ -28,6 +28,7 @@ export interface KcHeaderContext {
   cu?: number | string | bigint;
   costMicrodollars?: number | string | bigint;
   isStream?: boolean;
+  commonsNotice?: string;
 }
 
 /**
@@ -116,6 +117,11 @@ export function applyKcHeaders(res: Response, ctx: KcHeaderContext = {}): Respon
     }
   } else {
     headers.delete("x-kc-cu");
+  }
+
+  const commonsNotice = ctx.commonsNotice ?? headers.get("x-kc-commons-notice");
+  if (commonsNotice) {
+    headers.set("x-kc-commons-notice", commonsNotice);
   }
 
   // Strip internal routing headers

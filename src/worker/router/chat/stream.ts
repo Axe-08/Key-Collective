@@ -460,5 +460,6 @@ export function handleStreamingResponse(
     provider: cascadeRes.provider,
     attempts: cascadeRes.attempts,
     isStream: true,
+    commonsNotice: cascadeRes.lease?.commonsNotice,
   });
 }

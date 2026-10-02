@@ -159,7 +159,7 @@ Protocol, pitfalls and task details: `docs/PHASE5_PLAN.md`.
 ### WP-5.12
 - [x] T-5.12.1 calculateMultiplierPct with vesting_cap, debt_cap, band_cap
 - [x] T-5.12.2 Quota evaluator effective_limit scaling with multiplier
-- [ ] T-5.12.3 Quota jail enforcement, Flow F body, notice header, would-deny logging
+- [x] T-5.12.3 Quota jail enforcement, Flow F body, notice header, would-deny logging
 
 ## Phases 6–8
 
