@@ -14,6 +14,7 @@ import { toEpochMs } from "../../utils/time";
 import { clearMaintenanceCache } from "./control";
 import { getWouldDenyStats } from "../../pool/enforcement";
 import { ADMIN_SESSION_COOKIE, lookupSession, readCookie } from "../../auth/session/store";
+import { Logger } from "../../utils/logger";
 
 interface AdminActor {
   adminUserId: string | null;
@@ -37,9 +38,9 @@ async function getAdminActor(request: Request, db?: D1Database): Promise<AdminAc
         if (session.email) adminEmail = session.email;
       }
     } catch (err: unknown) {
-      console.error(
-        "Failed to resolve admin actor from session:",
-        err instanceof Error ? err.message : String(err)
+      new Logger({ traceId: crypto.randomUUID(), tenantId: "admin" }).error(
+        "Failed to resolve admin actor from session",
+        { error: err instanceof Error ? err.message : String(err) }
       );
     }
   }
