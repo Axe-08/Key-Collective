@@ -22,16 +22,13 @@ const handleNonStreamingChat =
   (nonStreamingModule as { handleNonStreamingChat?: typeof nonStreamingModule.handleNonStreamingResponse })
     .handleNonStreamingChat ?? nonStreamingModule.handleNonStreamingResponse;
 
-function createTestModelDef(overrides?: Partial<ModelDef<bigint>>): ModelDef<bigint> {
+function createTestModelDef(overrides?: Partial<ModelDef>): ModelDef {
   return {
     id: "gemini-2.5-flash",
     provider: "google",
     logicalAliases: ["fast"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 75_000n,
-    outputCostPerMTokMicro: 300_000n,
-    cacheReadCostPerMTokMicro: 18_750n,
     cuBase: 10n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,

@@ -45,7 +45,7 @@ import { ExecutionContextLike, TelemetryEmitter } from "../../../src/worker/tele
 import { TelemetryContract, TelemetryEvent } from "../../../src/contracts/telemetry";
 import { KeyPoolContract, KeyMetrics } from "../../../src/contracts/key_pool";
 import { CascadeRouter, CascadeRouteResponse } from "../../../src/router/cascade/index";
-import { ModelRegistry, ContextWindowExceededError } from "../../../src/router/registry/index";
+import { ALL_MODEL_DEFINITIONS, ModelRegistry, ContextWindowExceededError } from "../../../src/router/registry/index";
 import { CapabilityFilter } from "../../../src/router/capability/index";
 import { UpstreamClient, UpstreamResponse } from "../../../src/proxy/upstream/index";
 import { SSEStreamTransformer, StreamUsage } from "../../../src/proxy/sse/index";
@@ -674,7 +674,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(200);
-      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.5-flash");
+      expect(res.headers.get("x-kc-model-used")).toBe(new ModelRegistry(ALL_MODEL_DEFINITIONS).resolveAlias("smart-fast"));
       expect(res.headers.get("x-kc-model")).toBeNull();
       expect(res.headers.get("x-kc-provider")).toBe("google");
       expect(forwardedUrl).toContain("googleapis.com");
@@ -690,9 +690,10 @@ describe("RouterHandler Unit Tests (T3)", () => {
         logicalAliases: [],
         contextWindow: 8192,
         maxOutputTokens: 2048,
-        inputCostPerMTokMicro: 100_000n,
-        outputCostPerMTokMicro: 200_000n,
-        cacheReadCostPerMTokMicro: 0n,
+        cuBase: 10n,
+        cuInPer1k: 1n,
+        cuCachedPer1k: 0n,
+        cuOutPer1k: 1n,
         supportsTools: false,
         supportsVision: false,
         supportsJsonSchema: false,

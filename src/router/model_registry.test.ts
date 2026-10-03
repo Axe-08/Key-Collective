@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   ModelRegistry,
   DEFAULT_MODEL_DEFINITIONS,
+  cuWeight,
   ALL_MODEL_DEFINITIONS,
   ContextWindowExceededError,
   isContextWindowExceededError,
@@ -28,45 +29,48 @@ import {
 describe("ModelRegistry", () => {
   let registry: ModelRegistry;
 
-  const customModel1: ModelDef<bigint> = {
+  const customModel1: ModelDef = {
     id: "mock-fast-1",
     provider: "google",
     logicalAliases: ["fast-model", "smart-fast"],
     contextWindow: 128_000,
     maxOutputTokens: 4096,
-    inputCostPerMTokMicro: 150_000n, // bash.15 / 1M
-    outputCostPerMTokMicro: 600_000n, // bash.60 / 1M
-    cacheReadCostPerMTokMicro: 37_500n,
+    cuBase: 15n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const customModel2: ModelDef<bigint> = {
+  const customModel2: ModelDef = {
     id: "mock-fast-2",
     provider: "openai",
     logicalAliases: ["fast-model"],
     contextWindow: 64_000,
     maxOutputTokens: 2048,
-    inputCostPerMTokMicro: 300_000n, // bash.30 / 1M (more expensive than mock-fast-1)
-    outputCostPerMTokMicro: 1_200_000n,
-    cacheReadCostPerMTokMicro: 75_000n,
+    cuBase: 30n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: false,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const customModel3Inactive: ModelDef<bigint> = {
+  const customModel3Inactive: ModelDef = {
     id: "mock-inactive",
     provider: "anthropic",
     logicalAliases: ["retired-model", "fast-model"],
     contextWindow: 100_000,
     maxOutputTokens: 4096,
-    inputCostPerMTokMicro: 50_000n, // cheapest, but inactive!
-    outputCostPerMTokMicro: 200_000n,
-    cacheReadCostPerMTokMicro: 10_000n,
+    cuBase: 5n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: false,
     supportsVision: false,
     supportsJsonSchema: false,
@@ -103,16 +107,17 @@ describe("ModelRegistry", () => {
       expect(customReg.resolveAlias("my-alias")).toBe("mock-fast-1");
     });
 
-    it("normalizes number costs to bigint credit units without floating-point errors", () => {
-      const numberModel: ModelDef<number> = {
+    it("stores CU weights as bigint credit units", () => {
+      const numberModel: ModelDef = {
         id: "number-model",
         provider: "google",
         logicalAliases: ["num-alias"],
         contextWindow: 32000,
         maxOutputTokens: 4096,
-        inputCostPerMTokMicro: 500000,
-        outputCostPerMTokMicro: 1500000,
-        cacheReadCostPerMTokMicro: 100000,
+        cuBase: 50n,
+        cuInPer1k: 1n,
+        cuCachedPer1k: 0n,
+        cuOutPer1k: 1n,
         supportsTools: true,
         supportsVision: false,
         supportsJsonSchema: true,
@@ -122,10 +127,8 @@ describe("ModelRegistry", () => {
       const numReg = new ModelRegistry([numberModel]);
       const stored = numReg.getModel("number-model");
       expect(stored).toBeDefined();
-      expect(typeof stored?.inputCostPerMTokMicro).toBe("bigint");
-      expect(stored?.inputCostPerMTokMicro).toBe(500000n);
-      expect(stored?.outputCostPerMTokMicro).toBe(1500000n);
-      expect(stored?.cacheReadCostPerMTokMicro).toBe(100000n);
+      expect(typeof stored?.cuBase).toBe("bigint");
+      expect(stored?.cuBase).toBe(50n);
     });
   });
 
@@ -375,9 +378,10 @@ describe("ModelRegistry", () => {
   describe("Model Pricing", () => {
     it("getPricing returns correct pricing structure", () => {
       const pricing = registry.getPricing("gemini-2.0-flash");
-      expect(pricing.inputCostPerMTokMicro).toBe(100_000n);
-      expect(pricing.outputCostPerMTokMicro).toBe(400_000n);
-      expect(pricing.cacheReadCostPerMTokMicro).toBe(25_000n);
+      expect(pricing.cuBase).toBe(10n);
+      expect(pricing.cuInPer1k).toBe(1n);
+      expect(pricing.cuCachedPer1k).toBe(0n);
+      expect(pricing.cuOutPer1k).toBe(4n);
     });
   });
 
@@ -386,12 +390,9 @@ describe("ModelRegistry", () => {
       const googleCandidates = registry.findCandidates({ provider: "google" });
       expect(googleCandidates.length).toBeGreaterThanOrEqual(2);
 
-      // Verify sorted by input cost ascending
+      // Verify sorted by CU weight ascending
       for (let i = 0; i < googleCandidates.length - 1; i++) {
-        expect(
-          googleCandidates[i].inputCostPerMTokMicro <=
-            googleCandidates[i + 1].inputCostPerMTokMicro
-        ).toBe(true);
+        expect(cuWeight(googleCandidates[i]) <= cuWeight(googleCandidates[i + 1])).toBe(true);
       }
     });
 
@@ -418,11 +419,11 @@ describe("ModelRegistry", () => {
 
     it("findCandidates filters by max cost", () => {
       const cheapCandidates = registry.findCandidates({
-        maxCostPerMTokMicro: 200_000n, // bash.20/1M or less
+        maxCuWeight: 20n,
       });
 
       for (const m of cheapCandidates) {
-        expect(m.inputCostPerMTokMicro <= 200_000n).toBe(true);
+        expect(cuWeight(m) <= 20n).toBe(true);
       }
       expect(cheapCandidates.some((m) => m.id === "gemini-1.5-pro")).toBe(false); // $1.25 > $0.20
     });

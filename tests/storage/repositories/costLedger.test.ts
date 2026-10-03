@@ -20,7 +20,6 @@ import {
   DailySpendRollupInput,
   InvalidCostLedgerEventError,
   TenantIsolationViolationError,
-  calculateEventCostCu,
   formatCalendarDay,
   isCostLedgerEvent,
   isDailySpendRollup,
@@ -725,35 +724,6 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         expect(() => formatCalendarDay("invalid-date-string")).toThrow(
           InvalidCostLedgerEventError
         );
-      });
-    });
-
-    describe("calculateEventCostCu", () => {
-      it("calculates cost using fixed-point integer math with zero floating point", () => {
-        // Pricing: $0.15/1M input ($150,000 CU), $0.60/1M output ($600,000 CU), $0.075/1M cached ($75,000 CU)
-        const pricing = {
-          inputCostPerMTokMicro: 150_000n,
-          outputCostPerMTokMicro: 600_000n,
-          cacheReadCostPerMTokMicro: 75_000n,
-        };
-
-        // 1000 input tokens, 500 output tokens, 200 reasoning tokens, 400 cached tokens
-        const cost = calculateEventCostCu(
-          {
-            promptTokens: 1000,
-            completionTokens: 500,
-            reasoningTokens: 200,
-            cachedTokens: 400,
-          },
-          pricing
-        );
-
-        // Expected:
-        // input: (1000 * 150,000) / 1,000,000 = 150 CU
-        // output: ((500 + 200) * 600,000) / 1,000,000 = 420 CU
-        // cached: (400 * 75,000) / 1,000,000 = 30 CU
-        // total: 150 + 420 + 30 = 600 CU ($0.000600 USD)
-        expect(cost).toBe(600n);
       });
     });
 

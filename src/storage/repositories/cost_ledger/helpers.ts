@@ -2,16 +2,13 @@
  * Key Collective v2 — Cost Ledger Validation & Math Helpers
  *
  * Invariants (GEMINI.md Constitution):
- * - Fixed-Point CreditUnits: All costs in `int64` / `bigint` credit units (1 USD = 1,000,000 CU).
- *   Zero floating-point math for financials to eliminate IEEE 754 precision errors.
+ * - Credit Units: all amounts are `int64` / `bigint` CU. Zero floating-point math.
  * - Strict type-guarding and canonical day formatting.
  */
 
-import type { CostLedgerEvent, ModelPricing } from "../../../types/models";
+import type { CostLedgerEvent } from "../../../types/models";
 import { InvalidCostLedgerEventError } from "./errors";
 import type { DailySpendRollup } from "./types";
-
-const CU_SCALE_MULTIPLIER = 1_000_000n;
 
 /**
  * Validates that an input value is a valid int64 credit unit amount.
@@ -79,34 +76,6 @@ export function formatCalendarDay(dateOrString: string | Date): string {
   throw new InvalidCostLedgerEventError(
     `Invalid date format for calendar day: '${String(dateOrString)}'`
   );
-}
-
-/**
- * Calculates exact transaction cost in int64 credit units from token counts and pricing.
- * Zero floating-point arithmetic: (tokens * price_micro) // 1_000_000n.
- */
-export function calculateEventCostCu(
-  tokens: {
-    promptTokens: number;
-    completionTokens: number;
-    cachedTokens?: number;
-    reasoningTokens?: number;
-  },
-  pricing: ModelPricing<bigint>
-): bigint {
-  const promptTokens = BigInt(Math.max(0, Math.trunc(tokens.promptTokens)));
-  const completionTokens = BigInt(Math.max(0, Math.trunc(tokens.completionTokens)));
-  const reasoningTokens = BigInt(Math.max(0, Math.trunc(tokens.reasoningTokens ?? 0)));
-  const cachedTokens = BigInt(Math.max(0, Math.trunc(tokens.cachedTokens ?? 0)));
-
-  const inputCost = (promptTokens * pricing.inputCostPerMTokMicro) / CU_SCALE_MULTIPLIER;
-  const outputCost =
-    ((completionTokens + reasoningTokens) * pricing.outputCostPerMTokMicro) /
-    CU_SCALE_MULTIPLIER;
-  const cacheCost =
-    (cachedTokens * pricing.cacheReadCostPerMTokMicro) / CU_SCALE_MULTIPLIER;
-
-  return inputCost + outputCost + cacheCost;
 }
 
 /**

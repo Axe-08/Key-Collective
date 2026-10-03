@@ -119,7 +119,7 @@ export class CascadeRouter implements RouterContract {
    * @throws ModelNotFoundError (HTTP 404) if requested explicit model alias does not exist
    * @throws NoAvailableProviderError (HTTP 503) if no providers can fulfill request
    */
-  public getCandidates(request: RouteRequest | CascadeRouteRequest): ModelDef<bigint>[] {
+  public getCandidates(request: RouteRequest | CascadeRouteRequest): ModelDef[] {
     return resolveCandidates(request, {
       registry: this.registry,
       capabilityFilter: this.capabilityFilter,
@@ -132,7 +132,7 @@ export class CascadeRouter implements RouterContract {
   /**
    * Returns the primary (first-choice) model candidate that would be attempted.
    */
-  public selectPrimaryModel(request: RouteRequest | CascadeRouteRequest): ModelDef<bigint> {
+  public selectPrimaryModel(request: RouteRequest | CascadeRouteRequest): ModelDef {
     const candidates = this.getCandidates(request);
     return selectPrimaryCandidate(candidates);
   }
@@ -142,7 +142,7 @@ export class CascadeRouter implements RouterContract {
    */
   public getFallbackCandidates(
     request: RouteRequest | CascadeRouteRequest
-  ): ModelDef<bigint>[] {
+  ): ModelDef[] {
     const candidates = this.getCandidates(request);
     const reqOptions = request as CascadeRouteRequest;
     const maxFallbacks = reqOptions.maxFallbacks ?? this.maxFallbacks;

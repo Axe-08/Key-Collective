@@ -186,7 +186,8 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "auto",
+        // Explicit Gemini model: "auto" now picks the cheapest model by CU, which is a Groq model.
+        model: "gemini-3.5-flash-lite",
         messages: [{ role: "user", content: "Trigger 400" }],
       }),
     });

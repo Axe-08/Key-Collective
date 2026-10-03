@@ -23,8 +23,8 @@ export interface CapabilityRequirements {
   requiresStreaming?: boolean;
   /** Upstream provider to filter by (optional) */
   provider?: ModelProvider;
-  /** Maximum allowable input cost per 1M tokens in credit units (bigint) */
-  maxCostPerMTokMicro?: bigint;
+  /** Maximum CU weight (cuBase + cuInPer1k + cuOutPer1k) */
+  maxCuWeight?: bigint;
   /** Whether to only include active models (default: true) */
   onlyActive?: boolean;
 }
@@ -70,8 +70,8 @@ export interface RequirementExtractionOptions {
   defaultMaxOutputTokens?: number;
   /** Provider filter override */
   provider?: ModelProvider;
-  /** Maximum cost ceiling in credit units */
-  maxCostPerMTokMicro?: bigint;
+  /** Maximum CU weight (cuBase + cuInPer1k + cuOutPer1k) */
+  maxCuWeight?: bigint;
   /** Only consider active models (default: true) */
   onlyActive?: boolean;
 }

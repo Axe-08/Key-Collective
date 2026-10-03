@@ -9,19 +9,13 @@
 
 import type { ModelDef } from "../../types/models";
 
-export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
+export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef[] = [
   {
     id: "gemini-2.0-flash",
     provider: "google",
     logicalAliases: ["smart-fast", "fast-model", "fast"],
     contextWindow: 1_048_576,
     maxOutputTokens: 8192,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 100_000n, // $0.10 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 400_000n, // $0.40 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 25_000n,
     cuBase: 10n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,
@@ -40,12 +34,6 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["smart-model", "reasoning"],
     contextWindow: 2_097_152,
     maxOutputTokens: 8192,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 1_250_000n, // $1.25 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 5_000_000n, // $5.00 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 312_500n,
     cuBase: 50n,
     cuInPer1k: 5n,
     cuCachedPer1k: 1n,
@@ -64,12 +52,6 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["fast-model", "smart-fast", "open-groq"],
     contextWindow: 128_000,
     maxOutputTokens: 32768,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 590_000n, // $0.59 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 790_000n, // $0.79 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 0n,
     cuBase: 10n,
     cuInPer1k: 2n,
     cuCachedPer1k: 0n,
@@ -88,19 +70,13 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
  * Modern Next-Generation Model Definitions.
  * All pricing strictly in int64 credit units (bigint) per 1M tokens.
  */
-export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
+export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef[] = [
   {
     id: "gemini-2.5-flash",
     provider: "google",
     logicalAliases: ["gemini-flash", "google-flash", "flash-2.5", "auto", "smart-fast"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 75_000n, // $0.075 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 300_000n, // $0.30 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 18_750n,
     cuBase: 10n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,
@@ -119,12 +95,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["gemini-3.5", "flash-3.5"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 100_000n, // $0.10 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 400_000n, // $0.40 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 25_000n,
     cuBase: 10n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,
@@ -143,12 +113,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["flash-lite", "gemini-lite"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 50_000n, // $0.05 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 200_000n, // $0.20 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 12_500n,
     cuBase: 5n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,
@@ -167,12 +131,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["gemini-pro", "gemini-3.1-pro", "pro-3.1", "coder-high"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 1_250_000n, // $1.25 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 5_000_000n, // $5.00 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 312_500n,
     cuBase: 50n,
     cuInPer1k: 5n,
     cuCachedPer1k: 1n,
@@ -191,12 +149,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["smart-fast-next", "gemini-3.8", "flash-3.8"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 150_000n, // $0.15 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 600_000n, // $0.60 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 37_500n,
     cuBase: 10n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,
@@ -215,12 +167,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["groq-code", "qwen-27b"],
     contextWindow: 131_072,
     maxOutputTokens: 8192,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 200_000n, // $0.20 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 400_000n, // $0.40 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 50_000n,
     cuBase: 10n,
     cuInPer1k: 2n,
     cuCachedPer1k: 0n,
@@ -239,12 +185,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["qwen-3.8", "groq-qwen"],
     contextWindow: 131_072,
     maxOutputTokens: 8192,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 350_000n, // $0.35 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 700_000n, // $0.70 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 87_500n,
     cuBase: 10n,
     cuInPer1k: 2n,
     cuCachedPer1k: 0n,
@@ -263,12 +203,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["groq-oss", "gpt-oss", "gpt-oss-120b", "coder-high"],
     contextWindow: 131_072,
     maxOutputTokens: 65536,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 600_000n, // $0.60 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 1_200_000n, // $1.20 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 150_000n,
     cuBase: 10n,
     cuInPer1k: 2n,
     cuCachedPer1k: 0n,
@@ -287,12 +221,6 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
     logicalAliases: ["gpt-oss-20b", "groq-fast", "open-groq"],
     contextWindow: 131_072,
     maxOutputTokens: 65536,
-    /** @deprecated Use Credit Units instead */
-    inputCostPerMTokMicro: 150_000n, // $0.15 / 1M
-    /** @deprecated Use Credit Units instead */
-    outputCostPerMTokMicro: 300_000n, // $0.30 / 1M
-    /** @deprecated Use Credit Units instead */
-    cacheReadCostPerMTokMicro: 37_500n,
     cuBase: 5n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,
@@ -310,7 +238,7 @@ export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
 /**
  * All known model definitions combining default paid benchmarks and free-tier models.
  */
-export const ALL_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
+export const ALL_MODEL_DEFINITIONS: readonly ModelDef[] = [
   ...DEFAULT_MODEL_DEFINITIONS,
   ...FREE_TIER_MODEL_DEFINITIONS,
 ];

@@ -55,7 +55,7 @@ import {
   AuthTokensRepository,
 } from "../../../src/storage/repositories/auth_tokens/index";
 import { hashToken } from "../../../src/crypto";
-import { ModelRegistry } from "../../../src/router/registry/index";
+import { ALL_MODEL_DEFINITIONS, ModelRegistry } from "../../../src/router/registry/index";
 
 /**
  * Mock Cloudflare ExecutionContext tracking waitUntil background tasks.
@@ -559,7 +559,8 @@ describe("Worker Integration Tests (T4)", () => {
           owned_by: string;
           context_window: number;
           capabilities: { supportsTools: boolean; supportsVision: boolean };
-          pricing: { input_cost_per_mtok_micro: string };
+          kc: { cu_base: number };
+          pricing?: unknown;
         }>;
       };
 
@@ -571,7 +572,8 @@ describe("Worker Integration Tests (T4)", () => {
       expect(geminiModel).toBeDefined();
       expect(geminiModel?.owned_by).toBe("google");
       expect(geminiModel?.capabilities.supportsTools).toBe(true);
-      expect(Number(geminiModel?.pricing.input_cost_per_mtok_micro)).toBeGreaterThan(0);
+      expect(geminiModel?.kc.cu_base).toBeGreaterThan(0);
+      expect(geminiModel?.pricing).toBeUndefined();
     });
 
     it("returns model details on GET /v1/models/gemini-2.0-flash", async () => {
@@ -603,7 +605,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(res.status).toBe(200);
 
       const body = (await res.json()) as { id: string; owned_by: string };
-      expect(body.id).toBe("gemini-2.5-flash");
+      expect(body.id).toBe(new ModelRegistry(ALL_MODEL_DEFINITIONS).resolveAlias("smart-fast"));
       expect(body.owned_by).toBe("google");
     });
 
@@ -1006,7 +1008,7 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await testWorker.fetch(req, env);
       expect(res.status).toBe(200);
-      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.5-flash");
+      expect(res.headers.get("x-kc-model-used")).toBe(new ModelRegistry(ALL_MODEL_DEFINITIONS).resolveAlias("smart-fast"));
       expect(res.headers.get("x-kc-model")).toBeNull();
       expect(res.headers.get("x-kc-provider")).toBe("google");
     });
@@ -1019,9 +1021,10 @@ describe("Worker Integration Tests (T4)", () => {
         logicalAliases: [],
         contextWindow: 8192,
         maxOutputTokens: 2048,
-        inputCostPerMTokMicro: 100_000n,
-        outputCostPerMTokMicro: 200_000n,
-        cacheReadCostPerMTokMicro: 0n,
+        cuBase: 10n,
+        cuInPer1k: 1n,
+        cuCachedPer1k: 0n,
+        cuOutPer1k: 1n,
         supportsTools: false,
         supportsVision: false,
         supportsJsonSchema: false,

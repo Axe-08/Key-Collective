@@ -88,7 +88,7 @@ export function getCapabilityNames(reqs: CapabilityRequirements): string[] {
 export function resolveCandidates(
   request: RouteRequest | CascadeRouteRequest,
   context: CandidateResolutionContext
-): ModelDef<bigint>[] {
+): ModelDef[] {
   const alias = (request.modelAlias ?? "").trim();
   const reqOptions = request as CascadeRouteRequest;
 
@@ -153,7 +153,7 @@ export function resolveCandidates(
   }
 
   // 5. Target model is viable as primary candidate (if capable)
-  const candidates: ModelDef<bigint>[] = [];
+  const candidates: ModelDef[] = [];
   const seenModelIds = new Set<string>();
 
   if (audit.isCapable) {
@@ -201,7 +201,7 @@ export function resolveCandidates(
 /**
  * Returns the primary (first-choice) model candidate that would be attempted.
  */
-export function selectPrimaryCandidate(candidates: ModelDef<bigint>[]): ModelDef<bigint> {
+export function selectPrimaryCandidate(candidates: ModelDef[]): ModelDef {
   return candidates[0];
 }
 
@@ -209,8 +209,8 @@ export function selectPrimaryCandidate(candidates: ModelDef<bigint>[]): ModelDef
  * Returns the fallback candidate models for a request (excluding the primary).
  */
 export function selectFallbackCandidates(
-  candidates: ModelDef<bigint>[],
+  candidates: ModelDef[],
   maxFallbacks: number
-): ModelDef<bigint>[] {
+): ModelDef[] {
   return candidates.slice(1, 1 + maxFallbacks);
 }

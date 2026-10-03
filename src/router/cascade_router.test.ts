@@ -49,60 +49,64 @@ import {
 
 describe("CascadeRouter", () => {
   // Custom test models
-  const cheapGoogleModel: ModelDef<bigint> = {
+  const cheapGoogleModel: ModelDef = {
     id: "gemini-2.0-flash",
     provider: "google",
     logicalAliases: ["smart-fast", "fast-model", "fast"],
     contextWindow: 1_000_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 100_000n, // 0.10 USD
-    outputCostPerMTokMicro: 400_000n, // 0.40 USD
-    cacheReadCostPerMTokMicro: 25_000n,
+    cuBase: 10n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const midOpenAIModel: ModelDef<bigint> = {
+  const midOpenAIModel: ModelDef = {
     id: "gpt-4o-mini",
     provider: "openai",
     logicalAliases: ["openai-fast"],
     contextWindow: 128_000,
     maxOutputTokens: 16_384,
-    inputCostPerMTokMicro: 150_000n, // 0.15 USD
-    outputCostPerMTokMicro: 600_000n, // 0.60 USD
-    cacheReadCostPerMTokMicro: 75_000n,
+    cuBase: 15n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const anthropicModel: ModelDef<bigint> = {
+  const anthropicModel: ModelDef = {
     id: "claude-3-5-haiku",
     provider: "anthropic",
     logicalAliases: ["haiku-fast"],
     contextWindow: 200_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 800_000n, // 0.80 USD
-    outputCostPerMTokMicro: 4_000_000n, // 4.00 USD
-    cacheReadCostPerMTokMicro: 80_000n,
+    cuBase: 80n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const textOnlyCheapModel: ModelDef<bigint> = {
+  const textOnlyCheapModel: ModelDef = {
     id: "cheap-text-legacy",
     provider: "groq",
     logicalAliases: ["legacy-text"],
     contextWindow: 8192,
     maxOutputTokens: 2048,
-    inputCostPerMTokMicro: 50_000n, // Cheapest
-    outputCostPerMTokMicro: 100_000n,
-    cacheReadCostPerMTokMicro: 10_000n,
+    cuBase: 5n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: false,
     supportsVision: false,
     supportsJsonSchema: false,

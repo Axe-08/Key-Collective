@@ -66,11 +66,6 @@ export class ModelRoutesHandler {
         supportsVision: m.supportsVision,
         supportsJsonSchema: m.supportsJsonSchema,
       },
-      pricing: {
-        input_cost_per_mtok_micro: m.inputCostPerMTokMicro.toString(),
-        output_cost_per_mtok_micro: m.outputCostPerMTokMicro.toString(),
-        cache_read_cost_per_mtok_micro: m.cacheReadCostPerMTokMicro.toString(),
-      },
       kc: {
         cu_base: Number(m.cuBase ?? 10),
         cu_in_per_1k: Number(m.cuInPer1k ?? 1),
@@ -120,11 +115,6 @@ export class ModelRoutesHandler {
           supportsTools: model.supportsTools,
           supportsVision: model.supportsVision,
           supportsJsonSchema: model.supportsJsonSchema,
-        },
-        pricing: {
-          input_cost_per_mtok_micro: model.inputCostPerMTokMicro.toString(),
-          output_cost_per_mtok_micro: model.outputCostPerMTokMicro.toString(),
-          cache_read_cost_per_mtok_micro: model.cacheReadCostPerMTokMicro.toString(),
         },
         kc: {
           cu_base: Number(model.cuBase ?? 10),

@@ -72,7 +72,7 @@ export interface FallbackExecutionContext {
  */
 export async function executeCascadeRouting(
   request: RouteRequest | CascadeRouteRequest,
-  candidates: ModelDef<bigint>[],
+  candidates: ModelDef[],
   context: FallbackExecutionContext
 ): Promise<CascadeRouteResponse> {
   const reqOptions = request as CascadeRouteRequest;

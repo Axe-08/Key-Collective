@@ -87,7 +87,7 @@ export interface CascadeRouteResponse extends RouteResponse {
   /** Upstream provider that fulfilled the request */
   provider: string;
   /** Model definition of the model that fulfilled the request */
-  modelDef: ModelDef<bigint>;
+  modelDef: ModelDef;
   /** Prior failed routing attempts leading up to this success */
   attempts: FallbackAttempt[];
   /** Authoritative token usage extracted from stream or response payload */
@@ -140,7 +140,7 @@ export interface CascadeRouterOptions {
   /** Extra body parameters passed to all upstream calls */
   extraBodyParams?: Record<string, unknown>;
   /** Callback fired whenever a candidate fails and router escalates to the next model */
-  onFallback?: (attempt: FallbackAttempt, nextModel?: ModelDef<bigint>) => void;
+  onFallback?: (attempt: FallbackAttempt, nextModel?: ModelDef) => void;
   /** Callback fired upon a successful route */
   onSuccess?: (response: CascadeRouteResponse) => void;
 }

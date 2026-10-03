@@ -5,8 +5,7 @@
  * - LLD 2.1: Manages model definitions, context window limits, and pricing information.
  * - Logical alias lookup (e.g. mapping 'fast-model' or 'smart-fast' to canonical provider model ID).
  * - Context window tracking and token limits.
- * - Fixed-point credit unit pricing math (1 USD = 1,000,000 credit units) to avoid floating point precision issues.
- * - Exposing methods to calculate estimated or exact costs based on token usage.
+ * - Credit Unit (CU) weights per model; cheapest selection by CU weight.
  *
  * Invariants Enforced (GEMINI.md Constitution):
  * - TypeScript (strict mode, no `any`).
@@ -33,7 +32,7 @@ import {
   ContextValidationResult,
 } from "./types";
 import { DEFAULT_MODEL_DEFINITIONS } from "./catalog";
-import { normalizeModelDef, toBigIntMicro } from "./helpers";
+import { compareByCuWeight, cuWeight, normalizeModelDef } from "./helpers";
 
 /**
  * ModelRegistry manages model definitions, context window limits, and pricing math.
@@ -41,13 +40,13 @@ import { normalizeModelDef, toBigIntMicro } from "./helpers";
  */
 export class ModelRegistry implements IModelRegistry {
   /** Internal storage of models keyed by canonical ID (lowercase) */
-  private readonly models = new Map<string, ModelDef<bigint>>();
+  private readonly models = new Map<string, ModelDef>();
 
   /** Explicit alias overrides: alias (lowercase) -> canonical model ID */
   private readonly aliasOverrides = new Map<string, string>();
 
-  constructor(options: ModelRegistryOptions | readonly (ModelDef<bigint> | ModelDef<number>)[] = {}) {
-    let initialModels: readonly (ModelDef<bigint> | ModelDef<number>)[] | undefined;
+  constructor(options: ModelRegistryOptions | readonly (ModelDef)[] = {}) {
+    let initialModels: readonly (ModelDef)[] | undefined;
     let initialAliases: Record<string, string> | undefined;
 
     if (Array.isArray(options)) {
@@ -79,7 +78,7 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Registers or updates a model definition in the registry.
    */
-  public registerModel(model: ModelDef<bigint> | ModelDef<number>): void {
+  public registerModel(model: ModelDef): void {
     if (!model.id || typeof model.id !== "string" || !model.id.trim()) {
       throw new TypeError("Model must have a valid non-empty id");
     }
@@ -90,7 +89,7 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Registers multiple model definitions in batch.
    */
-  public registerModels(models: readonly (ModelDef<bigint> | ModelDef<number>)[]): void {
+  public registerModels(models: readonly (ModelDef)[]): void {
     for (const model of models) {
       this.registerModel(model);
     }
@@ -123,14 +122,14 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Retrieves a model definition by canonical ID.
    */
-  public getModel(modelId: string): ModelDef<bigint> | undefined {
+  public getModel(modelId: string): ModelDef | undefined {
     return this.models.get(modelId.toLowerCase().trim());
   }
 
   /**
    * Retrieves a model definition by canonical ID, throwing ModelNotFoundError if missing.
    */
-  public getModelOrThrow(modelId: string): ModelDef<bigint> {
+  public getModelOrThrow(modelId: string): ModelDef {
     const model = this.getModel(modelId);
     if (!model) {
       throw new ModelNotFoundError(modelId, undefined, {
@@ -143,7 +142,7 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Returns all registered models, optionally filtered by active status.
    */
-  public getAllModels(onlyActive = false): ModelDef<bigint>[] {
+  public getAllModels(onlyActive = false): ModelDef[] {
     const all = Array.from(this.models.values());
     return onlyActive ? all.filter((m) => m.isActive) : all;
   }
@@ -151,7 +150,7 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Returns all active registered models.
    */
-  public getActiveModels(): ModelDef<bigint>[] {
+  public getActiveModels(): ModelDef[] {
     return this.getAllModels(true);
   }
 
@@ -161,7 +160,7 @@ export class ModelRegistry implements IModelRegistry {
   public getModelsByProvider(
     provider: ModelProvider,
     onlyActive = true
-  ): ModelDef<bigint>[] {
+  ): ModelDef[] {
     const target = provider.toLowerCase().trim();
     return this.getAllModels(onlyActive).filter(
       (m) => m.provider.toLowerCase().trim() === target
@@ -223,7 +222,7 @@ export class ModelRegistry implements IModelRegistry {
 
     // 2. Search through registered model logical aliases
     // If multiple models share an alias, pick the cheapest active model
-    let cheapestMatch: ModelDef<bigint> | undefined;
+    let cheapestMatch: ModelDef | undefined;
 
     for (const model of this.models.values()) {
       if (!model.isActive) continue;
@@ -232,10 +231,7 @@ export class ModelRegistry implements IModelRegistry {
         (a) => a.toLowerCase().trim() === clean
       );
       if (hasAlias) {
-        if (
-          !cheapestMatch ||
-          model.inputCostPerMTokMicro < cheapestMatch.inputCostPerMTokMicro
-        ) {
+        if (!cheapestMatch || compareByCuWeight(model, cheapestMatch) < 0) {
           cheapestMatch = model;
         }
       }
@@ -251,7 +247,7 @@ export class ModelRegistry implements IModelRegistry {
   public resolveModel(
     idOrAlias: string,
     onlyActive = true
-  ): ModelDef<bigint> | undefined {
+  ): ModelDef | undefined {
     const clean = idOrAlias.toLowerCase().trim();
 
     // 1. Try direct canonical ID match
@@ -284,7 +280,7 @@ export class ModelRegistry implements IModelRegistry {
   public resolveModelOrThrow(
     idOrAlias: string,
     onlyActive = true
-  ): ModelDef<bigint> {
+  ): ModelDef {
     const resolved = this.resolveModel(idOrAlias, onlyActive);
     if (!resolved) {
       const knownAliases = Array.from(this.getAliasMap(onlyActive).keys());
@@ -335,13 +331,7 @@ export class ModelRegistry implements IModelRegistry {
     const map = new Map<string, string>();
 
     // 1. Implicit model aliases (sorted by cost ascending so cheapest wins)
-    const activeModels = this.getAllModels(onlyActive).sort((a, b) =>
-      a.inputCostPerMTokMicro < b.inputCostPerMTokMicro
-        ? -1
-        : a.inputCostPerMTokMicro > b.inputCostPerMTokMicro
-        ? 1
-        : 0
-    );
+    const activeModels = this.getAllModels(onlyActive).sort(compareByCuWeight);
 
     for (const model of activeModels) {
       for (const alias of model.logicalAliases) {
@@ -493,28 +483,12 @@ export class ModelRegistry implements IModelRegistry {
     return calculateCu(model, usage);
   }
 
-  // ==========================================
-  // Fixed-Point CreditUnit Pricing Math (Deprecated)
-  // ==========================================
-
   /**
-   * Calculates the exact total transaction cost in int64 credit units for a model.
-   * Zero floating-point arithmetic:
-   * promptCost = (promptTokens * inputCost) // 1_000_000n
-   * outputCost = ((completionTokens + reasoningTokens) * outputCost) // 1_000_000n
-
-
-  /**
-   * Retrieves pricing structure for a model or alias.
-   *
-   * @deprecated Use Credit Units instead. Kept until WP-7.3.
+   * Retrieves the CU weights of a model or alias.
    */
-  public getPricing(modelIdOrAlias: string): ModelPricing<bigint> {
+  public getPricing(modelIdOrAlias: string): ModelPricing {
     const model = this.resolveModelOrThrow(modelIdOrAlias);
     return {
-      inputCostPerMTokMicro: model.inputCostPerMTokMicro,
-      outputCostPerMTokMicro: model.outputCostPerMTokMicro,
-      cacheReadCostPerMTokMicro: model.cacheReadCostPerMTokMicro,
       cuBase: model.cuBase,
       cuInPer1k: model.cuInPer1k,
       cuCachedPer1k: model.cuCachedPer1k,
@@ -529,7 +503,7 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Finds candidate models matching the given criteria, sorted by input cost ascending.
    */
-  public findCandidates(criteria: ModelFilterCriteria = {}): ModelDef<bigint>[] {
+  public findCandidates(criteria: ModelFilterCriteria = {}): ModelDef[] {
     const onlyActive = criteria.onlyActive ?? true;
     let candidates = this.getAllModels(onlyActive);
 
@@ -542,11 +516,9 @@ export class ModelRegistry implements IModelRegistry {
         (m) => m.contextWindow >= criteria.minContextWindow!
       );
     }
-    if (criteria.maxCostPerMTokMicro !== undefined) {
-      const maxCost = toBigIntMicro(criteria.maxCostPerMTokMicro);
-      candidates = candidates.filter(
-        (m) => m.inputCostPerMTokMicro <= maxCost
-      );
+    if (criteria.maxCuWeight !== undefined) {
+      const maxWeight = criteria.maxCuWeight;
+      candidates = candidates.filter((m) => cuWeight(m) <= maxWeight);
     }
     if (criteria.supportsTools) {
       candidates = candidates.filter((m) => m.supportsTools);
@@ -558,26 +530,20 @@ export class ModelRegistry implements IModelRegistry {
       candidates = candidates.filter((m) => m.supportsJsonSchema);
     }
 
-    // Sort by input cost ascending (cost-optimal)
-    return candidates.sort((a, b) =>
-      a.inputCostPerMTokMicro < b.inputCostPerMTokMicro
-        ? -1
-        : a.inputCostPerMTokMicro > b.inputCostPerMTokMicro
-        ? 1
-        : 0
-    );
+    // Sort by CU weight ascending (cost-optimal)
+    return candidates.sort(compareByCuWeight);
   }
 
   /**
    * Selects the cheapest model from candidate array.
    */
   public getCheapestModel(
-    candidates: ModelDef<bigint>[]
-  ): ModelDef<bigint> | undefined {
+    candidates: ModelDef[]
+  ): ModelDef | undefined {
     if (candidates.length === 0) return undefined;
     let cheapest = candidates[0];
     for (let i = 1; i < candidates.length; i++) {
-      if (candidates[i].inputCostPerMTokMicro < cheapest.inputCostPerMTokMicro) {
+      if (compareByCuWeight(candidates[i], cheapest) < 0) {
         cheapest = candidates[i];
       }
     }
@@ -587,10 +553,8 @@ export class ModelRegistry implements IModelRegistry {
   /**
    * Compares two models by input cost for sorting.
    */
-  public compareByCost(a: ModelDef<bigint>, b: ModelDef<bigint>): number {
-    if (a.inputCostPerMTokMicro < b.inputCostPerMTokMicro) return -1;
-    if (a.inputCostPerMTokMicro > b.inputCostPerMTokMicro) return 1;
-    return 0;
+  public compareByCost(a: ModelDef, b: ModelDef): number {
+    return compareByCuWeight(a, b);
   }
 
   // ==========================================
@@ -608,7 +572,7 @@ export class ModelRegistry implements IModelRegistry {
  *   + ceilDiv(BigInt((usage.completionTokens ?? 0) + (usage.reasoningTokens ?? 0)) * model.cuOutPer1k, 1000n)
  */
 export function calculateCu(
-  model: ModelDef<bigint>,
+  model: ModelDef,
   usage: TokenUsage
 ): bigint {
   const promptTokens = BigInt(Math.max(0, Math.trunc(usage.promptTokens ?? 0)));

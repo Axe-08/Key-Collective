@@ -97,19 +97,9 @@ export interface ModelCapabilities {
 }
 
 /**
- * Fixed-point credit unit pricing per 1M tokens.
- * By default typed as `bigint` to enforce zero floating-point math.
+ * Credit Unit (CU) weights of a model. CU is the only price unit (D-02).
  */
-export interface ModelPricing<TCost = bigint> {
-  /** Input token cost per 1M tokens in credit units */
-  /** @deprecated Use Credit Units (cuInPer1k) instead */
-  inputCostPerMTokMicro: TCost;
-  /** Output token cost per 1M tokens in credit units */
-  /** @deprecated Use Credit Units (cuOutPer1k) instead */
-  outputCostPerMTokMicro: TCost;
-  /** Cached token read cost per 1M tokens in credit units */
-  /** @deprecated Use Credit Units (cuCachedPer1k) instead */
-  cacheReadCostPerMTokMicro: TCost;
+export interface ModelPricing {
   /** Base Credit Units per request */
   cuBase?: bigint;
   /** Input Credit Units per 1,000 tokens */
@@ -124,8 +114,8 @@ export interface ModelPricing<TCost = bigint> {
  * ModelDef defines capabilities, pricing, and metadata of an AI model in the registry.
  * Conforms to D1 schema and domain contracts.
  */
-export interface ModelDef<TCost = bigint> {
-  /** Unique canonical model identifier (e.g. "gemini-2.0-flash", "gpt-4o") */
+export interface ModelDef {
+  /** Unique canonical model identifier (e.g. "gemini-3.8-flash", "openai/gpt-oss-120b") */
   id: string;
   /** Upstream model provider */
   provider: ModelProvider;
@@ -135,15 +125,6 @@ export interface ModelDef<TCost = bigint> {
   contextWindow: number;
   /** Maximum output tokens */
   maxOutputTokens: number;
-  /** Input cost per 1,000,000 tokens in credit units (int64) */
-  /** @deprecated Use Credit Units (cuInPer1k) instead */
-  inputCostPerMTokMicro: TCost;
-  /** Output cost per 1,000,000 tokens in credit units (int64) */
-  /** @deprecated Use Credit Units (cuOutPer1k) instead */
-  outputCostPerMTokMicro: TCost;
-  /** Cache read cost per 1,000,000 tokens in credit units (int64) */
-  /** @deprecated Use Credit Units (cuCachedPer1k) instead */
-  cacheReadCostPerMTokMicro: TCost;
   /** Base Credit Units per request */
   cuBase?: bigint;
   /** Input Credit Units per 1,000 tokens */
@@ -277,27 +258,21 @@ export interface CostLedgerEvent<TCost = bigint> {
 /**
  * Factory helper for creating a ModelDef with defaults.
  */
-export function createModelDef<TCost = bigint>(
-  params: Omit<
-    ModelDef<TCost>,
-    "isActive" | "cacheReadCostPerMTokMicro" | "cuBase" | "cuInPer1k" | "cuCachedPer1k" | "cuOutPer1k"
-  > & {
+export function createModelDef(
+  params: Omit<ModelDef, "isActive" | "cuBase" | "cuInPer1k" | "cuCachedPer1k" | "cuOutPer1k"> & {
     isActive?: boolean;
-    cacheReadCostPerMTokMicro?: TCost;
     cuBase?: bigint;
     cuInPer1k?: bigint;
     cuCachedPer1k?: bigint;
     cuOutPer1k?: bigint;
   }
-): ModelDef<TCost> {
+): ModelDef {
   return {
     ...params,
     cuBase: params.cuBase ?? 0n,
     cuInPer1k: params.cuInPer1k ?? 0n,
     cuCachedPer1k: params.cuCachedPer1k ?? 0n,
     cuOutPer1k: params.cuOutPer1k ?? 0n,
-    cacheReadCostPerMTokMicro:
-      params.cacheReadCostPerMTokMicro ?? (0n as unknown as TCost),
     isActive: params.isActive ?? true,
   };
 }
@@ -349,14 +324,11 @@ export function isKeyStatus(value: unknown): value is KeyStatus {
 /**
  * Type guard for ModelDef.
  */
-export function isModelDef<TCost = bigint>(value: unknown): value is ModelDef<TCost> {
+export function isModelDef(value: unknown): value is ModelDef {
   if (typeof value !== "object" || value === null) {
     return false;
   }
   const candidate = value as Record<string, unknown>;
-  const hasValidCost =
-    typeof candidate.inputCostPerMTokMicro === "bigint" ||
-    typeof candidate.inputCostPerMTokMicro === "number";
   const hasValidCu =
     (candidate.cuBase === undefined || typeof candidate.cuBase === "bigint") &&
     (candidate.cuInPer1k === undefined || typeof candidate.cuInPer1k === "bigint") &&
@@ -368,7 +340,6 @@ export function isModelDef<TCost = bigint>(value: unknown): value is ModelDef<TC
     Array.isArray(candidate.logicalAliases) &&
     typeof candidate.contextWindow === "number" &&
     typeof candidate.maxOutputTokens === "number" &&
-    hasValidCost &&
     hasValidCu &&
     typeof candidate.supportsTools === "boolean" &&
     typeof candidate.supportsVision === "boolean" &&

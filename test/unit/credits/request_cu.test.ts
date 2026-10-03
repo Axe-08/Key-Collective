@@ -120,10 +120,10 @@ describe("Credit Units (CU) System & calculateCu", () => {
   });
 
   describe("calculateCu Boundary Tests", () => {
-    const flashModel: ModelDef<bigint> = ALL_MODEL_DEFINITIONS.find(
+    const flashModel: ModelDef = ALL_MODEL_DEFINITIONS.find(
       (m) => m.id === "gemini-2.0-flash"
     )!;
-    const proModel: ModelDef<bigint> = ALL_MODEL_DEFINITIONS.find(
+    const proModel: ModelDef = ALL_MODEL_DEFINITIONS.find(
       (m) => m.id === "gemini-1.5-pro"
     )!;
 
