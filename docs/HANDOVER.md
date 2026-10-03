@@ -4,6 +4,28 @@
 
 ## 0. RESUME HERE (end of the Claude session, 2026-10-03)
 
+> **PAUSED by the owner (2026-10-03).** All Phase F agents are stopped. Committed progress (19 of 47 tasks):
+>
+> | Branch | Committed tasks | Remaining tasks |
+> |---|---|---|
+> | `wp/WP-F.1-rest` (contains `wp/WP-F.1`) | T-F.1.1–1.4 | none |
+> | `wp/WP-F.2` | T-F.2.1–2.3 | none |
+> | `wp/WP-F.3` | none | T-F.3.1–3.5, T-F.4.1 |
+> | `wp/WP-F.5` | T-F.5.1–5.2 | T-F.5.3–5.5, T-F.6.1–6.2 |
+> | `wp/WP-F.7` | T-F.7.1–7.3 | T-F.7.4–7.8 |
+> | `wp/WP-F.8` | T-F.8.1–8.2, T-F.9.1 | T-F.9.2–9.4 |
+> | `wp/WP-F.10` | T-F.10.1–10.3 | T-F.10.4–10.13 |
+>
+> **Uncommitted work-in-progress** is left in the agents' worktrees under `.claude/worktrees/agent-*`:
+> - WP-F.3: 25 files (the catalog rebuild);
+> - WP-F.5: 11 files;
+> - WP-F.7: 6 files;
+> - WP-F.8: 2 files.
+>
+> Review it with `git -C <worktree> diff`. Keep it only if its tests pass, and commit it per task. Otherwise discard it with `git -C <worktree> checkout -- .`.
+>
+> Each worktree's `.wp/red.log` is local to that worktree; keep it for `wp.sh finish`. Nothing is merged or pushed.
+
 - **Plan:** `docs/PHASEF_PLAN.md`. It contains the re-audit (RA-01 to RA-15), the verified model lists, 10 work packages and the owner QA list (§5). Live provider evidence is in `docs/specs/gcp_probe.md`.
 - **Phase F is running in parallel.** Each work package (or pair) is built by a background agent in its own git worktree under `.claude/worktrees/`, on its own branch starting from `5113788`. **None are merged.**
 
