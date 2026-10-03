@@ -63,19 +63,18 @@ export async function handleGoogleAuth(
   // in the request body is ignored to prevent identity spoofing.
   const tenantId = `usr_goog_${uid}`;
   const tier = "builder";
-  const sybilScore = 95;
-
 
   if (env.DB && typeof env.DB.prepare === "function") {
     try {
       // 1. Upsert into users table — tier is only ever set on INSERT, never
       // overwritten by a subsequent sign-in.
       await env.DB.prepare(
+        // QA-02: a Google-only account has no trust score; GitHub linking produces the real one.
         `INSERT INTO users (id, email, tier, role, sybil_score, auth_phase, is_quarantined, created_at)
-         VALUES (?, ?, ?, 'user', ?, 3, 0, CURRENT_TIMESTAMP)
+         VALUES (?, ?, ?, 'user', NULL, 3, 0, CURRENT_TIMESTAMP)
          ON CONFLICT(id) DO UPDATE SET
            email = excluded.email`
-      ).bind(tenantId, email, tier, sybilScore).run();
+      ).bind(tenantId, email, tier).run();
       await env.DB.prepare(
         `INSERT INTO user_identities (user_id, provider, subject, email) VALUES (?, 'google', ?, ?)
          ON CONFLICT(provider, subject) DO UPDATE SET email = excluded.email`

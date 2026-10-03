@@ -327,7 +327,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 
 ### WP-F.5
 - [x] T-F.5.1 /api/session returns linked identities; no 95 fallback (QA-03, QA-09)
-- [ ] T-F.5.2 Google-only users get sybil_score NULL (QA-02)
+- [x] T-F.5.2 Google-only users get sybil_score NULL (QA-02)
 - [ ] T-F.5.3 App maps identity; AddKeyModal and Workbench use rights (QA-03, QA-09)
 - [ ] T-F.5.4 IdentityCard shows Unverified until GitHub is linked (QA-02)
 - [ ] T-F.5.5 Standing and contribution fetch after sign-in (QA-01)

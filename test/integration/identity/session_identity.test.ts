@@ -81,3 +81,22 @@ describe("GET /api/session identity", () => {
     expect(body.user.sybil_score).toBe(73);
   });
 });
+
+describe("Google sign-in trust score", () => {
+  it("[2] a new Google-only user is stored with sybil_score NULL", async () => {
+    const sub = `sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+
+    const res = await call("https://console.test/api/auth/google", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ idToken: await signGoogleIdToken(sub) }),
+    });
+
+    expect(res.status).toBe(200);
+    const row = await env.DB.prepare("SELECT sybil_score FROM users WHERE id = ?")
+      .bind(`usr_goog_${sub}`)
+      .first<{ sybil_score: number | null }>();
+    expect(row).not.toBeNull();
+    expect(row?.sybil_score).toBeNull();
+  });
+});
