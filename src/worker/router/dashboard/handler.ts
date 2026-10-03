@@ -247,7 +247,10 @@ export class DashboardRouter {
         email: string;
         tier: string;
         role: string;
-        sybil_score?: number;
+        providers: string[];
+        github_id: string | null;
+        github_username: string | null;
+        sybil_score: number | null;
       } | null = null;
 
       if (tenantId === "admin") {
@@ -256,6 +259,9 @@ export class DashboardRouter {
           email: "admin@keycollective.ai",
           tier: "admin",
           role: "admin",
+          providers: [],
+          github_id: null,
+          github_username: null,
           sybil_score: 100,
         };
       } else if (env.DB && typeof env.DB.prepare === "function" && tenantId && tenantId !== "anonymous") {
@@ -267,16 +273,26 @@ export class DashboardRouter {
             email: string;
             tier: string;
             role: string;
-            sybil_score: number;
+            sybil_score: number | null;
           }>();
 
           if (userRow) {
+            const identities = (
+              await env.DB.prepare("SELECT provider, subject, username FROM user_identities WHERE user_id = ? ORDER BY provider")
+                .bind(tenantId)
+                .all<{ provider: string; subject: string; username: string | null }>()
+            ).results;
+            const github = identities.find((i) => i.provider === "github");
             user = {
               id: userRow.id,
               email: userRow.email,
               tier: userRow.tier,
               role: userRow.role || (userRow.tier === "admin" ? "admin" : "user"),
-              sybil_score: userRow.sybil_score ?? 95,
+              providers: identities.map((i) => i.provider),
+              github_id: github?.subject ?? null,
+              github_username: github?.username ?? null,
+              // QA-02: only GitHub linking produces a trust score; an unlinked account has none.
+              sybil_score: github ? userRow.sybil_score : null,
             };
           }
         } catch (err) {
@@ -292,7 +308,10 @@ export class DashboardRouter {
           email: `${tenantId}@keycollective.local`,
           tier: tenantId.startsWith("usr_gh_") || tenantId.startsWith("gh_") ? "max" : "builder",
           role: "user",
-          sybil_score: 90,
+          providers: [],
+          github_id: null,
+          github_username: null,
+          sybil_score: null,
         };
       }
 
