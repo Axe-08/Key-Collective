@@ -1561,7 +1561,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           indexes: [keyId],
         });
       } catch (err) {
-        void err;
+        this.log("classification").debug("telemetry_drop", { site: "key_classification", error: err });
       }
     }
 
@@ -1984,6 +1984,49 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     return out;
   }
 
+  private log(traceId: string): Logger {
+    return new Logger({ traceId, tenantId: this.getMeta("provider") ?? "coordinator" });
+  }
+
+  /**
+   * Pushes this shard's band cap to the `pool:bands` coordinator when the last
+   * delivered value differs from the current one. A failed push is logged and the
+   * marker is left stale, so the next alarm retries.
+   */
+  private async pushBandIfDirty(): Promise<void> {
+    const bandCapRaw = this.getMeta("pool:band_cap");
+    const shardProv = this.getMeta("provider");
+    if (!bandCapRaw || !shardProv || this.getMeta("pool:band_pushed") === bandCapRaw) {
+      return;
+    }
+    const coordNs = this.getEffectiveEnv().POOL_COORDINATOR as
+      | { idFromName?: (name: string) => unknown; get?: (id: unknown) => unknown }
+      | undefined;
+    if (!coordNs || typeof coordNs.idFromName !== "function" || typeof coordNs.get !== "function") {
+      return;
+    }
+    let utilisationPct = 0;
+    const bandsRaw = this.getMeta("pool:bands");
+    if (bandsRaw) {
+      try {
+        utilisationPct = Number((JSON.parse(bandsRaw) as { utilisationPct?: number }).utilisationPct ?? 0);
+      } catch (err) {
+        this.log("pool-bands").warn("pool_bands_self_corrupt", { error: err });
+      }
+    }
+    try {
+      const bandsStub = coordNs.get(coordNs.idFromName("pool:bands")) as {
+        setPoolBand?(provider: string, utilisationPct: number, bandCap: number): Promise<void>;
+      };
+      if (typeof bandsStub.setPoolBand === "function") {
+        await bandsStub.setPoolBand(shardProv, utilisationPct, Number(bandCapRaw));
+        this.setMeta("pool:band_pushed", bandCapRaw);
+      }
+    } catch (err) {
+      this.log("pool-bands").error("pool_band_push_failed", { provider: shardProv, error: err });
+    }
+  }
+
   /**
    * 60-second alarm:
    * - Promotes OBSERVATION keys past `observation_until`
@@ -2022,7 +2065,6 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           : st.utilisationPct < 95
           ? 150
           : 100;
-      const prevBandCap = Number(this.getMeta("pool:band_cap") ?? "0");
       this.setMeta("pool:band_cap", String(bandCap));
       this.setMeta(
         "pool:bands",
@@ -2032,28 +2074,9 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           updatedAt: now,
         })
       );
-      const shardProv = this.getMeta("provider");
-      const coordNs = (this.env as unknown as { POOL_COORDINATOR?: DurableObjectNamespace })
-        ?.POOL_COORDINATOR;
-      if (
-        prevBandCap !== bandCap &&
-        shardProv &&
-        coordNs &&
-        typeof coordNs.idFromName === "function" &&
-        typeof coordNs.get === "function"
-      ) {
-        try {
-          const bandsStub = coordNs.get(coordNs.idFromName("pool:bands")) as unknown as {
-            setPoolBand?(provider: string, utilisationPct: number, bandCap: number): Promise<void>;
-          };
-          if (typeof bandsStub.setPoolBand === "function") {
-            await bandsStub.setPoolBand(shardProv, st.utilisationPct, bandCap);
-          }
-        } catch (err) {
-          void err;
-        }
-      }
     }
+
+    await this.pushBandIfDirty();
 
     // Expire ROTATING project hashes into TOMBSTONED after 30 minutes (WP-5.11 T-5.11.3)
     if (this.env?.DB && typeof this.env.DB.prepare === "function") {
@@ -2068,8 +2091,9 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       )
         .bind(14 * 86_400_000, now, now)
         .run()
-        .catch((err) => {
-          void err;
+        .catch((err: unknown) => {
+          // Idempotent: the next alarm runs the same UPDATE again.
+          this.log("alarm").error("project_hash_tombstone_failed", { error: err });
         });
     }
 
@@ -2127,7 +2151,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       try {
         map = JSON.parse(existingRaw) as typeof map;
       } catch (err) {
-        void err;
+        this.log("pool-bands").warn("pool_bands_map_corrupt", { error: err });
       }
     }
     map[canon] = {
@@ -2153,7 +2177,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           { utilisationPct: number; bandCap: number; updatedAt: number }
         >;
       } catch (err) {
-        void err;
+        this.log("pool-bands").warn("pool_bands_map_corrupt", { error: err });
       }
     }
     const selfBands = this.getMeta("pool:bands");
@@ -2167,7 +2191,7 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         };
         return { [prov]: parsed };
       } catch (err) {
-        void err;
+        this.log("pool-bands").warn("pool_bands_self_corrupt", { error: err });
       }
     }
     return {};
