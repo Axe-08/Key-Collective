@@ -92,6 +92,13 @@ export class DashboardRouter {
       return handleLogout(request, env);
     }
 
+    // Public key takedown (QA-16): Turnstile is its only gate. It runs before the session is
+    // read, so a signed-in browser is not stopped by the session CSRF check, and the session
+    // gives the report no authority.
+    if (method === "POST" && pathname === "/api/abuse/report-key") {
+      return handleReportKeyAbuse(request, env);
+    }
+
     // 1. Cookie session (console host only; api.* never routes here).
     let session: SessionContext | null = null;
     const sessionToken = readCookie(request, SESSION_COOKIE);
@@ -111,7 +118,6 @@ export class DashboardRouter {
 
     const isAllowListed =
       (method === "GET" && pathname === "/api/session") ||
-      (method === "POST" && pathname === "/api/abuse/report-key") ||
       pathname.startsWith("/api/auth/");
 
     if (tenantId === "anonymous" && !isAllowListed) {
@@ -405,11 +411,6 @@ export class DashboardRouter {
 
     if (method === "DELETE" && (pathname === "/api/tokens" || pathname.startsWith("/api/tokens/"))) {
       return handleDeleteToken(pathname, env as unknown as AppWorkerEnv, tenantId);
-    }
-
-    // 4.5 POST /api/abuse/report-key
-    if (method === "POST" && pathname === "/api/abuse/report-key") {
-      return handleReportKeyAbuse(request, env);
     }
 
     // 5. GET /api/logs

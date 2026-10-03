@@ -90,7 +90,7 @@ export async function handleReportKeyAbuse(
     remoteIp: ip !== "unknown" ? ip : undefined,
   });
   if (!tsResult.success) {
-    throw new RouterError("Turnstile validation failed", { statusCode: 403 });
+    throw new RouterError("Turnstile validation failed", { statusCode: 403, code: "turnstile_failed" });
   }
 
   const rawKey = (body.leaked_key || body.leakedKey || "").trim();

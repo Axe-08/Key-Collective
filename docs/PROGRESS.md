@@ -354,7 +354,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.9.1 Admin session for ADMIN_EMAILS at Google sign-in (QA-15)
 - [x] T-F.9.2 Admin host serves SPA and sign-in; admin-dev host detected (QA-15)
 - [x] T-F.9.3 getAdminActor uses hashed session lookup (QA-15)
-- [ ] T-F.9.4 Public report skips session CSRF; real error shown (QA-16)
+- [x] T-F.9.4 Public report skips session CSRF; real error shown (QA-16)
 
 ### WP-F.10
 - [ ] T-F.10.1 Migration 0025_would_deny_hourly.sql (AU-03)

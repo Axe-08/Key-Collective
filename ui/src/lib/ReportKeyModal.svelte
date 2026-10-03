@@ -2,6 +2,7 @@
   // Abuse takedown (WP-0.4 / WP-3.6): the reporter pastes the leaked key itself; the server
   // revokes it by hash and always answers 200 so it never confirms whether a key exists.
   import Turnstile from './Turnstile.svelte';
+  import { describeReportError, submitKeyReport } from './report_key';
 
   let {
     isOpen = false,
@@ -24,19 +25,17 @@
 
     isSubmitting = true;
     try {
-      const res = await fetch("/api/abuse/report-key", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "x-turnstile-token": turnstileToken },
-        body: JSON.stringify({ leaked_key: leakedKey.trim(), turnstile_token: turnstileToken }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      onSuccess?.("Report received. If the key is registered, it has been revoked.");
-      onClose();
-      leakedKey = "";
+      const result = await submitKeyReport(leakedKey.trim(), turnstileToken);
+      if (result.ok) {
+        onSuccess?.("Report received. If the key is registered, it has been revoked.");
+        onClose();
+        leakedKey = "";
+      } else {
+        onSuccess?.(describeReportError(result));
+      }
     } catch (err) {
       console.error(err);
-      onSuccess?.("Failed to report key.");
+      onSuccess?.("Report failed: the network request did not complete.");
     } finally {
       isSubmitting = false;
       turnstile?.reset();
