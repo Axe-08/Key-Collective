@@ -177,6 +177,10 @@ describe("Nightly Reset: decay, trust, streaks, catch-up (WP-5.4 T-5.4.2)", () =
       timeProvider: () => currentTime,
     });
 
+    // The tenant is first seen on Day 1, which counts as already reset (AU-04, T-F.10.3).
+    currentTime = Date.UTC(2026, 9, 1, 12, 0, 0);
+    await doInstance.ensureLoaded();
+
     // Achieve 7 debt-free days to become trusted
     for (let d = 1; d <= 7; d++) {
       currentTime = Date.UTC(2026, 9, 1 + d, 0, 5, 0);
