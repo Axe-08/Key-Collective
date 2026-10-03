@@ -8,7 +8,6 @@
  */
 
 import { deriveTenantKey, encrypt, decrypt } from "../src/crypto/encryption";
-import { decryptKey } from "../src/durable_objects/crypto";
 
 export async function migrateKeysToHkdf(
   db: D1Database,
@@ -53,34 +52,29 @@ export async function migrateKeysToHkdf(
       try {
         let plaintext: string | undefined;
 
-        // Try decryptKey (legacy global master key)
         try {
-          plaintext = await decryptKey(row.ciphertext, row.nonce, masterKey);
+          plaintext = await decrypt(
+            { ciphertext: row.ciphertext, nonce: row.nonce },
+            masterKey
+          );
         } catch {
+          // Check if it was already encrypted with tenant subkey
           try {
+            const tenantKey = await deriveTenantKey(masterKey, row.tenant_id);
             plaintext = await decrypt(
               { ciphertext: row.ciphertext, nonce: row.nonce },
-              masterKey
+              tenantKey
             );
-          } catch {
-            // Check if it was already encrypted with tenant subkey
-            try {
-              const tenantKey = await deriveTenantKey(masterKey, row.tenant_id);
-              plaintext = await decrypt(
-                { ciphertext: row.ciphertext, nonce: row.nonce },
-                tenantKey
-              );
-              if (plaintext && plaintext.trim().length > 0) {
-                await db
-                  .prepare("UPDATE api_keys SET hkdf_migrated = 1 WHERE id = ?")
-                  .bind(row.id)
-                  .run();
-                migrated++;
-                continue;
-              }
-            } catch {
-              // Decryption failed
+            if (plaintext && plaintext.trim().length > 0) {
+              await db
+                .prepare("UPDATE api_keys SET hkdf_migrated = 1 WHERE id = ?")
+                .bind(row.id)
+                .run();
+              migrated++;
+              continue;
             }
+          } catch {
+            // Decryption failed
           }
         }
 

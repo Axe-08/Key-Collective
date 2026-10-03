@@ -137,4 +137,16 @@ describe("WP-G.1 guardrails", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("T-G.1.4: tsconfig.json includes ops/**/* and passes typecheck", () => {
+    const tsconfig = JSON.parse(
+      readFileSync(resolve(ROOT, "tsconfig.json"), "utf8")
+    ) as { include?: string[] };
+    expect(tsconfig.include).toContain("ops/**/*");
+
+    execFileSync("npm", ["run", "-s", "typecheck"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+  });
 });
