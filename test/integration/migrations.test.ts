@@ -539,6 +539,35 @@ describe("migrations integration", () => {
     const cols = await env.DB.prepare("SELECT name FROM pragma_table_info('project_hash_registry')").all<{ name: string }>();
     expect(cols.results.map((c) => c.name)).toContain("vesting_started_at");
   });
+  it("0025 creates would_deny_hourly with composite primary key (hour_utc, rule, tenant_hash)", async () => {
+    expect(names).toContain("0025_would_deny_hourly.sql");
+
+    await resetToEmptyDatabase(env.DB);
+    await applyMigrations(env.DB, migrations.filter((m) => m.name <= "0025_would_deny_hourly.sql"));
+
+    const cols = await env.DB.prepare(
+      "SELECT name, pk, \"notnull\" AS nn, dflt_value FROM pragma_table_info('would_deny_hourly') ORDER BY cid",
+    ).all<{ name: string; pk: number; nn: number; dflt_value: string | null }>();
+    expect(cols.results.map((c) => c.name)).toEqual(["hour_utc", "rule", "tenant_hash", "count"]);
+    expect(cols.results.filter((c) => c.pk > 0).map((c) => c.name)).toEqual(["hour_utc", "rule", "tenant_hash"]);
+    const countCol = cols.results.find((c) => c.name === "count");
+    expect(countCol?.nn).toBe(1);
+    expect(countCol?.dflt_value).toBe("0");
+
+    await env.DB.prepare(
+      "INSERT INTO would_deny_hourly (hour_utc, rule, tenant_hash) VALUES (490000, 'brake', 'h1')",
+    ).run();
+    const row = await env.DB.prepare(
+      "SELECT count FROM would_deny_hourly WHERE hour_utc = 490000 AND rule = 'brake' AND tenant_hash = 'h1'",
+    ).first<{ count: number }>();
+    expect(row?.count).toBe(0);
+
+    await expect(
+      env.DB.prepare(
+        "INSERT INTO would_deny_hourly (hour_utc, rule, tenant_hash, count) VALUES (490000, 'brake', 'h1', 3)",
+      ).run(),
+    ).rejects.toThrow();
+  });
 });
 
 
