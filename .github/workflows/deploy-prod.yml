@@ -74,9 +74,9 @@ jobs:
       - name: Post-Deploy Canary Health Verification
         run: |
           sleep 4
-          HEALTH=$(curl -s -f -m 10 https://key-col.axe08.tech/health)
+          HEALTH=$(curl -s -f -m 10 https://api.key-col.axe08.tech/health)
           echo "Health response: $HEALTH"
-          echo "$HEALTH" | grep -q '"status":"healthy"'
+          echo "$HEALTH" | grep -q '"status":"ok"'
 
       - name: Verify Live Web Dashboard HTML & Assets
         run: |
@@ -92,7 +92,7 @@ jobs:
         env:
           KC_CANARY_TOKEN: ${{ secrets.KC_CANARY_TOKEN }}
         run: |
-          curl -s -f -m 15 -X POST https://key-col.axe08.tech/v1/chat/completions \
+          curl -s -f -m 15 -X POST https://api.key-col.axe08.tech/v1/chat/completions \
             -H "Authorization: Bearer $KC_CANARY_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"model": "gemini-2.5-flash", "messages": [{"role": "user", "content": "ping"}], "max_tokens": 5}' | grep -q '"choices"'

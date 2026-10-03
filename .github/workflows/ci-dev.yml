@@ -74,4 +74,5 @@ jobs:
       - name: Dev Edge Smoke Test
         run: |
           sleep 3
-          curl -f -s https://dev.key-col.axe08.tech/health | grep '"status":"healthy"'
+          curl -f -s https://api-dev.key-col.axe08.tech/health | grep '"status":"ok"'
+          curl -f -s -I https://dev.key-col.axe08.tech/ | grep -E "HTTP/[0-9.]+ 301"
