@@ -1,8 +1,14 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { env, fetchMock, SELF } from "cloudflare:test";
 import { addProviderKey, createApiKey, createUser } from "../../helpers/world";
+import {
+  GEMINI_INVALID_KEY_BODY,
+  GEMINI_INVALID_KEY_STATUS,
+  GROQ_MODEL_NOT_FOUND_STATUS,
+  groqModelNotFoundBody,
+} from "../../helpers/provider_fixtures";
 
-let groqStep: () => {
+let groqStep: (body: string) => {
   statusCode: number;
   data: string;
   headers?: Record<string, string>;
@@ -68,7 +74,7 @@ beforeAll(() => {
         };
       }
       groqCallCount += 1;
-      const step = groqStep();
+      const step = groqStep(bodyStr);
       return {
         statusCode: step.statusCode,
         data: step.data,
@@ -199,25 +205,112 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
     expect(groqCallCount).toBe(0);
   });
 
-  it("401 / 403 key_invalid quarantines a COMMUNITY key in Coordinator and updates D1 status + status_changed_at", async () => {
+  // Real invalid-key answers (docs/specs/gcp_probe.md, RA-04/RA-15): Gemini answers HTTP 400
+  // INVALID_ARGUMENT + ErrorInfo.reason API_KEY_INVALID, never 401. Groq answers 401.
+  const invalidKeyRows = [
+    {
+      name: "Gemini 400 API_KEY_INVALID (live body)",
+      provider: "google" as const,
+      plaintext: "AIzaSyOutInvalidCommGoogleKey0000000001",
+      model: "gemini-3.5-flash",
+      clock: Date.UTC(2030, 5, 1, 10, 0, 0),
+      status: GEMINI_INVALID_KEY_STATUS,
+      body: GEMINI_INVALID_KEY_BODY,
+    },
+    {
+      name: "Groq 401 invalid_api_key",
+      provider: "groq" as const,
+      plaintext: "gsk_Out401CommGroqKey00000000000000001",
+      model: "openai/gpt-oss-120b",
+      clock: Date.UTC(2030, 5, 1, 11, 0, 0),
+      status: 401,
+      body: JSON.stringify({
+        error: { message: "Invalid API Key", type: "invalid_request_error", code: "invalid_api_key" },
+      }),
+    },
+  ];
+
+  for (const row of invalidKeyRows) {
+    it(`key_invalid (${row.name}) quarantines a COMMUNITY key in Coordinator and updates D1 status + status_changed_at`, async () => {
+      const user = await createUser({ github: true, eligible: true });
+      const commKey = await addProviderKey(user, {
+        provider: row.provider,
+        pool: "COMMUNITY",
+        plaintext: row.plaintext,
+      });
+      const token = await createApiKey(user);
+
+      const coord = getCoordinatorStub(row.provider);
+      await coord.setClockForTest(row.clock);
+      await coord.reconcile(row.provider);
+      await coord.setStatus(commKey.id, "ACTIVE");
+
+      const step = () => ({ statusCode: row.status, data: row.body });
+      if (row.provider === "google") {
+        geminiStep = step;
+      } else {
+        groqStep = step;
+      }
+      geminiCallCount = 0;
+      groqCallCount = 0;
+
+      const res = await SELF.fetch("https://api.test/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: row.model,
+          messages: [{ role: "user", content: `Trigger ${row.name}` }],
+        }),
+      });
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(await res.text()).not.toContain(row.plaintext);
+
+      // The dead key is lent exactly once, then never again.
+      expect(row.provider === "google" ? geminiCallCount : groqCallCount).toBe(1);
+
+      // Key must be QUARANTINED in Coordinator (not leaseable) and in D1
+      expect(await coord.lease({ tenant: user.id, ownOnly: true })).toBeNull();
+
+      const dbRow = await env.DB.prepare(
+        "SELECT status, status_changed_at FROM api_keys WHERE id = ?"
+      )
+        .bind(commKey.id)
+        .first<{ status: string; status_changed_at: number | null }>();
+      expect(dbRow?.status).toBe("QUARANTINED");
+      expect(dbRow?.status_changed_at).toBe(row.clock);
+
+      const notif = await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM notifications WHERE key_id = ? AND type = 'key_invalid'"
+      )
+        .bind(commKey.id)
+        .first<{ n: number }>();
+      expect(notif?.n).toBe(1);
+    });
+  }
+
+  it("Groq 404 model_not_found (live body) is model_unavailable: COMMUNITY key stays ACTIVE and HEALTHY, no notification", async () => {
     const user = await createUser({ github: true, eligible: true });
     const commKey = await addProviderKey(user, {
       provider: "groq",
       pool: "COMMUNITY",
-      plaintext: "gsk_Out401CommGroqKey00000000000000001",
+      plaintext: "gsk_Out404CommGroqKey00000000000000001",
     });
     const token = await createApiKey(user);
 
     const coord = getCoordinatorStub("groq");
-    const t0 = Date.UTC(2030, 5, 1, 10, 0, 0);
-    await coord.setClockForTest(t0);
+    await coord.setClockForTest(Date.UTC(2030, 5, 1, 12, 0, 0));
     await coord.reconcile("groq");
     await coord.setStatus(commKey.id, "ACTIVE");
 
+    const deadModel = "openai/gpt-oss-120b";
     groqStep = () => ({
-      statusCode: 401,
-      data: JSON.stringify({ error: { message: "Invalid API Key" } }),
+      statusCode: GROQ_MODEL_NOT_FOUND_STATUS,
+      data: groqModelNotFoundBody(deadModel),
     });
+    groqCallCount = 0;
 
     const res = await SELF.fetch("https://api.test/v1/chat/completions", {
       method: "POST",
@@ -226,22 +319,27 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: "Trigger 401" }],
+        model: deadModel,
+        messages: [{ role: "user", content: "Trigger 404" }],
+        max_fallbacks: 0,
       }),
     });
-    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(res.status).toBe(502);
+    await res.text();
+    expect(groqCallCount).toBe(1);
 
-    // Key must be QUARANTINED in Coordinator (not leaseable) and in D1
-    expect(await coord.lease({ tenant: user.id, ownOnly: true })).toBeNull();
-
-    const row = await env.DB.prepare(
-      "SELECT status, status_changed_at FROM api_keys WHERE id = ?"
+    // No key action: still leaseable in the Coordinator, still HEALTHY in D1, nobody notified.
+    expect(await coord.lease({ tenant: user.id, ownOnly: true })).not.toBeNull();
+    const dbRow = await env.DB.prepare("SELECT status FROM api_keys WHERE id = ?")
+      .bind(commKey.id)
+      .first<{ status: string }>();
+    expect(dbRow?.status).toBe("HEALTHY");
+    const notif = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM notifications WHERE key_id = ?"
     )
       .bind(commKey.id)
-      .first<{ status: string; status_changed_at: number | null }>();
-    expect(row?.status).toBe("QUARANTINED");
-    expect(row?.status_changed_at).toBe(t0);
+      .first<{ n: number }>();
+    expect(notif?.n).toBe(0);
   });
 
   it("429 rpd_exhausted (Groq remaining=0, reset>1h) puts key into COOLDOWN in D1 + DO, and recovers to HEALTHY in D1 on subsequent 200 ok", async () => {
