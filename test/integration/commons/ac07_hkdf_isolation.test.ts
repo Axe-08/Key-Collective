@@ -11,7 +11,7 @@
  *   3. Throw KeyDecryptionError.
  *   4. NEVER return key ID or trimmed string as a credential.
  * - Lazy HKDF migration converts legacy rows (hkdf_migrated=0) on first access to tenant subkey (hkdf_migrated=1).
- * - Bulk migration script (migrateKeysToHkdf) successfully processes legacy rows and quarantines corrupted rows.
+ * - The bulk migration script was archived (WP-F.10 T-F.10.13, AU-05): D.1 found 0 unmigrated keys on dev and prod.
  */
 
 import { beforeAll, describe, expect, it } from "vitest";
@@ -19,7 +19,6 @@ import { env, fetchMock, SELF } from "cloudflare:test";
 import { deriveTenantKey, encrypt } from "../../../src/crypto/encryption/index";
 import { KeyDecryptionError } from "../../../src/errors/key_errors";
 import { resolveLeasedKey } from "../../../src/worker/router/core/key_resolver";
-import { migrateKeysToHkdf } from "../../../ops/migrate_keys_hkdf";
 import { addProviderKey, createApiKey, createUser } from "../../helpers/world";
 
 let upstreamCallCount = 0;
@@ -193,98 +192,5 @@ describe("AC-07 HKDF Strict Decryption & Isolation (WP-4.4 T-4.4.2)", () => {
 
     expect(rowAfter?.status).toBe("QUARANTINED");
     expect(rowAfter?.hkdf_migrated).toBe(0);
-  });
-
-  it("bulk migration: migrateKeysToHkdf migrates all legacy rows and quarantines corrupted ones", async () => {
-    const user = await createUser({ github: true, eligible: true });
-
-    // 1. Insert 3 legacy keys
-    const rawKeys = [
-      "gsk_bulk_key_0001",
-      "gsk_bulk_key_0002",
-      "gsk_bulk_key_0003",
-    ];
-    const keyIds: string[] = [];
-
-    for (const raw of rawKeys) {
-      const encrypted = await encrypt(raw, MASTER_KEY);
-      const kid = "key_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-      keyIds.push(kid);
-      await env.DB.prepare(
-        `INSERT INTO api_keys (
-          id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
-          key_hash, key_prefix, key_suffix, rpm_limit, rpd_limit, priority,
-          pool_type, status, hkdf_migrated, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`
-      )
-        .bind(
-          kid,
-          user.id,
-          `bulk-${kid}`,
-          "groq",
-          encrypted.ciphertextB64,
-          encrypted.nonceB64,
-          "hash_" + kid,
-          "gsk_",
-          "bulk",
-          15,
-          1500,
-          0,
-          "COMMUNITY",
-          "HEALTHY"
-        )
-        .run();
-    }
-
-    // 2. Insert 1 corrupted legacy key
-    const corruptKid = "key_corrupt_bulk_" + crypto.randomUUID().slice(0, 8);
-    await env.DB.prepare(
-      `INSERT INTO api_keys (
-        id, tenant_id, label, provider, encrypted_key_b64, nonce_b64,
-        key_hash, key_prefix, key_suffix, rpm_limit, rpd_limit, priority,
-        pool_type, status, hkdf_migrated, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`
-    )
-      .bind(
-        corruptKid,
-        user.id,
-        "corrupt-bulk",
-        "groq",
-        "invalid-b64-corrupt",
-        "bm9uY2UxMjM0NTY=",
-        "hash_corrupt",
-        "gsk_",
-        "bad",
-        15,
-        1500,
-        0,
-        "COMMUNITY",
-        "HEALTHY"
-      )
-      .run();
-
-    // Run bulk migration
-    const stats = await migrateKeysToHkdf(env.DB, MASTER_KEY, 10);
-    expect(stats.migrated).toBeGreaterThanOrEqual(3);
-    expect(stats.errors).toBeGreaterThanOrEqual(1);
-
-    // Verify all 3 keys now have hkdf_migrated = 1
-    for (const kid of keyIds) {
-      const row = await env.DB.prepare(
-        "SELECT hkdf_migrated, status FROM api_keys WHERE id = ?"
-      )
-        .bind(kid)
-        .first<{ hkdf_migrated: number; status: string }>();
-      expect(row?.hkdf_migrated).toBe(1);
-      expect(row?.status).toBe("HEALTHY");
-    }
-
-    // Verify corrupted key is quarantined
-    const corruptRow = await env.DB.prepare(
-      "SELECT hkdf_migrated, status FROM api_keys WHERE id = ?"
-    )
-      .bind(corruptKid)
-      .first<{ hkdf_migrated: number; status: string }>();
-    expect(corruptRow?.status).toBe("QUARANTINED");
   });
 });

@@ -10,17 +10,20 @@
  *    is recorded.
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env, fetchMock, runInDurableObject } from "cloudflare:test";
 import { PoolCoordinatorDO } from "../../../src/pool/coordinator_do";
 import { TenantQuotaDO } from "../../../src/quota/tenant/tenant_do";
 import {
-  clearWouldDenyEventsForTest,
   getWouldDenyStats,
 } from "../../../src/pool/enforcement";
 import { MainWorker } from "../../../src/worker/gateway/main_worker";
 import { clearDecryptedKeyCache } from "../../../src/worker/router/core/key_resolver";
 import { addProviderKey, createApiKey, createUser } from "../../helpers/world";
+
+async function clearWouldDenyStats(): Promise<void> {
+  await env.DB.prepare("DELETE FROM would_deny_hourly").run();
+}
 
 function getCoordinatorStub(name: string): DurableObjectStub {
   return env.POOL_COORDINATOR.get(env.POOL_COORDINATOR.idFromName(name));
@@ -61,7 +64,7 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
-  clearWouldDenyEventsForTest();
+  await clearWouldDenyStats();
   clearDecryptedKeyCache();
   await env.DB.prepare("DELETE FROM cost_ledger").run();
   await env.DB.prepare("DELETE FROM api_keys").run();
@@ -276,7 +279,7 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
       await quota.accrueDebt(101n, "lease_obs_debt_101", borrower.id);
     });
 
-    clearWouldDenyEventsForTest();
+    await clearWouldDenyStats();
 
     const worker = new MainWorker();
     const req = new Request("https://api.test/v1/chat/completions", {
@@ -300,8 +303,10 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("x-kc-commons-notice")).toBe("quota_jail");
 
-    const stats = getWouldDenyStats(24);
-    expect(stats.rules.jail).toBe(1);
-    expect(stats.total).toBe(1);
+    await vi.waitFor(async () => {
+      const stats = await getWouldDenyStats(env.DB, 24);
+      expect(stats.rules.jail).toBe(1);
+      expect(stats.total).toBe(1);
+    });
   });
 });

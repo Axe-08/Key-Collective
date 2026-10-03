@@ -1,18 +1,21 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { env, runInDurableObject } from "cloudflare:test";
 import { PoolCoordinatorDO } from "../../../src/pool/coordinator_do";
 import {
-  clearWouldDenyEventsForTest,
   getWouldDenyStats,
 } from "../../../src/pool/enforcement";
+
+async function clearWouldDenyStats(): Promise<void> {
+  await env.DB.prepare("DELETE FROM would_deny_hourly").run();
+}
 
 function getCoordinatorStub(name: string): DurableObjectStub {
   return env.POOL_COORDINATOR.get(env.POOL_COORDINATOR.idFromName(name));
 }
 
 describe("Surge brake in PoolCoordinatorDO (WP-5.6 T-5.6.2)", () => {
-  beforeEach(() => {
-    clearWouldDenyEventsForTest();
+  beforeEach(async () => {
+    await clearWouldDenyStats();
   });
 
   it("never brakes a single borrower sending 1,000 CU in 5 minutes", async () => {
@@ -131,7 +134,7 @@ describe("Surge brake in PoolCoordinatorDO (WP-5.6 T-5.6.2)", () => {
   it("in observe mode serves the 60% tenant from borrowed keys and records exactly one would_deny event for brake", async () => {
     const stub = getCoordinatorStub("test-brake-60-20-20-observe");
     await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
-      clearWouldDenyEventsForTest();
+      await clearWouldDenyStats();
       const t0 = Date.UTC(2030, 4, 2, 12, 0, 0);
       coord.setClockForTest(t0);
       coord.setEnvForTest({ COMMONS_ENFORCEMENT: "observe" });
@@ -155,13 +158,15 @@ describe("Surge brake in PoolCoordinatorDO (WP-5.6 T-5.6.2)", () => {
       await coord.settle(lC!.leaseId, "ok", 600);
 
       // In observe mode, the 60% tenant is still granted a borrowed lease
-      clearWouldDenyEventsForTest();
+      await clearWouldDenyStats();
       const observedLease = await coord.lease({ tenant: "borrower_heavy_obs", ownOnly: false });
       expect(observedLease).not.toBeNull();
       expect(observedLease?.source).toBe("borrowed");
 
-      const stats = getWouldDenyStats(24);
-      expect(stats.rules.brake).toBe(1);
+      await vi.waitFor(async () => {
+        const stats = await getWouldDenyStats(env.DB, 24);
+        expect(stats.rules.brake).toBe(1);
+      });
     });
   });
 });

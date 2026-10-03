@@ -15,12 +15,12 @@
  *   - Both write rows to admin_audit_logs and return stored state.
  */
 
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env, fetchMock } from "cloudflare:test";
 import worker from "../../src/worker/index";
 import type { WorkerEnv } from "../../src/worker/auth/types";
 import { addProviderKey, createApiKey, createSession, createUser } from "../../test/helpers/world";
-import { recordWouldDeny, clearWouldDenyEventsForTest } from "../../src/pool/enforcement";
+import { getWouldDenyStats, hashTenantId, recordWouldDeny } from "../../src/pool/enforcement";
 
 const ADMIN_EMAIL = "ops-admin@keycollective.test";
 
@@ -122,6 +122,40 @@ describe("Admin Gateway & Governance (WP-4.6)", () => {
       const { cookie } = await createSession(unlistedAdmin, { kind: "admin" });
       const res = await adminRequest("/api/admin/surveillance", {}, cookie);
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe("Surveillance degraded state (WP-F.10 T-F.10.9, AU-02)", () => {
+    it("reports and logs coordinator shards whose key counters could not be read", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+      const owner = await createUser({ github: true, eligible: true });
+      await addProviderKey(owner, { provider: "groq", plaintext: `gsk_${crypto.randomUUID()}` });
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const failingEnv = {
+        ...getAdminEnv(),
+        POOL_COORDINATOR: {
+          idFromName: (name: string) => name,
+          get: () => ({
+            getKeysCounterMap: async (): Promise<never> => {
+              throw new Error("shard unreachable");
+            },
+          }),
+        },
+      } as unknown as WorkerEnv;
+      const req = new Request("https://admin.test/api/admin/surveillance", {
+        headers: { cookie: cookie.replace("kc_session=", "kc_admin_session=") },
+      });
+      const res = await worker.fetch(req, failingEnv);
+      const lines = warnSpy.mock.calls.map((c) => String(c[0]));
+      warnSpy.mockRestore();
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { status: string; degraded?: string[] };
+      expect(body.status).toBe("success");
+      expect(body.degraded).toEqual(["coordinator:google", "coordinator:groq"]);
+      expect(lines.some((l) => l.includes("key_counters_read_failed"))).toBe(true);
     });
   });
 
@@ -443,9 +477,11 @@ describe("Admin Gateway & Governance (WP-4.6)", () => {
     });
   });
 
-  describe("Commons Would-Deny Surveillance (WP-5.1 T-5.1.2)", () => {
-    beforeEach(() => {
-      clearWouldDenyEventsForTest();
+  describe("Commons Would-Deny Surveillance (WP-5.1 T-5.1.2, WP-F.10 AU-03)", () => {
+    const HOUR_MS = 3_600_000;
+
+    beforeEach(async () => {
+      await env.DB.prepare("DELETE FROM would_deny_hourly").run();
     });
 
     it("unauthorized request to /api/admin/commons/would-deny returns 404 (zero-knowledge denial)", async () => {
@@ -453,15 +489,20 @@ describe("Admin Gateway & Governance (WP-4.6)", () => {
       expect(res.status).toBe(404);
     });
 
-    it("authorized admin GET /api/admin/commons/would-deny returns aggregated counts and top tenants", async () => {
+    it("authorized admin GET /api/admin/commons/would-deny returns counts stored in D1 (survives isolate restarts)", async () => {
       const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
       const { cookie } = await createSession(adminUser, { kind: "admin" });
 
-      // Record some sample would-deny events
-      await recordWouldDeny("brake", "usr_goog_tenant_1", "exceeded 35% pool cu");
-      await recordWouldDeny("brake", "usr_goog_tenant_1", "exceeded 35% pool cu");
-      await recordWouldDeny("eye_for_eye", "usr_goog_tenant_2", "no active groq key");
-      await recordWouldDeny("jail", "usr_goog_tenant_1", "debt ratio > 100%");
+      // Rows written straight into D1, as another isolate (or a previous deploy) would have left them.
+      const hour = Math.floor(Date.now() / HOUR_MS);
+      const insert = env.DB.prepare(
+        "INSERT INTO would_deny_hourly (hour_utc, rule, tenant_hash, count) VALUES (?, ?, ?, ?)",
+      );
+      await env.DB.batch([
+        insert.bind(hour, "brake", "hash_tenant_1", 2),
+        insert.bind(hour - 3, "jail", "hash_tenant_1", 1),
+        insert.bind(hour - 1, "eye_for_eye", "hash_tenant_2", 1),
+      ]);
 
       const res = await adminRequest("/api/admin/commons/would-deny?hours=24", { method: "GET" }, cookie);
       expect(res.status).toBe(200);
@@ -476,13 +517,63 @@ describe("Admin Gateway & Governance (WP-4.6)", () => {
 
       expect(body.status).toBe("success");
       expect(body.period_hours).toBe(24);
-      expect(body.rules.brake).toBe(2);
-      expect(body.rules.eye_for_eye).toBe(1);
-      expect(body.rules.jail).toBe(1);
-      expect(body.rules.share_cap).toBe(0);
+      expect(body.rules).toEqual({ brake: 2, eye_for_eye: 1, share_cap: 0, jail: 1 });
       expect(body.total).toBe(4);
-      expect(body.top_tenants.length).toBeGreaterThanOrEqual(2);
-      expect(body.top_tenants[0].count).toBe(3);
+      expect(body.top_tenants).toEqual([
+        { tenant_hash: "hash_tenant_1", count: 3, rules: { brake: 2, eye_for_eye: 0, share_cap: 0, jail: 1 } },
+        { tenant_hash: "hash_tenant_2", count: 1, rules: { brake: 0, eye_for_eye: 1, share_cap: 0, jail: 0 } },
+      ]);
+    });
+
+    it("recordWouldDeny upserts count + 1 per (hour, rule, tenant): two hits give count 2", async () => {
+      await recordWouldDeny("brake", "usr_goog_tenant_1", "exceeded 35% pool cu", env);
+      await recordWouldDeny("brake", "usr_goog_tenant_1", "exceeded 35% pool cu", env);
+      await recordWouldDeny("eye_for_eye", "usr_goog_tenant_2", "no active groq key", env);
+
+      const hash1 = await hashTenantId("usr_goog_tenant_1");
+      const rows = await env.DB.prepare(
+        "SELECT rule, tenant_hash, count FROM would_deny_hourly ORDER BY rule",
+      ).all<{ rule: string; tenant_hash: string; count: number }>();
+      expect(rows.results).toHaveLength(2);
+      expect(rows.results[0]).toEqual({ rule: "brake", tenant_hash: hash1, count: 2 });
+      expect(rows.results[0].tenant_hash).not.toContain("usr_goog");
+
+      const stats = await getWouldDenyStats(env.DB, 24);
+      expect(stats.rules.brake).toBe(2);
+      expect(stats.rules.eye_for_eye).toBe(1);
+      expect(stats.total).toBe(3);
+    });
+
+    it("excludes rows older than the requested window", async () => {
+      const hour = Math.floor(Date.now() / HOUR_MS);
+      const insert = env.DB.prepare(
+        "INSERT INTO would_deny_hourly (hour_utc, rule, tenant_hash, count) VALUES (?, ?, ?, ?)",
+      );
+      await env.DB.batch([
+        insert.bind(hour - 1, "brake", "hash_recent", 1),
+        insert.bind(hour - 30, "brake", "hash_old", 5),
+      ]);
+
+      const stats = await getWouldDenyStats(env.DB, 24);
+      expect(stats.rules.brake).toBe(1);
+      expect(stats.total).toBe(1);
+      expect(stats.topTenants.map((t) => t.tenantHash)).toEqual(["hash_recent"]);
+
+      const wide = await getWouldDenyStats(env.DB, 48);
+      expect(wide.total).toBe(6);
+    });
+
+    it("a failed D1 write is logged and never thrown", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      await env.DB.prepare("ALTER TABLE would_deny_hourly RENAME TO wdh_x").run();
+      try {
+        await expect(recordWouldDeny("jail", "usr_goog_tenant_3", "debt", env)).resolves.toBeUndefined();
+      } finally {
+        await env.DB.prepare("ALTER TABLE wdh_x RENAME TO would_deny_hourly").run();
+      }
+      const logged = errorSpy.mock.calls.map((c) => String(c[0]));
+      errorSpy.mockRestore();
+      expect(logged.some((line) => line.includes("would_deny_write_failed"))).toBe(true);
     });
   });
 

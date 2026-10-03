@@ -7,6 +7,7 @@
 import { githubLinkRequired, loadPoolRights } from "../auth/rights";
 import type { WorkerEnv } from './auth/index';
 import type { CoordinatorStats } from '../pool/coordinator_do';
+import { Logger } from '../utils/logger';
 
 type ExecutionContextLike = { waitUntil: (p: Promise<unknown>) => void };
 
@@ -124,10 +125,20 @@ interface LiveStandingState {
   };
 }
 
+/**
+ * Reads live standing from TenantQuotaDO.
+ * - `missing`: no binding or no readable method.
+ * - `failed`: the DO call threw (logged as `standing_fetch_failed`).
+ */
+type LiveStandingResult =
+  | { kind: 'ok'; state: LiveStandingState }
+  | { kind: 'missing' }
+  | { kind: 'failed' };
+
 async function fetchLiveStandingFromDO(
   env: WorkerEnv,
   tenantId: string
-): Promise<LiveStandingState | null> {
+): Promise<LiveStandingResult> {
   const quotaNs = env.TENANT_QUOTA as
     | {
         idFromName?: (name: string) => unknown;
@@ -143,23 +154,24 @@ async function fetchLiveStandingFromDO(
     typeof quotaNs.idFromName !== 'function' ||
     typeof quotaNs.get !== 'function'
   ) {
-    return null;
+    return { kind: 'missing' };
   }
   try {
     const stub = quotaNs.get(quotaNs.idFromName(tenantId));
     if (typeof stub.standing === 'function') {
-      return await stub.standing(tenantId);
+      return { kind: 'ok', state: await stub.standing(tenantId) };
     }
     if (typeof stub.getDebtStateAsync === 'function') {
-      return await stub.getDebtStateAsync();
+      return { kind: 'ok', state: await stub.getDebtStateAsync() };
     }
     if (typeof stub.getDebtState === 'function') {
-      return await stub.getDebtState();
+      return { kind: 'ok', state: await stub.getDebtState() };
     }
   } catch (err) {
-    void err;
+    new Logger({ traceId: 'pool-standing', tenantId }).error('standing_fetch_failed', { error: err });
+    return { kind: 'failed' };
   }
-  return null;
+  return { kind: 'missing' };
 }
 
 async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Response> {
@@ -171,10 +183,14 @@ async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Res
     );
   }
 
-  const doState = await fetchLiveStandingFromDO(env, tenantId);
-  if (!doState) {
+  const live = await fetchLiveStandingFromDO(env, tenantId);
+  if (live.kind === 'failed') {
+    return Response.json({ error: 'standing_unavailable' }, { status: 503 });
+  }
+  if (live.kind === 'missing') {
     return Response.json({ error: 'Standing unavailable' }, { status: 500 });
   }
+  const doState = live.state;
 
   const debt = Number(doState.communityDebtCu ?? 0);
   const contributed = Number(doState.contributedCu24h ?? doState.dailyContributedCu ?? 0);
@@ -242,6 +258,7 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
   let coordDispatchedToday = 0;
   let coordCommunalServed = 0;
   let hasCoordinatorStats = false;
+  const degraded: string[] = [];
 
   const coordinatorNs = env.POOL_COORDINATOR as
     | {
@@ -273,12 +290,17 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
           hasCoordinatorStats = true;
         }
       } catch (err) {
-        void err;
+        degraded.push(`coordinator:${shard}`);
+        new Logger({ traceId: 'pool-contribution', tenantId }).warn('owner_stats_failed', { shard, error: err });
       }
     }
   }
 
-  const doState = await fetchLiveStandingFromDO(env, tenantId);
+  const live = await fetchLiveStandingFromDO(env, tenantId);
+  const doState = live.kind === 'ok' ? live.state : null;
+  if (live.kind === 'failed') {
+    degraded.push('standing');
+  }
   let debt = 0;
   let contributed = 0;
   if (doState) {
@@ -314,6 +336,7 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
     cu_contributed_today: contributed,
     cu_consumed_today: debt,
     net_cu_balance: netCu,
+    ...(degraded.length > 0 ? { degraded } : {}),
   });
 }
 

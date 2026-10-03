@@ -10,6 +10,7 @@ import { ApiKeyRepository } from "../../../../storage/repositories/api_keys/repo
 import type { WorkerEnv } from "../../../auth/index";
 import { normaliseKeyStatus, normalisePoolType } from "../../../../contracts/keys";
 import { toEpochMs } from "../../../../utils/time";
+import { Logger } from "../../../../utils/logger";
 
 export interface FormattedKeyItem {
   id: string;
@@ -82,6 +83,8 @@ export async function handleGetKeys(
     return Response.json([]);
   }
 
+  const degraded: string[] = [];
+  const logger = new Logger({ traceId: "key-list", tenantId });
   let isGlobal = tenantId === "admin";
   if (!isGlobal) {
     try {
@@ -89,7 +92,11 @@ export async function handleGetKeys(
       if (u && (u.tier === "admin" || u.role === "admin")) {
         isGlobal = true;
       }
-    } catch {}
+    } catch (err) {
+      // Fail closed: without the role the caller only sees their own keys.
+      degraded.push("role");
+      logger.warn("key_list_role_lookup_failed", { error: err });
+    }
   }
 
   const keyRows = await new ApiKeyRepository(env.DB).listForDashboard<ApiKeyRow>(isGlobal ? null : tenantId);
@@ -156,7 +163,9 @@ export async function handleGetKeys(
           }
         }
       } catch (err) {
-        void err;
+        // Degraded: dispatch counters for this shard read as 0.
+        degraded.push(`coordinator:${shard}`);
+        logger.warn("key_counters_read_failed", { shard, error: err });
       }
     }
   }
@@ -204,6 +213,7 @@ export async function handleGetKeys(
   return Response.json(formattedKeys, {
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate",
+      ...(degraded.length > 0 ? { "x-kc-degraded": degraded.join(",") } : {}),
     },
   });
 }

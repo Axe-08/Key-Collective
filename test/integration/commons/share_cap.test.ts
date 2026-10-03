@@ -1,19 +1,22 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { env, runInDurableObject } from "cloudflare:test";
 import { PoolCoordinatorDO } from "../../../src/pool/coordinator_do";
 import { computeOwnerShareCapPct } from "../../../src/constants/commons";
 import {
-  clearWouldDenyEventsForTest,
   getWouldDenyStats,
 } from "../../../src/pool/enforcement";
+
+async function clearWouldDenyStats(): Promise<void> {
+  await env.DB.prepare("DELETE FROM would_deny_hourly").run();
+}
 
 function getCoordinatorStub(name: string): DurableObjectStub {
   return env.POOL_COORDINATOR.get(env.POOL_COORDINATOR.idFromName(name));
 }
 
 describe("Cold-start share cap (FR-12, WP-5.7 T-5.7.2)", () => {
-  beforeEach(() => {
-    clearWouldDenyEventsForTest();
+  beforeEach(async () => {
+    await clearWouldDenyStats();
   });
 
   it("computes cap = 40% for N <= 5 and max(20%, floor(200/N)%) for N > 5", () => {
@@ -128,7 +131,7 @@ describe("Cold-start share cap (FR-12, WP-5.7 T-5.7.2)", () => {
       expect(servedByOwner.get("owner_n10_0")).toBe(400);
 
       // Switch to observe mode: owner_n10_0 is at 20% cap, so next lease selects owner_n10_0 (highest priority) and records would_deny for share_cap
-      clearWouldDenyEventsForTest();
+      await clearWouldDenyStats();
       coord.setEnvForTest({
         COMMONS_ENFORCEMENT: "observe",
         COMMONS_ENFORCE_RULES: "",
@@ -141,8 +144,10 @@ describe("Cold-start share cap (FR-12, WP-5.7 T-5.7.2)", () => {
       expect(obsLease).not.toBeNull();
       expect(obsLease?.ownerTenantId).toBe("owner_n10_0");
 
-      const stats = getWouldDenyStats(24);
-      expect(stats.rules.share_cap).toBe(1);
+      await vi.waitFor(async () => {
+        const stats = await getWouldDenyStats(env.DB, 24);
+        expect(stats.rules.share_cap).toBe(1);
+      });
     });
   });
 });
