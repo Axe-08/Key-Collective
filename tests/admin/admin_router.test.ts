@@ -125,6 +125,40 @@ describe("Admin Gateway & Governance (WP-4.6)", () => {
     });
   });
 
+  describe("Surveillance degraded state (WP-F.10 T-F.10.9, AU-02)", () => {
+    it("reports and logs coordinator shards whose key counters could not be read", async () => {
+      const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });
+      const { cookie } = await createSession(adminUser, { kind: "admin" });
+      const owner = await createUser({ github: true, eligible: true });
+      await addProviderKey(owner, { provider: "groq", plaintext: `gsk_${crypto.randomUUID()}` });
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const failingEnv = {
+        ...getAdminEnv(),
+        POOL_COORDINATOR: {
+          idFromName: (name: string) => name,
+          get: () => ({
+            getKeysCounterMap: async (): Promise<never> => {
+              throw new Error("shard unreachable");
+            },
+          }),
+        },
+      } as unknown as WorkerEnv;
+      const req = new Request("https://admin.test/api/admin/surveillance", {
+        headers: { cookie: cookie.replace("kc_session=", "kc_admin_session=") },
+      });
+      const res = await worker.fetch(req, failingEnv);
+      const lines = warnSpy.mock.calls.map((c) => String(c[0]));
+      warnSpy.mockRestore();
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { status: string; degraded?: string[] };
+      expect(body.status).toBe("success");
+      expect(body.degraded).toEqual(["coordinator:google", "coordinator:groq"]);
+      expect(lines.some((l) => l.includes("key_counters_read_failed"))).toBe(true);
+    });
+  });
+
   describe("T-4.6.1 Provider Override & /api/admin/providers", () => {
     it("GET /api/admin/providers lists providers and their override status", async () => {
       const adminUser = await createUser({ email: ADMIN_EMAIL, role: "admin" });

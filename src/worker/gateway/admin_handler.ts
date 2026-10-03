@@ -13,6 +13,7 @@ import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
 import { toEpochMs } from "../../utils/time";
 import { clearMaintenanceCache } from "./control";
 import { getWouldDenyStats } from "../../pool/enforcement";
+import { Logger } from "../../utils/logger";
 
 interface AdminActor {
   adminUserId: string | null;
@@ -703,6 +704,7 @@ export async function handleAdminRequest(
     }
 
     const coordKeyCounters = new Map<string, { dispatchedToday: number; dispatchedCommunal: number }>();
+    const degraded: string[] = [];
     const coordinatorNs = env.POOL_COORDINATOR as
       | {
           idFromName?: (n: string) => unknown;
@@ -730,7 +732,12 @@ export async function handleAdminRequest(
             }
           }
         } catch (err) {
-          void err;
+          // Degraded: dispatch counters for this shard read as 0; the body says so.
+          degraded.push(`coordinator:${shard}`);
+          new Logger({ traceId: "admin-surveillance", tenantId: "admin" }).warn("key_counters_read_failed", {
+            shard,
+            error: err,
+          });
         }
       }
     }
@@ -935,6 +942,7 @@ export async function handleAdminRequest(
       status: "success",
       tenants: aggregatedTenants,
       pool: poolSummary,
+      ...(degraded.length > 0 ? { degraded } : {}),
       timestamp: new Date().toISOString(),
     });
     return options.cors !== false ? applyCors(res) : res;
