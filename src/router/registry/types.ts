@@ -94,6 +94,8 @@ export interface ModelRegistryOptions {
   aliases?: Record<string, string>;
   /** Ordered alias chains (defaults to MODEL_ALIAS_CHAINS) */
   aliasChains?: Readonly<Record<string, readonly string[]>>;
+  /** Clock (ms since epoch) used to skip models past deprecatedAt / sunsetAt; defaults to Date.now */
+  now?: () => number;
 }
 
 /**
@@ -108,6 +110,7 @@ export interface IModelRegistry {
   getModelOrThrow(modelId: string): ModelDef;
   getAllModels(onlyActive?: boolean): ModelDef[];
   getActiveModels(): ModelDef[];
+  isRoutable(model: ModelDef): boolean;
   getModelsByProvider(provider: ModelProvider, onlyActive?: boolean): ModelDef[];
 
   registerAlias(alias: string, canonicalModelId: string): void;

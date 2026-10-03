@@ -48,10 +48,14 @@ export class ModelRegistry implements IModelRegistry {
   /** Ordered alias chains: alias (lowercase) -> model IDs in preference order */
   private readonly aliasChains = new Map<string, readonly string[]>();
 
+  /** Clock used to skip models past deprecatedAt / sunsetAt (ms since epoch) */
+  private readonly now: () => number;
+
   constructor(options: ModelRegistryOptions | readonly (ModelDef)[] = {}) {
     let initialModels: readonly (ModelDef)[] | undefined;
     let initialAliases: Record<string, string> | undefined;
     let initialChains: Readonly<Record<string, readonly string[]>> = MODEL_ALIAS_CHAINS;
+    let clock: () => number = () => Date.now();
 
     if (Array.isArray(options)) {
       initialModels = options;
@@ -60,7 +64,9 @@ export class ModelRegistry implements IModelRegistry {
       initialModels = opt.models;
       initialAliases = opt.aliases;
       initialChains = opt.aliasChains ?? MODEL_ALIAS_CHAINS;
+      clock = opt.now ?? clock;
     }
+    this.now = clock;
 
     for (const [alias, chain] of Object.entries(initialChains)) {
       this.aliasChains.set(alias.toLowerCase().trim(), chain.map((id) => id.trim()));
@@ -153,7 +159,23 @@ export class ModelRegistry implements IModelRegistry {
    */
   public getAllModels(onlyActive = false): ModelDef[] {
     const all = Array.from(this.models.values());
-    return onlyActive ? all.filter((m) => m.isActive) : all;
+    return onlyActive ? all.filter((m) => this.isRoutable(m)) : all;
+  }
+
+  /**
+   * A model is routable when it is active and neither its deprecatedAt nor its
+   * sunsetAt has passed (T-F.3.2).
+   */
+  public isRoutable(model: ModelDef): boolean {
+    if (!model.isActive) return false;
+    const nowMs = this.now();
+    for (const date of [model.deprecatedAt, model.sunsetAt]) {
+      if (date) {
+        const ms = Date.parse(date);
+        if (!Number.isNaN(ms) && ms <= nowMs) return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -248,7 +270,7 @@ export class ModelRegistry implements IModelRegistry {
     let cheapestMatch: ModelDef | undefined;
 
     for (const model of this.models.values()) {
-      if (!model.isActive) continue;
+      if (!this.isRoutable(model)) continue;
 
       const hasAlias = model.logicalAliases.some(
         (a) => a.toLowerCase().trim() === clean
@@ -276,7 +298,7 @@ export class ModelRegistry implements IModelRegistry {
     // 1. Try direct canonical ID match
     const directModel = this.models.get(clean);
     if (directModel) {
-      if (onlyActive && !directModel.isActive) {
+      if (onlyActive && !this.isRoutable(directModel)) {
         return undefined;
       }
       return directModel;
@@ -287,7 +309,7 @@ export class ModelRegistry implements IModelRegistry {
     if (resolvedId) {
       const aliasModel = this.models.get(resolvedId.toLowerCase().trim());
       if (aliasModel) {
-        if (onlyActive && !aliasModel.isActive) {
+        if (onlyActive && !this.isRoutable(aliasModel)) {
           return undefined;
         }
         return aliasModel;
@@ -332,7 +354,7 @@ export class ModelRegistry implements IModelRegistry {
     const out: ModelDef[] = [];
     for (const id of chain) {
       const model = this.models.get(id.toLowerCase());
-      if (model && (!onlyActive || model.isActive)) {
+      if (model && (!onlyActive || this.isRoutable(model))) {
         out.push(model);
       }
     }
@@ -392,7 +414,7 @@ export class ModelRegistry implements IModelRegistry {
     // 3. Explicit overrides take precedence
     for (const [alias, targetId] of this.aliasOverrides.entries()) {
       const targetModel = this.models.get(targetId.toLowerCase().trim());
-      if (!onlyActive || (targetModel && targetModel.isActive)) {
+      if (!onlyActive || (targetModel && this.isRoutable(targetModel))) {
         map.set(alias, targetId);
       }
     }
