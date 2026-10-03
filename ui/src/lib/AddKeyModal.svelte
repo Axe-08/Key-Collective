@@ -10,6 +10,7 @@
     closeModal,
     submitKey,
     subscribeModalState,
+    setModalProvider,
     getModalState,
     ProviderSelector,
     PoolModeSelector,
@@ -94,6 +95,7 @@
   // When provider changes, update default RPM/RPD limits
   function handleProviderSelect(selected: Provider) {
     provider = selected;
+    setModalProvider(selected);
     if (selected === 'gemini') {
       rpmLimit = 15;
       rpdLimit = 1500;
@@ -140,9 +142,11 @@
       }
     }
 
+    // QA-11: capture the choice before any await; submitKey notifies listeners mid-submit.
+    const selectedProvider = provider;
     isSubmitting = true;
     try {
-      const keyName = label.trim() || `${provider}-key-${Date.now().toString(36).slice(-4)}`;
+      const keyName = label.trim() || `${selectedProvider}-key-${Date.now().toString(36).slice(-4)}`;
 
       await submitKey({
         name: keyName,
@@ -151,7 +155,7 @@
 
       if (onAddKey) {
         await onAddKey({
-          provider,
+          provider: selectedProvider,
           label: keyName,
           key: trimmedKey,
           rpm_limit: Number(rpmLimit) || 15,

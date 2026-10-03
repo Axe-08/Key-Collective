@@ -87,3 +87,33 @@ describe('AddKeyModal (WP-3.6)', () => {
     unmount(modal);
   });
 });
+
+describe('AddKeyModal provider selection (WP-F.6, QA-11)', () => {
+  it('keeps Groq selected through submit and sends provider "groq"', async () => {
+    reply = () => HttpResponse.json({ error: 'key_already_registered' }, { status: 409 });
+    const modal = mount(AddKeyModal, {
+      target: document.body,
+      props: { isOpen: true, onAddKey: async (p) => void (await api.createKey(p)) },
+    });
+    await settle();
+
+    const groq = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Groq Cloud'))!;
+    groq.click();
+    flushSync();
+    type('#key-label', 'groq key');
+    type('#api-key-input', 'gsk_' + 'x'.repeat(52));
+    flushSync();
+    const [k1, k2] = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    k1.click();
+    k2.click();
+    issueToken!('turnstile-token-groq');
+    flushSync();
+
+    submitButton().click();
+    await settle();
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].body.provider).toBe('groq');
+    unmount(modal);
+  });
+});

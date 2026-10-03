@@ -333,7 +333,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.5.5 Standing and contribution fetch after sign-in (QA-01)
 
 ### WP-F.6
-- [ ] T-F.6.1 Provider selection survives submit (QA-11)
+- [x] T-F.6.1 Provider selection survives submit (QA-11)
 - [ ] T-F.6.2 Add-key modal scrolls on short screens (QA-10)
 
 ### WP-F.7
