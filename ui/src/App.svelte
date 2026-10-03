@@ -50,6 +50,7 @@
   import OAuthModal from './lib/OAuthModal.svelte';
   import ClaimLegacyCard from './lib/ClaimLegacyCard.svelte';
   import { fetchSession, logout, purgeLegacyStorage } from './lib/auth/session';
+  import { isAdminHost } from './lib/admin_host';
   import Toast from './lib/Toast.svelte';
   import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
   import ReportKeyModal from './lib/ReportKeyModal.svelte';
@@ -280,7 +281,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       if (window.location.pathname === '/report' || urlParams.get('tab') === 'report') {
         activeTab = 'report';
-      } else if (urlParams.get('tab') === 'admin' || window.location.hostname.startsWith('admin.')) {
+      } else if (urlParams.get('tab') === 'admin' || isAdminHost(window.location.hostname)) {
         userAccount = {
           ...userAccount,
           id: userAccount.id || 'admin',

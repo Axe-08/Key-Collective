@@ -5,7 +5,7 @@
  * Implements WP-2.7 per-host routing:
  * - ApiHost: canonical v1 router, legacy aliases, OPTIONS with CORS
  * - ConsoleHost: SPA static delivery, /api/* dashboard API (no CORS), legacy routes
- * - AdminHost: admin surveillance router with zero-knowledge denial (no CORS)
+ * - AdminHost: public SPA shell and Google sign-in; every API path behind zero-knowledge denial (no CORS)
  * - ApexHost: redirects non-API paths to console (301 for GET/HEAD, 308 for others), legacy routes
  */
 
@@ -245,7 +245,38 @@ export class MainWorker {
       return new Response("Not Found", { status: 404 });
     }
 
-    // 3. Admin zero-knowledge authentication check
+    // 3. Sign-in on the admin host (QA-15): a browser must be able to obtain kc_admin_session
+    // here before it holds one, so Google sign-in is served without the gate. The handler
+    // only issues an admin session for ADMIN_EMAILS accounts.
+    if (method === "POST" && pathname === "/api/auth/google") {
+      try {
+        const traceId = request.headers.get("x-kc-trace-id") ?? crypto.randomUUID();
+        return await this.routerHandler.handleDashboardApi(
+          request,
+          pathname,
+          method,
+          env,
+          ctx,
+          traceId
+        );
+      } catch (err: unknown) {
+        return formatRouterError(err);
+      }
+    }
+
+    // 4. The SPA shell (navigation and static assets) is public, like on console.*: it holds
+    // no admin data. Every API path below stays behind the gate.
+    const isApiPath =
+      pathname === "/api" ||
+      pathname.startsWith("/api/") ||
+      pathname === "/v1" ||
+      pathname.startsWith("/v1/") ||
+      pathname === "/openapi.json";
+    if ((method === "GET" || method === "HEAD") && !isApiPath) {
+      return handleConsoleRequest(request, env, { ...this.options, cors: false });
+    }
+
+    // 5. Admin zero-knowledge authentication check
     const isAdmin = await this.verifyAdmin(request, env);
     if (!isAdmin) {
       return new Response("Not Found", {
