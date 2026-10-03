@@ -262,7 +262,7 @@ Plan: `docs/REMEDIATION_PLAN_V3.md`
 ### WP-G.1
 - [x] T-G.1.1 Add new forbid rules and selftest to scripts/wp.sh
 - [x] T-G.1.2 Enforce one commit per task in scripts/wp.sh finish
-- [ ] T-G.1.3 Add red log tracking and verification to scripts/wp.sh
+- [x] T-G.1.3 Add red log tracking and verification to scripts/wp.sh
 - [ ] T-G.1.4 Add ops/**/* to tsconfig.json include and fix type errors
 - [ ] T-G.1.5 Add scripts/check-baselines.mjs and scripts/baselines.json to gate:fast
 

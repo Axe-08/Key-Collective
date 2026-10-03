@@ -97,4 +97,44 @@ describe("WP-G.1 guardrails", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("T-G.1.3: requires .wp/red.log entry for feat/fix tasks and exempts chore/docs/refactor/test", () => {
+    const gitignore = readFileSync(resolve(ROOT, ".gitignore"), "utf8");
+    expect(gitignore).toContain(".wp/");
+
+    const dir = initTempGitRepo();
+    try {
+      const env = { ...process.env, WP_BASE: "base" };
+      writeFileSync(
+        join(dir, "docs/PROGRESS.md"),
+        "### WP-G.1\n- [x] T-G.1.1 Feat task\n- [x] T-G.1.2 Chore task\n"
+      );
+      execFileSync("git", ["commit", "-am", "feat(WP-G.1): new feature (T-G.1.1)"], { cwd: dir });
+      writeFileSync(join(dir, "docs/note.txt"), "chore\n");
+      execFileSync("git", ["add", "."], { cwd: dir });
+      execFileSync("git", ["commit", "-m", "chore(WP-G.1): chore work (T-G.1.2)"], { cwd: dir });
+
+      // Must fail because T-G.1.1 is feat(...) and has no .wp/red.log entry
+      expect(() =>
+        execFileSync("bash", [WP_SH, "verify-tasks", "WP-G.1"], {
+          cwd: dir,
+          env,
+          encoding: "utf8",
+        })
+      ).toThrow(/red\.log.*T-G\.1\.1/);
+
+      // Record red.log entry for T-G.1.1 (T-G.1.2 is chore and exempt)
+      mkdirSync(join(dir, ".wp"), { recursive: true });
+      writeFileSync(join(dir, ".wp/red.log"), "T-G.1.1 abc1234 test/foo.test.ts\n");
+
+      const ok = execFileSync("bash", [WP_SH, "verify-tasks", "WP-G.1"], {
+        cwd: dir,
+        env,
+        encoding: "utf8",
+      });
+      expect(ok).toContain("tasks ok");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

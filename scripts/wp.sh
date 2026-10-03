@@ -125,6 +125,16 @@ verify_tasks() {
       echo "FINISH FAILED: commit subject names more than one task id: $subj" >&2
       return 1
     fi
+    if printf '%s\n' "$subj" | grep -Eq '^(feat|fix)(\([^)]*\))?!?:'; then
+      local ctid
+      ctid=$(printf '%s\n' "$subj" | grep -oE 'T-[0-9A-Z]+\.[0-9]+\.[0-9]+' | head -1 || true)
+      if [[ -n "$ctid" ]]; then
+        if [[ ! -f .wp/red.log ]] || ! grep -Eq "^${ctid//./\\.} " .wp/red.log; then
+          echo "FINISH FAILED: missing .wp/red.log entry for feat/fix task $ctid" >&2
+          return 1
+        fi
+      fi
+    fi
   done <<< "$subjects"
   while IFS= read -r tid; do
     [[ -z "$tid" ]] && continue
@@ -143,7 +153,15 @@ case "$cmd" in
     git switch -c "wp/$1"
     ;;
   red)
+    tid=""
+    if [[ "${1:-}" =~ ^T-[0-9A-Z]+\.[0-9]+\.[0-9]+$ ]]; then
+      tid="$1"; shift
+    fi
     if run_tests "$@"; then echo "RED CHECK FAILED: the new tests already pass"; exit 1; fi
+    if [[ -n "$tid" ]]; then
+      mkdir -p .wp
+      echo "$tid $(git rev-parse HEAD) $*" >> .wp/red.log
+    fi
     echo "red check ok: tests fail before the fix"
     ;;
   check)
