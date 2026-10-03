@@ -149,4 +149,40 @@ describe("WP-G.1 guardrails", () => {
       encoding: "utf8",
     });
   });
+
+  it("T-G.1.5: check-baselines.mjs passes on repo and fails when any count exceeds baselines.json", () => {
+    const pkg = JSON.parse(
+      readFileSync(resolve(ROOT, "package.json"), "utf8")
+    ) as { scripts?: Record<string, string> };
+    expect(pkg.scripts?.["gate:fast"]).toContain("node scripts/check-baselines.mjs");
+
+    const scriptPath = resolve(ROOT, "scripts/check-baselines.mjs");
+    const out = execFileSync("node", [scriptPath], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    expect(out).toContain("baselines ok");
+
+    const dir = mkdtempSync(join(tmpdir(), "wp-g1-baselines-"));
+    try {
+      mkdirSync(join(dir, "scripts"), { recursive: true });
+      mkdirSync(join(dir, "src"), { recursive: true });
+      writeFileSync(
+        join(dir, "scripts/baselines.json"),
+        JSON.stringify({ swallows: 0, voidErr: 0, catchSwallow: 0, console: 0, tsSuppressions: 0 })
+      );
+      writeFileSync(
+        join(dir, "src/bad.ts"),
+        ["try {} catch (err) { void", " err; }"].join("") + "\n"
+      );
+      expect(() =>
+        execFileSync("node", [scriptPath, "--root", dir], {
+          cwd: ROOT,
+          encoding: "utf8",
+        })
+      ).toThrow(/exceeded baseline/i);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

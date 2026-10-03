@@ -264,7 +264,7 @@ Plan: `docs/REMEDIATION_PLAN_V3.md`
 - [x] T-G.1.2 Enforce one commit per task in scripts/wp.sh finish
 - [x] T-G.1.3 Add red log tracking and verification to scripts/wp.sh
 - [x] T-G.1.4 Add ops/**/* to tsconfig.json include and fix type errors
-- [ ] T-G.1.5 Add scripts/check-baselines.mjs and scripts/baselines.json to gate:fast
+- [x] T-G.1.5 Add scripts/check-baselines.mjs and scripts/baselines.json to gate:fast
 
 ### WP-G.2
 - [ ] T-G.2.1 Add operator ledger (D.1–D.4) and D-28 waivers to docs/PROGRESS.md
