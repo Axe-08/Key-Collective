@@ -323,7 +323,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.3.5 UI model pickers read /v1/models only
 
 ### WP-F.4
-- [ ] T-F.4.1 GCP project probe via blocked/disabled service ErrorInfo (RA-07)
+- [x] T-F.4.1 GCP project probe via blocked/disabled service ErrorInfo (RA-07)
 
 ### WP-F.5
 - [ ] T-F.5.1 /api/session returns linked identities; no 95 fallback (QA-03, QA-09)

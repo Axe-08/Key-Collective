@@ -1,8 +1,9 @@
 /**
  * Key Collective — key ingress probes (WP-3.6, FR-06, IR-09)
  *
- * forceErrorGcpProbe: calls a non-existent Gemini model so Google answers with an error that
- * names the key's GCP project; that project number feeds the project_hash Sybil guard.
+ * forceErrorGcpProbe: calls a Google API the key may not use (Translation, then YouTube) so Google
+ * answers with an ErrorInfo naming the key's GCP project; that project number feeds the
+ * project_hash Sybil guard (WP-F.4, docs/specs/gcp_probe.md).
  * checkProofOfLife: one minimal real call proving the key works and has quota.
  */
 
@@ -59,27 +60,54 @@ function isModelUnavailable(status: number, body: ProviderErrorBody | null): boo
 
 interface GoogleErrorDetail {
   "@type"?: string;
-  metadata?: { consumer?: string };
+  reason?: string;
+  metadata?: { consumer?: string; containerInfo?: string; activationUrl?: string };
   links?: Array<{ url?: string }>;
   resourceName?: string;
 }
 
 const isGoogle = (provider: string) => provider === "google" || provider === "gemini";
 
+/**
+ * Google endpoints the key is (almost always) not allowed to call. Their 403 error names the
+ * key's project in ErrorInfo.metadata.consumer (docs/specs/gcp_probe.md, RA-07):
+ * - Translation v2: API_KEY_SERVICE_BLOCKED when the key's API restrictions exclude it;
+ * - YouTube Data v3: SERVICE_DISABLED when the API is not enabled in the project.
+ * The Gemini invalid-model 404 carries no details, so it can never name the project.
+ */
+export const GCP_PROBE_ENDPOINTS = [
+  "https://translation.googleapis.com/language/translate/v2?q=hi&target=fr",
+  "https://youtube.googleapis.com/youtube/v3/videos?part=id&id=x",
+] as const;
+
+const PROJECT_PARAM = /[?&]project=([A-Za-z0-9-]+)/;
+
 function projectFromDetails(details: GoogleErrorDetail[]): string | null {
-  for (const d of details) {
-    if (d["@type"]?.endsWith("google.rpc.ErrorInfo")) {
-      const m = d.metadata?.consumer?.match(/^projects\/([A-Za-z0-9-]+)$/);
-      if (m) return m[1];
-    }
+  const errorInfos = details.filter((d) => d["@type"]?.endsWith("google.rpc.ErrorInfo"));
+  // 1. ErrorInfo.metadata.consumer = "projects/<n>"
+  for (const d of errorInfos) {
+    const m = d.metadata?.consumer?.match(/^projects\/([A-Za-z0-9-]+)$/);
+    if (m) return m[1];
   }
+  // 2. ErrorInfo.metadata.containerInfo = "<n>"
+  for (const d of errorInfos) {
+    const c = d.metadata?.containerInfo?.trim();
+    if (c && /^[A-Za-z0-9-]+$/.test(c)) return c;
+  }
+  // 3. project=<n> in Help links or ErrorInfo.metadata.activationUrl
   for (const d of details) {
     if (d["@type"]?.endsWith("google.rpc.Help")) {
       for (const link of d.links ?? []) {
-        const m = link.url?.match(/[?&]project=([A-Za-z0-9-]+)/);
+        const m = link.url?.match(PROJECT_PARAM);
         if (m) return m[1];
       }
     }
+  }
+  for (const d of errorInfos) {
+    const m = d.metadata?.activationUrl?.match(PROJECT_PARAM);
+    if (m) return m[1];
+  }
+  for (const d of details) {
     if (d["@type"]?.endsWith("google.rpc.ResourceInfo")) {
       const m = d.resourceName?.match(/projects\/([A-Za-z0-9-]+)/);
       if (m) return m[1];
@@ -88,24 +116,43 @@ function projectFromDetails(details: GoogleErrorDetail[]): string | null {
   return null;
 }
 
+type EndpointOutcome = { projectNumber: string } | { reason: string };
+
+async function probeEndpoint(url: string, rawKey: string): Promise<EndpointOutcome> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "x-goog-api-key": rawKey },
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+  } catch (err) {
+    probeLogger.warn("gcp_probe_network_error", { endpoint: new URL(url).host, error: err instanceof Error ? err.name : String(err) });
+    return { reason: "network_error" };
+  }
+  if (res.ok) return { reason: "service_allowed" };
+
+  const body = (await readErrorBody(res)) as { error?: { details?: GoogleErrorDetail[] } } | null;
+  const project = projectFromDetails(body?.error?.details ?? []);
+  if (project) return { projectNumber: project };
+  if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+    return { reason: "no_project_in_response" };
+  }
+  return { reason: `http_${res.status}` };
+}
+
 /** null for providers without a GCP project (not probed). */
 export async function forceErrorGcpProbe(rawKey: string, provider: string): Promise<GcpProbeResult | null> {
   if (!isGoogle(provider)) return null;
 
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/invalid-model?key=${encodeURIComponent(rawKey)}`,
-      { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) }
-    );
-  } catch {
-    return { unavailable: "network_error" };
+  const reasons: string[] = [];
+  for (const url of GCP_PROBE_ENDPOINTS) {
+    const outcome = await probeEndpoint(url, rawKey);
+    if ("projectNumber" in outcome) return { projectNumber: outcome.projectNumber };
+    reasons.push(outcome.reason);
   }
-  if (res.status !== 400 && res.status !== 404) return { unavailable: `http_${res.status}` };
-
-  const body = (await res.json().catch(() => null)) as { error?: { details?: GoogleErrorDetail[] } } | null;
-  const project = projectFromDetails(body?.error?.details ?? []);
-  return project ? { projectNumber: project } : { unavailable: "no_project_in_response" };
+  // The key may call every probe endpoint, so no error names its project.
+  if (reasons.every((r) => r === "service_allowed")) return { unavailable: "both_services_allowed" };
+  return { unavailable: reasons.find((r) => r !== "service_allowed") ?? "no_project_in_response" };
 }
 
 export async function checkProofOfLife(rawKey: string, provider: string): Promise<ProofOfLife> {

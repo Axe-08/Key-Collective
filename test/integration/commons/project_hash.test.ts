@@ -21,17 +21,18 @@ beforeAll(() => {
     .persist();
 
   fetchMock
-    .get("https://generativelanguage.googleapis.com")
-    .intercept({ path: /^\/v1beta\/models\/invalid-model/, method: "GET" })
+    .get("https://translation.googleapis.com")
+    .intercept({ path: /^\/language\/translate\/v2/, method: "GET" })
     .reply(
-      400,
+      403,
       () =>
         JSON.stringify({
           error: {
             details: [
               {
                 "@type": "type.googleapis.com/google.rpc.ErrorInfo",
-                metadata: { consumer: `projects/${scenarioProject}` },
+                reason: "API_KEY_SERVICE_BLOCKED",
+                metadata: { consumer: `projects/${scenarioProject}`, service: "translate.googleapis.com" },
               },
             ],
           },
