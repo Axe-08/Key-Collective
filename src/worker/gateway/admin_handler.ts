@@ -13,34 +13,34 @@ import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
 import { toEpochMs } from "../../utils/time";
 import { clearMaintenanceCache } from "./control";
 import { getWouldDenyStats } from "../../pool/enforcement";
+import { ADMIN_SESSION_COOKIE, lookupSession, readCookie } from "../../auth/session/store";
 
 interface AdminActor {
   adminUserId: string | null;
   adminEmail: string;
 }
 
+/**
+ * Resolves the acting admin from the kc_admin_session cookie. Sessions store only the
+ * SHA-256 of the token (id_hash), so the lookup goes through lookupSession (QA-15).
+ * Break-glass requests carry no session and keep the generic actor.
+ */
 async function getAdminActor(request: Request, db?: D1Database): Promise<AdminActor> {
   let adminEmail = "admin@keycollective.ai";
   let adminUserId: string | null = null;
-  const cookieHeader = request.headers.get("cookie") || "";
-  const match = cookieHeader.match(/(?:^|;\s*)kc_admin_session=([^;]+)/);
-  if (match && match[1] && db && typeof db.prepare === "function") {
+  const token = readCookie(request, ADMIN_SESSION_COOKIE);
+  if (token && db && typeof db.prepare === "function") {
     try {
-      const row = await db
-        .prepare(
-          `SELECT s.user_id, u.email
-             FROM sessions s
-             LEFT JOIN users u ON u.id = s.user_id
-            WHERE s.token = ? AND s.kind = 'admin' AND s.revoked_at IS NULL AND s.expires_at > datetime('now')`
-        )
-        .bind(match[1])
-        .first<{ user_id: string; email: string | null }>();
-      if (row) {
-        adminUserId = row.user_id;
-        if (row.email) adminEmail = row.email;
+      const session = await lookupSession(db, token);
+      if (session && session.kind === "admin") {
+        adminUserId = session.userId;
+        if (session.email) adminEmail = session.email;
       }
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      console.error(
+        "Failed to resolve admin actor from session:",
+        err instanceof Error ? err.message : String(err)
+      );
     }
   }
   return { adminUserId, adminEmail };
@@ -406,8 +406,6 @@ export async function handleAdminRequest(
       state?: "TRIPPED" | "NORMAL" | "CLOSED";
       reason?: string;
       until?: number;
-      adminEmail?: string;
-      adminUserId?: string;
     } = {};
     try {
       body = (await request.json()) as typeof body;
@@ -423,9 +421,8 @@ export async function handleAdminRequest(
     const until = body.until;
 
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    // The actor comes from the admin session only; body fields cannot rename it.
     const actor = await getAdminActor(request, db);
-    if (body.adminEmail) actor.adminEmail = body.adminEmail;
-    if (body.adminUserId) actor.adminUserId = body.adminUserId;
 
     const coordNs = env.POOL_COORDINATOR as DurableObjectNamespace | undefined;
     const targetProviders =
@@ -503,7 +500,7 @@ export async function handleAdminRequest(
 
   // 2.9 Admin Global Kill Switch (POST /api/admin/kill-switch)
   if (method === "POST" && pathname === "/api/admin/kill-switch") {
-    let body: { active?: boolean; reason?: string; adminEmail?: string; adminUserId?: string } = {};
+    let body: { active?: boolean; reason?: string } = {};
     try {
       body = (await request.json()) as typeof body;
     } catch {
@@ -515,9 +512,8 @@ export async function handleAdminRequest(
       body.reason || (active ? "Admin global kill switch" : "Kill switch disarmed");
 
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    // The actor comes from the admin session only; body fields cannot rename it.
     const actor = await getAdminActor(request, db);
-    if (body.adminEmail) actor.adminEmail = body.adminEmail;
-    if (body.adminUserId) actor.adminUserId = body.adminUserId;
 
     let storedState: { reason?: string; since?: number } | null = null;
     const coordNs = env.POOL_COORDINATOR as DurableObjectNamespace | undefined;
