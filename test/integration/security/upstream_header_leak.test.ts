@@ -41,7 +41,7 @@ beforeAll(() => {
           id: "chatcmpl-ra02",
           object: "chat.completion",
           created: 1700000000,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash-lite",
           choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
           usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
         }),
@@ -80,7 +80,7 @@ describe("no internal headers upstream (T-F.1.2, RA-02)", () => {
         "x-kc-trace-id": "trace_ra02",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash-lite",
         messages: [{ role: "user", content: "hi" }],
         stream: false,
       }),

@@ -61,7 +61,7 @@ describe("T-F.8.2 capacity exhaustion vs upstream failure", () => {
     });
     const apiKey = await createApiKey(user);
 
-    const res = await chat(apiKey, "llama-3.3-70b-versatile");
+    const res = await chat(apiKey, "openai/gpt-oss-120b");
     const body = (await res.json()) as ErrorBody;
 
     expect(res.status).toBe(502);
