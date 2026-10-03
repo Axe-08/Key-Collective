@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import type { ContributorStandingData } from './types';
   import { fetchStanding } from './api';
 
@@ -32,10 +31,17 @@
     }
   }
 
-  onMount(() => {
-    if (!standing) {
-      loadData();
+  // QA-01: fetch only for a signed-in tenant, and again whenever the tenant changes.
+  const signedInTenant = $derived(tenantId ?? '');
+  $effect(() => {
+    const id = signedInTenant;
+    if (standing) return;
+    if (!id) {
+      liveStanding = null;
+      loadError = null;
+      return;
     }
+    loadData();
   });
 
   const currentStanding = $derived(standing ?? liveStanding);

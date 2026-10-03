@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import StandingCard from './standing/StandingCard.svelte';
   import type { ContributorStandingData } from './standing/types';
   import type { PoolStats, APIKey, CU } from './types';
@@ -51,7 +50,7 @@
     cu_borrowed_24h: 0,
   });
 
-  onMount(async () => {
+  async function loadContribution() {
     try {
       const res = await fetch('/api/pool/contribution', { credentials: 'same-origin' });
       if (res.ok) {
@@ -63,8 +62,16 @@
           cu_borrowed_24h: data.cu_borrowed_24h ?? 0,
         };
       }
-    } catch {
-      // Non-blocking fallback
+    } catch (err) {
+      console.error('Failed to load contribution:', err);
+    }
+  }
+
+  // QA-01: fetch only once the session has a user, and again when the user changes.
+  const accountId = $derived(userAccount?.id ?? '');
+  $effect(() => {
+    if (accountId) {
+      loadContribution();
     }
   });
 </script>
@@ -101,7 +108,7 @@
   <!-- Grid: StandingCard (Left 6 cols) + Today's Activity & Quick Endpoint (Right 6 cols) -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
     <div class="lg:col-span-6">
-      <StandingCard {standing} />
+      <StandingCard {standing} tenantId={accountId} />
     </div>
 
     <div class="lg:col-span-6 space-y-4">
