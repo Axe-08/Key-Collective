@@ -313,7 +313,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 ### WP-F.2
 - [x] T-F.2.1 Gemini 400 API_KEY_INVALID → key_invalid (RA-04)
 - [x] T-F.2.2 404 / model_not_found → model_unavailable, no key action (RA-05)
-- [ ] T-F.2.3 Real provider fixtures in upstream_outcomes test
+- [x] T-F.2.3 Real provider fixtures in upstream_outcomes test
 
 ### WP-F.3
 - [ ] T-F.3.1 Rebuild the model catalog from verified lists (RA-06)
