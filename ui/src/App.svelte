@@ -128,23 +128,25 @@
   }
 
   async function loadData() {
-    try {
-      isRefreshing = true;
-      const [fetchedKeys, fetchedLogs] = await Promise.all([
-        api.getKeys(),
-        api.getLogs(),
-      ]);
-
-      keys = fetchedKeys;
-      logs = fetchedLogs;
-      stats = await api.getStats();
+    // Each source loads on its own: a failing /api/logs or /api/stats must not hide the key list.
+    isRefreshing = true;
+    const [keysRes, logsRes, statsRes] = await Promise.allSettled([
+      api.getKeys(),
+      api.getLogs(),
+      api.getStats(),
+    ]);
+    if (keysRes.status === 'fulfilled') keys = keysRes.value;
+    else console.error('Failed to load provider keys', keysRes.reason);
+    if (logsRes.status === 'fulfilled') logs = logsRes.value;
+    else console.error('Failed to load logs', logsRes.reason);
+    if (statsRes.status === 'fulfilled') {
+      stats = statsRes.value;
       statsLoading = false;
       cuUsedToday = stats.cu_used_today ?? 0;
-    } catch (err: any) {
-      console.error('Failed to load dashboard data', err);
-    } finally {
-      isRefreshing = false;
+    } else {
+      console.error('Failed to load stats', statsRes.reason);
     }
+    isRefreshing = false;
   }
 
   async function handleAddKey(payload: CreateKeyPayload) {
