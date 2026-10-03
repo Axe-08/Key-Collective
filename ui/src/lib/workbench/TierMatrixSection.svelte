@@ -5,10 +5,10 @@
   interface Props {
     tierMatrix: TierMatrixItem[];
     selectedTier: UserTier;
-    onSelectTier: (tier: UserTier) => void;
   }
 
-  let { tierMatrix, selectedTier, onSelectTier }: Props = $props();
+  // Read-only: the tier comes from the server (users.tier), never from clicking a card (QA-04).
+  let { tierMatrix, selectedTier }: Props = $props();
 </script>
 
 <section class="space-y-3">
@@ -20,21 +20,20 @@
       <div class="group relative cursor-pointer">
         <span class="material-symbols-outlined text-outline text-[16px]">info</span>
         <div class="hidden group-hover:block absolute left-0 bottom-full mb-1 w-56 p-2 rounded bg-surface-container-highest text-on-surface font-body-sm text-body-sm border border-outline-variant/30 shadow-xl z-20">
-          Click any tier (Probationary, Builder, Max) to inspect or test policy simulation. Current: {selectedTier.toUpperCase()}.
+          Tier limits for reference. Your tier is assigned by the platform. Current: {selectedTier.toUpperCase()}.
         </div>
       </div>
     </div>
     <span class="font-label-sm text-label-sm text-outline font-mono">Horizontal Matrix View</span>
   </div>
 
-  <!-- Scrollable Tier Cards Row with Probationary, Builder, Max selectors -->
+  <!-- Scrollable, read-only tier cards -->
   <div class="flex gap-3 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
     {#each tierMatrix as tier}
       {@const isActive = selectedTier === tier.id && (tier.name.includes('Builder') || tier.id !== 'builder' || !tier.name.includes('Starter'))}
-      <button
-        type="button"
-        onclick={() => onSelectTier(tier.id)}
-        class="{tier.minWidth} flex-1 text-left rounded-xl p-3.5 flex flex-col justify-between specular-card transition-all cursor-pointer {isActive ? 'bg-surface-container-high border-2 border-primary shadow-[0_0_20px_rgba(192,193,255,0.18)] relative' : 'bg-surface-container-low/50 border border-outline-variant/20 opacity-80 hover:opacity-100 hover:border-outline-variant/40'}"
+      <div
+        data-testid="tier-card"
+        class="{tier.minWidth} flex-1 text-left rounded-xl p-3.5 flex flex-col justify-between specular-card {isActive ? 'bg-surface-container-high border-2 border-primary shadow-[0_0_20px_rgba(192,193,255,0.18)] relative' : 'bg-surface-container-low/50 border border-outline-variant/20 opacity-80'}"
       >
         {#if isActive}
           <span class="absolute -top-2.5 right-3 font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-primary text-on-primary font-bold shadow-md font-mono">
@@ -70,7 +69,7 @@
             {tier.footerText}
           {/if}
         </div>
-      </button>
+      </div>
     {/each}
   </div>
 </section>

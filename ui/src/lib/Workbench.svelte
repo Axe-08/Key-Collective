@@ -33,7 +33,6 @@
     projects = [],
     keys = [],
     providerKeys: propProviderKeys,
-    onSelectTier,
     onCreateProject,
     onRotateKey,
     onRevokeKey,
@@ -150,14 +149,8 @@
     providerKeys = providerKeys.filter((k) => k.id !== id);
   }
 
-  // Selected Tier state: defaults to account tier or builder
-  let selectedTier = $state<UserTier>('builder');
-
-  $effect(() => {
-    if (account?.tier) {
-      selectedTier = account.tier;
-    }
-  });
+  // The active tier is the server's users.tier; the tier cards only display it (QA-04).
+  const selectedTier = $derived<UserTier>(account.tier || 'builder');
 
   // Projects and API keys come from the server only (WP-3.9); a failed load shows an
   // empty list rather than invented rows.
@@ -269,13 +262,6 @@
       return true;
     })
   );
-
-  function selectTier(tier: UserTier): void {
-    selectedTier = tier;
-    if (onSelectTier) {
-      onSelectTier(tier);
-    }
-  }
 
   function getProjectKeyCount(projectId: string): number {
     return localKeys.filter((k) => k.projectId === projectId && !k.isRevoked).length;
@@ -529,7 +515,6 @@
   <TierMatrixSection
     tierMatrix={TIER_MATRIX}
     {selectedTier}
-    onSelectTier={selectTier}
   />
 
   <!-- 3. Multi-Project Management Section -->

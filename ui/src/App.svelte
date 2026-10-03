@@ -192,15 +192,6 @@
     addToast('info', autoRefresh ? 'Auto-refresh enabled (3s polling)' : 'Auto-refresh paused');
   }
 
-  function handleSelectTier(tier: UserTier) {
-    userAccount = {
-      ...userAccount,
-      tier,
-      updatedAt: new Date().toISOString(),
-    };
-    addToast('success', `Authorization Tier updated to: ${tier.toUpperCase()}`);
-  }
-
   // Identity comes only from GET /api/session (WP-3.4); nothing is kept in localStorage.
   async function refreshSession() {
     try {

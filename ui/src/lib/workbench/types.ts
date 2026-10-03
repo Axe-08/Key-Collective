@@ -37,7 +37,6 @@ export interface WorkbenchProps {
   projects?: Project[];
   keys?: ProjectKey[];
   providerKeys?: APIKey[];
-  onSelectTier?: (tier: UserTier) => void;
   onCreateProject?: (project: Partial<Project>) => void;
   onRotateKey?: (keyId: string) => void;
   onRevokeKey?: (keyId: string) => void;
