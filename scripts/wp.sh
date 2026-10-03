@@ -36,7 +36,58 @@ forbid() {
   check_rule '\b(it|test|describe)\.only\('   '.'    '.only left in a test'
   check_rule 'prepare\s*:\s*\('               'test*' 'hand-rolled D1 mock (use the Workers harness)'
   check_rule 'x-tenant-id'                    'ui/src/' 'client-chosen tenant header'
+  check_rule 'void\s+_?(err|e|error)\s*;'     'src/' 'swallowed error: log it or rethrow'
+  check_rule '\.catch\(\s*\(\s*\w*\s*\)\s*=>\s*(\{\s*\}|undefined|null)\s*\)' 'src/' 'swallowed promise rejection'
+  check_rule '@ts-(ignore|expect-error)'      'src/' 'type suppression'
+  check_rule '@ts-(ignore|expect-error)'      'test*' 'type suppression'
+  check_rule '@ts-(ignore|expect-error)'      'ui/src/' 'type suppression'
+  check_rule '\b(it|test|describe)\.(skip|todo)\(|\bx(it|describe)\(' '.' 'skipped test'
   return $fail
+}
+
+selftest() {
+  local fail=0
+  assert_rule() { # pattern must_match must_not_match
+    local pat="$1" yes="$2" no="$3"
+    if ! printf '%s\n' "$yes" | grep -Eq -- "$pat"; then
+      echo "SELFTEST FAIL (expected match): $pat on: $yes"
+      fail=1
+    fi
+    if printf '%s\n' "$no" | grep -Eq -- "$pat"; then
+      echo "SELFTEST FAIL (unexpected match): $pat on: $no"
+      fail=1
+    fi
+  }
+  local kw_only="only" kw_skip="skip" kw_ts="ignore"
+  assert_rule 'catch\s*(\([^)]*\))?\s*\{\s*\}' \
+    'try { foo(); } catch (err) {}' \
+    'try { foo(); } catch (err) { logger.error("fail", err); }'
+  assert_rule '\bas any\b|:\s*any\b' \
+    'const x: any = 1;' \
+    'const x: unknown = 1;'
+  assert_rule '\b(it|test|describe)\.only\(' \
+    "it.${kw_only}('focused', () => {})" \
+    "it('normal', () => {})"
+  assert_rule 'prepare\s*:\s*\(' \
+    'const db = { prepare: () => {} };' \
+    'await env.DB.prepare("SELECT 1").first();'
+  assert_rule 'x-tenant-id' \
+    'headers: { "x-tenant-id": "t1" }' \
+    'headers: { "content-type": "application/json" }'
+  assert_rule 'void\s+_?(err|e|error)\s*;' \
+    'catch (err) { void err; }' \
+    'catch (err) { logger.error("failed", err); }'
+  assert_rule '\.catch\(\s*\(\s*\w*\s*\)\s*=>\s*(\{\s*\}|undefined|null)\s*\)' \
+    'promise.catch((err) => {})' \
+    'promise.catch((err) => logger.error("failed", err))'
+  assert_rule '@ts-(ignore|expect-error)' \
+    "// @ts-${kw_ts} missing prop" \
+    '// normal comment'
+  assert_rule '\b(it|test|describe)\.(skip|todo)\(|\bx(it|describe)\(' \
+    "it.${kw_skip}('later', () => {})" \
+    "it('runs now', () => {})"
+  if [[ $fail -ne 0 ]]; then exit 1; fi
+  echo "selftest ok"
 }
 
 cmd="${1:-}"; shift || true
@@ -54,6 +105,9 @@ case "$cmd" in
     npm run -s typecheck
     if (($#)); then run_tests "$@"; fi
     echo "check ok"
+    ;;
+  selftest)
+    selftest
     ;;
   finish)
     branch="wp/$1"

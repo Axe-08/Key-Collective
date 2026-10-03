@@ -255,6 +255,20 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.7.8 Wire contracts/keys.ts (KeyStatus, PoolType enums)
 - [x] T-7.7.9 Remove µ$ leftovers (AU-07)
 
+## Phase G — Guardrails
+
+Plan: `docs/REMEDIATION_PLAN_V3.md`
+
+### WP-G.1
+- [x] T-G.1.1 Add new forbid rules and selftest to scripts/wp.sh
+- [ ] T-G.1.2 Enforce one commit per task in scripts/wp.sh finish
+- [ ] T-G.1.3 Add red log tracking and verification to scripts/wp.sh
+- [ ] T-G.1.4 Add ops/**/* to tsconfig.json include and fix type errors
+- [ ] T-G.1.5 Add scripts/check-baselines.mjs and scripts/baselines.json to gate:fast
+
+### WP-G.2
+- [ ] T-G.2.1 Add operator ledger (D.1–D.4) and D-28 waivers to docs/PROGRESS.md
+
 ## Phase 8
 
 Not carded yet. Before this phase, write a plan like docs/PHASE7_PLAN.md, then the same loop.
