@@ -122,7 +122,7 @@ export function mapUpstreamHttpError(
     });
   }
 
-  // 5. Client Errors (HTTP 400 -> statusCode 400 without fallback; 404, 422 -> 502)
+  // 5. Client Errors (HTTP 400 -> statusCode 400 without fallback; 404, 422, model_unavailable -> 502)
   return new ProviderRoutingError(provider, "Upstream unavailable", {
     modelId,
     upstreamStatusCode: status,
@@ -131,7 +131,7 @@ export function mapUpstreamHttpError(
       upstreamHeaders,
       classification,
     },
-    statusCode: status === 400 ? 400 : 502,
+    statusCode: status === 400 && classification.outcome === "request_error" ? 400 : 502,
   });
 }
 

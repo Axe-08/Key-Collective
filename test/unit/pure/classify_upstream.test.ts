@@ -13,6 +13,10 @@ import { mapUpstreamHttpError } from "../../../src/proxy/upstream/errors";
 import {
   GEMINI_INVALID_KEY_BODY,
   GEMINI_INVALID_KEY_STATUS,
+  GEMINI_MODEL_NOT_FOUND_STATUS,
+  GROQ_MODEL_NOT_FOUND_STATUS,
+  geminiModelNotFoundBody,
+  groqModelNotFoundBody,
 } from "../../helpers/provider_fixtures";
 
 describe("classifyUpstreamResponse (WP-4.3 T-4.3.1)", () => {
@@ -304,5 +308,75 @@ describe("Gemini 400 API_KEY_INVALID (WP-F.2 T-F.2.1, RA-04)", () => {
     });
     expect(res.outcome).toBe("request_error");
     expect(res.shouldFallback).toBe(false);
+  });
+});
+
+describe("model_unavailable (WP-F.2 T-F.2.2, RA-05)", () => {
+  const fixedNow = 1_700_000_000_000;
+
+  it("maps the live Groq 404 model_not_found body to 'model_unavailable' with shouldFallback=true", () => {
+    const res = classifyUpstreamResponse({
+      status: GROQ_MODEL_NOT_FOUND_STATUS,
+      body: groqModelNotFoundBody("llama-3.1-8b-instant"),
+      nowMs: fixedNow,
+    });
+    expect(res.outcome).toBe("model_unavailable");
+    expect(res.shouldFallback).toBe(true);
+  });
+
+  it("maps the live Gemini 404 NOT_FOUND body to 'model_unavailable'", () => {
+    const res = classifyUpstreamResponse({
+      status: GEMINI_MODEL_NOT_FOUND_STATUS,
+      body: geminiModelNotFoundBody("gemini-2.0-flash"),
+      nowMs: fixedNow,
+    });
+    expect(res.outcome).toBe("model_unavailable");
+    expect(res.shouldFallback).toBe(true);
+  });
+
+  it("maps any 404 (even without a body) to 'model_unavailable'", () => {
+    const res = classifyUpstreamResponse({ status: 404, nowMs: fixedNow });
+    expect(res.outcome).toBe("model_unavailable");
+    expect(res.shouldFallback).toBe(true);
+  });
+
+  it("maps a 400 with Groq code model_not_found or model_decommissioned to 'model_unavailable'", () => {
+    for (const code of ["model_not_found", "model_decommissioned"]) {
+      const res = classifyUpstreamResponse({
+        status: 400,
+        body: JSON.stringify({
+          error: {
+            message: "The model `llama-3.1-8b-instant` has been decommissioned.",
+            type: "invalid_request_error",
+            code,
+          },
+        }),
+        nowMs: fixedNow,
+      });
+      expect(res.outcome).toBe("model_unavailable");
+      expect(res.shouldFallback).toBe(true);
+    }
+  });
+
+  it("classifyUpstreamError reads a mapped 404 as 'model_unavailable'", () => {
+    const err = mapUpstreamHttpError(
+      "groq",
+      404,
+      groqModelNotFoundBody("llama-3.1-8b-instant"),
+      new Headers(),
+      "llama-3.1-8b-instant"
+    );
+    expect(classifyUpstreamError(err, fixedNow).outcome).toBe("model_unavailable");
+  });
+
+  it("does not treat other 400 codes as 'model_unavailable'", () => {
+    const res = classifyUpstreamResponse({
+      status: 400,
+      body: JSON.stringify({
+        error: { message: "bad", type: "invalid_request_error", code: "invalid_parameter" },
+      }),
+      nowMs: fixedNow,
+    });
+    expect(res.outcome).toBe("request_error");
   });
 });

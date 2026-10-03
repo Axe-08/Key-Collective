@@ -44,6 +44,7 @@ import type {
   CascadeRouterOptions,
 } from "./types";
 import { resolveLeasedKey } from "../../worker/router/core/key_resolver";
+import { Logger } from "../../utils/logger";
 
 /**
  * Execution context required to run cascade routing with fallbacks.
@@ -308,6 +309,19 @@ export async function executeCascadeRouting(
       }
 
       const classification = classifyUpstreamError(upstreamErr);
+
+      if (classification.outcome === "model_unavailable") {
+        new Logger({ traceId: "cascade-fallback", tenantId: reqOptions.tenantId ?? "unknown" }).warn(
+          "upstream model unavailable; falling back to next candidate",
+          {
+            outcome: "model_unavailable",
+            provider: candidate.provider,
+            modelId: candidate.id,
+            keyId: activeLease?.keyId ?? keyId,
+            nextModelId: nextCandidate?.id,
+          }
+        );
+      }
 
       if (useLeases && activeLease && activeLeaseCtx && leaseProvider) {
         const relativeDurationMs =

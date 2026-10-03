@@ -7,6 +7,9 @@
  * - 429 with Gemini `QuotaFailure.violations[].quotaId` containing `PerDay`,
  *   or Groq `x-ratelimit-remaining-requests: 0` with reset > 1 h -> `rpd_exhausted` (`COOLDOWN`)
  * - other 429 -> `rpm_limited` (`COOLDOWN` for `retry-after`, default 60 s)
+ * - 404, or 400/404 with Groq `code` `model_not_found` / `model_decommissioned` -> `model_unavailable`
+ *   (WP-F.2 RA-05: a fact about the model, not the key; no key action, no breaker change, fall back
+ *   to the next candidate model)
  * - 5xx, timeout -> `upstream_error` (breaker failure; open after 5 consecutive, half-open after 60 s)
  * - 400 with Gemini `ErrorInfo.reason = "API_KEY_INVALID"` (or `INVALID_ARGUMENT` + "API key not valid")
  *   -> `key_invalid` (WP-F.2 RA-04: Gemini answers an invalid or revoked key with HTTP 400)
@@ -21,6 +24,7 @@ export type UpstreamOutcome =
   | "rpd_exhausted"
   | "rpm_limited"
   | "upstream_error"
+  | "model_unavailable"
   | "request_error";
 
 export interface UpstreamResponseInput {
@@ -139,6 +143,17 @@ function isGeminiInvalidKeyBody(body: unknown): boolean {
     typeof errObj.message === "string" &&
     API_KEY_NOT_VALID.test(errObj.message)
   );
+}
+
+const MODEL_UNAVAILABLE_CODES = new Set(["model_not_found", "model_decommissioned"]);
+
+/** Groq (OpenAI-style) `error.code` naming a missing or retired model. */
+function isModelUnavailableBody(body: unknown): boolean {
+  const errObj = parseErrorBody(body);
+  if (!errObj) {
+    return typeof body === "string" && /\b(model_not_found|model_decommissioned)\b/.test(body);
+  }
+  return typeof errObj.code === "string" && MODEL_UNAVAILABLE_CODES.has(errObj.code);
 }
 
 function hasGeminiPerDayQuotaViolation(body: unknown): boolean {
@@ -268,6 +283,13 @@ export function classifyUpstreamResponse(
       outcome: "rpm_limited",
       retryAfterSeconds,
       cooldownUntilMs: nowMs + retryAfterSeconds * 1000,
+      shouldFallback: true,
+    };
+  }
+
+  if (status === 404 || (status === 400 && isModelUnavailableBody(input.body))) {
+    return {
+      outcome: "model_unavailable",
       shouldFallback: true,
     };
   }
