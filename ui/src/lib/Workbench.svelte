@@ -269,7 +269,7 @@
 
   function getProjectName(projectId: string): string {
     const p = localProjects.find((proj) => proj.id === projectId);
-    return p ? p.name : 'Production Gateway';
+    return p ? p.name : '—';
   }
 
   async function copyKeySecret(secret: string, keyId: string): Promise<void> {

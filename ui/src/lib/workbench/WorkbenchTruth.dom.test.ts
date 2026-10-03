@@ -64,6 +64,22 @@ describe('T-F.7.2 no invented telemetry in the Workbench (QA-05)', () => {
   });
 });
 
+describe('T-F.7.3 a key whose project is unknown names no invented project (QA-13)', () => {
+  it('shows an em dash, never Production Gateway', async () => {
+    server.use(
+      http.get('http://localhost/api/tokens', () =>
+        HttpResponse.json([{ id: 'tok_x1', project_id: 'prj_gone', hash_masked: 'abcd…wxyz', created_at: '2026-01-01T00:00:00Z' }])
+      )
+    );
+    const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });
+    await settle();
+
+    expect(document.body.textContent?.includes('Production Gateway')).toBe(false);
+    expect(document.body.textContent).toContain('—');
+    unmount(wb);
+  });
+});
+
 describe('T-F.7.1 tier cards are read-only (QA-04)', () => {
   it('renders tier cards without buttons, and clicking one does not change the active tier', async () => {
     const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });
