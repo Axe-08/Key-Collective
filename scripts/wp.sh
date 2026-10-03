@@ -90,6 +90,52 @@ selftest() {
   echo "selftest ok"
 }
 
+verify_tasks() {
+  local wp="$1" branch="wp/$1"
+  local section
+  section=$(awk -v wp="### $wp" '
+    $0 == wp || index($0, wp " ") == 1 { in_sec=1; next }
+    in_sec && /^##/ { exit }
+    in_sec { print }
+  ' docs/PROGRESS.md)
+  if [[ -z "$section" ]]; then
+    echo "FINISH FAILED: section ### $wp not found in docs/PROGRESS.md" >&2
+    return 1
+  fi
+  local unticked
+  unticked=$(printf '%s\n' "$section" | grep -E '^\s*-\s*\[\s\]\s*T-[0-9A-Z]+\.[0-9]+\.[0-9]+' || true)
+  if [[ -n "$unticked" ]]; then
+    echo "FINISH FAILED: unticked task(s) in $wp:" >&2
+    echo "$unticked" >&2
+    return 1
+  fi
+  local tasks
+  tasks=$(printf '%s\n' "$section" | grep -oE 'T-[0-9A-Z]+\.[0-9]+\.[0-9]+' | sort -u || true)
+  if [[ -z "$tasks" ]]; then
+    echo "FINISH FAILED: no tasks matching T-[0-9A-Z]+.[0-9]+.[0-9]+ under ### $wp" >&2
+    return 1
+  fi
+  local subjects
+  subjects=$(git log "$BASE..$branch" --format=%s)
+  while IFS= read -r subj; do
+    [[ -z "$subj" ]] && continue
+    local count
+    count=$(printf '%s\n' "$subj" | grep -oE 'T-[0-9A-Z]+\.[0-9]+\.[0-9]+' | sort -u | wc -l)
+    if (( count > 1 )); then
+      echo "FINISH FAILED: commit subject names more than one task id: $subj" >&2
+      return 1
+    fi
+  done <<< "$subjects"
+  while IFS= read -r tid; do
+    [[ -z "$tid" ]] && continue
+    if ! printf '%s\n' "$subjects" | grep -Eq "(^|[^0-9A-Za-z.])${tid//./\\.}([^0-9]|$)"; then
+      echo "FINISH FAILED: task $tid not found in any commit subject on $branch" >&2
+      return 1
+    fi
+  done <<< "$tasks"
+  echo "tasks ok"
+}
+
 cmd="${1:-}"; shift || true
 case "$cmd" in
   start)
@@ -109,10 +155,14 @@ case "$cmd" in
   selftest)
     selftest
     ;;
+  verify-tasks)
+    verify_tasks "$1"
+    ;;
   finish)
     branch="wp/$1"
     [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "working tree not clean"; exit 1; }
     git switch "$branch"
+    verify_tasks "$1"
     forbid
     npm run -s gate
     git switch "$BASE"
