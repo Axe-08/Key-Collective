@@ -6,33 +6,27 @@
     projects: ExtendedProject[];
     keySearch: string;
     keyProjectFilter: string;
-    copiedKeyId: string | null;
     openKeyDropdownId: string | null;
     onSearchChange: (val: string) => void;
     onProjectFilterChange: (val: string) => void;
     onCreateKeyClick: () => void;
-    onCopyKeySecret: (secret: string, keyId: string) => void;
-    onToggleKey: (keyId: string) => void;
     onRotateKey: (keyId: string) => void;
     onRevokeKey: (keyId: string) => void;
-    onDeleteKey: (keyId: string) => void;
     onToggleDropdown: (keyId: string | null) => void;
     getProjectName: (projectId: string) => string;
   }
 
+  // Secrets are never stored after creation, and revocation deletes the key (QA-14):
+  // no copy button, no toggle, one Revoke action.
   let {
     keys,
     projects,
     keySearch = $bindable(''),
     keyProjectFilter = $bindable('all'),
-    copiedKeyId,
     openKeyDropdownId,
     onCreateKeyClick,
-    onCopyKeySecret,
-    onToggleKey,
     onRotateKey,
     onRevokeKey,
-    onDeleteKey,
     onToggleDropdown,
     getProjectName,
   }: Props = $props();
@@ -121,23 +115,11 @@
                   </span>
                 </td>
 
-                <!-- Token Prefix & Secret -->
+                <!-- Token Prefix (the secret is shown once, at creation or rotation) -->
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2 font-code-sm text-code-sm bg-surface-container-lowest px-2 py-1 rounded border border-outline-variant/10 w-fit font-mono {key.isRevoked ? 'opacity-60' : ''}">
                     <span class="{key.isRevoked ? 'text-outline' : 'text-primary'}">{key.tokenPrefix}</span>
                     <span class="text-outline">••••••••••••</span>
-                    <button
-                      type="button"
-                      onclick={() => onCopyKeySecret(key.fullSecret || `${key.tokenPrefix}44781d09e`, key.id)}
-                      class="text-outline hover:text-on-surface transition-colors cursor-pointer"
-                      title="Copy Key Secret"
-                    >
-                      {#if copiedKeyId === key.id}
-                        <span class="material-symbols-outlined text-[14px] text-secondary">check</span>
-                      {:else}
-                        <span class="material-symbols-outlined text-[14px]">content_copy</span>
-                      {/if}
-                    </button>
                   </div>
                 </td>
 
@@ -151,42 +133,14 @@
                   </div>
                 </td>
 
-                <!-- Status (Toggle or Badge) -->
+                <!-- Status: listed keys are active; revoking deletes the key on the server -->
                 <td class="py-3 px-4">
-                  <label class="relative inline-flex items-center cursor-pointer" title={key.isRevoked ? "Click to Reactivate Key" : "Click to Revoke Key"}>
-                    <input
-                      type="checkbox"
-                      checked={!key.isRevoked}
-                      onchange={() => onToggleKey(key.id)}
-                      class="sr-only peer"
-                    />
-                    <div class="w-9 h-5 bg-surface-container-high border border-outline-variant/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
-                    <span class="ml-2 font-code-sm text-code-sm {key.isRevoked ? 'text-error font-medium' : 'text-secondary font-medium'} font-mono">
-                      {key.isRevoked ? 'Revoked' : 'Active'}
-                    </span>
-                  </label>
+                  <span data-testid="key-status" class="font-code-sm text-code-sm text-secondary font-medium font-mono">Active</span>
                 </td>
 
                 <!-- Actions -->
                 <td class="py-3 px-4 text-right font-mono">
                   <div class="flex items-center justify-end gap-1">
-                    {#if key.isRevoked}
-                      <button
-                        type="button"
-                        onclick={() => onToggleKey(key.id)}
-                        class="px-2.5 py-1 rounded bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/20 font-label-sm text-label-sm transition-colors cursor-pointer mr-1"
-                        title="Reactivate this key"
-                      >
-                        Reactivate
-                      </button>
-                      <button
-                        type="button"
-                        onclick={() => onDeleteKey(key.id)}
-                        class="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors cursor-pointer"
-                      >
-                        Delete
-                      </button>
-                    {/if}
                     <div class="relative">
                       <button
                         type="button"
@@ -200,40 +154,23 @@
                         <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div class="fixed inset-0 z-10" onclick={() => onToggleDropdown(null)}></div>
                         <div class="absolute right-0 mt-1 w-36 rounded-lg bg-surface-container-highest border border-outline-variant/30 shadow-xl z-20 p-1">
-                          {#if !key.isRevoked}
-                            <button
-                              type="button"
-                              onclick={() => { onToggleDropdown(null); onRotateKey(key.id); }}
-                              class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <span class="material-symbols-outlined text-[14px]">refresh</span>
-                              Rotate Secret
-                            </button>
-                            <button
-                              type="button"
-                              onclick={() => { onToggleDropdown(null); onRevokeKey(key.id); }}
-                              class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <span class="material-symbols-outlined text-[14px]">block</span>
-                              Revoke
-                            </button>
-                          {:else}
-                            <button
-                              type="button"
-                              onclick={() => { onToggleDropdown(null); onToggleKey(key.id); }}
-                              class="w-full text-left px-3 py-2 text-xs font-code-sm text-secondary hover:bg-secondary/10 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                              Reactivate Key
-                            </button>
-                          {/if}
                           <button
                             type="button"
-                            onclick={() => { onToggleDropdown(null); onDeleteKey(key.id); }}
-                            class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                            onclick={() => { onToggleDropdown(null); onRotateKey(key.id); }}
+                            class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
                           >
-                            <span class="material-symbols-outlined text-[14px]">delete</span>
-                            Force Delete
+                            <span class="material-symbols-outlined text-[14px]">refresh</span>
+                            Rotate Secret
+                          </button>
+                          <button
+                            type="button"
+                            data-testid="key-revoke-{key.id}"
+                            onclick={() => { onToggleDropdown(null); onRevokeKey(key.id); }}
+                            class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                            title="Revoking deletes the key permanently"
+                          >
+                            <span class="material-symbols-outlined text-[14px]">block</span>
+                            Revoke
                           </button>
                         </div>
                       {/if}

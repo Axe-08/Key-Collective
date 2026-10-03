@@ -36,8 +36,6 @@
     onCreateProject,
     onRotateKey,
     onRevokeKey,
-    onDeleteKey,
-    onToggleKeyStatus,
     onRefreshProviderKeys,
   }: WorkbenchProps = $props();
 
@@ -197,10 +195,7 @@
   let showNewProjectModal = $state(false);
   let showProjectSettingsModal = $state<ExtendedProject | null>(null);
 
-  let copiedKeyId = $state<string | null>(null);
-
   let showNewKeyModal = $state(false);
-  let newKeyName = $state('');
   let newKeyProjectId = $state('');
   let openKeyDropdownId = $state<string | null>(null);
 
@@ -216,7 +211,6 @@
       const issued = await api.createToken({ project_id: newKeyProjectId });
       localKeys = [toKey(issued, account.id), ...localKeys];
       revealedSecret = issued.token;
-      newKeyName = '';
       showNewKeyModal = false;
     } catch (err: unknown) {
       alert(`Failed to create key: ${err instanceof Error ? err.message : String(err)}`);
@@ -272,21 +266,6 @@
     return p ? p.name : '—';
   }
 
-  async function copyKeySecret(secret: string, keyId: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(secret);
-      copiedKeyId = keyId;
-      setTimeout(() => {
-        if (copiedKeyId === keyId) copiedKeyId = null;
-      }, 2000);
-    } catch {
-      copiedKeyId = keyId;
-      setTimeout(() => {
-        if (copiedKeyId === keyId) copiedKeyId = null;
-      }, 2000);
-    }
-  }
-
   async function handleRotateKey(keyId: string): Promise<void> {
     try {
       const issued = await api.rotateToken(keyId);
@@ -337,17 +316,6 @@
     } catch (err: unknown) {
       alert(`Failed to revoke key: ${err instanceof Error ? err.message : String(err)}`);
     }
-  }
-
-  async function handleDeleteKey(keyId: string): Promise<void> {
-    await handleRevokeKey(keyId);
-    onDeleteKey?.(keyId);
-  }
-
-  async function handleToggleKey(keyId: string): Promise<void> {
-    // Revocation is permanent on the server; there is no un-revoke.
-    await handleRevokeKey(keyId);
-    onToggleKeyStatus?.(keyId);
   }
 
   /** Pessimistic project edit: local state changes only after the server stored it. */
@@ -547,16 +515,12 @@
     projects={localProjects}
     bind:keySearch
     bind:keyProjectFilter
-    {copiedKeyId}
     {openKeyDropdownId}
     onSearchChange={(val) => (keySearch = val)}
     onProjectFilterChange={(val) => (keyProjectFilter = val)}
     onCreateKeyClick={() => (showNewKeyModal = true)}
-    onCopyKeySecret={copyKeySecret}
-    onToggleKey={handleToggleKey}
     onRotateKey={handleRotateKey}
     onRevokeKey={handleRevokeKey}
-    onDeleteKey={handleDeleteKey}
     onToggleDropdown={(id) => (openKeyDropdownId = id)}
     {getProjectName}
   />
@@ -581,7 +545,6 @@
   {showNewKeyModal}
   onCloseNewKeyModal={() => (showNewKeyModal = false)}
   onCreateKeySubmit={handleCreateNewKey}
-  bind:newKeyName
   bind:newKeyProjectId
   projects={localProjects}
   {showProjectSettingsModal}

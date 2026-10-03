@@ -25,7 +25,6 @@
     showNewKeyModal: boolean;
     onCloseNewKeyModal: () => void;
     onCreateKeySubmit: () => void;
-    newKeyName: string;
     newKeyProjectId: string;
     projects: ExtendedProject[];
 
@@ -65,7 +64,6 @@
     showNewKeyModal,
     onCloseNewKeyModal,
     onCreateKeySubmit,
-    newKeyName = $bindable(''),
     newKeyProjectId = $bindable(''),
     projects,
     showProjectSettingsModal,
@@ -104,7 +102,6 @@
 
 <NewKeyModal
   show={showNewKeyModal}
-  bind:name={newKeyName}
   bind:projectId={newKeyProjectId}
   {projects}
   onClose={onCloseNewKeyModal}

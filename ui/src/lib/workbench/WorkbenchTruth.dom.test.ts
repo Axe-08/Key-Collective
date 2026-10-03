@@ -80,6 +80,46 @@ describe('T-F.7.3 a key whose project is unknown names no invented project (QA-1
   });
 });
 
+describe('T-F.7.4 honest project-key actions (QA-14)', () => {
+  it('shows a static Active badge, no copy button for masked secrets, and Rotate + Revoke only', async () => {
+    server.use(
+      http.get('http://localhost/api/projects', () =>
+        HttpResponse.json([{ id: 'prj_a', name: 'Alpha', rpm_sub_cap: null, is_archived: 0 }])
+      ),
+      http.get('http://localhost/api/tokens', () =>
+        HttpResponse.json([{ id: 'tok_k1', project_id: 'prj_a', hash_masked: 'abcd…wxyz', created_at: '2026-01-01T00:00:00Z' }])
+      )
+    );
+    const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });
+    await settle();
+
+    const row = Array.from(document.querySelectorAll('tbody tr')).find((r) => r.textContent?.includes('Alpha'));
+    expect(row).toBeDefined();
+    expect(row!.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(row!.querySelector('[title="Copy Key Secret"]')).toBeNull();
+    expect(row!.querySelector('[data-testid="key-status"]')?.textContent?.trim()).toBe('Active');
+
+    row!.querySelector<HTMLButtonElement>('button')!.click();
+    flushSync();
+    const actions = Array.from(row!.querySelectorAll('button')).map((b) => b.textContent?.trim() ?? '').filter(Boolean);
+    expect(actions.some((a) => a.endsWith('Revoke'))).toBe(true);
+    expect(actions.some((a) => /Force Delete|Reactivate|Delete$/.test(a))).toBe(false);
+    unmount(wb);
+  });
+
+  it('has no fake secret suffix and no key-name input the API ignores', async () => {
+    expect(src('KeysSection.svelte').includes('44781d09e')).toBe(false);
+    const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });
+    await settle();
+    const createBtn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim().endsWith('Create Key'));
+    createBtn!.click();
+    flushSync();
+    expect(document.querySelector('#nk-proj')).not.toBeNull();
+    expect(document.querySelector('#nk-name')).toBeNull();
+    unmount(wb);
+  });
+});
+
 describe('T-F.7.1 tier cards are read-only (QA-04)', () => {
   it('renders tier cards without buttons, and clicking one does not change the active tier', async () => {
     const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });

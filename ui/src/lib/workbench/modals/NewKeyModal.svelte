@@ -3,7 +3,6 @@
 
   interface Props {
     show: boolean;
-    name: string;
     projectId: string;
     projects: ExtendedProject[];
     onClose: () => void;
@@ -12,7 +11,6 @@
 
   let {
     show,
-    name = $bindable(''),
     projectId = $bindable(''),
     projects,
     onClose,
@@ -48,18 +46,6 @@
       </div>
 
       <form onsubmit={(e) => { e.preventDefault(); onSubmit(); }} class="space-y-3 font-sans">
-        <div>
-          <label class="block font-mono text-xs text-outline mb-1" for="nk-name">Key Name</label>
-          <input
-            id="nk-name"
-            type="text"
-            bind:value={name}
-            placeholder="e.g., prod-gateway-v3"
-            required
-            class="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary"
-          />
-        </div>
-
         <div>
           <label class="block font-mono text-xs text-outline mb-1" for="nk-proj">Select Project</label>
           <select

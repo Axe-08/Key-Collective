@@ -15,7 +15,6 @@ export interface ExtendedProject extends Project {
 }
 
 export interface ExtendedKey extends ProjectKey {
-  fullSecret?: string;
   displayTime?: string;
   displayCreated?: string;
 }
@@ -40,8 +39,6 @@ export interface WorkbenchProps {
   onCreateProject?: (project: Partial<Project>) => void;
   onRotateKey?: (keyId: string) => void;
   onRevokeKey?: (keyId: string) => void;
-  onDeleteKey?: (keyId: string) => void;
-  onToggleKeyStatus?: (keyId: string) => void;
   onRefreshProviderKeys?: () => Promise<void> | void;
 }
 
