@@ -68,8 +68,8 @@ describe("GET /v1/models catalog restriction", () => {
     const registry = new ModelRegistry([...ALL_MODEL_DEFINITIONS]);
     const handler = new ModelRoutesHandler();
 
-    const request = new Request("https://example.com/v1/models/gemini-2.0-flash");
-    const response = handler.handleGetModel(request, "gemini-2.0-flash", registry);
+    const request = new Request("https://example.com/v1/models/gemini-3.5-flash");
+    const response = handler.handleGetModel(request, "gemini-3.5-flash", registry);
 
     expect(response.status).toBe(200);
     const model = (await response.json()) as {

@@ -114,7 +114,7 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
       id: "chatcmpl-upstream-groq-xyz",
       object: "chat.completion",
       created: 1720001000,
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       choices: [
         {
           index: 0,
@@ -145,7 +145,7 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "What is the weather in SF?" }],
         tools: [
           {
@@ -187,7 +187,7 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
     // ID prefixed with chatcmpl-
     expect(body.id).toMatch(/^chatcmpl-/);
     expect(body.object).toBe("chat.completion");
-    expect(body.model).toBe("llama-3.3-70b-versatile");
+    expect(body.model).toBe("openai/gpt-oss-120b");
 
     // Choices preserved with tool_calls, finish_reason, and logprobs
     expect(body.choices).toHaveLength(1);
@@ -226,7 +226,7 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
       id: "chatcmpl-upstream-gemini-abc",
       object: "chat.completion",
       created: 1720002000,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       choices: [
         {
           index: 0,
@@ -257,7 +257,7 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Compute fib(10) and fact(5)" }],
       }),
     });
@@ -289,7 +289,7 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
 
     expect(body.id).toMatch(/^chatcmpl-/);
     expect(body.object).toBe("chat.completion");
-    expect(body.model).toBe("gemini-2.0-flash");
+    expect(body.model).toBe("gemini-3.5-flash");
 
     // Choices preserved with tool_calls and finish_reason
     expect(body.choices).toHaveLength(1);

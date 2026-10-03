@@ -74,8 +74,8 @@ export interface ModelFilterCriteria {
   onlyActive?: boolean;
   /** Minimum context window in tokens */
   minContextWindow?: number;
-  /** Maximum allowable input token cost in credit units */
-  maxCostPerMTokMicro?: bigint | number;
+  /** Maximum CU weight (cuBase + cuInPer1k + cuOutPer1k) */
+  maxCuWeight?: bigint;
   /** Require tool / function calling capability */
   supportsTools?: boolean;
   /** Require multimodal vision capability */
@@ -89,31 +89,37 @@ export interface ModelFilterCriteria {
  */
 export interface ModelRegistryOptions {
   /** Initial models to register. If omitted, DEFAULT_MODEL_DEFINITIONS are loaded */
-  models?: readonly (ModelDef<bigint> | ModelDef<number>)[];
-  /** Custom alias mapping overrides (e.g. { 'my-fast': 'gemini-2.0-flash' }) */
+  models?: readonly (ModelDef)[];
+  /** Custom alias mapping overrides (e.g. { 'my-fast': 'gemini-3.5-flash-lite' }) */
   aliases?: Record<string, string>;
+  /** Ordered alias chains (defaults to MODEL_ALIAS_CHAINS) */
+  aliasChains?: Readonly<Record<string, readonly string[]>>;
+  /** Clock (ms since epoch) used to skip models past deprecatedAt / sunsetAt; defaults to Date.now */
+  now?: () => number;
 }
 
 /**
  * Contract interface for the Model Registry.
  */
 export interface IModelRegistry {
-  registerModel(model: ModelDef<bigint> | ModelDef<number>): void;
-  registerModels(models: readonly (ModelDef<bigint> | ModelDef<number>)[]): void;
+  registerModel(model: ModelDef): void;
+  registerModels(models: readonly (ModelDef)[]): void;
   unregisterModel(modelId: string): boolean;
   hasModel(modelId: string): boolean;
-  getModel(modelId: string): ModelDef<bigint> | undefined;
-  getModelOrThrow(modelId: string): ModelDef<bigint>;
-  getAllModels(onlyActive?: boolean): ModelDef<bigint>[];
-  getActiveModels(): ModelDef<bigint>[];
-  getModelsByProvider(provider: ModelProvider, onlyActive?: boolean): ModelDef<bigint>[];
+  getModel(modelId: string): ModelDef | undefined;
+  getModelOrThrow(modelId: string): ModelDef;
+  getAllModels(onlyActive?: boolean): ModelDef[];
+  getActiveModels(): ModelDef[];
+  isRoutable(model: ModelDef): boolean;
+  getModelsByProvider(provider: ModelProvider, onlyActive?: boolean): ModelDef[];
 
   registerAlias(alias: string, canonicalModelId: string): void;
   unregisterAlias(alias: string): boolean;
   hasAlias(alias: string): boolean;
   resolveAlias(alias: string): string | undefined;
-  resolveModel(idOrAlias: string, onlyActive?: boolean): ModelDef<bigint> | undefined;
-  resolveModelOrThrow(idOrAlias: string, onlyActive?: boolean): ModelDef<bigint>;
+  resolveModel(idOrAlias: string, onlyActive?: boolean): ModelDef | undefined;
+  resolveModelOrThrow(idOrAlias: string, onlyActive?: boolean): ModelDef;
+  getAliasChain(alias: string, onlyActive?: boolean): ModelDef[];
   getAliasesForModel(modelId: string): string[];
   getAliasMap(onlyActive?: boolean): Map<string, string>;
 
@@ -135,8 +141,8 @@ export interface IModelRegistry {
     maxOutputTokens?: number
   ): void;
 
-  getPricing(modelIdOrAlias: string): ModelPricing<bigint>;
+  getPricing(modelIdOrAlias: string): ModelPricing;
 
-  findCandidates(criteria?: ModelFilterCriteria): ModelDef<bigint>[];
-  getCheapestModel(candidates: ModelDef<bigint>[]): ModelDef<bigint> | undefined;
+  findCandidates(criteria?: ModelFilterCriteria): ModelDef[];
+  getCheapestModel(candidates: ModelDef[]): ModelDef | undefined;
 }

@@ -74,7 +74,7 @@ export interface FallbackConfig {
   enabled: boolean;
   /** Maximum number of fallback attempts per request */
   maxRetries: number;
-  /** Explicit model fallback chains, e.g. { "gpt-4o": ["claude-3-5-sonnet", "gemini-2.0-flash"] } */
+  /** Explicit model fallback chains, e.g. { "gpt-4o": ["claude-3-5-sonnet", "gemini-3.5-flash"] } */
   fallbackChains?: Record<string, string[]>;
   /** Provider-level fallback order */
   providerFallbackOrder?: ModelProvider[];

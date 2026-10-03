@@ -3,7 +3,7 @@
  *
  * Verifies:
  * 1. Non-streaming completions write `cost_ledger.key_id` equal to the leased key's ID (`^key_`),
- *    never the model ID (`gemini-2.0-flash`).
+ *    never the model ID (`gemini-3.5-flash`).
  * 2. Streaming completions write `cost_ledger.key_id` equal to the leased key's ID (`^key_`),
  *    never the model ID.
  * 3. The key's minute counter in its owning DO (`KeyPoolDO` for PRIVATE, `PoolCoordinatorDO` for
@@ -46,7 +46,7 @@ beforeAll(() => {
         id: "chatcmpl-wp42-json",
         object: "chat.completion",
         created: 1700000000,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         choices: [
           {
             index: 0,
@@ -109,7 +109,7 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
         "x-kc-trace-id": "req_wp42_nonstream_1",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Hello non-streaming" }],
         stream: false,
       }),
@@ -125,7 +125,7 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
     expect(row1).not.toBeNull();
     expect(row1?.key_id).toBe(privKey.id);
     expect(row1?.key_id).toMatch(/^key_/);
-    expect(row1?.model_id).toBe("gemini-2.0-flash");
+    expect(row1?.model_id).toBe("gemini-3.5-flash");
 
     const metricsAfter1 = await poolStub.getKeyMetrics(privKey.id);
     expect(metricsAfter1.rpm).toBe(1);
@@ -140,7 +140,7 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
         "x-kc-trace-id": "req_wp42_stream_2",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Hello streaming" }],
         stream: true,
       }),
@@ -158,7 +158,7 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
     expect(row2).not.toBeNull();
     expect(row2?.key_id).toBe(privKey.id);
     expect(row2?.key_id).toMatch(/^key_/);
-    expect(row2?.model_id).toBe("gemini-2.0-flash");
+    expect(row2?.model_id).toBe("gemini-3.5-flash");
 
     const metricsAfter2 = await poolStub.getKeyMetrics(privKey.id);
     expect(metricsAfter2.rpm).toBe(2);
@@ -171,9 +171,9 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
       repo.recordEvent({
         requestId: "req_bad_model_as_key",
         tenantId: "usr_test_wp42",
-        keyId: "gemini-2.0-flash",
+        keyId: "gemini-3.5-flash",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 10,
         completionTokens: 5,
         costCu: 100n,
@@ -186,9 +186,9 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
         {
           requestId: "req_bad_batch_key",
           tenantId: "usr_test_wp42",
-          keyId: "llama-3.3-70b-versatile",
+          keyId: "openai/gpt-oss-120b",
           provider: "groq",
-          modelId: "llama-3.3-70b-versatile",
+          modelId: "openai/gpt-oss-120b",
           promptTokens: 10,
           completionTokens: 5,
           costCu: 100n,

@@ -246,23 +246,22 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
     });
 
     it("handlePostKeys writes rows to consent_attestations, project_hash_registry, and api_keys", async () => {
-      // Mock Google model query probe so project extraction succeeds
+      // Mock the GCP project probe (Translation 403 API_KEY_SERVICE_BLOCKED) so project extraction succeeds
       fetchMock
-        .get("https://generativelanguage.googleapis.com")
-        .intercept({ path: /^\/v1beta\/models\/invalid-model/ })
-        .reply(400, {
+        .get("https://translation.googleapis.com")
+        .intercept({ path: /^\/language\/translate\/v2/ })
+        .reply(403, {
           error: {
-            code: 400,
-            message: "API key not valid",
-            status: "INVALID_ARGUMENT",
+            code: 403,
+            status: "PERMISSION_DENIED",
             details: [
               {
                 "@type": "type.googleapis.com/google.rpc.ErrorInfo",
-                reason: "API_KEY_INVALID",
+                reason: "API_KEY_SERVICE_BLOCKED",
                 domain: "googleapis.com",
                 metadata: {
                   consumer: "projects/conformance-gcp-project-9876",
-                  service: "generativelanguage.googleapis.com",
+                  service: "translate.googleapis.com",
                 },
               },
             ],

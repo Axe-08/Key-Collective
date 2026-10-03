@@ -22,16 +22,13 @@ const handleNonStreamingChat =
   (nonStreamingModule as { handleNonStreamingChat?: typeof nonStreamingModule.handleNonStreamingResponse })
     .handleNonStreamingChat ?? nonStreamingModule.handleNonStreamingResponse;
 
-function createTestModelDef(overrides?: Partial<ModelDef<bigint>>): ModelDef<bigint> {
+function createTestModelDef(overrides?: Partial<ModelDef>): ModelDef {
   return {
-    id: "gemini-2.5-flash",
+    id: "gemini-3.5-flash",
     provider: "google",
     logicalAliases: ["fast"],
     contextWindow: 1_048_576,
     maxOutputTokens: 65536,
-    inputCostPerMTokMicro: 75_000n,
-    outputCostPerMTokMicro: 300_000n,
-    cacheReadCostPerMTokMicro: 18_750n,
     cuBase: 10n,
     cuInPer1k: 1n,
     cuCachedPer1k: 0n,
@@ -205,7 +202,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
   it("calculates CU correctly with reasoning tokens and cached tokens", async () => {
     const modelDef = createTestModelDef({
-      id: "gemini-1.5-pro",
+      id: "gemini-3.1-pro-preview",
       cuBase: 50n,
       cuInPer1k: 5n,
       cuCachedPer1k: 1n,

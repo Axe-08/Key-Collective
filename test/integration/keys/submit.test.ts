@@ -43,17 +43,19 @@ beforeAll(() => {
     .reply(200, () => JSON.stringify({ success: scenario.turnstile, "error-codes": scenario.turnstile ? [] : ["invalid-input-response"] }), json)
     .persist();
   const google = fetchMock.get("https://generativelanguage.googleapis.com");
-  google
-    .intercept({ path: /^\/v1beta\/models\/invalid-model/, method: "GET" })
+  // GCP project probe (WP-F.4): Translation answers 403 API_KEY_SERVICE_BLOCKED naming the project.
+  fetchMock
+    .get("https://translation.googleapis.com")
+    .intercept({ path: /^\/language\/translate\/v2/, method: "GET" })
     .reply(
       () =>
         typeof scenario.project === "number"
           ? { statusCode: scenario.project, data: JSON.stringify({ error: { code: scenario.project } }), responseOptions: json }
           : {
-              statusCode: 400,
+              statusCode: 403,
               data: JSON.stringify({
                 error: {
-                  details: [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", metadata: { consumer: `projects/${scenario.project}` } }],
+                  details: [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: "API_KEY_SERVICE_BLOCKED", metadata: { consumer: `projects/${scenario.project}` } }],
                 },
               }),
               responseOptions: json,

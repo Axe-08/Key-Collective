@@ -179,7 +179,7 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "hello" }],
       }),
     });
@@ -194,7 +194,7 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/json");
     expect(res.headers.get("x-kc-trace-id")).toBeNull();
-    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
     expect(res.headers.get("x-kc-model")).toBeNull();
 
     assertNoLeakedHeaders(res);
@@ -237,7 +237,7 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "stream please" }],
         stream: true,
       }),
@@ -253,7 +253,7 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
     expect(res.headers.get("x-kc-trace-id")).toBeNull();
-    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
     expect(res.headers.get("x-kc-model")).toBeNull();
 
     assertNoLeakedHeaders(res);
@@ -293,7 +293,7 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "format test" }],
       }),
     });
@@ -339,7 +339,7 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "cause error" }],
       }),
     });

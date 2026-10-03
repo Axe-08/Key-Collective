@@ -2,38 +2,36 @@
  * Key Collective v2 — Model Registry Normalization & Calculation Helpers
  *
  * Invariants (GEMINI.md Constitution):
- * - Fixed-Point CreditUnits: All costs in `int64` / `bigint` credit units.
- *   Zero floating-point math for financials.
+ * - Credit Units (CU) are the only price unit (bigint, zero floating-point math).
  */
 
 import type { ModelDef } from "../../types/models";
 
 /**
- * Normalizes input cost to bigint credit units.
+ * Relative CU weight of a model, used to pick the cheapest candidate:
+ * cuBase + cuInPer1k + cuOutPer1k (RA-09).
  */
-export function toBigIntMicro(value: bigint | number | undefined, defaultValue = 0n): bigint {
-  if (value === undefined) return defaultValue;
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw new TypeError(`Invalid cost number: ${value}`);
-    }
-    return BigInt(Math.trunc(value));
-  }
-  return defaultValue;
+export function cuWeight(model: Pick<ModelDef, "cuBase" | "cuInPer1k" | "cuOutPer1k">): bigint {
+  return (model.cuBase ?? 0n) + (model.cuInPer1k ?? 0n) + (model.cuOutPer1k ?? 0n);
 }
 
 /**
- * Normalizes any ModelDef input to ModelDef<bigint>.
+ * Orders two models by CU weight ascending.
  */
-export function normalizeModelDef(
-  model: ModelDef<bigint> | ModelDef<number>
-): ModelDef<bigint> {
+export function compareByCuWeight(a: ModelDef, b: ModelDef): number {
+  const wa = cuWeight(a);
+  const wb = cuWeight(b);
+  if (wa < wb) return -1;
+  if (wa > wb) return 1;
+  return 0;
+}
+
+/**
+ * Normalizes a ModelDef (trimmed aliases, integer limits, default isActive).
+ */
+export function normalizeModelDef(model: ModelDef): ModelDef {
   return {
     ...model,
-    inputCostPerMTokMicro: toBigIntMicro(model.inputCostPerMTokMicro),
-    outputCostPerMTokMicro: toBigIntMicro(model.outputCostPerMTokMicro),
-    cacheReadCostPerMTokMicro: toBigIntMicro(model.cacheReadCostPerMTokMicro, 0n),
     contextWindow: Math.trunc(model.contextWindow),
     maxOutputTokens: Math.trunc(model.maxOutputTokens),
     logicalAliases: (model.logicalAliases ?? []).map((a) => String(a).trim()).filter(Boolean),

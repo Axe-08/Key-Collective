@@ -18,7 +18,7 @@ let groqStep: (body: string) => {
     id: "chatcmpl-ok",
     object: "chat.completion",
     created: 1700000000,
-    model: "llama-3.1-8b-instant",
+    model: "openai/gpt-oss-20b",
     choices: [
       {
         index: 0,
@@ -192,7 +192,8 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "auto",
+        // Explicit Gemini model: "auto" now picks the cheapest model by CU, which is a Groq model.
+        model: "gemini-3.5-flash-lite",
         messages: [{ role: "user", content: "Trigger 400" }],
       }),
     });
@@ -371,7 +372,7 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "Trigger RPD 429" }],
       }),
     });
@@ -397,7 +398,7 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         id: "chatcmpl-recovered",
         object: "chat.completion",
         created: 1700000000,
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         choices: [
           {
             index: 0,
@@ -416,7 +417,7 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "After cooldown" }],
       }),
     });
@@ -460,7 +461,7 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [{ role: "user", content: `5xx attempt ${i}` }],
           max_fallbacks: 0,
         }),
@@ -477,7 +478,7 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "5xx attempt 5" }],
         max_fallbacks: 0,
       }),
@@ -496,7 +497,7 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         id: "chatcmpl-halfopen-ok",
         object: "chat.completion",
         created: 1700000000,
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         choices: [
           {
             index: 0,
@@ -515,7 +516,7 @@ describe("Upstream outcomes & settle state transitions (WP-4.3 T-4.3.2)", () => 
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "Half-open probe" }],
       }),
     });

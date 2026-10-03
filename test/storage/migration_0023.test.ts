@@ -42,7 +42,7 @@ describe("Database Migration 0023_credit_units_contract.sql (T-7.3.1)", () => {
     // Seed a cost_ledger row with NULL cu before applying 0023
     runSql(`
       INSERT INTO cost_ledger (id, request_id, tenant_id, key_id, provider, model_id, prompt_tokens, completion_tokens, reasoning_tokens, cu, latency_ms, status_code)
-      VALUES ('row_null_cu', 'req_1', 't1', 'k1', 'google', 'gemini-2.5-flash', 1000, 250, 0, NULL, 120, 200);
+      VALUES ('row_null_cu', 'req_1', 't1', 'k1', 'google', 'gemini-3.5-flash', 1000, 250, 0, NULL, 120, 200);
     `);
   });
 

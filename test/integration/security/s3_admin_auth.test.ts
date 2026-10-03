@@ -118,7 +118,7 @@ describe("S3: Hardened admin authentication (T-0.3.1)", () => {
         "content-type": "application/json",
         authorization: `Bearer ${masterKey}`,
       },
-      body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+      body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
     });
     const v1Res = await worker.fetch(v1Req, env);
     expect(v1Res.status).toBe(401);

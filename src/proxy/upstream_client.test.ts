@@ -227,10 +227,10 @@ describe("UpstreamClient", () => {
       const url = buildProviderUrl(
         "google",
         ":generateContent",
-        "gemini-2.0-flash"
+        "gemini-3.5-flash"
       );
       expect(url).toBe(
-        "https://generativelanguage.googleapis.com/v1beta/openai/models/gemini-2.0-flash:generateContent"
+        "https://generativelanguage.googleapis.com/v1beta/openai/models/gemini-3.5-flash:generateContent"
       );
     });
 
@@ -340,14 +340,14 @@ describe("UpstreamClient", () => {
         408,
         "Request Timeout: upstream gateway timed out",
         undefined,
-        "llama-3.3-70b-versatile",
+        "openai/gpt-oss-120b",
         15_000
       );
       expect(err408).toBeInstanceOf(ProviderTimeoutError);
       const timeoutErr408 = err408 as ProviderTimeoutError;
       expect(timeoutErr408.statusCode).toBe(504);
       expect(timeoutErr408.provider).toBe("groq");
-      expect(timeoutErr408.modelId).toBe("llama-3.3-70b-versatile");
+      expect(timeoutErr408.modelId).toBe("openai/gpt-oss-120b");
       expect(timeoutErr408.timeoutMs).toBe(15_000);
       expect(timeoutErr408.message).toBe("Upstream timeout");
       expect(timeoutErr408.message).not.toContain("Request Timeout");
@@ -357,12 +357,12 @@ describe("UpstreamClient", () => {
         504,
         "Gateway Timeout: backend unresponsive",
         undefined,
-        "gemini-2.0-flash"
+        "gemini-3.5-flash"
       );
       expect(err504).toBeInstanceOf(ProviderTimeoutError);
       const timeoutErr504 = err504 as ProviderTimeoutError;
       expect(timeoutErr504.provider).toBe("google");
-      expect(timeoutErr504.modelId).toBe("gemini-2.0-flash");
+      expect(timeoutErr504.modelId).toBe("gemini-3.5-flash");
       expect(timeoutErr504.message).toBe("Upstream timeout");
       expect(timeoutErr504.message).not.toContain("Gateway Timeout");
     });
@@ -455,7 +455,7 @@ describe("UpstreamClient", () => {
       await expect(
         client.send({
           provider: "groq",
-          body: { model: "llama-3.3-70b-versatile", messages: [] },
+          body: { model: "openai/gpt-oss-120b", messages: [] },
         })
       ).rejects.toThrow(InvalidKeyError);
     });
@@ -484,7 +484,7 @@ describe("UpstreamClient", () => {
 
       const res = await client.send({
         provider: "groq",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         body: { messages: [] },
       });
 
@@ -632,7 +632,7 @@ describe("UpstreamClient", () => {
 
       const res = await client.send({
         provider: "groq",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         body: {},
       });
 
@@ -694,7 +694,7 @@ describe("UpstreamClient", () => {
 
     it("triggers onUsage and onMetadata callbacks during stream lifecycle", async () => {
       const sseChunks = [
-        'data: {"id":"1","model":"llama-3.3-70b-versatile","choices":[{"delta":{"content":"Hi"}}]}\n\n',
+        'data: {"id":"1","model":"openai/gpt-oss-120b","choices":[{"delta":{"content":"Hi"}}]}\n\n',
         'data: {"id":"2","usage":{"prompt_tokens":12,"completion_tokens":24,"total_tokens":36}}\n\n',
         "data: [DONE]\n\n",
       ];
@@ -768,7 +768,7 @@ describe("UpstreamClient", () => {
 
       const res = await client.send({
         provider: "groq",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         apiKey: "sk-test",
         keyId: "streaming-key-id",
         stream: true,
@@ -807,7 +807,7 @@ describe("UpstreamClient", () => {
       const mockFetch: typeof fetch = vi.fn().mockImplementation(async (url, init) => {
         expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
         const body = JSON.parse(init?.body as string);
-        expect(body.model).toBe("llama-3.3-70b-versatile");
+        expect(body.model).toBe("openai/gpt-oss-120b");
         expect(body.temperature).toBe(0.7);
         expect(body.stream).toBe(false);
 
@@ -837,14 +837,14 @@ describe("UpstreamClient", () => {
 
       const chatRes = await client.chat({
         provider: "groq",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "Hello!" }],
         temperature: 0.7,
         apiKey: "sk-test",
       });
 
       expect(chatRes.content).toBe("Chat response here");
-      expect(chatRes.model).toBe("llama-3.3-70b-versatile");
+      expect(chatRes.model).toBe("openai/gpt-oss-120b");
       expect(chatRes.provider).toBe("groq");
       expect(chatRes.usage?.totalTokens).toBe(40);
       expect(chatRes.costCu).toBe(400_000n);
@@ -856,7 +856,7 @@ describe("UpstreamClient", () => {
           "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
         );
         const body = JSON.parse(init?.body as string);
-        expect(body.model).toBe("gemini-2.0-flash");
+        expect(body.model).toBe("gemini-3.5-flash");
 
         return new Response(
           JSON.stringify({
@@ -875,7 +875,7 @@ describe("UpstreamClient", () => {
 
       const chatRes = await client.chat({
         provider: "google",
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Hello Gemini!" }],
         apiKey: "AIzaSyTestKey",
       });
@@ -900,7 +900,7 @@ describe("UpstreamClient", () => {
       const client = new UpstreamClient({ fetch: mockFetch });
       const chatRes = await client.chat({
         provider: "groq",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [],
         stream: true,
         apiKey: "sk-test",

@@ -364,7 +364,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
           host: "api.key-col.axe08.tech",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
       const res = await worker.fetch(req, env);
       expect(res.status).toBe(401);

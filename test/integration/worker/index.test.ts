@@ -17,7 +17,7 @@
  *    - tc-01: Happy path prompt routed to single Gemini key with 200 response and cost calculation.
  *    - tc-02: Streaming request parses terminal usage block and logs cost in ledger.
  *    - tc-05: Context window gate rejects prompt exceeding context window (HTTP 400).
- *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-2.5-flash').
+ *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-3.8-flash').
  *    - tc-07: Capability filter excludes unsupported models when tools requested (HTTP 400).
  *    - tc-08: Budget exhaustion returns HTTP 429 with Retry-After header.
  *    - tc-12: Auth token validation rejects invalid token with HTTP 401.
@@ -55,7 +55,7 @@ import {
   AuthTokensRepository,
 } from "../../../src/storage/repositories/auth_tokens/index";
 import { hashToken } from "../../../src/crypto";
-import { ModelRegistry } from "../../../src/router/registry/index";
+import { ALL_MODEL_DEFINITIONS, ModelRegistry } from "../../../src/router/registry/index";
 
 /**
  * Mock Cloudflare ExecutionContext tracking waitUntil background tasks.
@@ -559,7 +559,8 @@ describe("Worker Integration Tests (T4)", () => {
           owned_by: string;
           context_window: number;
           capabilities: { supportsTools: boolean; supportsVision: boolean };
-          pricing: { input_cost_per_mtok_micro: string };
+          kc: { cu_base: number };
+          pricing?: unknown;
         }>;
       };
 
@@ -567,15 +568,16 @@ describe("Worker Integration Tests (T4)", () => {
       expect(Array.isArray(body.data)).toBe(true);
       expect(body.data.length).toBeGreaterThan(0);
 
-      const geminiModel = body.data.find((m) => m.id === "gemini-2.0-flash");
+      const geminiModel = body.data.find((m) => m.id === "gemini-3.5-flash");
       expect(geminiModel).toBeDefined();
       expect(geminiModel?.owned_by).toBe("google");
       expect(geminiModel?.capabilities.supportsTools).toBe(true);
-      expect(Number(geminiModel?.pricing.input_cost_per_mtok_micro)).toBeGreaterThan(0);
+      expect(geminiModel?.kc.cu_base).toBeGreaterThan(0);
+      expect(geminiModel?.pricing).toBeUndefined();
     });
 
-    it("returns model details on GET /v1/models/gemini-2.0-flash", async () => {
-      const req = new Request("https://api.key-col.axe08.tech/v1/models/gemini-2.0-flash", {
+    it("returns model details on GET /v1/models/gemini-3.5-flash", async () => {
+      const req = new Request("https://api.key-col.axe08.tech/v1/models/gemini-3.5-flash", {
         method: "GET",
         headers: {
           authorization: `Bearer ${validToken}`,
@@ -586,7 +588,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(res.status).toBe(200);
 
       const body = (await res.json()) as { id: string; owned_by: string; context_window: number };
-      expect(body.id).toBe("gemini-2.0-flash");
+      expect(body.id).toBe("gemini-3.5-flash");
       expect(body.owned_by).toBe("google");
       expect(body.context_window).toBeGreaterThan(0);
     });
@@ -603,7 +605,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(res.status).toBe(200);
 
       const body = (await res.json()) as { id: string; owned_by: string };
-      expect(body.id).toBe("gemini-2.5-flash");
+      expect(body.id).toBe(new ModelRegistry(ALL_MODEL_DEFINITIONS).resolveAlias("smart-fast"));
       expect(body.owned_by).toBe("google");
     });
 
@@ -627,7 +629,7 @@ describe("Worker Integration Tests (T4)", () => {
       const req = new Request("https://api.key-col.axe08.tech/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
 
       const res = await worker.fetch(req, env);
@@ -645,7 +647,7 @@ describe("Worker Integration Tests (T4)", () => {
           "content-type": "application/json",
           authorization: "Bearer kc_token_totally_bogus_token",
         },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
 
       const res = await worker.fetch(req, env);
@@ -661,7 +663,7 @@ describe("Worker Integration Tests (T4)", () => {
           "content-type": "application/json",
           authorization: `Bearer ${expiredToken}`,
         },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
 
       const res = await worker.fetch(req, env);
@@ -678,7 +680,7 @@ describe("Worker Integration Tests (T4)", () => {
           authorization: `Bearer ${openaiOnlyToken}`,
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hi" }],
         }),
       });
@@ -700,7 +702,7 @@ describe("Worker Integration Tests (T4)", () => {
           authorization: `Bearer ${validToken}`,
           "x-tenant-id": "tenant-hostile-attempt",
         },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
 
       const res = await worker.fetch(req, env);
@@ -717,7 +719,7 @@ describe("Worker Integration Tests (T4)", () => {
           authorization: `Bearer ${exhaustedToken}`,
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hello" }],
         }),
       });
@@ -750,7 +752,7 @@ describe("Worker Integration Tests (T4)", () => {
             authorization: `Bearer ${rateLimitedToken}`,
           },
           body: JSON.stringify({
-            model: "gemini-2.0-flash",
+            model: "gemini-3.5-flash",
             messages: [{ role: "user", content: "Hello" }],
           }),
         });
@@ -803,7 +805,7 @@ describe("Worker Integration Tests (T4)", () => {
           "x-kc-trace-id": "trace-integration-tc01",
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "What is the capital of France?" }],
           stream: false,
         }),
@@ -816,7 +818,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
       expect(res.headers.get("x-kc-trace-id")).toBeNull();
       expect(res.headers.get("x-kc-tenant-id")).toBeNull();
-      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
       expect(res.headers.get("x-kc-model")).toBeNull();
       expect(res.headers.get("x-kc-request-id")).toMatch(/^kc_req_/);
       expect(res.headers.get("x-kc-provider")).toBe("google");
@@ -831,7 +833,7 @@ describe("Worker Integration Tests (T4)", () => {
       };
 
       expect(body.object).toBe("chat.completion");
-      expect(body.model).toBe("gemini-2.0-flash");
+      expect(body.model).toBe("gemini-3.5-flash");
       expect(body.choices[0].message.content).toBe("The capital of France is Paris.");
       expect(body.usage.prompt_tokens).toBe(15);
       expect(body.usage.completion_tokens).toBe(8);
@@ -845,7 +847,7 @@ describe("Worker Integration Tests (T4)", () => {
       const ledgerEntry = mockDb.ledgerEvents[0];
       expect(ledgerEntry.requestId).toBe("trace-integration-tc01");
       expect(ledgerEntry.tenantId).toBe("tenant-alpha");
-      expect(ledgerEntry.modelId).toBe("gemini-2.0-flash");
+      expect(ledgerEntry.modelId).toBe("gemini-3.5-flash");
       expect(ledgerEntry.provider).toBe("google");
       expect(ledgerEntry.promptTokens).toBe(15);
       expect(ledgerEntry.completionTokens).toBe(8);
@@ -860,7 +862,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(emittedTelemetry).toHaveLength(1);
       expect(emittedTelemetry[0].eventType).toBe("chat_completion");
       expect(emittedTelemetry[0].tenantId).toBe("tenant-alpha");
-      expect(emittedTelemetry[0].metadata["model"]).toBe("gemini-2.0-flash");
+      expect(emittedTelemetry[0].metadata["model"]).toBe("gemini-3.5-flash");
     });
   });
 
@@ -907,7 +909,7 @@ describe("Worker Integration Tests (T4)", () => {
           "x-kc-trace-id": "trace-integration-tc02",
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Tell me a short story" }],
           stream: true,
         }),
@@ -968,7 +970,7 @@ describe("Worker Integration Tests (T4)", () => {
           authorization: `Bearer ${validToken}`,
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Huge prompt" }],
           estimatedPromptTokens: 2_000_000,
         }),
@@ -1006,7 +1008,7 @@ describe("Worker Integration Tests (T4)", () => {
 
       const res = await testWorker.fetch(req, env);
       expect(res.status).toBe(200);
-      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.5-flash");
+      expect(res.headers.get("x-kc-model-used")).toBe(new ModelRegistry(ALL_MODEL_DEFINITIONS).resolveAlias("smart-fast"));
       expect(res.headers.get("x-kc-model")).toBeNull();
       expect(res.headers.get("x-kc-provider")).toBe("google");
     });
@@ -1019,9 +1021,10 @@ describe("Worker Integration Tests (T4)", () => {
         logicalAliases: [],
         contextWindow: 8192,
         maxOutputTokens: 2048,
-        inputCostPerMTokMicro: 100_000n,
-        outputCostPerMTokMicro: 200_000n,
-        cacheReadCostPerMTokMicro: 0n,
+        cuBase: 10n,
+        cuInPer1k: 1n,
+        cuCachedPer1k: 0n,
+        cuOutPer1k: 1n,
         supportsTools: false,
         supportsVision: false,
         supportsJsonSchema: false,

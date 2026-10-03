@@ -46,14 +46,14 @@ export class CapabilityFilter {
   // =========================================================================
 
   public checkCapabilities(
-    model: ModelDef<bigint>,
+    model: ModelDef,
     requirements: CapabilityRequirements
   ): CapabilityCheckResult {
     return checkCapabilities(model, requirements);
   }
 
   public isCapable(
-    model: ModelDef<bigint>,
+    model: ModelDef,
     requirements: CapabilityRequirements
   ): boolean {
     return isCapable(model, requirements);
@@ -64,10 +64,10 @@ export class CapabilityFilter {
   // =========================================================================
 
   public filterCandidates(
-    models: readonly ModelDef<bigint>[],
+    models: readonly ModelDef[],
     requirements: CapabilityRequirements,
     options: FilterOptions = {}
-  ): ModelDef<bigint>[] {
+  ): ModelDef[] {
     const matched = models.filter((model) => this.isCapable(model, requirements));
     const sorted = sortCandidates(matched, options.sortBy ?? "cost-asc");
 
@@ -90,10 +90,10 @@ export class CapabilityFilter {
   }
 
   public filterCandidatesOrThrow(
-    models: readonly ModelDef<bigint>[],
+    models: readonly ModelDef[],
     requirements: CapabilityRequirements,
     options: Omit<FilterOptions, "throwIfEmpty"> = {}
-  ): ModelDef<bigint>[] {
+  ): ModelDef[] {
     return this.filterCandidates(models, requirements, {
       ...options,
       throwIfEmpty: true,
@@ -101,9 +101,9 @@ export class CapabilityFilter {
   }
 
   public selectOptimalCandidate(
-    models: readonly ModelDef<bigint>[],
+    models: readonly ModelDef[],
     requirements: CapabilityRequirements
-  ): ModelDef<bigint> | undefined {
+  ): ModelDef | undefined {
     const candidates = this.filterCandidates(models, requirements, {
       sortBy: "cost-asc",
     });
@@ -113,7 +113,7 @@ export class CapabilityFilter {
   public filterRegistry(
     requirements: CapabilityRequirements | unknown,
     options?: FilterOptions
-  ): ModelDef<bigint>[] {
+  ): ModelDef[] {
     if (!this.registry) {
       throw new Error(
         "filterRegistry() requires a ModelRegistry instance to have been provided to the CapabilityFilter constructor"
@@ -127,14 +127,14 @@ export class CapabilityFilter {
   }
 
   public filter(
-    modelsOrRequest: readonly ModelDef<bigint>[] | unknown,
+    modelsOrRequest: readonly ModelDef[] | unknown,
     requirementsOrOptions?: CapabilityRequirements | RequirementExtractionOptions
-  ): ModelDef<bigint>[] {
+  ): ModelDef[] {
     if (
       Array.isArray(modelsOrRequest) &&
       (modelsOrRequest.length === 0 || isModelDef(modelsOrRequest[0]))
     ) {
-      const models = modelsOrRequest as readonly ModelDef<bigint>[];
+      const models = modelsOrRequest as readonly ModelDef[];
       const reqs = isCapabilityRequirements(requirementsOrOptions)
         ? requirementsOrOptions
         : this.extractRequirements(requirementsOrOptions);
@@ -165,22 +165,22 @@ export class CapabilityFilter {
   private static readonly defaultFilter = new CapabilityFilter();
 
   public static filterCandidates(
-    models: readonly ModelDef<bigint>[],
+    models: readonly ModelDef[],
     requirements: CapabilityRequirements,
     options?: FilterOptions
-  ): ModelDef<bigint>[] {
+  ): ModelDef[] {
     return CapabilityFilter.defaultFilter.filterCandidates(models, requirements, options);
   }
 
   public static isCapable(
-    model: ModelDef<bigint>,
+    model: ModelDef,
     requirements: CapabilityRequirements
   ): boolean {
     return CapabilityFilter.defaultFilter.isCapable(model, requirements);
   }
 
   public static checkCapabilities(
-    model: ModelDef<bigint>,
+    model: ModelDef,
     requirements: CapabilityRequirements
   ): CapabilityCheckResult {
     return CapabilityFilter.defaultFilter.checkCapabilities(model, requirements);
@@ -194,9 +194,9 @@ export class CapabilityFilter {
   }
 
   public static selectOptimalCandidate(
-    models: readonly ModelDef<bigint>[],
+    models: readonly ModelDef[],
     requirements: CapabilityRequirements
-  ): ModelDef<bigint> | undefined {
+  ): ModelDef | undefined {
     return CapabilityFilter.defaultFilter.selectOptimalCandidate(models, requirements);
   }
 }

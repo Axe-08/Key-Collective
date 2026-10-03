@@ -40,7 +40,7 @@ beforeAll(() => {
           id: "chatcmpl-demo-isolation",
           object: "chat.completion",
           created: 1700000000,
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           choices: [
             {
               index: 0,
@@ -117,7 +117,7 @@ describe("Demo Pool Isolation (WP-4.5 T-4.5.1)", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "Hello demo" }],
         max_fallbacks: 0,
       }),
@@ -162,7 +162,7 @@ describe("Demo Pool Isolation (WP-4.5 T-4.5.1)", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "Hello from demo with operator key" }],
         max_fallbacks: 0,
       }),

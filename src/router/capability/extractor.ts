@@ -27,8 +27,8 @@ export function extractRequirements(
       requiresJsonSchema: false,
       onlyActive: options?.onlyActive ?? true,
       ...(options?.provider ? { provider: options.provider } : {}),
-      ...(options?.maxCostPerMTokMicro !== undefined
-        ? { maxCostPerMTokMicro: options.maxCostPerMTokMicro }
+      ...(options?.maxCuWeight !== undefined
+        ? { maxCuWeight: options.maxCuWeight }
         : {}),
     };
   }
@@ -45,7 +45,7 @@ export function extractRequirements(
       requiresStreaming: cr.requiresStreaming,
       onlyActive: options?.onlyActive ?? cr.onlyActive ?? true,
       provider: options?.provider ?? cr.provider,
-      maxCostPerMTokMicro: options?.maxCostPerMTokMicro ?? cr.maxCostPerMTokMicro,
+      maxCuWeight: options?.maxCuWeight ?? cr.maxCuWeight,
     };
   }
 
@@ -195,6 +195,6 @@ export function extractRequirements(
     maxOutputTokens,
     onlyActive: options?.onlyActive ?? true,
     provider: options?.provider,
-    maxCostPerMTokMicro: options?.maxCostPerMTokMicro,
+    maxCuWeight: options?.maxCuWeight,
   };
 }

@@ -64,7 +64,7 @@ describe("WP-5.10 T-5.10.1 — Coordinator hourly stats", () => {
           provider: "google",
         });
         expect(l).not.toBeNull();
-        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-2.5-flash", latencies[i]);
+        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-3.5-flash", latencies[i]);
       }
 
       await coord.alarm();
@@ -113,7 +113,7 @@ describe("WP-5.10 T-5.10.1 — Coordinator hourly stats", () => {
         provider: "google",
       });
       expect(l).not.toBeNull();
-      await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-2.5-flash", 450);
+      await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-3.5-flash", 450);
 
       const st = await coord.stats();
       expect(st.activeKeys).toBe(2);
@@ -158,7 +158,7 @@ describe("WP-5.10 T-5.10.2 — Truthful telemetry endpoints", () => {
         provider: "google",
       });
       expect(lease).not.toBeNull();
-      await coord.settle(lease!.leaseId, "ok", 10, undefined, "gemini-2.5-flash", 600);
+      await coord.settle(lease!.leaseId, "ok", 10, undefined, "gemini-3.5-flash", 600);
     });
 
     await runInDurableObject(groqStub, async (coord: PoolCoordinatorDO) => {

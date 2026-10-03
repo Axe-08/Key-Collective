@@ -41,7 +41,7 @@ beforeAll(() => {
         id: "chatcmpl-groq-lease-int",
         object: "chat.completion",
         created: 1700000000,
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         choices: [
           {
             index: 0,
@@ -72,7 +72,7 @@ beforeAll(() => {
           id: "chatcmpl-gemini-lease-int",
           object: "chat.completion",
           created: 1700000000,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           choices: [
             {
               index: 0,
@@ -168,7 +168,7 @@ describe("Lease Integration Suite (WP-4.1 T-4.1.6)", () => {
           "x-kc-trace-id": traceId,
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hi" }],
         }),
       });

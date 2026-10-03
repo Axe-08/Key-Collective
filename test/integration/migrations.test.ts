@@ -95,7 +95,7 @@ describe("migrations integration", () => {
         prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens,
         cost_microdollars, latency_ms, status_code, created_at
       ) VALUES (
-        'evt_fixture_1', 'req_fixture_1', 'default', 'key_default_healthy', 'gemini', 'gemini-2.0-flash',
+        'evt_fixture_1', 'req_fixture_1', 'default', 'key_default_healthy', 'gemini', 'gemini-3.5-flash',
         1000, 500, 0, 0, 450, 120, 200, '2024-03-01T12:00:00.000Z'
       )
     `).run();
@@ -105,7 +105,7 @@ describe("migrations integration", () => {
         tenant_id, day, provider, model_id,
         total_requests, total_tokens, total_cost_microdollars
       ) VALUES (
-        'default', '2024-03-01', 'gemini', 'gemini-2.0-flash',
+        'default', '2024-03-01', 'gemini', 'gemini-3.5-flash',
         1, 1500, 450
       )
     `).run();
@@ -504,11 +504,11 @@ describe("migrations integration", () => {
     expect(cols.results.map((c) => c.name)).toContain("drain_state");
 
     await env.DB.prepare(
-      "INSERT INTO key_daily_stats (key_id, day, model, dispatched, communal, cu_served, classification) VALUES ('k_daily_1', '2026-10-01', 'gemini-2.0-flash', 100, 85, 1700, 'HERO')",
+      "INSERT INTO key_daily_stats (key_id, day, model, dispatched, communal, cu_served, classification) VALUES ('k_daily_1', '2026-10-01', 'gemini-3.5-flash', 100, 85, 1700, 'HERO')",
     ).run();
 
     const row = await env.DB.prepare(
-      "SELECT key_id, day, model, dispatched, communal, cu_served, classification FROM key_daily_stats WHERE key_id = 'k_daily_1' AND day = '2026-10-01' AND model = 'gemini-2.0-flash'",
+      "SELECT key_id, day, model, dispatched, communal, cu_served, classification FROM key_daily_stats WHERE key_id = 'k_daily_1' AND day = '2026-10-01' AND model = 'gemini-3.5-flash'",
     ).first<{
       key_id: string;
       day: string;
@@ -522,7 +522,7 @@ describe("migrations integration", () => {
     expect(row).toEqual({
       key_id: "k_daily_1",
       day: "2026-10-01",
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       dispatched: 100,
       communal: 85,
       cu_served: 1700,

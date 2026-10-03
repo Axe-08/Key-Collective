@@ -17,6 +17,7 @@ import {
 import type { AuthenticatedContext, WorkerEnv } from "../../../src/worker/auth/index";
 import type { ExecutionContextLike } from "../../../src/worker/telemetry_emitter";
 import { UpstreamClient } from "../../../src/proxy/upstream/index";
+import { ALL_MODEL_DEFINITIONS, ModelRegistry } from "../../../src/router/registry/index";
 
 class MockExecutionContext implements ExecutionContextLike {
   public promises: Promise<unknown>[] = [];
@@ -126,7 +127,7 @@ describe("Chat Request Passthrough & stream_options Unit Tests", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "hello" }],
         foo: 1,
         safetySettings: [
@@ -150,7 +151,7 @@ describe("Chat Request Passthrough & stream_options Unit Tests", () => {
     expect(capturedBody?.generationConfig).toEqual({ topK: 40 });
 
     // Model resolved to candidate.id
-    expect(capturedBody?.model).toBe("gemini-2.0-flash");
+    expect(capturedBody?.model).toBe("gemini-3.5-flash");
 
     // KC-only fields stripped
     expect(capturedBody?.modelAlias).toBeUndefined();
@@ -189,7 +190,7 @@ describe("Chat Request Passthrough & stream_options Unit Tests", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "stream me" }],
         stream: true,
       }),
@@ -227,7 +228,7 @@ describe("Chat Request Passthrough & stream_options Unit Tests", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "stream custom" }],
         stream: true,
         stream_options: { include_usage: false, custom_flag: true },
@@ -273,8 +274,8 @@ describe("Chat Request Passthrough & stream_options Unit Tests", () => {
     expect(res.status).toBe(200);
 
     expect(capturedBody).not.toBeNull();
-    // 'smart-fast' alias resolves to 'gemini-2.5-flash'
-    expect(capturedBody?.model).toBe("gemini-2.5-flash");
+    // 'smart-fast' resolves to the registry's canonical model id
+    expect(capturedBody?.model).toBe(new ModelRegistry(ALL_MODEL_DEFINITIONS).resolveAlias("smart-fast"));
     expect(capturedBody?.modelAlias).toBeUndefined();
   });
 });

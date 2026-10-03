@@ -21,7 +21,7 @@ beforeAll(() => {
           id: "chatcmpl-groq-lease-test",
           object: "chat.completion",
           created: 1700000000,
-          model: "llama-3.1-8b-instant",
+          model: "openai/gpt-oss-20b",
           choices: [
             {
               index: 0,
@@ -140,7 +140,7 @@ describe("CascadeRouter on leases (WP-4.1 T-4.1.5)", () => {
     });
 
     const res = await router.route({
-      modelAlias: "llama-3.3-70b-versatile",
+      modelAlias: "openai/gpt-oss-120b",
       messages: [{ role: "user", content: "ping" }],
       stream: false,
       tenantId: "usr_goog_test",

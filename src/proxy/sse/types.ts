@@ -63,7 +63,7 @@ export interface SSEEvent {
  * Stream timing and provider metadata intercepted during streaming.
  */
 export interface StreamMetadata {
-  /** Resolved model ID from chunk payload (e.g. "gemini-2.0-flash", "gpt-4o") */
+  /** Resolved model ID from chunk payload (e.g. "gemini-3.5-flash", "gpt-4o") */
   model?: string;
   /** System fingerprint identifier if provided by upstream */
   systemFingerprint?: string;

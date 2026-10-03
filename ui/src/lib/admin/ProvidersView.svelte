@@ -10,8 +10,8 @@
   } = $props();
 
   const providerNames: Record<ProviderKey, { name: string; model: string }> = {
-    gemini: { name: 'Google Gemini Flash', model: 'gemini-2.5-flash' },
-    groq: { name: 'Groq Cloud', model: 'llama-3.3-70b-versatile' },
+    gemini: { name: 'Google Gemini Flash', model: 'gemini-3.5-flash' },
+    groq: { name: 'Groq Cloud', model: 'openai/gpt-oss-120b' },
     cerebras: { name: 'Cerebras Inference', model: 'llama3.1-8b' },
     deepseek: { name: 'DeepSeek Reasoner', model: 'deepseek-reasoner' },
   };

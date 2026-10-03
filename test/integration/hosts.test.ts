@@ -59,7 +59,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://api.test/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
       expect(res.status).toBe(401);
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
@@ -111,7 +111,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://console.test/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
       expect(res.status).toBe(404);
       expect(res.headers.get("deprecation")).toBeNull();
@@ -129,7 +129,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://apex.test/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
       expect(res.status).toBe(308);
       expect(res.headers.get("location")).toBe("https://console.test/v1/chat/completions");
@@ -151,7 +151,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://api.test/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
       expect(res.status).toBe(404);
       expect(res.headers.get("deprecation")).toBeNull();
@@ -162,7 +162,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://api.test/v1/route", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
       expect(res.status).toBe(404);
       expect(res.headers.get("deprecation")).toBeNull();
@@ -173,7 +173,7 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       const res = await fetchWorker("https://api.test/", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "gemini-2.0-flash", messages: [] }),
+        body: JSON.stringify({ model: "gemini-3.5-flash", messages: [] }),
       });
       expect(res.status).toBe(404);
       expect(res.headers.get("deprecation")).toBeNull();

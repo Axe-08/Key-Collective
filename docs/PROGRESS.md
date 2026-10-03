@@ -316,14 +316,14 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.2.3 Real provider fixtures in upstream_outcomes test
 
 ### WP-F.3
-- [ ] T-F.3.1 Rebuild the model catalog from verified lists (RA-06)
-- [ ] T-F.3.2 Skip deprecated / sunset models in routing and /v1/models
-- [ ] T-F.3.3 Remove µ$ price fields; cheapest by CU (RA-09)
-- [ ] T-F.3.4 Proof-of-life on gemini-3.5-flash-lite and gpt-oss-20b (QA-12, RA-08)
-- [ ] T-F.3.5 UI model pickers read /v1/models only
+- [x] T-F.3.1 Rebuild the model catalog from verified lists (RA-06)
+- [x] T-F.3.2 Skip deprecated / sunset models in routing and /v1/models
+- [x] T-F.3.3 Remove µ$ price fields; cheapest by CU (RA-09)
+- [x] T-F.3.4 Proof-of-life on gemini-3.5-flash-lite and gpt-oss-20b (QA-12, RA-08)
+- [x] T-F.3.5 UI model pickers read /v1/models only
 
 ### WP-F.4
-- [ ] T-F.4.1 GCP project probe via blocked/disabled service ErrorInfo (RA-07)
+- [x] T-F.4.1 GCP project probe via blocked/disabled service ErrorInfo (RA-07)
 
 ### WP-F.5
 - [x] T-F.5.1 /api/session returns linked identities; no 95 fallback (QA-03, QA-09)

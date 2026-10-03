@@ -76,7 +76,7 @@ describe("Notifications & Upstream Quarantine Alerts (WP-4.3 T-4.3.3)", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "Trigger 401" }],
         max_fallbacks: 0,
       }),
@@ -141,7 +141,7 @@ describe("Notifications & Upstream Quarantine Alerts (WP-4.3 T-4.3.3)", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "Trigger 401" }],
         max_fallbacks: 0,
       }),

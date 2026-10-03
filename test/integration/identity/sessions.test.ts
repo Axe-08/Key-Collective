@@ -131,7 +131,7 @@ describe("console sessions", () => {
     const res = await call("https://api.test/v1/chat/completions", {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ model: "gemini-2.5-flash", messages: [{ role: "user", content: "hi" }] }),
+      body: JSON.stringify({ model: "gemini-3.5-flash", messages: [{ role: "user", content: "hi" }] }),
     });
 
     expect(res.status).toBe(401);

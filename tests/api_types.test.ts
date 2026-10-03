@@ -27,7 +27,7 @@ describe("API Types and Helpers", () => {
 
       const payload: ChatPayload = {
         messages: [{ role: "user", content: "Hello world" }],
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
       };
 
       const request: ApiRequest<ChatPayload> = {
@@ -41,7 +41,7 @@ describe("API Types and Helpers", () => {
       };
 
       expect(request.tenantId).toBe("tenant-abc-123");
-      expect(request.payload.model).toBe("gemini-2.0-flash");
+      expect(request.payload.model).toBe("gemini-3.5-flash");
       expect(request.payload.messages).toHaveLength(1);
       expect(request.body).toEqual(payload);
       expect(request.traceId).toBe("trace-999");
@@ -83,7 +83,7 @@ describe("API Types and Helpers", () => {
         requestId: "req-001",
         timestamp: Date.now(),
         provider: "google",
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         cached: false,
       };
 

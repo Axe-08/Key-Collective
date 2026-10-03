@@ -34,7 +34,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
         tenantId: "tenant-settlement-123",
         keyId: "key_gemini_settle_1",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 10,
         completionTokens: 20,
         cachedTokens: 0,
@@ -122,11 +122,11 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       getMetadata: (timeoutMs) => transformer.getMetadata(timeoutMs),
     };
 
-    const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
+    const modelDef = modelRegistry.getModelOrThrow("gemini-3.5-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
       costCu: 0n,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       provider: "google",
       modelDef,
       attempts: [],
@@ -166,7 +166,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
         requestId: "trace-settle-exact",
         tenantId: "tenant-settlement-123",
         keyId: "key_gemini_settle_1",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 15,
         completionTokens: 25,
         usage_estimated: 0,
@@ -212,11 +212,11 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       getMetadata: (timeoutMs) => transformer.getMetadata(timeoutMs),
     };
 
-    const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
+    const modelDef = modelRegistry.getModelOrThrow("gemini-3.5-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
       costCu: 0n,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       provider: "google",
       modelDef,
       attempts: [],
@@ -256,7 +256,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
         requestId: "trace-settle-estimated",
         tenantId: "tenant-settlement-123",
         keyId: "key_gemini_settle_1",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 20,
         completionTokens: 8,
         usage_estimated: 1,
@@ -298,11 +298,11 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
       getMetadata: (timeoutMs) => transformer.getMetadata(timeoutMs),
     };
 
-    const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
+    const modelDef = modelRegistry.getModelOrThrow("gemini-3.5-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
       costCu: 0n,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       provider: "google",
       modelDef,
       attempts: [],

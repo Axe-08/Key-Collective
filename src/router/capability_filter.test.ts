@@ -22,88 +22,94 @@ import {
 import {
   ModelRegistry,
   DEFAULT_MODEL_DEFINITIONS,
+  cuWeight,
 } from "./registry/index";
 import { ModelDef } from "../types/models";
 import { CapabilityMismatchError } from "../errors/routing_errors";
 
 describe("CapabilityFilter", () => {
   // Test Models
-  const textOnlyCheapModel: ModelDef<bigint> = {
+  const textOnlyCheapModel: ModelDef = {
     id: "cheap-text-model",
     provider: "openai",
     logicalAliases: ["economy-text"],
     contextWindow: 32_000,
     maxOutputTokens: 4096,
-    inputCostPerMTokMicro: 50_000n, // cheapest
-    outputCostPerMTokMicro: 150_000n,
-    cacheReadCostPerMTokMicro: 10_000n,
+    cuBase: 5n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: false,
     supportsVision: false,
     supportsJsonSchema: false,
     isActive: true,
   };
 
-  const toolsOnlyModel: ModelDef<bigint> = {
+  const toolsOnlyModel: ModelDef = {
     id: "tools-text-model",
     provider: "deepseek",
     logicalAliases: ["fast-tools"],
     contextWindow: 64_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 140_000n,
-    outputCostPerMTokMicro: 280_000n,
-    cacheReadCostPerMTokMicro: 14_000n,
+    cuBase: 14n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: false,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const multimodalFlashModel: ModelDef<bigint> = {
+  const multimodalFlashModel: ModelDef = {
     id: "multimodal-flash",
     provider: "google",
     logicalAliases: ["smart-fast", "fast-vision"],
     contextWindow: 1_000_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 100_000n,
-    outputCostPerMTokMicro: 400_000n,
-    cacheReadCostPerMTokMicro: 25_000n,
+    cuBase: 10n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const expensiveFlagshipModel: ModelDef<bigint> = {
+  const expensiveFlagshipModel: ModelDef = {
     id: "flagship-omni",
     provider: "openai",
     logicalAliases: ["smart-model"],
     contextWindow: 128_000,
     maxOutputTokens: 16384,
-    inputCostPerMTokMicro: 2_500_000n,
-    outputCostPerMTokMicro: 10_000_000n,
-    cacheReadCostPerMTokMicro: 1_250_000n,
+    cuBase: 250n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
     isActive: true,
   };
 
-  const inactiveCapableModel: ModelDef<bigint> = {
+  const inactiveCapableModel: ModelDef = {
     id: "retired-omni",
     provider: "anthropic",
     logicalAliases: ["legacy-claude"],
     contextWindow: 200_000,
     maxOutputTokens: 8192,
-    inputCostPerMTokMicro: 80_000n,
-    outputCostPerMTokMicro: 300_000n,
-    cacheReadCostPerMTokMicro: 20_000n,
+    cuBase: 8n,
+    cuInPer1k: 1n,
+    cuCachedPer1k: 0n,
+    cuOutPer1k: 1n,
     supportsTools: true,
     supportsVision: true,
     supportsJsonSchema: true,
     isActive: false, // Disabled
   };
 
-  const testCandidateSet: ModelDef<bigint>[] = [
+  const testCandidateSet: ModelDef[] = [
     textOnlyCheapModel,
     toolsOnlyModel,
     multimodalFlashModel,
@@ -205,10 +211,10 @@ describe("CapabilityFilter", () => {
     });
 
     it("validates maximum cost ceiling in credit units", () => {
-      // flash input is 100,000 CU; flagship is 2,500,000 CU
-      expect(filter.isCapable(multimodalFlashModel, { maxCostPerMTokMicro: 150_000n })).toBe(true);
-      expect(filter.isCapable(expensiveFlagshipModel, { maxCostPerMTokMicro: 150_000n })).toBe(false);
-      expect(filter.isCapable(expensiveFlagshipModel, { maxCostPerMTokMicro: 3_000_000n })).toBe(true);
+      // flash CU weight is 12; flagship is 252
+      expect(filter.isCapable(multimodalFlashModel, { maxCuWeight: 15n })).toBe(true);
+      expect(filter.isCapable(expensiveFlagshipModel, { maxCuWeight: 15n })).toBe(false);
+      expect(filter.isCapable(expensiveFlagshipModel, { maxCuWeight: 300n })).toBe(true);
     });
 
     it("aggregates multiple missing capabilities in checkCapabilities result", () => {
@@ -611,37 +617,40 @@ describe("CapabilityFilter", () => {
 
     it("filters default registry models by vision requirement", () => {
       // In default catalog:
-      // llama-3.3-70b-versatile has supportsVision = false
+      // openai/gpt-oss-120b has supportsVision = false
       const visionCandidates = registryFilter.filterRegistry({ requiresVision: true });
 
       expect(visionCandidates.length).toBeGreaterThan(0);
       expect(visionCandidates.every((m) => m.supportsVision)).toBe(true);
-      expect(visionCandidates.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(false);
+      expect(visionCandidates.some((m) => m.id === "openai/gpt-oss-120b")).toBe(false);
 
-      // Verify that gemini-2.0-flash, gemini-1.5-pro are included
-      expect(visionCandidates.some((m) => m.id === "gemini-2.0-flash")).toBe(true);
-      expect(visionCandidates.some((m) => m.id === "gemini-1.5-pro")).toBe(true);
+      // Verify that gemini-3.5-flash, gemini-3.1-pro-preview are included
+      expect(visionCandidates.some((m) => m.id === "gemini-3.5-flash")).toBe(true);
+      expect(visionCandidates.some((m) => m.id === "gemini-3.1-pro-preview")).toBe(true);
     });
 
     it("orders viable default catalog models cost-optimally (cheapest first)", () => {
       const visionCandidates = registryFilter.filterRegistry({ requiresVision: true });
 
-      // gemini-2.0-flash is 100,000 CU, gemini-1.5-pro is 1,250,000 CU
-      expect(visionCandidates[0].id).toBe("gemini-2.0-flash");
-      expect(visionCandidates[1].id).toBe("gemini-1.5-pro");
-      expect(visionCandidates[0].inputCostPerMTokMicro).toBeLessThanOrEqual(
-        visionCandidates[1].inputCostPerMTokMicro
-      );
+      // Flash-Lite (CU weight 8) first, Pro (CU weight 75) last
+      expect(visionCandidates[0].id).toMatch(/^gemini-3\.\d-flash-lite$/);
+      expect(visionCandidates[visionCandidates.length - 1].id).toBe("gemini-3.1-pro-preview");
+      for (let i = 1; i < visionCandidates.length; i++) {
+        expect(cuWeight(visionCandidates[i - 1])).toBeLessThanOrEqual(cuWeight(visionCandidates[i]));
+      }
     });
 
     it("filters by large context window in default catalog", () => {
-      // 1,500,000 tokens: only gemini-1.5-pro has 2M context window
+      // 500,000 tokens: only the Gemini models (1,048,576) qualify; Groq models hold 131,072
       const largeContextCandidates = registryFilter.filterRegistry({
-        minContextLength: 1_500_000,
+        minContextLength: 500_000,
       });
 
-      expect(largeContextCandidates.length).toBe(1);
-      expect(largeContextCandidates[0].id).toBe("gemini-1.5-pro");
+      expect(largeContextCandidates.length).toBeGreaterThan(0);
+      expect(largeContextCandidates.every((m) => m.provider === "google")).toBe(true);
+      expect(
+        registryFilter.filterRegistry({ minContextLength: 1_500_000 })
+      ).toHaveLength(0);
     });
 
     it("supports universal filter() method with injected registry", () => {

@@ -259,7 +259,7 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hi" }],
         }),
       });

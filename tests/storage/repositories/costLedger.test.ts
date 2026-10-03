@@ -20,7 +20,6 @@ import {
   DailySpendRollupInput,
   InvalidCostLedgerEventError,
   TenantIsolationViolationError,
-  calculateEventCostCu,
   formatCalendarDay,
   isCostLedgerEvent,
   isDailySpendRollup,
@@ -728,35 +727,6 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       });
     });
 
-    describe("calculateEventCostCu", () => {
-      it("calculates cost using fixed-point integer math with zero floating point", () => {
-        // Pricing: $0.15/1M input ($150,000 CU), $0.60/1M output ($600,000 CU), $0.075/1M cached ($75,000 CU)
-        const pricing = {
-          inputCostPerMTokMicro: 150_000n,
-          outputCostPerMTokMicro: 600_000n,
-          cacheReadCostPerMTokMicro: 75_000n,
-        };
-
-        // 1000 input tokens, 500 output tokens, 200 reasoning tokens, 400 cached tokens
-        const cost = calculateEventCostCu(
-          {
-            promptTokens: 1000,
-            completionTokens: 500,
-            reasoningTokens: 200,
-            cachedTokens: 400,
-          },
-          pricing
-        );
-
-        // Expected:
-        // input: (1000 * 150,000) / 1,000,000 = 150 CU
-        // output: ((500 + 200) * 600,000) / 1,000,000 = 420 CU
-        // cached: (400 * 75,000) / 1,000,000 = 30 CU
-        // total: 150 + 420 + 30 = 600 CU ($0.000600 USD)
-        expect(cost).toBe(600n);
-      });
-    });
-
     describe("Type Guards", () => {
       it("validates isCostLedgerEvent", () => {
         const validEvent: CostLedgerEvent = {
@@ -810,7 +780,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_gemini_prod",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 1200,
         completionTokens: 350,
         cachedTokens: 200,
@@ -826,7 +796,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(event.id).toBe("evt_explicit_1");
       expect(event.tenantId).toBe(TENANT_A);
       expect(event.provider).toBe("google");
-      expect(event.modelId).toBe("gemini-2.0-flash");
+      expect(event.modelId).toBe("gemini-3.5-flash");
       expect(event.costCu).toBe(450n);
       expect(event.promptTokens).toBe(1200);
       expect(event.reasoningTokens).toBe(50);
@@ -1166,7 +1136,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_2",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         costCu: 120n,
         statusCode: 200,
         createdAt: "2026-09-09T10:00:01.000Z",
@@ -1199,7 +1169,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_2",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         costCu: 200n,
         statusCode: 200,
         createdAt: "2026-09-05T12:00:00.000Z",
@@ -1250,7 +1220,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
     it("filters events by provider and modelId", async () => {
       const events = await repo.listEvents(TENANT_A, {
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
       });
       expect(events).toHaveLength(1);
       expect(events[0]?.id).toBe("evt_2");
@@ -1335,7 +1305,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         day: "2026-09-02",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         requestsDelta: 20,
         tokensDelta: 10000,
         costCuDelta: 35_000n,
@@ -1385,7 +1355,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_2",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 500,
         completionTokens: 250,
         costCu: 400n,

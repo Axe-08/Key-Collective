@@ -46,7 +46,7 @@ beforeAll(() => {
         id: "chatcmpl-wp512-jail",
         object: "chat.completion",
         created: 1700000000,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         choices: [
           {
             index: 0,
@@ -138,7 +138,7 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Test AC-03 quota jail" }],
         stream: false,
       }),
@@ -217,7 +217,7 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Own key should still work in jail" }],
         stream: false,
       }),
@@ -289,7 +289,7 @@ describe("Quota jail enforcement (WP-5.12 T-5.12.3)", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Observe mode quota jail test" }],
         stream: false,
       }),

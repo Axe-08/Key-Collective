@@ -175,7 +175,7 @@ export const OPENAPI_SPEC = {
             name: "model_id",
             in: "path",
             required: true,
-            description: "Target model ID or alias (e.g. 'gemini-2.5-flash')",
+            description: "Target model ID or alias (e.g. 'gemini-3.5-flash')",
             schema: { type: "string" },
           },
         ],
@@ -422,8 +422,8 @@ export const OPENAPI_SPEC = {
         properties: {
           model: {
             type: "string",
-            description: "Model ID or alias (e.g. 'gemini-2.5-flash', 'llama-3.3-70b-versatile')",
-            example: "gemini-2.5-flash",
+            description: "Model ID or alias (e.g. 'gemini-3.5-flash', 'openai/gpt-oss-120b')",
+            example: "gemini-3.5-flash",
           },
           messages: {
             type: "array",
@@ -518,7 +518,7 @@ export const OPENAPI_SPEC = {
       Model: {
         type: "object",
         properties: {
-          id: { type: "string", example: "gemini-2.5-flash" },
+          id: { type: "string", example: "gemini-3.5-flash" },
           object: { type: "string", example: "model" },
           owned_by: { type: "string", example: "google" },
           context_window: { type: "integer", example: 1048576 },

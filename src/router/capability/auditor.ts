@@ -4,13 +4,14 @@
  */
 
 import { ModelDef } from "../../types/models";
+import { cuWeight } from "../registry/helpers";
 import { CapabilityRequirements, CapabilityCheckResult } from "./types";
 
 /**
  * Audits a model definition against given requirements, returning pass/fail and missing capabilities.
  */
 export function checkCapabilities(
-  model: ModelDef<bigint>,
+  model: ModelDef,
   requirements: CapabilityRequirements
 ): CapabilityCheckResult {
   const missingCapabilities: string[] = [];
@@ -71,12 +72,12 @@ export function checkCapabilities(
   }
 
   if (
-    requirements.maxCostPerMTokMicro !== undefined &&
-    model.inputCostPerMTokMicro > requirements.maxCostPerMTokMicro
+    requirements.maxCuWeight !== undefined &&
+    cuWeight(model) > requirements.maxCuWeight
   ) {
     missingCapabilities.push("cost_limit");
     reasons.push(
-      `Model '${model.id}' input cost (${model.inputCostPerMTokMicro} CU) exceeds max allowed cost (${requirements.maxCostPerMTokMicro} CU)`
+      `Model '${model.id}' CU weight (${cuWeight(model)} CU) exceeds max allowed cost (${requirements.maxCuWeight} CU)`
     );
   }
 
@@ -92,7 +93,7 @@ export function checkCapabilities(
  * Fast boolean check whether a model satisfies all requirements.
  */
 export function isCapable(
-  model: ModelDef<bigint>,
+  model: ModelDef,
   requirements: CapabilityRequirements
 ): boolean {
   return checkCapabilities(model, requirements).isCapable;
@@ -122,8 +123,8 @@ export function getRequiredCapabilityNames(requirements: CapabilityRequirements)
   if (requirements.provider) {
     caps.push(`provider=${requirements.provider}`);
   }
-  if (requirements.maxCostPerMTokMicro !== undefined) {
-    caps.push(`cost<=${requirements.maxCostPerMTokMicro}`);
+  if (requirements.maxCuWeight !== undefined) {
+    caps.push(`cost<=${requirements.maxCuWeight}`);
   }
   return caps;
 }

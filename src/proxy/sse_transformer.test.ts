@@ -604,7 +604,7 @@ describe("SSEStreamTransformer", () => {
       const transformer = new SSEStreamTransformer();
 
       const stream = [
-        'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}],"usageMetadata":{"promptTokenCount":50,"candidatesTokenCount":120,"totalTokenCount":170,"cachedContentTokenCount":10},"modelVersion":"gemini-2.0-flash"}\n\n',
+        'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}],"usageMetadata":{"promptTokenCount":50,"candidatesTokenCount":120,"totalTokenCount":170,"cachedContentTokenCount":10},"modelVersion":"gemini-3.5-flash"}\n\n',
       ];
 
       await streamThrough(transformer, stream);
@@ -629,7 +629,7 @@ describe("SSEStreamTransformer", () => {
             totalTokenCount: 170,
             cachedContentTokenCount: 10,
           },
-          modelVersion: "gemini-2.0-flash",
+          modelVersion: "gemini-3.5-flash",
         },
       });
     });
@@ -779,14 +779,14 @@ describe("SSEStreamTransformer", () => {
       const transformer = new SSEStreamTransformer({ onMetadata });
 
       const stream = [
-        'data: {"id":"chatcmpl-1","model":"gemini-2.0-flash","system_fingerprint":"fp_abc123","choices":[{"delta":{"content":"Hi"}}]}\n\n',
+        'data: {"id":"chatcmpl-1","model":"gemini-3.5-flash","system_fingerprint":"fp_abc123","choices":[{"delta":{"content":"Hi"}}]}\n\n',
         'data: {"id":"chatcmpl-1","choices":[{"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":10}}\n\n',
       ];
 
       await streamThrough(transformer, stream);
 
       const meta = await transformer.getMetadata();
-      expect(meta.model).toBe("gemini-2.0-flash");
+      expect(meta.model).toBe("gemini-3.5-flash");
       expect(meta.systemFingerprint).toBe("fp_abc123");
       expect(meta.finishReason).toBe("stop");
       expect(meta.chunkCount).toBe(2);

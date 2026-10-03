@@ -1,28 +1,26 @@
 /**
  * @file sorter.ts
- * Cost and context optimal candidate sorting.
+ * Cost and context optimal candidate sorting. Cost is the CU weight
+ * (cuBase + cuInPer1k + cuOutPer1k); Credit Units are the only price unit.
  */
 
 import { ModelDef } from "../../types/models";
+import { compareByCuWeight } from "../registry/helpers";
 import { ModelSortStrategy } from "./types";
 
 /**
  * Sorts candidate models by the chosen strategy.
  */
 export function sortCandidates(
-  candidates: ModelDef<bigint>[],
+  candidates: ModelDef[],
   strategy: ModelSortStrategy
-): ModelDef<bigint>[] {
+): ModelDef[] {
   const result = [...candidates];
   switch (strategy) {
     case "cost-asc":
       return result.sort((a, b) => {
-        if (a.inputCostPerMTokMicro !== b.inputCostPerMTokMicro) {
-          return a.inputCostPerMTokMicro < b.inputCostPerMTokMicro ? -1 : 1;
-        }
-        if (a.outputCostPerMTokMicro !== b.outputCostPerMTokMicro) {
-          return a.outputCostPerMTokMicro < b.outputCostPerMTokMicro ? -1 : 1;
-        }
+        const byCu = compareByCuWeight(a, b);
+        if (byCu !== 0) return byCu;
         if (a.contextWindow !== b.contextWindow) {
           return b.contextWindow - a.contextWindow; // Larger context preferred as tie-breaker
         }
@@ -30,9 +28,8 @@ export function sortCandidates(
       });
     case "cost-desc":
       return result.sort((a, b) => {
-        if (a.inputCostPerMTokMicro !== b.inputCostPerMTokMicro) {
-          return a.inputCostPerMTokMicro > b.inputCostPerMTokMicro ? -1 : 1;
-        }
+        const byCu = compareByCuWeight(b, a);
+        if (byCu !== 0) return byCu;
         return b.id.localeCompare(a.id);
       });
     case "context-desc":
@@ -40,9 +37,8 @@ export function sortCandidates(
         if (a.contextWindow !== b.contextWindow) {
           return b.contextWindow - a.contextWindow;
         }
-        if (a.inputCostPerMTokMicro !== b.inputCostPerMTokMicro) {
-          return a.inputCostPerMTokMicro < b.inputCostPerMTokMicro ? -1 : 1;
-        }
+        const byCu = compareByCuWeight(a, b);
+        if (byCu !== 0) return byCu;
         return a.id.localeCompare(b.id);
       });
     case "none":

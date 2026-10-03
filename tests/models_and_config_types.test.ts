@@ -116,14 +116,11 @@ describe("Model and Provider Types (LLD 2.2)", () => {
   describe("ModelDef", () => {
     it("instantiates ModelDef with fixed-point credit unit pricing (BigInt)", () => {
       const model: ModelDef = {
-        id: "gemini-2.0-flash",
+        id: "gemini-3.5-flash",
         provider: "google",
         logicalAliases: ["fast-model", "smart-fast"],
         contextWindow: 1_048_576,
         maxOutputTokens: 8192,
-        inputCostPerMTokMicro: 100_000n, // $0.10 per 1M input tokens
-        outputCostPerMTokMicro: 400_000n, // $0.40 per 1M output tokens
-        cacheReadCostPerMTokMicro: 25_000n, // $0.025 per 1M cached tokens
         cuBase: 10n,
         cuInPer1k: 1n,
         cuCachedPer1k: 0n,
@@ -135,11 +132,9 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         lastSyncedAt: "2026-09-09T00:00:00.000Z",
       };
 
-      expect(model.id).toBe("gemini-2.0-flash");
+      expect(model.id).toBe("gemini-3.5-flash");
       expect(model.provider).toBe("google");
       expect(model.logicalAliases).toEqual(["fast-model", "smart-fast"]);
-      expect(typeof model.inputCostPerMTokMicro).toBe("bigint");
-      expect(model.inputCostPerMTokMicro).toBe(100_000n);
       expect(model.cuBase).toBe(10n);
       expect(model.cuInPer1k).toBe(1n);
       expect(model.cuCachedPer1k).toBe(0n);
@@ -155,15 +150,12 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         logicalAliases: ["smart-model"],
         contextWindow: 128_000,
         maxOutputTokens: 4096,
-        inputCostPerMTokMicro: 2_500_000n, // $2.50 per 1M tokens
-        outputCostPerMTokMicro: 10_000_000n, // $10.00 per 1M tokens
         supportsTools: true,
         supportsVision: true,
         supportsJsonSchema: true,
       });
 
       expect(model.isActive).toBe(true);
-      expect(model.cacheReadCostPerMTokMicro).toBe(0n);
       expect(model.cuBase).toBe(0n);
       expect(model.cuInPer1k).toBe(0n);
       expect(model.cuCachedPer1k).toBe(0n);
@@ -178,8 +170,10 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         logicalAliases: ["smart-model"],
         contextWindow: 200_000,
         maxOutputTokens: 8192,
-        inputCostPerMTokMicro: 3_000_000n,
-        outputCostPerMTokMicro: 15_000_000n,
+        cuBase: 300n,
+        cuInPer1k: 1n,
+        cuCachedPer1k: 0n,
+        cuOutPer1k: 1n,
         supportsTools: true,
         supportsVision: true,
         supportsJsonSchema: true,
@@ -191,16 +185,13 @@ describe("Model and Provider Types (LLD 2.2)", () => {
       expect(isModelDef({ id: "missing-fields" })).toBe(false);
     });
 
-    it("supports serialized number pricing when parameterized as ModelDef<number>", () => {
-      const numericModel: ModelDef<number> = {
+    it("accepts a ModelDef carrying only CU weights", () => {
+      const numericModel: ModelDef = {
         id: "mistral-small",
         provider: "mistral",
         logicalAliases: ["fast"],
         contextWindow: 32_000,
         maxOutputTokens: 2048,
-        inputCostPerMTokMicro: 200_000,
-        outputCostPerMTokMicro: 600_000,
-        cacheReadCostPerMTokMicro: 0,
         cuBase: 5n,
         cuInPer1k: 1n,
         cuCachedPer1k: 0n,
@@ -211,7 +202,6 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         isActive: true,
       };
 
-      expect(numericModel.inputCostPerMTokMicro).toBe(200_000);
       expect(numericModel.cuBase).toBe(5n);
       expect(isModelDef(numericModel)).toBe(true);
     });
@@ -261,13 +251,13 @@ describe("Model and Provider Types (LLD 2.2)", () => {
     it("creates and validates RouterDecision", () => {
       const decision: RouterDecision = {
         selectedKeyId: "key-123",
-        selectedModelId: "gemini-2.0-flash",
+        selectedModelId: "gemini-3.5-flash",
         tenantId: "tenant-99",
         capabilityFilterPassed: true,
         reason: "cost_optimal",
       };
 
-      expect(decision.selectedModelId).toBe("gemini-2.0-flash");
+      expect(decision.selectedModelId).toBe("gemini-3.5-flash");
       expect(isRouterDecision(decision)).toBe(true);
       expect(isRouterDecision(null)).toBe(false);
     });
@@ -279,7 +269,7 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         tenantId: "tenant-acme",
         keyId: "key-123",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 1000,
         completionTokens: 500,
         cachedTokens: 200,
@@ -354,7 +344,7 @@ describe("Configuration Types (LLD 2.3)", () => {
           providerPriority: ["anthropic", "google", "openai"],
           modelMappings: {
             "smart-model": "claude-3-5-sonnet",
-            "fast-model": ["gemini-2.0-flash", "gpt-4o-mini"],
+            "fast-model": ["gemini-3.5-flash", "gpt-4o-mini"],
           },
         },
         rateLimits: {
@@ -390,7 +380,7 @@ describe("Configuration Types (LLD 2.3)", () => {
           maxRetries: 2,
           backoffMs: 150,
           fallbackChains: {
-            "claude-3-5-sonnet": ["gpt-4o", "gemini-2.0-flash"],
+            "claude-3-5-sonnet": ["gpt-4o", "gemini-3.5-flash"],
           },
           providerFallbackOrder: ["anthropic", "openai", "google"],
           triggers: ["rate_limit", "circuit_breaker_open"],
@@ -400,7 +390,7 @@ describe("Configuration Types (LLD 2.3)", () => {
       expect(config.fallback.maxRetries).toBe(2);
       expect(config.fallback.fallbackChains?.["claude-3-5-sonnet"]).toEqual([
         "gpt-4o",
-        "gemini-2.0-flash",
+        "gemini-3.5-flash",
       ]);
       expect(config.fallback.providerFallbackOrder).toEqual(["anthropic", "openai", "google"]);
       expect(config.fallback.triggers).toEqual(["rate_limit", "circuit_breaker_open"]);
