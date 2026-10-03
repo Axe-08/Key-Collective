@@ -25,7 +25,9 @@ export const CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers":
-    "Content-Type, Authorization, x-tenant-id, x-kc-trace-id, x-trace-id",
+    "Content-Type, Authorization, x-pool-fallback, x-kc-trace-id, x-trace-id",
+  "access-control-expose-headers":
+    "x-kc-cu, x-kc-model-used, x-kc-provider, x-kc-request-id, x-kc-attempts, x-kc-commons-notice",
   "access-control-max-age": "86400",
 };
 

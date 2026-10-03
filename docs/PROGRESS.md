@@ -347,7 +347,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [ ] T-F.7.8 /api/pool/standing 401 for anonymous ids (RA-12)
 
 ### WP-F.8
-- [ ] T-F.8.1 CORS allow/expose headers for the browser Playground (QA-07)
+- [x] T-F.8.1 CORS allow/expose headers for the browser Playground (QA-07)
 - [ ] T-F.8.2 No-capacity exhaustion → 503 service_unavailable (QA-08)
 
 ### WP-F.9
