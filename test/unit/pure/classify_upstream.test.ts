@@ -9,6 +9,11 @@ import {
   ProviderTimeoutError,
   RateLimitExceededError,
 } from "../../../src/errors";
+import { mapUpstreamHttpError } from "../../../src/proxy/upstream/errors";
+import {
+  GEMINI_INVALID_KEY_BODY,
+  GEMINI_INVALID_KEY_STATUS,
+} from "../../helpers/provider_fixtures";
 
 describe("classifyUpstreamResponse (WP-4.3 T-4.3.1)", () => {
   const fixedNow = 1_700_000_000_000;
@@ -231,5 +236,73 @@ describe("classifyUpstreamResponse (WP-4.3 T-4.3.1)", () => {
     const badReqClass = classifyUpstreamError(badReqErr, fixedNow);
     expect(badReqClass.outcome).toBe("request_error");
     expect(badReqClass.shouldFallback).toBe(false);
+  });
+});
+
+describe("Gemini 400 API_KEY_INVALID (WP-F.2 T-F.2.1, RA-04)", () => {
+  const fixedNow = 1_700_000_000_000;
+
+  it("maps the live 400 API_KEY_INVALID body to 'key_invalid' with shouldFallback=true", () => {
+    const res = classifyUpstreamResponse({
+      status: GEMINI_INVALID_KEY_STATUS,
+      body: GEMINI_INVALID_KEY_BODY,
+      nowMs: fixedNow,
+    });
+    expect(res.outcome).toBe("key_invalid");
+    expect(res.shouldFallback).toBe(true);
+  });
+
+  it("accepts the body already parsed as an object", () => {
+    const parsed: unknown = JSON.parse(GEMINI_INVALID_KEY_BODY);
+    const res = classifyUpstreamResponse({ status: 400, body: parsed, nowMs: fixedNow });
+    expect(res.outcome).toBe("key_invalid");
+  });
+
+  it("maps INVALID_ARGUMENT with 'API key not valid' and no details to 'key_invalid'", () => {
+    const res = classifyUpstreamResponse({
+      status: 400,
+      body: JSON.stringify({
+        error: {
+          code: 400,
+          message: "API key not valid. Please pass a valid API key.",
+          status: "INVALID_ARGUMENT",
+        },
+      }),
+      nowMs: fixedNow,
+    });
+    expect(res.outcome).toBe("key_invalid");
+    expect(res.shouldFallback).toBe(true);
+  });
+
+  it("classifyUpstreamError reads the 400 body from a mapped error and returns 'key_invalid'", () => {
+    const err = new ProviderRoutingError("google", "Upstream unavailable", {
+      upstreamStatusCode: 400,
+      statusCode: 400,
+      details: { upstreamBody: GEMINI_INVALID_KEY_BODY },
+    });
+    expect(classifyUpstreamError(err, fixedNow).outcome).toBe("key_invalid");
+  });
+
+  it("mapUpstreamHttpError turns the live 400 into an InvalidKeyError", () => {
+    const err = mapUpstreamHttpError("google", 400, GEMINI_INVALID_KEY_BODY, new Headers(), "gemini-3.5-flash");
+    expect(err).toBeInstanceOf(InvalidKeyError);
+    expect(err.message).not.toContain("API key not valid");
+    expect(classifyUpstreamError(err, fixedNow).outcome).toBe("key_invalid");
+  });
+
+  it("keeps other 400s (INVALID_ARGUMENT without the key reason) as 'request_error'", () => {
+    const res = classifyUpstreamResponse({
+      status: 400,
+      body: JSON.stringify({
+        error: {
+          code: 400,
+          message: "Invalid value at 'generation_config.temperature'",
+          status: "INVALID_ARGUMENT",
+        },
+      }),
+      nowMs: fixedNow,
+    });
+    expect(res.outcome).toBe("request_error");
+    expect(res.shouldFallback).toBe(false);
   });
 });

@@ -8,7 +8,9 @@
  *   or Groq `x-ratelimit-remaining-requests: 0` with reset > 1 h -> `rpd_exhausted` (`COOLDOWN`)
  * - other 429 -> `rpm_limited` (`COOLDOWN` for `retry-after`, default 60 s)
  * - 5xx, timeout -> `upstream_error` (breaker failure; open after 5 consecutive, half-open after 60 s)
- * - 400 -> `request_error` (no key action; return 400 to client sanitised, do not fall back)
+ * - 400 with Gemini `ErrorInfo.reason = "API_KEY_INVALID"` (or `INVALID_ARGUMENT` + "API key not valid")
+ *   -> `key_invalid` (WP-F.2 RA-04: Gemini answers an invalid or revoked key with HTTP 400)
+ * - other 400 -> `request_error` (no key action; return 400 to client sanitised, do not fall back)
  */
 
 import { parseRetryAfter } from "./headers";
@@ -95,6 +97,48 @@ export function parseResetDurationSeconds(
   }
 
   return null;
+}
+
+function parseErrorBody(body: unknown): Record<string, unknown> | null {
+  let parsed: unknown = body;
+  if (typeof body === "string") {
+    const trimmed = body.trim();
+    if (trimmed.length === 0) return null;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      // Not JSON (truncated or plain text): callers fall back to text matching.
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const root = parsed as Record<string, unknown>;
+  return root.error && typeof root.error === "object" && !Array.isArray(root.error)
+    ? (root.error as Record<string, unknown>)
+    : root;
+}
+
+const API_KEY_NOT_VALID = /API key not valid/i;
+
+/**
+ * Gemini invalid/revoked key (live, docs/specs/gcp_probe.md): HTTP 400, `status: INVALID_ARGUMENT`,
+ * `details[].reason = "API_KEY_INVALID"` on a `google.rpc.ErrorInfo`.
+ */
+function isGeminiInvalidKeyBody(body: unknown): boolean {
+  const errObj = parseErrorBody(body);
+  if (!errObj) {
+    return typeof body === "string" && (/API_KEY_INVALID/.test(body) || API_KEY_NOT_VALID.test(body));
+  }
+  const details = Array.isArray(errObj.details) ? errObj.details : [];
+  for (const detail of details) {
+    if (!detail || typeof detail !== "object") continue;
+    if ((detail as Record<string, unknown>).reason === "API_KEY_INVALID") return true;
+  }
+  return (
+    errObj.status === "INVALID_ARGUMENT" &&
+    typeof errObj.message === "string" &&
+    API_KEY_NOT_VALID.test(errObj.message)
+  );
 }
 
 function hasGeminiPerDayQuotaViolation(body: unknown): boolean {
@@ -224,6 +268,13 @@ export function classifyUpstreamResponse(
       outcome: "rpm_limited",
       retryAfterSeconds,
       cooldownUntilMs: nowMs + retryAfterSeconds * 1000,
+      shouldFallback: true,
+    };
+  }
+
+  if (status === 400 && isGeminiInvalidKeyBody(input.body)) {
+    return {
+      outcome: "key_invalid",
       shouldFallback: true,
     };
   }

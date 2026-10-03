@@ -80,8 +80,8 @@ export function mapUpstreamHttpError(
     });
   }
 
-  // 2. Authentication / Authorization Failures (HTTP 401 / 403) -> InvalidKeyError
-  if (status === 401 || status === 403) {
+  // 2. Authentication / Authorization Failures (HTTP 401 / 403, or Gemini's 400 API_KEY_INVALID) -> InvalidKeyError
+  if (status === 401 || status === 403 || classification.outcome === "key_invalid") {
     return new InvalidKeyError("Upstream authentication failed", {
       provider,
       reason: "Upstream authentication failed",

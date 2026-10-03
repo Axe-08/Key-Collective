@@ -311,7 +311,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [ ] T-F.1.4 OpenAPI: no x-tenant-id parameter, real contact (RA-13)
 
 ### WP-F.2
-- [ ] T-F.2.1 Gemini 400 API_KEY_INVALID → key_invalid (RA-04)
+- [x] T-F.2.1 Gemini 400 API_KEY_INVALID → key_invalid (RA-04)
 - [ ] T-F.2.2 404 / model_not_found → model_unavailable, no key action (RA-05)
 - [ ] T-F.2.3 Real provider fixtures in upstream_outcomes test
 
