@@ -346,6 +346,12 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     if (typeof storedLastResetDay === "string") {
       this.lastResetDay = storedLastResetDay;
     }
+    if (this.lastResetDay === null) {
+      // AU-04: a tenant seen for the first time counts today as already reset, so
+      // the first nightlyReset runs at the next UTC midnight, never mid-day.
+      this.lastResetDay = this.getUtcDay();
+      await this.ctx.storage.put<string>("last_reset_day", this.lastResetDay);
+    }
 
     this.pruneEntries();
     this.getContributed24h();
