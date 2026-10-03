@@ -308,7 +308,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.1.1 Stop minting the login bearer token (RA-01)
 - [x] T-F.1.2 Strip x-kc-* and x-tenant-id from upstream requests (RA-02)
 - [x] T-F.1.3 Lease rights fail closed (RA-03)
-- [ ] T-F.1.4 OpenAPI: no x-tenant-id parameter, real contact (RA-13)
+- [x] T-F.1.4 OpenAPI: no x-tenant-id parameter, real contact (RA-13)
 
 ### WP-F.2
 - [ ] T-F.2.1 Gemini 400 API_KEY_INVALID → key_invalid (RA-04)
