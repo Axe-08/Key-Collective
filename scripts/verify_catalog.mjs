@@ -85,7 +85,8 @@ async function fetchProviderModelIds(provider) {
 
   const json = await res.json();
   const data = Array.isArray(json?.data) ? json.data : [];
-  return new Set(data.map((m) => m.id));
+  // Google's OpenAI-compatible listing returns ids as "models/<id>"; the catalog stores "<id>".
+  return new Set(data.map((m) => String(m.id).replace(/^models\//, "")));
 }
 
 async function main() {
