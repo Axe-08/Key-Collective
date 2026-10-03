@@ -320,7 +320,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.3.2 Skip deprecated / sunset models in routing and /v1/models
 - [x] T-F.3.3 Remove µ$ price fields; cheapest by CU (RA-09)
 - [x] T-F.3.4 Proof-of-life on gemini-3.5-flash-lite and gpt-oss-20b (QA-12, RA-08)
-- [ ] T-F.3.5 UI model pickers read /v1/models only
+- [x] T-F.3.5 UI model pickers read /v1/models only
 
 ### WP-F.4
 - [ ] T-F.4.1 GCP project probe via blocked/disabled service ErrorInfo (RA-07)

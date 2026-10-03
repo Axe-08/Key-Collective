@@ -47,7 +47,8 @@
 
   // Documentation snippet parameters
   let bearerToken = $state('YOUR_API_KEY');
-  let selectedModel = $state('gemini-2.5-flash');
+  // Set from /v1/models once it answers; no hard-coded model id.
+  let selectedModel = $state('');
   let isStreaming = $state(true);
   let activeTab = $state<'curl' | 'ts' | 'py'>('curl');
   // Filled from /v1/models only (WP-3.10).
@@ -74,9 +75,7 @@
             }
           }
         })
-        .catch(() => {
-          // Keep canonical defaults if offline
-        });
+        .catch((err) => console.error('Failed to load /v1/models for the model picker', err));
     }
   });
 

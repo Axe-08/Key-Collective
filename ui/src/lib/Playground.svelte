@@ -89,7 +89,7 @@
             }
           }
         })
-        .catch(() => {});
+        .catch((err) => console.error('Failed to load /v1/models for the model picker', err));
     }
 
     return () => {
@@ -97,7 +97,8 @@
     };
   });
 
-  let payloadJson = $state(`{\n  "model": "gemini-2.5-flash",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
+  // The model is filled from the picker (which lists /v1/models only).
+  let payloadJson = $state(`{\n  "model": "",\n  "messages": [\n    { "role": "system", "content": "You are an edge AI router." },\n    { "role": "user", "content": "Verify proxy handshake status." }\n  ],\n  "stream": true,\n  "temperature": 0.3\n}`);
 
   $effect(() => {
     try {

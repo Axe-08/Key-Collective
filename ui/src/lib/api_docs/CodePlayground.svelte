@@ -38,7 +38,7 @@
     baseUrl = API_BASE_URL,
     bearerToken = 'kc_proj_live_demo',
     isSessionToken = false,
-    selectedModel = 'gemini-2.5-flash',
+    selectedModel = '',
     isStreaming = true,
     activeTab = 'curl',
     availableModels = [],
