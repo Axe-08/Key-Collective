@@ -15,7 +15,7 @@
   import AuditLogView from './AuditLogView.svelte';
 
   let {
-    adminEmail = 'admin@keycollective.io',
+    adminEmail = '',
     onNavigate,
   }: {
     adminEmail?: string;

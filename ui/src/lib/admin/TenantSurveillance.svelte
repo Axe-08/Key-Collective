@@ -10,7 +10,7 @@
 
   let {
     tenants = [],
-    adminEmail = 'admin@keycollective.io',
+    adminEmail = '',
     onAdminAction,
     onUpdateKeyRoutingStatus,
     onUpdateKeyPoolMode,
@@ -148,7 +148,7 @@
         {/if}
       </div>
       <p class="text-body-sm font-body-sm text-on-surface-variant">
-        Real-time per-tenant velocity inspection, Credit Unit spend tracking, and 1-click ban hammer with &lt;5ms DO isolate eviction.
+        Real-time per-tenant velocity inspection, Credit Unit spend tracking, and 1-click ban hammer with DO isolate eviction.
       </p>
     </div>
   </div>

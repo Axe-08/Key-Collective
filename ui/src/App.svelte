@@ -281,7 +281,7 @@
           id: userAccount.id || 'admin',
           githubUsername: userAccount.githubUsername || 'admin',
           tier: 'admin',
-          primaryEmail: userAccount.primaryEmail || 'admin@keycollective.io',
+          primaryEmail: userAccount.primaryEmail,
         };
         activeTab = 'admin';
       } else if (urlParams.get('tab')) {
