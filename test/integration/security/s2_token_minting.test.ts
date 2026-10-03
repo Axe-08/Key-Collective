@@ -5,8 +5,8 @@
  * 1. POST /api/auth/sync-session is gone: returns 404 and mints no auth_tokens row.
  * 2. POST /api/auth/google rejects unsigned, wrong-audience, wrong-issuer, expired,
  *    and unverified-email JWTs with 401.
- * 3. A valid JWT for an ACTIVE user mints a token for tenant `usr_goog_<sub>`; any `id` field in the
- *    request body is ignored.
+ * 3. A valid JWT for an ACTIVE user signs in as tenant `usr_goog_<sub>` (session cookie, no bearer
+ *    token: RA-01); any `id` field in the request body is ignored.
  * 4. Signing in again as an existing user does not change their stored tier.
  */
 
@@ -34,7 +34,7 @@ const PROJECT_ID = "key-collective-568f8";
 interface AuthResponseBody {
   success: boolean;
   user: { id: string; email: string; tier: string };
-  token: string;
+  token?: string;
 }
 
 interface ErrorBody {
@@ -166,7 +166,7 @@ describe("S2 Security: Verified Google Sign-In Token Minting", () => {
     expect(res.status).toBe(401);
   });
 
-  it("mints a token for tenant usr_goog_<sub> from a valid JWT, ignoring a spoofed id field", async () => {
+  it("signs in as tenant usr_goog_<sub> from a valid JWT with a session and no bearer token, ignoring a spoofed id field", async () => {
     const sub = `valid_sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
     const email = `${sub}@example.test`;
 
@@ -178,7 +178,8 @@ describe("S2 Security: Verified Google Sign-In Token Minting", () => {
     expect(body.user.id).not.toBe("admin");
     expect(body.user.email).toBe(email);
     expect(body.user.tier).toBe("builder");
-    expect(typeof body.token).toBe("string");
+    expect(body.token).toBeUndefined();
+    expect(res.headers.get("set-cookie") ?? "").toContain("kc_session=");
 
     const userRow = await env.DB.prepare("SELECT id, tier FROM users WHERE id = ?")
       .bind(`usr_goog_${sub}`)

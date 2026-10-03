@@ -129,7 +129,7 @@ verify_tasks() {
   while IFS= read -r subj; do
     [[ -z "$subj" ]] && continue
     local count
-    count=$(printf '%s\n' "$subj" | grep -oE 'T-[0-9A-Z]+\.[0-9]+\.[0-9]+' | sort -u | wc -l)
+    count=$(printf '%s\n' "$subj" | { grep -oE 'T-[0-9A-Z]+\.[0-9]+\.[0-9]+' || true; } | sort -u | wc -l)
     if (( count > 1 )); then
       echo "FINISH FAILED: commit subject names more than one task id: $subj" >&2
       return 1

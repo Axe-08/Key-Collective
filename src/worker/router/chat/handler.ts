@@ -114,10 +114,6 @@ export class ChatHandler {
       response_format: body.response_format,
       estimatedPromptTokens,
       signal: request.signal,
-      headers: {
-        "x-kc-trace-id": traceId,
-        "x-kc-tenant-id": authContext.tenantId,
-      },
       extraBodyParams,
       tenantId: authContext.tenantId,
     };

@@ -161,4 +161,22 @@ describe("console sessions", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ success: true, user: { id: user.id, email: user.email }, csrfToken });
   });
+
+  it("[7] signing in mints no bearer token: no auth_tokens row and no token in the body (RA-01)", async () => {
+    const sub = newSub();
+    await googleSignIn(await signGoogleIdToken(sub));
+    await env.DB.prepare("UPDATE users SET registration_status = 'ACTIVE' WHERE id = ?").bind(`usr_goog_${sub}`).run();
+
+    const first = await googleSignIn(await signGoogleIdToken(sub));
+    const second = await googleSignIn(await signGoogleIdToken(sub));
+
+    for (const res of [first, second]) {
+      expect(res.status).toBe(200);
+      expect(await res.json()).not.toHaveProperty("token");
+    }
+    const rows = await env.DB.prepare("SELECT COUNT(*) AS n FROM auth_tokens WHERE tenant_id = ?")
+      .bind(`usr_goog_${sub}`)
+      .first<{ n: number }>();
+    expect(rows?.n).toBe(0);
+  });
 });
