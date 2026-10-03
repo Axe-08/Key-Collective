@@ -32,3 +32,4 @@ node_modules
 docs/study_guide/book/
 .wp/
 backups/
+.claude/worktrees/

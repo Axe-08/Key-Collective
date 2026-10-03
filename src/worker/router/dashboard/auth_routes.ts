@@ -3,7 +3,6 @@
  */
 
 import type { WorkerEnv } from "../../auth/index";
-import { bytesToHex, stringToBytes } from "../../../crypto/utils";
 import { verifyFirebaseIdToken } from "../../../auth/google/verify_id_token";
 import {
   SESSION_COOKIE,
@@ -131,14 +130,7 @@ export async function handleGoogleAuth(
     userAgent: request.headers.get("user-agent") ?? undefined,
   });
 
-  // The bearer token is still minted and returned until the console moves to cookie sessions (WP-3.4).
-  const token = `kc_${tier}_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const tokenHash = bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", stringToBytes(token))));
-  await env.DB.prepare(
-    `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, budget_cu, spent_cu, allowed_providers, rpm_limit, expires_at, created_at)
-     VALUES (?, ?, ?, ?, '0', '[]', ?, null, CURRENT_TIMESTAMP)`
-  ).bind(`tok_${crypto.randomUUID().replace(/-/g, "")}`, tokenHash, tenantId, "50000000", 20).run();
-
+  // The console authenticates with the session cookie only; sign-in mints no API credential (RA-01).
   const headers = new Headers({ "content-type": "application/json; charset=utf-8" });
   headers.append("Set-Cookie", buildSessionCookie(session.token));
   return new Response(
@@ -149,7 +141,6 @@ export async function handleGoogleAuth(
         email,
         tier: responseTier,
       },
-      token,
     }),
     { status: 200, headers }
   );

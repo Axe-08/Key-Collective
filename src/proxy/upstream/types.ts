@@ -39,7 +39,14 @@ export const CLIENT_AUTH_HEADERS: readonly string[] = [
   "kc-tenant-id",
   "kc-trace-id",
   "kc-key-id",
+  "x-tenant-id",
 ] as const;
+
+/**
+ * Internal header prefixes stripped before any request goes to a provider (RA-02).
+ * Covers x-kc-trace-id, x-kc-tenant-id and any future x-kc-* header.
+ */
+export const INTERNAL_HEADER_PREFIXES: readonly string[] = ["x-kc-"] as const;
 
 /**
  * Default base URLs for supported model providers.

@@ -6,7 +6,7 @@
  * - GEMINI.md Constitution: No Plaintext Keys leaked, strict TypeScript.
  */
 
-import { HOP_BY_HOP_HEADERS, CLIENT_AUTH_HEADERS } from "./types";
+import { HOP_BY_HOP_HEADERS, CLIENT_AUTH_HEADERS, INTERNAL_HEADER_PREFIXES } from "./types";
 
 /**
  * Parses HTTP Retry-After header value into integer seconds.
@@ -74,6 +74,10 @@ export function rewriteHeaders(
       }
       // Strip client-side authentication and routing headers
       if (CLIENT_AUTH_HEADERS.includes(lower)) {
+        continue;
+      }
+      // Strip internal Key Collective headers (RA-02): tenant ids and trace ids never go upstream
+      if (INTERNAL_HEADER_PREFIXES.some((prefix) => lower.startsWith(prefix))) {
         continue;
       }
       // Strip internal Cloudflare edge routing headers

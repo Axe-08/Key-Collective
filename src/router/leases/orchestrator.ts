@@ -155,16 +155,10 @@ export class LeaseOrchestrator implements LeaseProvider {
     }
     const db = ctx.env.DB;
     if (!db || typeof db.prepare !== "function") {
-      return { privatePool: true, communityPool: true };
+      // Fail closed (RA-03): without D1 the caller's rights cannot be checked.
+      return { privatePool: false, communityPool: false };
     }
-    const userRow = await db
-      .prepare("SELECT id FROM users WHERE id = ?")
-      .bind(ctx.tenantId)
-      .first<{ id: string }>();
-    if (!userRow) {
-      // Synthetic tenant in tests without a D1 `users` row defaults to eligible unless specified
-      return { privatePool: true, communityPool: true };
-    }
+    // loadPoolRights returns no rights when the tenant has no users row.
     return loadPoolRights(db, ctx.tenantId);
   }
 
