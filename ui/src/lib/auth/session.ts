@@ -9,7 +9,12 @@ export interface SessionUser {
   email?: string;
   tier?: string;
   role?: string;
-  sybil_score?: number;
+  /** Linked sign-in providers from user_identities, e.g. ["google", "github"]. */
+  providers?: string[];
+  github_id?: string | null;
+  github_username?: string | null;
+  /** null until GitHub linking runs the Sybil assessment. */
+  sybil_score?: number | null;
 }
 
 export interface SessionInfo {

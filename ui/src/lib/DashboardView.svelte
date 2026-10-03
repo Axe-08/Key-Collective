@@ -19,6 +19,8 @@
     userAccount: UserAccount;
     projects: Project[];
     projectKeys: ProjectKey[];
+    /** Session rights: may this account lend to the community pool (D-21). */
+    communityPool?: boolean;
   }
 
   let {
@@ -34,6 +36,7 @@
     userAccount,
     projects = [],
     projectKeys = [],
+    communityPool = false,
   }: Props = $props();
 
   let contributionData = $state<{
@@ -177,6 +180,7 @@
       {projects}
       keys={projectKeys}
       providerKeys={keys}
+      {communityPool}
       onRefreshProviderKeys={onRefresh}
     />
   </div>

@@ -4,7 +4,8 @@
   interface Props {
     providerKeys: APIKey[];
     providerKeysLoading: boolean;
-    authProvider?: 'github' | 'google' | 'email' | 'demo';
+    /** Session rights.communityPool: only then may a private key move to the community pool. */
+    canContributeToCommunity?: boolean;
     onRotate: (id: string) => void;
     onOpenSwitchPool: (key: APIKey) => void;
     onDelete: (id: string) => void;
@@ -13,13 +14,11 @@
   let {
     providerKeys,
     providerKeysLoading,
-    authProvider,
+    canContributeToCommunity = false,
     onRotate,
     onOpenSwitchPool,
     onDelete,
   }: Props = $props();
-
-  const canContributeToCommunity = $derived(authProvider === 'github');
 
   // Only show keys owned by the current user
   const privateProviderKeys = $derived(providerKeys.filter((k) =>

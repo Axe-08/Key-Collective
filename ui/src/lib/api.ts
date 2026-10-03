@@ -233,8 +233,10 @@ export const api = {
       email?: string;
       tier?: string;
       role?: string;
-      sybil_score?: number;
-      githubUsername?: string;
+      sybil_score?: number | null;
+      providers?: string[];
+      github_id?: string | null;
+      github_username?: string | null;
       avatarUrl?: string;
     } | null;
     csrfToken?: string;

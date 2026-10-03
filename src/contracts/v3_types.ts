@@ -104,7 +104,7 @@ export interface UserAccount {
   readonly avatarUrl: string;
   readonly isEmailVerified: boolean;
   readonly githubCreatedAt: string;
-  readonly sybilScore: number; // 0 to 100
+  readonly sybilScore: number | null; // 0 to 100; null until GitHub linking assesses the account
   readonly registrationIp: string;
   readonly createdAt: string;
   readonly updatedAt: string;
