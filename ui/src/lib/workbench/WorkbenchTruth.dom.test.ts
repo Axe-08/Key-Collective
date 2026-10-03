@@ -46,6 +46,24 @@ const account: UserAccount = {
   authProvider: 'github',
 };
 
+describe('T-F.7.2 no invented telemetry in the Workbench (QA-05)', () => {
+  it('shows no invented cluster or status ticker, and the print action is called Print view', async () => {
+    const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });
+    await settle();
+
+    const text = document.body.textContent ?? '';
+    for (const invented of ['iad-edge-01', 'NOMINAL', 'Latency Nominal', 'Verified (Web Crypto)', '2024-11-14', 'PDF Audit Dossier']) {
+      expect(text.includes(invented), invented).toBe(false);
+    }
+    const exportBtn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Export Workspace'));
+    exportBtn?.click();
+    flushSync();
+    const labels = Array.from(document.querySelectorAll('button')).map((b) => b.textContent?.trim() ?? '');
+    expect(labels.some((l) => l.endsWith('Print view'))).toBe(true);
+    unmount(wb);
+  });
+});
+
 describe('T-F.7.1 tier cards are read-only (QA-04)', () => {
   it('renders tier cards without buttons, and clicking one does not change the active tier', async () => {
     const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });

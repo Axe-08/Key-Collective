@@ -402,7 +402,8 @@
     exportDropdownOpen = false;
   }
 
-  function handleExportPdf(): void {
+  /** Opens the browser print dialog for this page; it does not generate a document. */
+  function handlePrintView(): void {
     exportDropdownOpen = false;
     window.print();
   }
@@ -453,8 +454,6 @@
     <div>
       <div class="flex items-center gap-2 mb-1">
         <span class="font-label-sm text-label-sm text-primary uppercase font-mono">Governance Console</span>
-        <span class="text-outline">•</span>
-        <span class="font-label-sm text-label-sm text-outline font-mono">Cluster iad-edge-01</span>
       </div>
       <h1 class="font-headline-lg text-headline-lg font-semibold text-on-surface tracking-tight">
         Developer Workbench &amp; Governance
@@ -493,11 +492,11 @@
             </button>
             <button
               type="button"
-              onclick={handleExportPdf}
+              onclick={handlePrintView}
               class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
             >
-              <span class="material-symbols-outlined text-[14px] text-secondary">picture_as_pdf</span>
-              Export PDF Audit Dossier
+              <span class="material-symbols-outlined text-[14px] text-secondary">print</span>
+              Print view
             </button>
           </div>
         {/if}
@@ -562,21 +561,9 @@
     {getProjectName}
   />
 
-  <!-- 5. Bottom Edge Telemetry Ticker -->
-  <div class="flex flex-wrap items-center justify-between gap-4 p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/20 font-code-sm text-code-sm text-on-surface-variant font-mono">
-    <div class="flex items-center gap-4 flex-wrap">
-      <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_rgba(78,222,163,0.6)]"></span>
-        <span>System Status: <span class="text-on-surface font-semibold">NOMINAL</span></span>
-      </div>
-      <span class="text-outline">•</span>
-      <div>Security: <span class="text-secondary font-medium">Verified (Web Crypto)</span></div>
-      <span class="text-outline">•</span>
-      <div>Cloudflare Edge: <span class="text-secondary font-medium">Protected • Latency Nominal</span></div>
-    </div>
-    <div class="flex items-center gap-2 text-outline">
-      <span>{currentUtcString || 'UTC 2024-11-14 08:34:11'}</span>
-    </div>
+  <!-- 5. Bottom clock (no invented status claims, QA-05) -->
+  <div class="flex items-center justify-end p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/20 font-code-sm text-code-sm text-outline font-mono">
+    <span>{currentUtcString}</span>
   </div>
 </main>
 
