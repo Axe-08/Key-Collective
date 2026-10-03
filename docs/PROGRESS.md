@@ -225,12 +225,14 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.4.3 Clean normaliseKeyStatus legacy branches
 
 ### WP-7.5
+Precondition waived under D-28 (2026-10-02), not met.
 - [x] T-7.5.1 Remove ROUTING_ENGINE switch from cascade router
 - [x] T-7.5.2 Shrink KeyPoolDO to private keys only
 - [x] T-7.5.3 Remove ROUTING_ENGINE from wrangler.jsonc and scripts
 - [x] T-7.5.4 Archive legacy routing tests
 
 ### WP-7.6
+Precondition waived under D-28 (2026-10-02), not met.
 - [x] T-7.6.1 Simplify resolveLeasedKey to HKDF-only
 - [x] T-7.6.2 Archive legacy global-key decryption path in crypto.ts
 
@@ -267,7 +269,35 @@ Plan: `docs/REMEDIATION_PLAN_V3.md`
 - [x] T-G.1.5 Add scripts/check-baselines.mjs and scripts/baselines.json to gate:fast
 
 ### WP-G.2
-- [ ] T-G.2.1 Add operator ledger (D.1–D.4) and D-28 waivers to docs/PROGRESS.md
+- [x] T-G.2.1 Add operator ledger (D.1–D.4) and D-28 waivers to docs/PROGRESS.md
+
+## Operator steps for Phases 4–8
+
+### D.1 Before deploy (STOP)
+- [ ] D.1.1 Back up both databases (`npx wrangler d1 export key-collective-d1-dev --remote --output backups/dev-<date>.sql` and `key-collective-d1 --remote --output backups/prod-<date>.sql`)
+- [ ] D.1.2 Count keys that are not HKDF-migrated (`SELECT COUNT(*) AS n FROM api_keys WHERE hkdf_migrated = 0`) on `key-collective-d1-dev` and `key-collective-d1`
+- [ ] D.1.3 D-27 count on production (`SELECT COUNT(*) FROM users WHERE id LIKE 'gh_%' OR id LIKE 'usr_gh_%'`)
+- [ ] D.1.4 Check dev secrets (`npx wrangler secret list --env dev`: `KC_MASTER_KEY`, `SESSION_SIGNING_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`)
+- [ ] D.1.5 List pending migrations on dev (`npx wrangler d1 migrations list key-collective-d1-dev --remote`; expect 0015–0024)
+
+### D.2 Deploy (STOP)
+- [ ] D.2.1 Push `git push origin docs/intent-audit-and-remediation:develop` and verify CI gate, D1 migrations, and `--env dev` deploy
+
+### D.3 Smoke on dev
+- [ ] D.3.1 Sign in, complete consent, link GitHub; verify rights show private and community pools
+- [ ] D.3.2 Submit a Gemini key with Turnstile (expect 201, record GCP probe in `docs/specs/gcp_probe.md`; duplicate returns 409 `key_already_registered`)
+- [ ] D.3.3 Create a project and project token; call `POST https://api-dev.key-col.axe08.tech/v1/chat/completions` (expect 200, CU header, Analytics row)
+- [ ] D.3.4 Call with a model whose provider has no key (expect honest fallback or 429/503 body, not 500)
+- [ ] D.3.5 Admin panel: verify provider override, kill switch, audit log, and reset-quota
+- [ ] D.3.6 Verify Standing card and Pool / My Contribution tabs show real numbers with no placeholders
+- [ ] D.3.7 Rotate key, delete it, resubmit within 30m (vesting carries over); after 30m project is tombstoned (409 `project_tombstoned`)
+- [ ] D.3.8 Submit public `/report` page with Turnstile while signed out
+- [ ] D.3.9 Run `npx wrangler tail --env dev` during smoke checks and record findings in `docs/specs/dev_smoke_<date>.md`
+
+### D.4 Soak (next UTC midnight)
+- [ ] D.4.1 Verify `standing_history` and `key_daily_stats` each gain a row for the day
+- [ ] D.4.2 Verify coordinator hourly stats rows exist
+- [ ] D.4.3 Verify no key moved to `QUARANTINED` unexpectedly
 
 ## Phase 8
 
