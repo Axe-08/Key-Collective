@@ -5,17 +5,23 @@
 
 import { hashToken } from "../../crypto";
 import { timingSafeEqualStrings } from "../../crypto/utils";
-import { lookupSession, readCookie } from "../../auth/session/store";
+import { ADMIN_SESSION_COOKIE, lookupSession, readCookie } from "../../auth/session/store";
 import type { WorkerEnv } from "../auth/index";
 import type { WorkerOptions } from "./types";
 
-export const ADMIN_SESSION_COOKIE = "kc_admin_session";
+export { ADMIN_SESSION_COOKIE };
 
 function adminEmails(env: WorkerEnv): string[] {
   return String(env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter((e) => e.length > 0);
+}
+
+/** True when `email` is listed in ADMIN_EMAILS (comma-separated, case-insensitive). */
+export function isAdminEmail(env: WorkerEnv, email: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  return normalized.length > 0 && adminEmails(env).includes(normalized);
 }
 
 /**
