@@ -5,7 +5,8 @@
  * 1. forceErrorGcpProbe reads projects/<n> from ErrorInfo.metadata.consumer on 400 and 404,
  *    falls back to Help links and ResourceInfo, and otherwise reports why it is unavailable.
  * 2. Non-Google providers are not probed.
- * 3. checkProofOfLife makes one minimal call and maps 200 / 429 / 401-403 / 5xx-timeout.
+ * 3. checkProofOfLife makes one minimal call (gemini-3.5-flash-lite / openai/gpt-oss-20b, T-F.3.4)
+ *    and maps 200 / 429 / 401-403 / Gemini 400 API_KEY_INVALID / 404 model / 5xx-timeout.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -77,22 +78,66 @@ describe("forceErrorGcpProbe", () => {
 });
 
 describe("checkProofOfLife", () => {
-  it("sends one minimal Gemini call", async () => {
+  it("sends one minimal Gemini call on gemini-3.5-flash-lite", async () => {
     const fetchFn = answer(200, { candidates: [] });
 
     expect(await checkProofOfLife(KEY, "google")).toEqual({ ok: true });
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toContain(":generateContent");
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
     expect(JSON.parse(String(init.body)).generationConfig.maxOutputTokens).toBe(1);
   });
 
-  it("sends one minimal Groq call on llama-3.1-8b-instant", async () => {
+  it("sends one minimal Groq call on openai/gpt-oss-20b", async () => {
     const fetchFn = answer(200, { choices: [] });
 
     expect(await checkProofOfLife("gsk_" + "a".repeat(30), "groq")).toEqual({ ok: true });
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
-    expect(JSON.parse(String(init.body))).toMatchObject({ model: "llama-3.1-8b-instant", max_tokens: 1 });
+    expect(JSON.parse(String(init.body))).toMatchObject({ model: "openai/gpt-oss-20b", max_tokens: 1 });
+  });
+
+  it("maps the live Gemini 400 API_KEY_INVALID body to key_invalid", async () => {
+    // Recorded 2026-10-03 (docs/specs/gcp_probe.md, RA-04): an invalid key answers 400, not 401.
+    answer(400, {
+      error: {
+        code: 400,
+        message: "API key not valid. Please pass a valid API key.",
+        status: "INVALID_ARGUMENT",
+        details: [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            reason: "API_KEY_INVALID",
+            domain: "googleapis.com",
+            metadata: { service: "generativelanguage.googleapis.com" },
+          },
+        ],
+      },
+    });
+
+    expect(await checkProofOfLife(KEY, "google")).toEqual({ error: "key_invalid" });
+  });
+
+  it("does not blame the key for another Gemini 400", async () => {
+    answer(400, { error: { code: 400, message: "Invalid JSON payload", status: "INVALID_ARGUMENT" } });
+
+    expect(await checkProofOfLife(KEY, "google")).toEqual({ error: "provider_unavailable" });
+  });
+
+  it.each([
+    ["google", 404, { error: { code: 404, message: "models/gemini-3.5-flash-lite is not found", status: "NOT_FOUND" } }],
+    ["groq", 404, { error: { message: "The model does not exist", type: "invalid_request_error", code: "model_not_found" } }],
+    ["groq", 400, { error: { message: "The model has been decommissioned", type: "invalid_request_error", code: "model_decommissioned" } }],
+  ])("logs probe_model_unavailable and answers provider_unavailable for %s HTTP %i", async (provider, status, body) => {
+    answer(status, body);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const key = provider === "groq" ? "gsk_" + "a".repeat(30) : KEY;
+    expect(await checkProofOfLife(key, provider)).toEqual({ error: "provider_unavailable" });
+    const logged = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("probe_model_unavailable");
+    expect(logged).toContain(provider === "groq" ? "openai/gpt-oss-20b" : "gemini-3.5-flash-lite");
+    expect(logged).not.toContain(key);
+    warn.mockRestore();
   });
 
   it.each([
