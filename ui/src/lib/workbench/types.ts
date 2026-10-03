@@ -15,7 +15,6 @@ export interface ExtendedProject extends Project {
 }
 
 export interface ExtendedKey extends ProjectKey {
-  fullSecret?: string;
   displayTime?: string;
   displayCreated?: string;
 }
@@ -39,12 +38,9 @@ export interface WorkbenchProps {
   providerKeys?: APIKey[];
   /** Session rights: may this account lend to the community pool (D-21). */
   communityPool?: boolean;
-  onSelectTier?: (tier: UserTier) => void;
   onCreateProject?: (project: Partial<Project>) => void;
   onRotateKey?: (keyId: string) => void;
   onRevokeKey?: (keyId: string) => void;
-  onDeleteKey?: (keyId: string) => void;
-  onToggleKeyStatus?: (keyId: string) => void;
   onRefreshProviderKeys?: () => Promise<void> | void;
 }
 

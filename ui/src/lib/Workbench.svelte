@@ -34,12 +34,9 @@
     keys = [],
     providerKeys: propProviderKeys,
     communityPool = false,
-    onSelectTier,
     onCreateProject,
     onRotateKey,
     onRevokeKey,
-    onDeleteKey,
-    onToggleKeyStatus,
     onRefreshProviderKeys,
   }: WorkbenchProps = $props();
 
@@ -60,8 +57,10 @@
 
   // Helper for auth headers
 
+  // A parent that passes providerKeys (even an empty list) owns the /api/keys polling;
+  // the Workbench fetches only when mounted on its own (QA-06).
   $effect(() => {
-    if (propProviderKeys && propProviderKeys.length > 0) {
+    if (propProviderKeys !== undefined) {
       providerKeys = propProviderKeys;
       providerKeysLoading = false;
       return;
@@ -69,13 +68,7 @@
 
     api.getKeys()
       .then((data) => {
-        if (Array.isArray(data)) {
-          providerKeys = data;
-        } else if (data && Array.isArray((data as any).keys)) {
-          providerKeys = (data as any).keys;
-        } else {
-          providerKeys = [];
-        }
+        providerKeys = Array.isArray(data) ? data : [];
       })
       .catch((err) => {
         console.error('Failed to fetch keys', err);
@@ -151,14 +144,8 @@
     providerKeys = providerKeys.filter((k) => k.id !== id);
   }
 
-  // Selected Tier state: defaults to account tier or builder
-  let selectedTier = $state<UserTier>('builder');
-
-  $effect(() => {
-    if (account?.tier) {
-      selectedTier = account.tier;
-    }
-  });
+  // The active tier is the server's users.tier; the tier cards only display it (QA-04).
+  const selectedTier = $derived<UserTier>(account.tier || 'builder');
 
   // Projects and API keys come from the server only (WP-3.9); a failed load shows an
   // empty list rather than invented rows.
@@ -201,14 +188,10 @@
 
   // Modals & Popovers
   let exportDropdownOpen = $state(false);
-  let showVerificationProofModal = $state(false);
   let showNewProjectModal = $state(false);
   let showProjectSettingsModal = $state<ExtendedProject | null>(null);
 
-  let copiedKeyId = $state<string | null>(null);
-
   let showNewKeyModal = $state(false);
-  let newKeyName = $state('');
   let newKeyProjectId = $state('');
   let openKeyDropdownId = $state<string | null>(null);
 
@@ -224,7 +207,6 @@
       const issued = await api.createToken({ project_id: newKeyProjectId });
       localKeys = [toKey(issued, account.id), ...localKeys];
       revealedSecret = issued.token;
-      newKeyName = '';
       showNewKeyModal = false;
     } catch (err: unknown) {
       alert(`Failed to create key: ${err instanceof Error ? err.message : String(err)}`);
@@ -271,35 +253,13 @@
     })
   );
 
-  function selectTier(tier: UserTier): void {
-    selectedTier = tier;
-    if (onSelectTier) {
-      onSelectTier(tier);
-    }
-  }
-
   function getProjectKeyCount(projectId: string): number {
     return localKeys.filter((k) => k.projectId === projectId && !k.isRevoked).length;
   }
 
   function getProjectName(projectId: string): string {
     const p = localProjects.find((proj) => proj.id === projectId);
-    return p ? p.name : 'Production Gateway';
-  }
-
-  async function copyKeySecret(secret: string, keyId: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(secret);
-      copiedKeyId = keyId;
-      setTimeout(() => {
-        if (copiedKeyId === keyId) copiedKeyId = null;
-      }, 2000);
-    } catch {
-      copiedKeyId = keyId;
-      setTimeout(() => {
-        if (copiedKeyId === keyId) copiedKeyId = null;
-      }, 2000);
-    }
+    return p ? p.name : '—';
   }
 
   async function handleRotateKey(keyId: string): Promise<void> {
@@ -354,17 +314,6 @@
     }
   }
 
-  async function handleDeleteKey(keyId: string): Promise<void> {
-    await handleRevokeKey(keyId);
-    onDeleteKey?.(keyId);
-  }
-
-  async function handleToggleKey(keyId: string): Promise<void> {
-    // Revocation is permanent on the server; there is no un-revoke.
-    await handleRevokeKey(keyId);
-    onToggleKeyStatus?.(keyId);
-  }
-
   /** Pessimistic project edit: local state changes only after the server stored it. */
   async function saveProject(
     id: string,
@@ -417,7 +366,8 @@
     exportDropdownOpen = false;
   }
 
-  function handleExportPdf(): void {
+  /** Opens the browser print dialog for this page; it does not generate a document. */
+  function handlePrintView(): void {
     exportDropdownOpen = false;
     window.print();
   }
@@ -468,8 +418,6 @@
     <div>
       <div class="flex items-center gap-2 mb-1">
         <span class="font-label-sm text-label-sm text-primary uppercase font-mono">Governance Console</span>
-        <span class="text-outline">•</span>
-        <span class="font-label-sm text-label-sm text-outline font-mono">Cluster iad-edge-01</span>
       </div>
       <h1 class="font-headline-lg text-headline-lg font-semibold text-on-surface tracking-tight">
         Developer Workbench &amp; Governance
@@ -508,11 +456,11 @@
             </button>
             <button
               type="button"
-              onclick={handleExportPdf}
+              onclick={handlePrintView}
               class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
             >
-              <span class="material-symbols-outlined text-[14px] text-secondary">picture_as_pdf</span>
-              Export PDF Audit Dossier
+              <span class="material-symbols-outlined text-[14px] text-secondary">print</span>
+              Print view
             </button>
           </div>
         {/if}
@@ -530,7 +478,6 @@
   <TierMatrixSection
     tierMatrix={TIER_MATRIX}
     {selectedTier}
-    onSelectTier={selectTier}
   />
 
   <!-- 3. Multi-Project Management Section -->
@@ -564,42 +511,24 @@
     projects={localProjects}
     bind:keySearch
     bind:keyProjectFilter
-    {copiedKeyId}
     {openKeyDropdownId}
     onSearchChange={(val) => (keySearch = val)}
     onProjectFilterChange={(val) => (keyProjectFilter = val)}
     onCreateKeyClick={() => (showNewKeyModal = true)}
-    onCopyKeySecret={copyKeySecret}
-    onToggleKey={handleToggleKey}
     onRotateKey={handleRotateKey}
     onRevokeKey={handleRevokeKey}
-    onDeleteKey={handleDeleteKey}
     onToggleDropdown={(id) => (openKeyDropdownId = id)}
     {getProjectName}
   />
 
-  <!-- 5. Bottom Edge Telemetry Ticker -->
-  <div class="flex flex-wrap items-center justify-between gap-4 p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/20 font-code-sm text-code-sm text-on-surface-variant font-mono">
-    <div class="flex items-center gap-4 flex-wrap">
-      <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_rgba(78,222,163,0.6)]"></span>
-        <span>System Status: <span class="text-on-surface font-semibold">NOMINAL</span></span>
-      </div>
-      <span class="text-outline">•</span>
-      <div>Security: <span class="text-secondary font-medium">Verified (Web Crypto)</span></div>
-      <span class="text-outline">•</span>
-      <div>Cloudflare Edge: <span class="text-secondary font-medium">Protected • Latency Nominal</span></div>
-    </div>
-    <div class="flex items-center gap-2 text-outline">
-      <span>{currentUtcString || 'UTC 2024-11-14 08:34:11'}</span>
-    </div>
+  <!-- 5. Bottom clock (no invented status claims, QA-05) -->
+  <div class="flex items-center justify-end p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/20 font-code-sm text-code-sm text-outline font-mono">
+    <span>{currentUtcString}</span>
   </div>
 </main>
 
 <!-- Modals Component Container -->
 <Modals
-  {showVerificationProofModal}
-  onCloseVerificationProofModal={() => (showVerificationProofModal = false)}
   {showNewProjectModal}
   onCloseNewProjectModal={() => (showNewProjectModal = false)}
   onCreateProjectSubmit={handleCreateNewProject}
@@ -610,7 +539,6 @@
   {showNewKeyModal}
   onCloseNewKeyModal={() => (showNewKeyModal = false)}
   onCreateKeySubmit={handleCreateNewKey}
-  bind:newKeyName
   bind:newKeyProjectId
   projects={localProjects}
   {showProjectSettingsModal}

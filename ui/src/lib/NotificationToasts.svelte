@@ -1,58 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { api } from './api';
+  import { notificationsFeed } from './notifications_feed';
 
-  interface NotificationItem {
-    id: string;
-    tenant_id: string;
-    type: string;
-    key_id: string | null;
-    message: string;
-    created_at: number;
-    read_at: number | null;
-  }
-
-  let {
-    pollIntervalMs = 30000,
-  }: {
-    pollIntervalMs?: number;
-  } = $props();
-
-  let activeNotifications = $state<NotificationItem[]>([]);
-  let lastSince = $state(0);
-  let dismissedIds = new Set<string>();
-
-  async function pollNotifications() {
-    try {
-      const res = await api.getNotifications(lastSince);
-      const incoming = res.notifications || [];
-      let maxCreated = lastSince;
-
-      for (const n of incoming) {
-        if (n.created_at > maxCreated) {
-          maxCreated = n.created_at;
-        }
-        if (!n.read_at && !dismissedIds.has(n.id) && !activeNotifications.some((a) => a.id === n.id)) {
-          activeNotifications = [...activeNotifications, n];
-        }
-      }
-      lastSince = maxCreated;
-    } catch {
-      // Non-blocking fallback
-    }
-  }
+  // Reads the shared feed; App.svelte owns the polling (QA-06).
+  const activeNotifications = $derived($notificationsFeed.filter((n) => !n.read_at));
 
   async function handleDismiss(id: string) {
-    dismissedIds.add(id);
-    activeNotifications = activeNotifications.filter((n) => n.id !== id);
-    await api.markNotificationRead(id);
+    notificationsFeed.markReadLocally(id);
+    const ok = await api.markNotificationRead(id);
+    if (!ok) console.error('Failed to mark notification read', id);
   }
-
-  onMount(() => {
-    void pollNotifications();
-    const timer = setInterval(pollNotifications, pollIntervalMs);
-    return () => clearInterval(timer);
-  });
 </script>
 
 {#if activeNotifications.length > 0}

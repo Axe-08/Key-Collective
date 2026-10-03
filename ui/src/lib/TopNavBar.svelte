@@ -40,7 +40,8 @@
   } = $props();
 
   import { onMount } from 'svelte';
-  
+  import { notificationsFeed } from './notifications_feed';
+
   let isNotificationsOpen = $state(false);
   let isProfileMenuOpen = $state(false);
   let isDevMenuOpen = $state(false);
@@ -51,28 +52,14 @@
   let editDisplayName = $state('');
   let editAvatarUrl = $state('');
 
-  let notifications = $state<Array<{ id: string; type: string; message: string; created_at: string }>>([]);
-  let hasUnread = $derived(notifications.length > 0);
-
-  async function fetchNotifications() {
-    try {
-      const res = await fetch('/api/notifications', { credentials: 'same-origin' });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.notifications)) {
-          notifications = data.notifications;
-        }
-      }
-    } catch {}
-  }
+  // The bell reads the shared feed; App.svelte owns the polling (QA-06).
+  const notifications = $derived($notificationsFeed);
+  let hasUnread = $derived(notifications.some((n) => !n.read_at));
 
   onMount(() => {
     devDisplayName = localStorage.getItem('devDisplayName') || '';
     devAvatarUrl = localStorage.getItem('devAvatarUrl') || '';
     telemetryPollFreq = localStorage.getItem('telemetryPollFreq') || '3s';
-    fetchNotifications();
-    const notifInterval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(notifInterval);
   });
 
   // A GitHub handle gets an @; a Google-only account shows its email (QA-03).

@@ -203,7 +203,7 @@ describe("Dashboard CU responses and credit unit purge", () => {
       expect(Object.keys(json).filter((k) => k.toLowerCase().includes("microdollar"))).toEqual([]);
     });
 
-    it("reports zero CU standing for unauthenticated users and refuses their contribution view", async () => {
+    it("refuses standing (401) and the contribution view to unauthenticated users", async () => {
       const env = createMockEnv();
       const req = new Request("http://localhost/api/pool/standing");
       const ctx = { waitUntil: () => {} };
@@ -216,13 +216,12 @@ describe("Dashboard CU responses and credit unit purge", () => {
         "anonymous",
         ctx
       );
+      // RA-12: no invented PRISTINE standing for a caller with no tenant.
       expect(standingRes).not.toBeNull();
+      expect(standingRes!.status).toBe(401);
       const standingJson = (await standingRes!.json()) as Record<string, unknown>;
-      expect(standingJson.community_debt_cu).toBe(0);
-      expect(standingJson.cu_contributed_today).toBe(0);
-      expect(standingJson.cu_consumed_today).toBe(0);
-      expect(standingJson.net_cu_balance).toBe(0);
-      expect("community_debt_micro_cu" in standingJson).toBe(false);
+      expect("jail_status" in standingJson).toBe(false);
+      expect("community_debt_cu" in standingJson).toBe(false);
 
       const contribRes = await handlePoolRoute(
         "/api/pool/contribution",

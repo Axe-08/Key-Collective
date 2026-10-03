@@ -166,8 +166,14 @@ async function encryptToken(
 }
 
 /**
+ * Rows GET /api/tokens lists: project-scoped API keys only. Playground tokens (tok_play_*)
+ * and unscoped rows (legacy login tokens) are not project keys (QA-13).
+ */
+const PROJECT_KEYS_ONLY = "project_id IS NOT NULL AND id NOT LIKE 'tok\\_play\\_%' ESCAPE '\\'";
+
+/**
  * GET /api/tokens
- * Lists active tokens for the calling tenant (or all if admin).
+ * Lists active project-scoped tokens for the calling tenant (or all if admin).
  * Token hashes are masked for security.
  */
 export async function handleGetTokens(
@@ -213,6 +219,7 @@ export async function handleGetTokens(
         .prepare(
           `SELECT id, hash_sha256, tenant_id, allowed_providers, rpm_limit, expires_at, created_at, project_id, budget_cu, spent_cu
            FROM auth_tokens
+           WHERE ${PROJECT_KEYS_ONLY}
            ORDER BY created_at DESC`
         )
         .all<RawTokenRow>();
@@ -223,7 +230,7 @@ export async function handleGetTokens(
         .prepare(
           `SELECT id, hash_sha256, tenant_id, allowed_providers, rpm_limit, expires_at, created_at, project_id, budget_cu, spent_cu
            FROM auth_tokens
-           WHERE tenant_id = ?
+           WHERE tenant_id = ? AND ${PROJECT_KEYS_ONLY}
            ORDER BY created_at DESC`
         )
         .bind(scopedTenant)

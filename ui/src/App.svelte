@@ -42,6 +42,7 @@
   import AnalyticsView from './lib/AnalyticsView.svelte';
   import ReportPage from './lib/ReportPage.svelte';
   import NotificationToasts from './lib/NotificationToasts.svelte';
+  import { notificationsFeed } from './lib/notifications_feed';
   import AddKeyModal from './lib/AddKeyModal.svelte';
   import Workbench from './lib/Workbench.svelte';
   import ApiDocs from './lib/ApiDocs.svelte';
@@ -193,15 +194,6 @@
     addToast('info', autoRefresh ? 'Auto-refresh enabled (3s polling)' : 'Auto-refresh paused');
   }
 
-  function handleSelectTier(tier: UserTier) {
-    userAccount = {
-      ...userAccount,
-      tier,
-      updatedAt: new Date().toISOString(),
-    };
-    addToast('success', `Authorization Tier updated to: ${tier.toUpperCase()}`);
-  }
-
   // Identity comes only from GET /api/session (WP-3.4); nothing is kept in localStorage.
   async function refreshSession() {
     try {
@@ -268,6 +260,9 @@
     }
   });
 
+  // The single /api/notifications poller; the bell and the toasts read the same feed (QA-06).
+  onMount(() => notificationsFeed.start());
+
   function handleCopyEndpoint() {
     navigator.clipboard.writeText(proxyEndpoint);
     isEndpointCopied = true;
@@ -293,7 +288,7 @@
           id: userAccount.id || 'admin',
           githubUsername: userAccount.githubUsername || 'admin',
           tier: 'admin',
-          primaryEmail: userAccount.primaryEmail || 'admin@keycollective.io',
+          primaryEmail: userAccount.primaryEmail,
         };
         activeTab = 'admin';
       } else if (urlParams.get('tab')) {

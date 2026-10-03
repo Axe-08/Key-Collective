@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { APIKey, RequestLog, PoolStats, CreateKeyPayload } from './types';
+import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, NotificationItem } from './types';
 import { request, sessionAuthTransport, setCsrfToken } from './api/client';
 import {
   KeysListResponseSchema,
@@ -356,18 +356,13 @@ export const api = {
     return res.json();
   },
 
-  async getNotifications(since = 0): Promise<{
-    items: Array<{
-      id: string;
-      kind: string;
-      payload_json: string;
-      created_at: number;
-      read_at: number | null;
-    }>;
-  }> {
+  /** GET /api/notifications answers { notifications }; signed out (401) means none. */
+  async getNotifications(since = 0): Promise<{ notifications: NotificationItem[] }> {
     const res = await fetch(`/api/notifications?since=${since}`, sessionInit());
-    if (!res.ok) return { items: [] };
-    return res.json();
+    if (res.status === 401) return { notifications: [] };
+    if (!res.ok) throw new Error(`Notifications request failed (${res.status})`);
+    const body = (await res.json()) as { notifications?: NotificationItem[] };
+    return { notifications: Array.isArray(body.notifications) ? body.notifications : [] };
   },
 
   async markNotificationRead(id: string): Promise<boolean> {

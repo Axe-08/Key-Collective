@@ -145,7 +145,7 @@
           </div>
           <div class="flex items-center justify-between pt-1 text-xs font-code-sm text-on-surface-variant font-mono">
             <span>Active Keys: <span class="text-on-surface font-medium">{keyCount} Active Key{keyCount !== 1 ? 's' : ''}</span></span>
-            <span>Latency: <span class="text-secondary font-medium">{project.latency || '12ms avg'}</span></span>
+            <span>Latency: <span class="text-secondary font-medium">{project.latency || '—'}</span></span>
           </div>
         </div>
 

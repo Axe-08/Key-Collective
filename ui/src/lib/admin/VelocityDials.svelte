@@ -257,7 +257,6 @@
           <span class="material-symbols-outlined text-[15px] text-cyan-400">timelapse</span>
           p95 Latency
         </span>
-        <span class="font-mono text-cyan-300 font-bold">&lt; 250ms SLA</span>
       </div>
 
       <!-- Circular SVG Gauge -->
@@ -303,11 +302,6 @@
           </span>
         </div>
       </div>
-
-      <div class="w-full pt-2 border-t border-outline-variant/20 flex justify-between text-[11px] font-mono text-on-surface-variant">
-        <span>Edge Isolate</span>
-        <span class="text-secondary font-semibold">12ms (SIN-01)</span>
-      </div>
     </div>
   </div>
 
@@ -352,7 +346,6 @@
           <span class="w-2 h-2 rounded-full bg-secondary"></span>
           Zero Starvation Guard
         </span>
-        <span class="text-outline">Max deviation: ±2.1%</span>
       </div>
     </div>
 

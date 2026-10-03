@@ -156,7 +156,6 @@
         <div class="pt-2 border-t border-outline-variant/20 space-y-1.5">
           <div class="text-[11px] text-outline flex items-center justify-between">
             <span>OpenAI-Compatible Gateway Endpoint</span>
-            <span class="text-secondary text-[10px]">Sub-15ms Edge Routing</span>
           </div>
           <div class="flex items-center gap-2">
             <code class="flex-1 px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface truncate">

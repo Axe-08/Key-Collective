@@ -24,7 +24,7 @@
 
   let {
     globalKillSwitchActive = false,
-    adminEmail = 'admin@keycollective.io',
+    adminEmail = '',
     circuits = {
       gemini: {
         state: 'NORMAL',

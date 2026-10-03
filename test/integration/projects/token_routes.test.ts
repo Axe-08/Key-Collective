@@ -102,3 +102,27 @@ describe("POST /api/tokens/:id/rotate", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("GET /api/tokens lists project keys only (T-F.7.3, QA-13)", () => {
+  it("omits Playground tokens and tokens with no project", async () => {
+    const user = await createUser();
+    const prj = await project(user.id);
+    const call = await as(user);
+    const now = new Date().toISOString();
+    const later = new Date(Date.now() + 15 * 60_000).toISOString();
+    const insert = (id: string, projectId: string | null, expiresAt: string | null) =>
+      env.DB.prepare(
+        `INSERT INTO auth_tokens (id, hash_sha256, tenant_id, allowed_providers, rpm_limit, expires_at, created_at, project_id, budget_cu, spent_cu)
+         VALUES (?, ?, ?, '[]', 10, ?, ?, ?, null, '0')`
+      )
+        .bind(id, crypto.randomUUID().replace(/-/g, ""), user.id, expiresAt, now, projectId)
+        .run();
+    await insert(`tok_play_${crypto.randomUUID().slice(0, 8)}`, prj, later);
+    await insert(`tok_${crypto.randomUUID()}`, null, null);
+    const created = (await (await call("/api/tokens", "POST", { project_id: prj })).json()) as { id: string };
+
+    const list = (await (await call("/api/tokens")).json()) as Array<{ id: string; project_id: string | null }>;
+
+    expect(list.map((t) => t.id)).toEqual([created.id]);
+  });
+});

@@ -105,7 +105,7 @@
           <p class="text-body-sm font-body-sm text-on-surface-variant text-[13px]">
             {targetTenant.isQuarantined
               ? `Re-activating ${targetTenant.email}. DO in-memory counters will be re-initialized upon next request.`
-              : `Freezing ${targetTenant.email} (${targetTenant.tenantId}). Sets is_quarantined = 1 in D1 and immediately evicts tenant from DO isolate memory within 5ms.`}
+              : `Freezing ${targetTenant.email} (${targetTenant.tenantId}). Sets is_quarantined = 1 in D1 and immediately evicts the tenant from DO isolate memory.`}
           </p>
         </div>
       </div>

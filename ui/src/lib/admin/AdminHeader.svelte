@@ -3,7 +3,7 @@
 
   let {
     edgeHost = 'admin.key-col.axe08.tech',
-    adminEmail = 'admin@keycollective.io',
+    adminEmail = '',
     activeTenantsCount,
     anomalyCount,
     totalClusterRpm,
@@ -56,7 +56,7 @@
           </span>
         </h1>
         <p class="text-body-md font-body-md text-on-surface-variant mt-0.5">
-          Administrative surveillance console for tenant velocity dials, Credit Unit (CU) spend ledger, and sub-5ms circuit breaker trip overrides.
+          Administrative surveillance console for tenant velocity dials, Credit Unit (CU) spend ledger, and circuit breaker trip overrides.
         </p>
       </div>
     </div>
@@ -128,7 +128,7 @@
       <span class="text-headline-sm font-bold {quarantinedCount > 0 ? 'text-error' : 'text-outline'} text-[18px]">
         {quarantinedCount}
       </span>
-      <span class="text-outline text-[10px]">&lt;5ms DO Eviction</span>
+      <span class="text-outline text-[10px]">Quarantined</span>
     </div>
 
     <!-- KPI 6: Circuit Health -->

@@ -4,7 +4,7 @@
 
   let {
     tenants = [],
-    adminEmail = 'admin@keycollective.ai',
+    adminEmail = '',
     onAdminAction,
   }: {
     tenants?: TenantSurveillanceRow[];

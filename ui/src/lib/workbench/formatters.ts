@@ -1,6 +1,6 @@
 /**
  * @file formatters.ts
- * Date, relative time, and Markdown dossier export formatters for Workbench.
+ * Date, relative time, and Markdown configuration export formatters for Workbench.
  */
 
 import type { UserAccount, UserTier, TierLimits } from '../../../../src/contracts/v3_types';
@@ -45,30 +45,22 @@ export function generateMarkdownExport(
 
   function getProjectName(projectId: string): string {
     const p = localProjects.find((proj) => proj.id === projectId);
-    return p ? p.name : 'Production Gateway';
+    return p ? p.name : '—';
   }
 
-  return `# Key Collective — Developer Workbench Configuration & Audit Dossier
+  // Only data the server returned. No cluster, region, ASN or verification claims (QA-05).
+  return `# Key Collective — Developer Workbench Configuration
 
 **Exported at:** ${new Date().toISOString()}
-**Cluster:** iad-edge-01 (Active Proxy Node: iad-edge-01.keycollective.net)
 
 ---
 
-## 👤 User Identity & Anti-Sybil Assessment
+## 👤 Account
 - **Account ID:** \`${account.id}\`
-- **GitHub Username:** ${account.githubUsername ? `\`@${account.githubUsername}\`` : 'not linked'}
-- **Primary Email:** ${account.primaryEmail} (Verified: ${account.isEmailVerified ? 'Yes' : 'No'})
-- **Registration IP:** \`${account.registrationIp}\` (Singapore • Dedicated ASN)
-- **Sybil Trust Score:** ${account.sybilScore === null ? 'Unverified, link GitHub' : `**${account.sybilScore}/100**`}
+- **Username:** ${account.githubUsername ? `\`@${account.githubUsername}\`` : 'GitHub not linked'}
+- **Primary Email:** ${account.primaryEmail || '—'}
+- **Sybil Score:** ${account.sybilScore === null ? 'Unverified — link GitHub' : `${account.sybilScore}/100`}
 - **Active Governance Tier:** **${selectedTier.toUpperCase()}**
-
-### 5-Layer Trust Verification
-1. **Turnstile Biometrics:** Passed (0.01ms)
-2. **Account Age:** > 14 months (432d)
-3. **Public Repositories:** 18 Repos • 420+ commits
-4. **Clean Subnet / ASN:** Dedicated ASN • Non-VPN
-5. **Quota Standing:** 0 Flagged Spikes
 
 ---
 
@@ -88,7 +80,7 @@ ${localProjects
 - **Project ID:** \`${p.id}\`
 - **Description:** ${p.description || 'None'}
 - **Assigned RPM Sub-Cap:** ${p.maxRpmSubCap ? `${p.maxRpmSubCap} RPM` : 'Inherited'}
-- **Status:** ${p.isArchived ? 'Archived' : 'Live (Healthy)'}
+- **Status:** ${p.isArchived ? 'Archived' : 'Live'}
 - **Active Keys:** ${getProjectKeyCount(p.id)}
 - **Created:** ${p.createdAt}`
   )

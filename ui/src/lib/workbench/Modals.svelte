@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { ExtendedProject } from './types';
-  import VerificationProofModal from './modals/VerificationProofModal.svelte';
   import NewProjectModal from './modals/NewProjectModal.svelte';
   import NewKeyModal from './modals/NewKeyModal.svelte';
   import ProjectSettingsModal from './modals/ProjectSettingsModal.svelte';
@@ -8,10 +7,6 @@
   import SecretRevealModal from './modals/SecretRevealModal.svelte';
 
   interface Props {
-    // Verification proof modal
-    showVerificationProofModal: boolean;
-    onCloseVerificationProofModal: () => void;
-
     // New project modal
     showNewProjectModal: boolean;
     onCloseNewProjectModal: () => void;
@@ -25,7 +20,6 @@
     showNewKeyModal: boolean;
     onCloseNewKeyModal: () => void;
     onCreateKeySubmit: () => void;
-    newKeyName: string;
     newKeyProjectId: string;
     projects: ExtendedProject[];
 
@@ -53,8 +47,6 @@
   }
 
   let {
-    showVerificationProofModal,
-    onCloseVerificationProofModal,
     showNewProjectModal,
     onCloseNewProjectModal,
     onCreateProjectSubmit,
@@ -65,7 +57,6 @@
     showNewKeyModal,
     onCloseNewKeyModal,
     onCreateKeySubmit,
-    newKeyName = $bindable(''),
     newKeyProjectId = $bindable(''),
     projects,
     showProjectSettingsModal,
@@ -87,11 +78,6 @@
   }: Props = $props();
 </script>
 
-<VerificationProofModal
-  show={showVerificationProofModal}
-  onClose={onCloseVerificationProofModal}
-/>
-
 <NewProjectModal
   show={showNewProjectModal}
   bind:name={newProjectName}
@@ -104,7 +90,6 @@
 
 <NewKeyModal
   show={showNewKeyModal}
-  bind:name={newKeyName}
   bind:projectId={newKeyProjectId}
   {projects}
   onClose={onCloseNewKeyModal}
