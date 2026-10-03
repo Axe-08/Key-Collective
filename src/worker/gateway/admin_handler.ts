@@ -869,7 +869,7 @@ export async function handleAdminRequest(
         currentRpm: 0,
       };
       const name = prov === 'gemini' ? 'Google Gemini Flash' : prov === 'groq' ? 'Groq LLaMA 3.3' : prov === 'cerebras' ? 'Cerebras Inference' : 'DeepSeek Reasoner';
-      const model = prov === 'gemini' ? 'gemini-1.5-flash-latest' : prov === 'groq' ? 'llama-3.3-70b-versatile' : prov === 'cerebras' ? 'llama3.1-8b' : 'deepseek-reasoner';
+      const model = prov === 'gemini' ? 'gemini-3.5-flash-lite' : prov === 'groq' ? 'openai/gpt-oss-120b' : prov === 'cerebras' ? 'llama3.1-8b' : 'deepseek-reasoner';
       const currentRpm = providerRpmMap.get(prov) ?? stat.currentRpm;
       return {
         provider: prov,

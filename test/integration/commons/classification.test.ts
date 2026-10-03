@@ -70,33 +70,33 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
         rpdLimit: 100,
       });
 
-      // 60 dispatches on gemini-2.0-flash out of rpdLimit=100 -> kc_seen_pct = 60 >= 50
+      // 60 dispatches on gemini-3.5-flash out of rpdLimit=100 -> kc_seen_pct = 60 >= 50
       // 51 communal, 9 own -> communal_pct = 51 * 100 / 60 = 85% >= 80%
       for (let i = 0; i < 9; i++) {
         const l = await coord.lease({
           tenant: owner.id,
           ownOnly: true,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           estimateCu: 10,
         });
-        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-3.5-flash");
       }
 
       for (let i = 0; i < 50; i++) {
         const l = await coord.lease({
           tenant: `borrower_${i}`,
           ownOnly: false,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           estimateCu: 10,
         });
-        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-3.5-flash");
       }
 
       // 51st communal request hits RPD exhaustion (total 60 dispatches, 51 communal = 85%)
       const lastLease = await coord.lease({
         tenant: "borrower_last",
         ownOnly: false,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         estimateCu: 10,
       });
       const settleRes = await coord.settle(
@@ -104,7 +104,7 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
         "rpd_exhausted",
         0,
         t0 + 3600_000,
-        "gemini-2.0-flash"
+        "gemini-3.5-flash"
       );
 
       expect(settleRes.classification).toBeDefined();
@@ -113,7 +113,7 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
       expect(settleRes.classification?.result).toBe("HERO");
       expect(settleRes.classification?.drainState).toBe("OK");
 
-      const keyState = await coord.getKeyState(keyRow.id, "gemini-2.0-flash");
+      const keyState = await coord.getKeyState(keyRow.id, "gemini-3.5-flash");
       expect(keyState?.classification).toBe("HERO");
       expect(keyState?.drainState).toBe("OK");
     });
@@ -144,16 +144,16 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
         const l = await coord.lease({
           tenant: `b_${i}`,
           ownOnly: false,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
         });
-        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-3.5-flash");
       }
       const l3 = await coord.lease({
         tenant: "b_2",
         ownOnly: false,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
       });
-      const res = await coord.settle(l3!.leaseId, "rpd_exhausted", 0, day1 + 1000, "gemini-2.0-flash");
+      const res = await coord.settle(l3!.leaseId, "rpd_exhausted", 0, day1 + 1000, "gemini-3.5-flash");
       expect(res.classification?.kcSeenPct).toBe(3);
       expect(res.classification?.effectiveRpd).toBe(3);
 
@@ -166,17 +166,17 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
         const l = await coord.lease({
           tenant: `b_next_${i}`,
           ownOnly: false,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
         });
         expect(l).not.toBeNull();
-        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+        await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-3.5-flash");
       }
 
       // 4th borrowed lease is blocked because effective_rpd = 3 caps lending at min(100, 3) = 3
       const cappedLease = await coord.lease({
         tenant: "b_next_4",
         ownOnly: false,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
       });
       expect(cappedLease).toBeNull();
 
@@ -184,7 +184,7 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
       const ownerLease = await coord.lease({
         tenant: "owner_drain_cap",
         ownOnly: true,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
       });
       expect(ownerLease).not.toBeNull();
     });
@@ -220,12 +220,12 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
         const l = await coord.lease({
           tenant: owner.id,
           ownOnly: true,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
         });
         expect(l).not.toBeNull();
-        await coord.settle(l!.leaseId, "rpd_exhausted", 0, t + 1000, "gemini-2.0-flash");
+        await coord.settle(l!.leaseId, "rpd_exhausted", 0, t + 1000, "gemini-3.5-flash");
 
-        const st = await coord.getKeyState(keyRow.id, "gemini-2.0-flash");
+        const st = await coord.getKeyState(keyRow.id, "gemini-3.5-flash");
         if (d < 5) {
           expect(st?.drainState).toBe("OK");
         } else {
@@ -258,18 +258,18 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
           const l = await coord.lease({
             tenant: owner.id,
             ownOnly: true,
-            model: "gemini-2.0-flash",
+            model: "gemini-3.5-flash",
           });
-          await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+          await coord.settle(l!.leaseId, "ok", 10, undefined, "gemini-3.5-flash");
         }
         const last = await coord.lease({
           tenant: owner.id,
           ownOnly: true,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
         });
-        await coord.settle(last!.leaseId, "rpd_exhausted", 0, t + 1000, "gemini-2.0-flash");
+        await coord.settle(last!.leaseId, "rpd_exhausted", 0, t + 1000, "gemini-3.5-flash");
 
-        const st = await coord.getKeyState(keyRow.id, "gemini-2.0-flash");
+        const st = await coord.getKeyState(keyRow.id, "gemini-3.5-flash");
         if (d < 8) {
           expect(st?.drainState).toBe("DRAINED");
         } else {
@@ -308,41 +308,41 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
         rpdLimit: 100,
       });
 
-      // 3 dispatches on gemini-2.0-flash (2 borrowed, 1 own)
+      // 3 dispatches on gemini-3.5-flash (2 borrowed, 1 own)
       for (let i = 0; i < 2; i++) {
         const l = await coord.lease({
           tenant: `b_flash_${i}`,
           ownOnly: false,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
         });
-        await coord.settle(l!.leaseId, "ok", 15, undefined, "gemini-2.0-flash");
+        await coord.settle(l!.leaseId, "ok", 15, undefined, "gemini-3.5-flash");
       }
       const lOwn = await coord.lease({
         tenant: "owner_multi",
         ownOnly: true,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
       });
-      await coord.settle(lOwn!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+      await coord.settle(lOwn!.leaseId, "ok", 10, undefined, "gemini-3.5-flash");
 
-      // 1 dispatch on gemini-1.5-pro that hits rpd_exhausted (kc_seen_pct = 1 < 50 -> drained day for pro)
+      // 1 dispatch on gemini-3.1-pro-preview that hits rpd_exhausted (kc_seen_pct = 1 < 50 -> drained day for pro)
       const lPro = await coord.lease({
         tenant: "b_pro_1",
         ownOnly: false,
-        model: "gemini-1.5-pro",
+        model: "gemini-3.1-pro-preview",
       });
-      await coord.settle(lPro!.leaseId, "rpd_exhausted", 0, t0 + 5000, "gemini-1.5-pro");
+      await coord.settle(lPro!.leaseId, "rpd_exhausted", 0, t0 + 5000, "gemini-3.1-pro-preview");
 
       // Simulate coordinator eviction
       coord.clearMemoryCache();
 
-      const flashState = await coord.getKeyState("key_multi_model", "gemini-2.0-flash");
+      const flashState = await coord.getKeyState("key_multi_model", "gemini-3.5-flash");
       expect(flashState?.dispatchedToday).toBe(4);
       expect(flashState?.dispatchedCommunal).toBe(3);
       expect(flashState?.modelStats?.dispatchedToday).toBe(3);
       expect(flashState?.modelStats?.dispatchedCommunal).toBe(2);
       expect(flashState?.modelStats?.cuServed).toBe(40);
 
-      const proState = await coord.getKeyState("key_multi_model", "gemini-1.5-pro");
+      const proState = await coord.getKeyState("key_multi_model", "gemini-3.1-pro-preview");
       expect(proState?.modelStats?.dispatchedToday).toBe(1);
       expect(proState?.modelStats?.dispatchedCommunal).toBe(1);
       expect(proState?.effectiveRpd).toBe(1);
@@ -374,21 +374,21 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
         rpdLimit: 100,
       });
 
-      // 2 borrowed dispatches + 1 own dispatch on gemini-2.0-flash
+      // 2 borrowed dispatches + 1 own dispatch on gemini-3.5-flash
       for (let i = 0; i < 2; i++) {
         const l = await coord.lease({
           tenant: `borrower_flush_${i}`,
           ownOnly: false,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
         });
-        await coord.settle(l!.leaseId, "ok", 25, undefined, "gemini-2.0-flash");
+        await coord.settle(l!.leaseId, "ok", 25, undefined, "gemini-3.5-flash");
       }
       const ownLease = await coord.lease({
         tenant: owner.id,
         ownOnly: true,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
       });
-      await coord.settle(ownLease!.leaseId, "ok", 10, undefined, "gemini-2.0-flash");
+      await coord.settle(ownLease!.leaseId, "ok", 10, undefined, "gemini-3.5-flash");
 
       const beforeStats = await coord.stats();
       expect(beforeStats.dispatchedToday).toBe(3);
@@ -404,7 +404,7 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
       expect(afterStats.dispatchedToday).toBe(0);
       expect(afterStats.dispatchedCommunal).toBe(0);
 
-      const afterKeyState = await coord.getKeyState(keyRow.id, "gemini-2.0-flash");
+      const afterKeyState = await coord.getKeyState(keyRow.id, "gemini-3.5-flash");
       expect(afterKeyState?.dispatchedToday).toBe(0);
       expect(afterKeyState?.dispatchedCommunal).toBe(0);
       expect(afterKeyState?.modelStats?.dispatchedToday).toBe(0);
@@ -416,7 +416,7 @@ describe("Hero/parasite and drain classification (D-16, WP-5.5 T-5.5.3)", () => 
     const dailyRow = await env.DB.prepare(
       `SELECT key_id, day, model, dispatched, communal, cu_served, classification
          FROM key_daily_stats
-        WHERE key_id = ? AND day = '2030-04-10' AND model = 'gemini-2.0-flash'`
+        WHERE key_id = ? AND day = '2030-04-10' AND model = 'gemini-3.5-flash'`
     )
       .bind(keyRow.id)
       .first<{

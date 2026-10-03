@@ -49,7 +49,7 @@ beforeAll(() => {
           id: "chatcmpl-groq-mock",
           object: "chat.completion",
           created: 1700000000,
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           choices: [
             {
               index: 0,

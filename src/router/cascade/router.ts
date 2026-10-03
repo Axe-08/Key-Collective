@@ -10,7 +10,7 @@
  *   - Interfaces with KeyPoolContract to obtain provider keys and record results/usage.
  * - Golden Test tc-01: Routes requests to provider keys with success 200 response and cost calculation.
  * - Golden Test tc-05: Rejects prompt if estimated tokens exceed model context window (HTTP 400).
- * - Golden Test tc-06: Model alias resolution (e.g. 'smart-fast' -> 'gemini-2.0-flash').
+ * - Golden Test tc-06: Model alias resolution (e.g. 'smart-fast' -> 'gemini-3.8-flash').
  * - Golden Test tc-07: Capability filter excludes unsupported models when tools/vision requested.
  *
  * Invariants Enforced (GEMINI.md Constitution):

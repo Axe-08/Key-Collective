@@ -6,8 +6,6 @@ import {
 } from "../../../src/constants/credits";
 import {
   ALL_MODEL_DEFINITIONS,
-  DEFAULT_MODEL_DEFINITIONS,
-  FREE_TIER_MODEL_DEFINITIONS,
 } from "../../../src/router/registry/catalog";
 import {
   calculateCu,
@@ -67,7 +65,7 @@ describe("Credit Units (CU) System & calculateCu", () => {
 
   describe("Table-Driven Catalog Model Weight Verification", () => {
     it("contains all catalog models and validates their CU fields are bigints", () => {
-      expect(ALL_MODEL_DEFINITIONS.length).toBeGreaterThanOrEqual(12);
+      expect(ALL_MODEL_DEFINITIONS.length).toBeGreaterThanOrEqual(10);
 
       for (const model of ALL_MODEL_DEFINITIONS) {
         expect(typeof model.cuBase, `model ${model.id} cuBase`).toBe("bigint");
@@ -121,10 +119,10 @@ describe("Credit Units (CU) System & calculateCu", () => {
 
   describe("calculateCu Boundary Tests", () => {
     const flashModel: ModelDef = ALL_MODEL_DEFINITIONS.find(
-      (m) => m.id === "gemini-2.0-flash"
+      (m) => m.id === "gemini-3.5-flash"
     )!;
     const proModel: ModelDef = ALL_MODEL_DEFINITIONS.find(
-      (m) => m.id === "gemini-1.5-pro"
+      (m) => m.id === "gemini-3.1-pro-preview"
     )!;
 
     it("returns cuBase for 0 tokens (all usage 0)", () => {
@@ -245,12 +243,12 @@ describe("Credit Units (CU) System & calculateCu", () => {
 
     it("can be called through ModelRegistry instance", () => {
       const registry = new ModelRegistry(ALL_MODEL_DEFINITIONS);
-      const cu = registry.calculateCu("gemini-2.0-flash", {
+      const cu = registry.calculateCu("gemini-3.5-flash", {
         promptTokens: 1000,
         completionTokens: 1000,
       });
       expect(typeof cu).toBe("bigint");
-      // gemini-2.0-flash: cuBase=10, cuInPer1k=1, cuOutPer1k=4 -> 10 + 1 + 4 = 15n
+      // gemini-3.5-flash: cuBase=10, cuInPer1k=1, cuOutPer1k=4 -> 10 + 1 + 4 = 15n
       expect(cu).toBe(15n);
     });
   });

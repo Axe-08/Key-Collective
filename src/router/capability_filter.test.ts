@@ -617,35 +617,40 @@ describe("CapabilityFilter", () => {
 
     it("filters default registry models by vision requirement", () => {
       // In default catalog:
-      // llama-3.3-70b-versatile has supportsVision = false
+      // openai/gpt-oss-120b has supportsVision = false
       const visionCandidates = registryFilter.filterRegistry({ requiresVision: true });
 
       expect(visionCandidates.length).toBeGreaterThan(0);
       expect(visionCandidates.every((m) => m.supportsVision)).toBe(true);
-      expect(visionCandidates.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(false);
+      expect(visionCandidates.some((m) => m.id === "openai/gpt-oss-120b")).toBe(false);
 
-      // Verify that gemini-2.0-flash, gemini-1.5-pro are included
-      expect(visionCandidates.some((m) => m.id === "gemini-2.0-flash")).toBe(true);
-      expect(visionCandidates.some((m) => m.id === "gemini-1.5-pro")).toBe(true);
+      // Verify that gemini-3.5-flash, gemini-3.1-pro-preview are included
+      expect(visionCandidates.some((m) => m.id === "gemini-3.5-flash")).toBe(true);
+      expect(visionCandidates.some((m) => m.id === "gemini-3.1-pro-preview")).toBe(true);
     });
 
     it("orders viable default catalog models cost-optimally (cheapest first)", () => {
       const visionCandidates = registryFilter.filterRegistry({ requiresVision: true });
 
-      // gemini-2.0-flash is 100,000 CU, gemini-1.5-pro is 1,250,000 CU
-      expect(visionCandidates[0].id).toBe("gemini-2.0-flash");
-      expect(visionCandidates[1].id).toBe("gemini-1.5-pro");
-      expect(cuWeight(visionCandidates[0])).toBeLessThanOrEqual(cuWeight(visionCandidates[1]));
+      // Flash-Lite (CU weight 8) first, Pro (CU weight 75) last
+      expect(visionCandidates[0].id).toMatch(/^gemini-3\.\d-flash-lite$/);
+      expect(visionCandidates[visionCandidates.length - 1].id).toBe("gemini-3.1-pro-preview");
+      for (let i = 1; i < visionCandidates.length; i++) {
+        expect(cuWeight(visionCandidates[i - 1])).toBeLessThanOrEqual(cuWeight(visionCandidates[i]));
+      }
     });
 
     it("filters by large context window in default catalog", () => {
-      // 1,500,000 tokens: only gemini-1.5-pro has 2M context window
+      // 500,000 tokens: only the Gemini models (1,048,576) qualify; Groq models hold 131,072
       const largeContextCandidates = registryFilter.filterRegistry({
-        minContextLength: 1_500_000,
+        minContextLength: 500_000,
       });
 
-      expect(largeContextCandidates.length).toBe(1);
-      expect(largeContextCandidates[0].id).toBe("gemini-1.5-pro");
+      expect(largeContextCandidates.length).toBeGreaterThan(0);
+      expect(largeContextCandidates.every((m) => m.provider === "google")).toBe(true);
+      expect(
+        registryFilter.filterRegistry({ minContextLength: 1_500_000 })
+      ).toHaveLength(0);
     });
 
     it("supports universal filter() method with injected registry", () => {

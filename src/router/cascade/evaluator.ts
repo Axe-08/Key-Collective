@@ -5,7 +5,7 @@
  * Conforms to:
  * - LLD 2.3: Evaluates capabilities, resolves aliases, filters and sorts models.
  * - Golden Test tc-05: Context window check produces ContextWindowExceededError (HTTP 400).
- * - Golden Test tc-06: Model alias resolution (e.g. 'smart-fast' -> 'gemini-2.0-flash').
+ * - Golden Test tc-06: Model alias resolution (e.g. 'smart-fast' -> 'gemini-3.8-flash').
  * - Golden Test tc-07: Capability filter excludes unsupported models when tools/vision requested.
  *
  * Invariants Enforced (GEMINI.md Constitution):
@@ -161,7 +161,18 @@ export function resolveCandidates(
     seenModelIds.add(targetModel.id);
   }
 
-  // 6. Append explicit fallback candidates if specified
+  // 6. Append the rest of the alias chain (e.g. smart-fast: 3.8-flash then gpt-oss-120b)
+  for (const chainModel of context.registry.getAliasChain(alias)) {
+    if (
+      !seenModelIds.has(chainModel.id) &&
+      context.capabilityFilter.isCapable(chainModel, requirements)
+    ) {
+      candidates.push(chainModel);
+      seenModelIds.add(chainModel.id);
+    }
+  }
+
+  // 7. Append explicit fallback candidates if specified
   const explicitFallbacks =
     reqOptions.fallbackModels ?? context.fallbackModels ?? [];
   for (const fallbackIdOrAlias of explicitFallbacks) {
@@ -176,7 +187,7 @@ export function resolveCandidates(
     }
   }
 
-  // 7. Append remaining capable models from registry sorted by cost
+  // 8. Append remaining capable models from registry sorted by cost
   const remainingCapable = context.capabilityFilter.filterRegistry(requirements, {
     sortBy: context.sortBy ?? "cost-asc",
   });

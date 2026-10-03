@@ -24,7 +24,7 @@ const handleNonStreamingChat =
 
 function createTestModelDef(overrides?: Partial<ModelDef>): ModelDef {
   return {
-    id: "gemini-2.5-flash",
+    id: "gemini-3.5-flash",
     provider: "google",
     logicalAliases: ["fast"],
     contextWindow: 1_048_576,
@@ -202,7 +202,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
   it("calculates CU correctly with reasoning tokens and cached tokens", async () => {
     const modelDef = createTestModelDef({
-      id: "gemini-1.5-pro",
+      id: "gemini-3.1-pro-preview",
       cuBase: 50n,
       cuInPer1k: 5n,
       cuCachedPer1k: 1n,

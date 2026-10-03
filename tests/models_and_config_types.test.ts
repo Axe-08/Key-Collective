@@ -116,7 +116,7 @@ describe("Model and Provider Types (LLD 2.2)", () => {
   describe("ModelDef", () => {
     it("instantiates ModelDef with fixed-point credit unit pricing (BigInt)", () => {
       const model: ModelDef = {
-        id: "gemini-2.0-flash",
+        id: "gemini-3.5-flash",
         provider: "google",
         logicalAliases: ["fast-model", "smart-fast"],
         contextWindow: 1_048_576,
@@ -132,7 +132,7 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         lastSyncedAt: "2026-09-09T00:00:00.000Z",
       };
 
-      expect(model.id).toBe("gemini-2.0-flash");
+      expect(model.id).toBe("gemini-3.5-flash");
       expect(model.provider).toBe("google");
       expect(model.logicalAliases).toEqual(["fast-model", "smart-fast"]);
       expect(model.cuBase).toBe(10n);
@@ -251,13 +251,13 @@ describe("Model and Provider Types (LLD 2.2)", () => {
     it("creates and validates RouterDecision", () => {
       const decision: RouterDecision = {
         selectedKeyId: "key-123",
-        selectedModelId: "gemini-2.0-flash",
+        selectedModelId: "gemini-3.5-flash",
         tenantId: "tenant-99",
         capabilityFilterPassed: true,
         reason: "cost_optimal",
       };
 
-      expect(decision.selectedModelId).toBe("gemini-2.0-flash");
+      expect(decision.selectedModelId).toBe("gemini-3.5-flash");
       expect(isRouterDecision(decision)).toBe(true);
       expect(isRouterDecision(null)).toBe(false);
     });
@@ -269,7 +269,7 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         tenantId: "tenant-acme",
         keyId: "key-123",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 1000,
         completionTokens: 500,
         cachedTokens: 200,
@@ -344,7 +344,7 @@ describe("Configuration Types (LLD 2.3)", () => {
           providerPriority: ["anthropic", "google", "openai"],
           modelMappings: {
             "smart-model": "claude-3-5-sonnet",
-            "fast-model": ["gemini-2.0-flash", "gpt-4o-mini"],
+            "fast-model": ["gemini-3.5-flash", "gpt-4o-mini"],
           },
         },
         rateLimits: {
@@ -380,7 +380,7 @@ describe("Configuration Types (LLD 2.3)", () => {
           maxRetries: 2,
           backoffMs: 150,
           fallbackChains: {
-            "claude-3-5-sonnet": ["gpt-4o", "gemini-2.0-flash"],
+            "claude-3-5-sonnet": ["gpt-4o", "gemini-3.5-flash"],
           },
           providerFallbackOrder: ["anthropic", "openai", "google"],
           triggers: ["rate_limit", "circuit_breaker_open"],
@@ -390,7 +390,7 @@ describe("Configuration Types (LLD 2.3)", () => {
       expect(config.fallback.maxRetries).toBe(2);
       expect(config.fallback.fallbackChains?.["claude-3-5-sonnet"]).toEqual([
         "gpt-4o",
-        "gemini-2.0-flash",
+        "gemini-3.5-flash",
       ]);
       expect(config.fallback.providerFallbackOrder).toEqual(["anthropic", "openai", "google"]);
       expect(config.fallback.triggers).toEqual(["rate_limit", "circuit_breaker_open"]);

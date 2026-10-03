@@ -107,7 +107,7 @@
       ? poolSummary.providers
       : [
           { provider: 'gemini', name: 'Google Gemini Flash', model: 'gemini-1.5-flash-latest', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
-          { provider: 'groq', name: 'Groq LLaMA 3.3', model: 'llama-3.3-70b-versatile', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
+          { provider: 'groq', name: 'Groq LLaMA 3.3', model: 'openai/gpt-oss-120b', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
           { provider: 'cerebras', name: 'Cerebras Inference', model: 'llama3.1-8b', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
           { provider: 'deepseek', name: 'DeepSeek Reasoner', model: 'deepseek-reasoner', activeKeys: 0, healthyKeys: 0, rateLimitedKeys: 0, rpmLimit: 0, currentRpm: 0, status: 'healthy' },
         ]

@@ -12,7 +12,7 @@
  * - LLD 4.0: Unit tests with mock KeyPool and UpstreamClient (success path, fallback escalation path).
  * - Golden Test tc-01: Routes request to provider key with successful 200 response & cost calculation.
  * - Golden Test tc-05: Rejects prompt exceeding context window before network call (HTTP 400).
- * - Golden Test tc-06: Model alias resolution (e.g. 'smart-fast' -> 'gemini-2.0-flash' on google).
+ * - Golden Test tc-06: Model alias resolution (e.g. 'smart-fast' -> 'gemini-3.8-flash' on google).
  * - Golden Test tc-07: Capability filter excludes unsupported models when tools/vision requested.
  */
 
@@ -50,7 +50,7 @@ import {
 describe("CascadeRouter", () => {
   // Custom test models
   const cheapGoogleModel: ModelDef = {
-    id: "gemini-2.0-flash",
+    id: "gemini-3.5-flash",
     provider: "google",
     logicalAliases: ["smart-fast", "fast-model", "fast"],
     contextWindow: 1_000_000,
@@ -218,7 +218,7 @@ describe("CascadeRouter", () => {
 
       // cheap-text-legacy is cheapest overall (50_000 input cost) and capable for simple text
       expect(candidates[0].id).toBe("cheap-text-legacy");
-      expect(candidates[1].id).toBe("gemini-2.0-flash");
+      expect(candidates[1].id).toBe("gemini-3.5-flash");
       expect(candidates[2].id).toBe("gpt-4o-mini");
       expect(candidates[3].id).toBe("claude-3-5-haiku");
     });
@@ -231,8 +231,8 @@ describe("CascadeRouter", () => {
         stream: false,
       });
 
-      // 'smart-fast' maps to 'gemini-2.0-flash'
-      expect(candidates[0].id).toBe("gemini-2.0-flash");
+      // 'smart-fast' maps to 'gemini-3.5-flash'
+      expect(candidates[0].id).toBe("gemini-3.5-flash");
       expect(candidates[0].provider).toBe("google");
       // Other capable models follow as fallbacks
       expect(candidates.slice(1).map((m) => m.id)).toContain("gpt-4o-mini");
@@ -255,7 +255,7 @@ describe("CascadeRouter", () => {
       // cheap-text-legacy does not support tools and must be excluded
       expect(candidates.some((c) => c.id === "cheap-text-legacy")).toBe(false);
       // Gemini 2.0 Flash is cheapest tool-capable model
-      expect(candidates[0].id).toBe("gemini-2.0-flash");
+      expect(candidates[0].id).toBe("gemini-3.5-flash");
       expect(candidates[0].supportsTools).toBe(true);
     });
 
@@ -317,12 +317,12 @@ describe("CascadeRouter", () => {
       });
 
       const candidates = router.getCandidates({
-        modelAlias: "gemini-2.0-flash",
+        modelAlias: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Hi" }],
         stream: false,
       });
 
-      expect(candidates[0].id).toBe("gemini-2.0-flash");
+      expect(candidates[0].id).toBe("gemini-3.5-flash");
       expect(candidates[1].id).toBe("claude-3-5-haiku"); // explicitly prioritized
       expect(candidates[2].id).toBe("gpt-4o-mini");
     });
@@ -331,7 +331,7 @@ describe("CascadeRouter", () => {
   describe("Happy Path Routing on Leases (tc-01 & WP-4.1)", () => {
     it("routes successfully via LeaseProvider and settles with ok outcome", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce(
-        createSuccessfulChatResponse("gemini-2.0-flash", "google", "2+2 is 4")
+        createSuccessfulChatResponse("gemini-3.5-flash", "google", "2+2 is 4")
       );
 
       const router = new CascadeRouter({
@@ -348,7 +348,7 @@ describe("CascadeRouter", () => {
       });
 
       expect(response.content).toBe("2+2 is 4");
-      expect(response.model).toBe("gemini-2.0-flash");
+      expect(response.model).toBe("gemini-3.5-flash");
       expect(response.provider).toBe("google");
       expect(response.attempts.length).toBe(0);
       expect(response.costCu).toBeGreaterThan(0n);
@@ -369,14 +369,14 @@ describe("CascadeRouter", () => {
       expect(mockUpstreamClient.chat).toHaveBeenCalledTimes(1);
       const callArgs = mockUpstreamClient.chat.mock.calls[0][0];
       expect(callArgs.provider).toBe("google");
-      expect(callArgs.model).toBe("gemini-2.0-flash");
+      expect(callArgs.model).toBe("gemini-3.5-flash");
       expect(callArgs.apiKey).toBe("key-for-google");
     });
 
     it("preserves costCu from upstream response and settles lease", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce({
         content: "Exact cost calculation",
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         provider: "google",
         usage: {
           promptTokens: 1000,
@@ -395,7 +395,7 @@ describe("CascadeRouter", () => {
       });
 
       const response = await router.route({
-        modelAlias: "gemini-2.0-flash",
+        modelAlias: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Test prompt" }],
         stream: false,
       });
@@ -407,7 +407,7 @@ describe("CascadeRouter", () => {
     it("handles streaming passthrough mode cleanly", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce({
         content: "",
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         provider: "google",
         usage: null,
         costCu: 0n,
@@ -444,7 +444,7 @@ describe("CascadeRouter", () => {
         source: "borrowed",
       });
       mockUpstreamClient.chat.mockResolvedValueOnce(
-        createSuccessfulChatResponse("gemini-2.0-flash", "google", "Borrowed key response")
+        createSuccessfulChatResponse("gemini-3.5-flash", "google", "Borrowed key response")
       );
 
       const router = new CascadeRouter({
@@ -491,7 +491,7 @@ describe("CascadeRouter", () => {
 
       // Request requires tools so textOnlyCheapModel is excluded from candidates
       const response = await router.route({
-        modelAlias: "smart-fast", // primary: gemini-2.0-flash
+        modelAlias: "smart-fast", // primary: gemini-3.5-flash
         messages: [{ role: "user", content: "Need answer" }],
         stream: false,
         tools: [{ type: "function", function: { name: "search" } }],
@@ -504,7 +504,7 @@ describe("CascadeRouter", () => {
       // Verify attempts history
       expect(response.attempts.length).toBe(1);
       expect(response.attempts[0].provider).toBe("google");
-      expect(response.attempts[0].modelId).toBe("gemini-2.0-flash");
+      expect(response.attempts[0].modelId).toBe("gemini-3.5-flash");
       expect(response.attempts[0].error).toContain("Rate limit exceeded");
 
       // Verify LeaseProvider settle calls: rpm_limited on google, ok on openai
@@ -562,7 +562,7 @@ describe("CascadeRouter", () => {
     });
 
     it("cascades through multiple failures before succeeding", async () => {
-      // Candidate 1 (gemini-2.0-flash) fails with 429
+      // Candidate 1 (gemini-3.5-flash) fails with 429
       mockUpstreamClient.chat.mockRejectedValueOnce(
         new RateLimitExceededError("Rate limited on gemini")
       );
@@ -586,7 +586,7 @@ describe("CascadeRouter", () => {
         onFallback,
       });
 
-      // Request with tools -> candidates: [gemini-2.0-flash, gpt-4o-mini, claude-3-5-haiku]
+      // Request with tools -> candidates: [gemini-3.5-flash, gpt-4o-mini, claude-3-5-haiku]
       const response = await router.route({
         modelAlias: "smart-fast",
         messages: [{ role: "user", content: "Cascade test" }],
@@ -597,7 +597,7 @@ describe("CascadeRouter", () => {
       expect(response.model).toBe("claude-3-5-haiku");
       expect(response.provider).toBe("anthropic");
       expect(response.attempts.length).toBe(2);
-      expect(response.attempts[0].modelId).toBe("gemini-2.0-flash");
+      expect(response.attempts[0].modelId).toBe("gemini-3.5-flash");
       expect(response.attempts[1].modelId).toBe("gpt-4o-mini");
 
       // Verify onFallback hook fired twice
@@ -605,7 +605,7 @@ describe("CascadeRouter", () => {
     });
 
     it("escalates to cheaper text-only model when tools are not required", async () => {
-      // Primary (gemini-2.0-flash) fails with 500
+      // Primary (gemini-3.5-flash) fails with 500
       mockUpstreamClient.chat.mockRejectedValueOnce(
         new ProviderRoutingError("google", "Google 500 error")
       );
@@ -623,7 +623,7 @@ describe("CascadeRouter", () => {
       });
 
       const response = await router.route({
-        modelAlias: "gemini-2.0-flash",
+        modelAlias: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Simple text" }],
         stream: false,
       });
@@ -744,7 +744,7 @@ describe("CascadeRouter", () => {
 
     it("passes custom headers and temperature through to UpstreamClient", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce(
-        createSuccessfulChatResponse("gemini-2.0-flash", "google")
+        createSuccessfulChatResponse("gemini-3.5-flash", "google")
       );
 
       const router = new CascadeRouter({
@@ -754,7 +754,7 @@ describe("CascadeRouter", () => {
       });
 
       await router.route({
-        modelAlias: "gemini-2.0-flash",
+        modelAlias: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Hello" }],
         stream: false,
         temperature: 0.7,
@@ -782,7 +782,7 @@ describe("CascadeRouter", () => {
       const validRes: CascadeRouteResponse = {
         content: "done",
         costCu: 100n,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         provider: "google",
         modelDef: cheapGoogleModel,
         attempts: [],
@@ -796,7 +796,7 @@ describe("CascadeRouter", () => {
   describe("Additional Edge Cases & Options Coverage", () => {
     it("allows escalation on capability mismatch when allowMismatchEscalation is true", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce(
-        createSuccessfulChatResponse("gemini-2.0-flash", "google", "Escalated to tool model")
+        createSuccessfulChatResponse("gemini-3.5-flash", "google", "Escalated to tool model")
       );
 
       const router = new CascadeRouter({
@@ -815,14 +815,14 @@ describe("CascadeRouter", () => {
         tools: [{ type: "function", function: { name: "test" } }],
       } as CascadeRouteRequest);
 
-      // Successfully escalated to gemini-2.0-flash
-      expect(response.model).toBe("gemini-2.0-flash");
+      // Successfully escalated to gemini-3.5-flash
+      expect(response.model).toBe("gemini-3.5-flash");
       expect(response.content).toBe("Escalated to tool model");
     });
 
     it("triggers onSuccess callback upon successful route", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce(
-        createSuccessfulChatResponse("gemini-2.0-flash", "google", "Success with hook")
+        createSuccessfulChatResponse("gemini-3.5-flash", "google", "Success with hook")
       );
 
       const onSuccess = vi.fn();
@@ -846,7 +846,7 @@ describe("CascadeRouter", () => {
 
     it("bypasses LeaseProvider when explicit apiKey is provided on request", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce(
-        createSuccessfulChatResponse("gemini-2.0-flash", "google", "Custom key response")
+        createSuccessfulChatResponse("gemini-3.5-flash", "google", "Custom key response")
       );
 
       const router = new CascadeRouter({
@@ -857,7 +857,7 @@ describe("CascadeRouter", () => {
       });
 
       const response = await router.route({
-        modelAlias: "gemini-2.0-flash",
+        modelAlias: "gemini-3.5-flash",
         messages: [{ role: "user", content: "Custom key" }],
         stream: false,
         apiKey: "sk-explicit-user-key",
@@ -884,7 +884,7 @@ describe("CascadeRouter", () => {
       };
 
       const primary = router.selectPrimaryModel(req);
-      expect(primary.id).toBe("gemini-2.0-flash");
+      expect(primary.id).toBe("gemini-3.5-flash");
 
       const fallbacks = router.getFallbackCandidates(req);
       expect(fallbacks.length).toBe(2);

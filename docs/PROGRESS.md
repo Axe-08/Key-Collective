@@ -316,7 +316,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [ ] T-F.2.3 Real provider fixtures in upstream_outcomes test
 
 ### WP-F.3
-- [ ] T-F.3.1 Rebuild the model catalog from verified lists (RA-06)
+- [x] T-F.3.1 Rebuild the model catalog from verified lists (RA-06)
 - [ ] T-F.3.2 Skip deprecated / sunset models in routing and /v1/models
 - [x] T-F.3.3 Remove µ$ price fields; cheapest by CU (RA-09)
 - [ ] T-F.3.4 Proof-of-life on gemini-3.5-flash-lite and gpt-oss-20b (QA-12, RA-08)

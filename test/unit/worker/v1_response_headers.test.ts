@@ -85,14 +85,14 @@ describe("applyKcHeaders Unit Tests", () => {
 
     const res = applyKcHeaders(inputRes, {
       requestId: "11111111-2222-3333-4444-555555555555",
-      modelUsed: "gemini-2.0-flash",
+      modelUsed: "gemini-3.5-flash",
       provider: "google",
       cu: 42,
       isStream: false,
     });
 
     expect(res.headers.get("x-kc-request-id")).toBe("kc_req_11111111-2222-3333-4444-555555555555");
-    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
     expect(res.headers.get("x-kc-provider")).toBe("google");
     expect(res.headers.get("x-kc-attempts")).toBe("1");
     expect(res.headers.get("x-kc-cu")).toBe("42");
@@ -116,13 +116,13 @@ describe("applyKcHeaders Unit Tests", () => {
     });
 
     const res = applyKcHeaders(inputRes, {
-      modelUsed: "gemini-2.0-flash",
+      modelUsed: "gemini-3.5-flash",
       provider: "google",
       isStream: true,
     });
 
     expect(res.headers.get("x-kc-request-id")).toMatch(/^kc_req_[0-9a-f-]+$/);
-    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
     expect(res.headers.get("x-kc-provider")).toBe("google");
     expect(res.headers.get("x-kc-attempts")).toBe("1");
     expect(res.headers.get("x-kc-cu")).toBeNull();
@@ -196,7 +196,7 @@ describe("V1 Response Headers Enforcement via RouterHandler", () => {
         "x-kc-trace-id": "trace-client-sent-this",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "hi" }],
       }),
     });
@@ -205,7 +205,7 @@ describe("V1 Response Headers Enforcement via RouterHandler", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("x-kc-request-id")).toMatch(/^kc_req_[0-9a-f-]+$/);
-    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
     expect(res.headers.get("x-kc-provider")).toBe("google");
     expect(res.headers.get("x-kc-attempts")).toBe("1");
     expect(res.headers.get("x-kc-cu")).toBeTruthy();
@@ -250,7 +250,7 @@ describe("V1 Response Headers Enforcement via RouterHandler", () => {
         "x-kc-trace-id": "trace-stream-client",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         messages: [{ role: "user", content: "stream please" }],
         stream: true,
       }),
@@ -260,7 +260,7 @@ describe("V1 Response Headers Enforcement via RouterHandler", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("x-kc-request-id")).toMatch(/^kc_req_[0-9a-f-]+$/);
-    expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
     expect(res.headers.get("x-kc-provider")).toBe("google");
     expect(res.headers.get("x-kc-attempts")).toBe("1");
     expect(res.headers.get("x-kc-cu")).toBeNull();

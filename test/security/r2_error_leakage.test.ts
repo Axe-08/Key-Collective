@@ -90,7 +90,7 @@ describe("Security: upstream error leakage (r2)", () => {
     const err = new FallbackExhaustedError([
       {
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         error: REAL_SHAPED_GEMINI_400,
       },
       {
@@ -107,7 +107,7 @@ describe("Security: upstream error leakage (r2)", () => {
     expect(text).not.toContain("AIzaSy");
     expect(text).not.toContain("details");
     expect(text).not.toContain("google.rpc.ErrorInfo");
-    expect(text).not.toContain("gemini-2.0-flash");
+    expect(text).not.toContain("gemini-3.5-flash");
     expect(text).toContain("All upstream routes failed");
   });
 });

@@ -76,11 +76,11 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
       },
     });
 
-    const modelDef = modelRegistry.getModelOrThrow("gemini-1.5-pro");
+    const modelDef = modelRegistry.getModelOrThrow("gemini-3.1-pro-preview");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
       costCu: 0n,
-      model: "gemini-1.5-pro",
+      model: "gemini-3.1-pro-preview",
       provider: "google",
       modelDef,
       attempts: [],
@@ -119,7 +119,7 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
     expect(output).toContain("Hello");
     expect(output).toContain(" world!");
 
-    // Calculate expected CU for gemini-1.5-pro: cuBase 50, cuInPer1k 5, cuOutPer1k 20
+    // Calculate expected CU for gemini-3.1-pro-preview: cuBase 50, cuInPer1k 5, cuOutPer1k 20
     // prompt: 1000 -> ceil(1000*5/1000) = 5
     // output: 500 -> ceil(500*20/1000) = 10
     // total: 50 + 5 + 10 = 65
@@ -154,11 +154,11 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
       },
     });
 
-    const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
+    const modelDef = modelRegistry.getModelOrThrow("gemini-3.5-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
       costCu: 0n,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       provider: "google",
       modelDef,
       attempts: [],
@@ -215,11 +215,11 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
       },
     });
 
-    const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
+    const modelDef = modelRegistry.getModelOrThrow("gemini-3.5-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
       costCu: 0n,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       provider: "google",
       modelDef,
       attempts: [],
@@ -281,11 +281,11 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
       },
     });
 
-    const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
+    const modelDef = modelRegistry.getModelOrThrow("gemini-3.5-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
       costCu: 0n,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       provider: "google",
       modelDef,
       attempts: [],

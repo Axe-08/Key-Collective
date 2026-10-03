@@ -17,7 +17,7 @@
  *    - tc-01: Happy path prompt routed to single Gemini key with 200 response and cost calculation.
  *    - tc-02: Streaming request parses terminal usage block and logs cost in ledger.
  *    - tc-05: Context window gate rejects prompt exceeding context window (HTTP 400).
- *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-2.5-flash').
+ *    - tc-06: Model alias resolution ('smart-fast' -> 'gemini-3.8-flash').
  *    - tc-07: Capability filter excludes unsupported models when tools requested (HTTP 400).
  *    - tc-08: Budget exhaustion returns HTTP 429 with Retry-After header.
  *    - tc-12: Auth token validation rejects invalid token with HTTP 401.
@@ -412,7 +412,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
           "x-tenant-id": "tenant-rogue", // Attempted mismatch
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "hello" }],
         }),
       });
@@ -461,7 +461,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
           "x-kc-trace-id": "trace-tc01",
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hello" }],
           stream: false,
         }),
@@ -474,14 +474,14 @@ describe("RouterHandler Unit Tests (T3)", () => {
       expect(res.headers.get("content-type")).toContain("application/json");
       expect(res.headers.get("x-kc-trace-id")).toBeNull();
       expect(res.headers.get("x-kc-tenant-id")).toBeNull();
-      expect(res.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+      expect(res.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
       expect(res.headers.get("x-kc-model")).toBeNull();
       expect(res.headers.get("x-kc-request-id")).toMatch(/^kc_req_/);
       expect(res.headers.get("x-kc-provider")).toBe("google");
 
       const body = await res.json() as Record<string, unknown>;
       expect(body.object).toBe("chat.completion");
-      expect(body.model).toBe("gemini-2.0-flash");
+      expect(body.model).toBe("gemini-3.5-flash");
       expect((body.choices as Array<{ message: { content: string } }>)[0].message.content).toBe("Hello from Gemini!");
 
       // Verify token usage
@@ -497,7 +497,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       const ledgerEvent = mockCostLedger.events[0];
       expect(ledgerEvent.requestId).toBe("trace-tc01");
       expect(ledgerEvent.tenantId).toBe("tenant-alpha");
-      expect(ledgerEvent.modelId).toBe("gemini-2.0-flash");
+      expect(ledgerEvent.modelId).toBe("gemini-3.5-flash");
       expect(ledgerEvent.provider).toBe("google");
       expect(ledgerEvent.promptTokens).toBe(100);
       expect(ledgerEvent.completionTokens).toBe(50);
@@ -559,7 +559,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
           "x-kc-trace-id": "trace-tc02",
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Tell me a story" }],
           stream: true,
         }),
@@ -621,12 +621,12 @@ describe("RouterHandler Unit Tests (T3)", () => {
         upstreamClient: mockUpstream,
       });
 
-      // Provide large estimatedPromptTokens (e.g. 200,000 for llama-3.3-70b-versatile which has 128k context)
+      // Provide large estimatedPromptTokens (e.g. 200,000 for openai/gpt-oss-120b which has 128k context)
       const req = new Request("http://localhost/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [{ role: "user", content: "Super huge prompt" }],
           estimatedPromptTokens: 200_000,
         }),
@@ -647,7 +647,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
   });
 
   describe("Golden Test tc-06: Model Alias Resolution", () => {
-    it("resolves logical alias 'smart-fast' to 'gemini-2.5-flash' and selects google provider", async () => {
+    it("resolves logical alias 'smart-fast' to 'gemini-3.5-flash' and selects google provider", async () => {
       let forwardedUrl = "";
       const mockUpstream = new UpstreamClient({
         fetch: async (url) => {
@@ -738,7 +738,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hi" }],
         }),
       });
@@ -770,7 +770,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
         method: "POST",
         headers: { "content-type": "application/json" }, // Missing Authorization
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hi" }],
         }),
       });
@@ -796,20 +796,20 @@ describe("RouterHandler Unit Tests (T3)", () => {
       expect(json.object).toBe("list");
       expect(json.data.length).toBeGreaterThanOrEqual(8);
 
-      const gemini = json.data.find((m) => m.id === "gemini-2.0-flash");
+      const gemini = json.data.find((m) => m.id === "gemini-3.5-flash");
       expect(gemini).toBeDefined();
       expect(gemini?.owned_by).toBe("google");
     });
 
     it("GET /v1/models/:id returns specific model details", async () => {
       const handler = createRouterHandler();
-      const req = new Request("http://localhost/v1/models/gemini-1.5-pro", { method: "GET" });
+      const req = new Request("http://localhost/v1/models/gemini-3.1-pro-preview", { method: "GET" });
 
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(200);
 
       const json = await res.json() as { id: string; owned_by: string };
-      expect(json.id).toBe("gemini-1.5-pro");
+      expect(json.id).toBe("gemini-3.1-pro-preview");
       expect(json.owned_by).toBe("google");
     });
 
@@ -842,7 +842,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hi" }],
         }),
       });
@@ -853,7 +853,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       const json = await res.json() as { data: unknown; meta: { latencyMs: number; costCu: string; model: string } };
       expect(json.data).toBeDefined();
       expect(json.meta).toBeDefined();
-      expect(json.meta.model).toBe("gemini-2.0-flash");
+      expect(json.meta.model).toBe("gemini-3.5-flash");
       expect(json.meta.latencyMs).toBeGreaterThanOrEqual(0);
     });
   });
@@ -879,7 +879,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: "not an array",
         }),
       });
@@ -921,7 +921,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.5-flash",
           messages: [{ role: "user", content: "Hi" }],
         }),
       });

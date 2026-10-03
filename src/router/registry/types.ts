@@ -90,8 +90,10 @@ export interface ModelFilterCriteria {
 export interface ModelRegistryOptions {
   /** Initial models to register. If omitted, DEFAULT_MODEL_DEFINITIONS are loaded */
   models?: readonly (ModelDef)[];
-  /** Custom alias mapping overrides (e.g. { 'my-fast': 'gemini-2.0-flash' }) */
+  /** Custom alias mapping overrides (e.g. { 'my-fast': 'gemini-3.5-flash-lite' }) */
   aliases?: Record<string, string>;
+  /** Ordered alias chains (defaults to MODEL_ALIAS_CHAINS) */
+  aliasChains?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -114,6 +116,7 @@ export interface IModelRegistry {
   resolveAlias(alias: string): string | undefined;
   resolveModel(idOrAlias: string, onlyActive?: boolean): ModelDef | undefined;
   resolveModelOrThrow(idOrAlias: string, onlyActive?: boolean): ModelDef;
+  getAliasChain(alias: string, onlyActive?: boolean): ModelDef[];
   getAliasesForModel(modelId: string): string[];
   getAliasMap(onlyActive?: boolean): Map<string, string>;
 

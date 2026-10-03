@@ -110,7 +110,7 @@ describe("Error Normalizer: normalizeUpstreamResponse", () => {
     const normalized = normalizeUpstreamResponse(
       upstream,
       "kc-req-999",
-      "gemini-2.0-flash",
+      "gemini-3.5-flash",
       "google"
     );
 
@@ -122,7 +122,7 @@ describe("Error Normalizer: normalizeUpstreamResponse", () => {
     expect(normalized.headers.get("x-ratelimit-limit-requests")).toBe("100");
     // x-kc-* metadata added
     expect(normalized.headers.get("x-kc-request-id")).toBe("kc-req-999");
-    expect(normalized.headers.get("x-kc-model-used")).toBe("gemini-2.0-flash");
+    expect(normalized.headers.get("x-kc-model-used")).toBe("gemini-3.5-flash");
     expect(normalized.headers.get("x-kc-provider")).toBe("google");
 
     // content-length deleted to prevent mismatch after sanitization

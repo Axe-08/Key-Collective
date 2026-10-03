@@ -53,6 +53,10 @@ function parseCatalogEntries(source) {
   for (let i = 0; i < ids.length; i++) {
     entries.push({ id: ids[i], provider: providers[i] });
   }
+  // Gemini entries are declared through the gemini("<id>", ...) helper.
+  for (const m of source.matchAll(/\bgemini\(\s*"([^"]+)"/g)) {
+    entries.push({ id: m[1], provider: "google" });
+  }
   return entries;
 }
 

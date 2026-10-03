@@ -25,7 +25,7 @@ export interface ApiResponseMeta<TCost = bigint> {
   timestamp?: number;
   /** Resolved upstream model provider (e.g. "openai", "anthropic", "google") */
   provider?: string;
-  /** Resolved model identifier (e.g. "gemini-2.0-flash") */
+  /** Resolved model identifier (e.g. "gemini-3.5-flash") */
   model?: string;
   /** Indicates whether the response was served from cache */
   cached?: boolean;

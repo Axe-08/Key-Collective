@@ -31,7 +31,7 @@ import {
   CostBreakdown,
   ContextValidationResult,
 } from "./types";
-import { DEFAULT_MODEL_DEFINITIONS } from "./catalog";
+import { DEFAULT_MODEL_DEFINITIONS, MODEL_ALIAS_CHAINS } from "./catalog";
 import { compareByCuWeight, cuWeight, normalizeModelDef } from "./helpers";
 
 /**
@@ -45,9 +45,13 @@ export class ModelRegistry implements IModelRegistry {
   /** Explicit alias overrides: alias (lowercase) -> canonical model ID */
   private readonly aliasOverrides = new Map<string, string>();
 
+  /** Ordered alias chains: alias (lowercase) -> model IDs in preference order */
+  private readonly aliasChains = new Map<string, readonly string[]>();
+
   constructor(options: ModelRegistryOptions | readonly (ModelDef)[] = {}) {
     let initialModels: readonly (ModelDef)[] | undefined;
     let initialAliases: Record<string, string> | undefined;
+    let initialChains: Readonly<Record<string, readonly string[]>> = MODEL_ALIAS_CHAINS;
 
     if (Array.isArray(options)) {
       initialModels = options;
@@ -55,6 +59,11 @@ export class ModelRegistry implements IModelRegistry {
       const opt = options as ModelRegistryOptions;
       initialModels = opt.models;
       initialAliases = opt.aliases;
+      initialChains = opt.aliasChains ?? MODEL_ALIAS_CHAINS;
+    }
+
+    for (const [alias, chain] of Object.entries(initialChains)) {
+      this.aliasChains.set(alias.toLowerCase().trim(), chain.map((id) => id.trim()));
     }
 
     if (initialModels !== undefined) {
@@ -199,6 +208,9 @@ export class ModelRegistry implements IModelRegistry {
     if (this.aliasOverrides.has(clean)) {
       return true;
     }
+    if (this.getAliasChain(clean).length > 0) {
+      return true;
+    }
     for (const model of this.models.values()) {
       if (model.logicalAliases.some((a) => a.toLowerCase() === clean)) {
         return true;
@@ -220,7 +232,18 @@ export class ModelRegistry implements IModelRegistry {
       return override;
     }
 
-    // 2. Search through registered model logical aliases
+    // 2. Ordered alias chain: first registered, active model
+    const chain = this.getAliasChain(clean);
+    if (chain.length > 0) {
+      return chain[0].id;
+    }
+
+    // 3. 'auto' is the cheapest active model by CU (the router then skips unleasable ones)
+    if (clean === "auto") {
+      return this.getCheapestModel(this.getAllModels(true))?.id;
+    }
+
+    // 4. Search through registered model logical aliases
     // If multiple models share an alias, pick the cheapest active model
     let cheapestMatch: ModelDef | undefined;
 
@@ -301,6 +324,22 @@ export class ModelRegistry implements IModelRegistry {
   }
 
   /**
+   * Returns the registered models of an ordered alias chain, in preference order.
+   * Models that are not registered (or inactive, when onlyActive) are skipped.
+   */
+  public getAliasChain(alias: string, onlyActive = true): ModelDef[] {
+    const chain = this.aliasChains.get(alias.toLowerCase().trim()) ?? [];
+    const out: ModelDef[] = [];
+    for (const id of chain) {
+      const model = this.models.get(id.toLowerCase());
+      if (model && (!onlyActive || model.isActive)) {
+        out.push(model);
+      }
+    }
+    return out;
+  }
+
+  /**
    * Returns all logical aliases associated with a specific model ID.
    */
   public getAliasesForModel(modelId: string): string[] {
@@ -342,7 +381,15 @@ export class ModelRegistry implements IModelRegistry {
       }
     }
 
-    // 2. Explicit overrides take precedence
+    // 2. Ordered alias chains override implicit aliases
+    for (const alias of this.aliasChains.keys()) {
+      const chain = this.getAliasChain(alias, onlyActive);
+      if (chain.length > 0) {
+        map.set(alias, chain[0].id);
+      }
+    }
+
+    // 3. Explicit overrides take precedence
     for (const [alias, targetId] of this.aliasOverrides.entries()) {
       const targetModel = this.models.get(targetId.toLowerCase().trim());
       if (!onlyActive || (targetModel && targetModel.isActive)) {

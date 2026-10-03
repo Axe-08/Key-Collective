@@ -780,7 +780,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_gemini_prod",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 1200,
         completionTokens: 350,
         cachedTokens: 200,
@@ -796,7 +796,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(event.id).toBe("evt_explicit_1");
       expect(event.tenantId).toBe(TENANT_A);
       expect(event.provider).toBe("google");
-      expect(event.modelId).toBe("gemini-2.0-flash");
+      expect(event.modelId).toBe("gemini-3.5-flash");
       expect(event.costCu).toBe(450n);
       expect(event.promptTokens).toBe(1200);
       expect(event.reasoningTokens).toBe(50);
@@ -1136,7 +1136,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_2",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         costCu: 120n,
         statusCode: 200,
         createdAt: "2026-09-09T10:00:01.000Z",
@@ -1169,7 +1169,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_2",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         costCu: 200n,
         statusCode: 200,
         createdAt: "2026-09-05T12:00:00.000Z",
@@ -1220,7 +1220,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
     it("filters events by provider and modelId", async () => {
       const events = await repo.listEvents(TENANT_A, {
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
       });
       expect(events).toHaveLength(1);
       expect(events[0]?.id).toBe("evt_2");
@@ -1305,7 +1305,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         day: "2026-09-02",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         requestsDelta: 20,
         tokensDelta: 10000,
         costCuDelta: 35_000n,
@@ -1355,7 +1355,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         tenantId: TENANT_A,
         keyId: "key_2",
         provider: "google",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.5-flash",
         promptTokens: 500,
         completionTokens: 250,
         costCu: 400n,

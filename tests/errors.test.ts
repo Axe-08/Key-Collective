@@ -376,13 +376,13 @@ describe("Domain Error Architecture", () => {
     describe("ModelNotFoundError", () => {
       it("initializes with 404 status and available model suggestions", () => {
         const err = new ModelNotFoundError("gpt-5-ultra", undefined, {
-          availableModels: ["gpt-4o", "gemini-2.0-flash"],
+          availableModels: ["gpt-4o", "gemini-3.5-flash"],
         });
 
         expect(err.statusCode).toBe(404);
         expect(err.code).toBe("MODEL_NOT_FOUND");
         expect(err.modelIdOrAlias).toBe("gpt-5-ultra");
-        expect(err.availableModels).toEqual(["gpt-4o", "gemini-2.0-flash"]);
+        expect(err.availableModels).toEqual(["gpt-4o", "gemini-3.5-flash"]);
         expect(isModelNotFoundError(err)).toBe(true);
       });
     });
@@ -452,7 +452,7 @@ describe("Domain Error Architecture", () => {
         const attempts = [
           { provider: "openai", modelId: "gpt-4o", error: "429 Too Many Requests" },
           { provider: "anthropic", modelId: "claude-3-5-sonnet", error: "503 Degraded" },
-          { provider: "google", modelId: "gemini-2.0-flash", error: "504 Gateway Timeout" },
+          { provider: "google", modelId: "gemini-3.5-flash", error: "504 Gateway Timeout" },
         ];
 
         const err = new FallbackExhaustedError(attempts);

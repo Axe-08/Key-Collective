@@ -85,9 +85,9 @@ describe("ModelRegistry", () => {
   describe("Initialization & Default Catalog", () => {
     it("loads default model catalog when instantiated without arguments", () => {
       expect(registry.getAllModels().length).toBe(DEFAULT_MODEL_DEFINITIONS.length);
-      expect(registry.hasModel("gemini-2.0-flash")).toBe(true);
-      expect(registry.hasModel("gemini-1.5-pro")).toBe(true);
-      expect(registry.hasModel("llama-3.3-70b-versatile")).toBe(true);
+      expect(registry.hasModel("gemini-3.5-flash")).toBe(true);
+      expect(registry.hasModel("gemini-3.1-pro-preview")).toBe(true);
+      expect(registry.hasModel("openai/gpt-oss-120b")).toBe(true);
     });
 
     it("accepts custom models in constructor", () => {
@@ -171,7 +171,7 @@ describe("ModelRegistry", () => {
     });
 
     it("getModelOrThrow returns model or throws ModelNotFoundError", () => {
-      expect(registry.getModelOrThrow("gemini-2.0-flash").id).toBe("gemini-2.0-flash");
+      expect(registry.getModelOrThrow("gemini-3.5-flash").id).toBe("gemini-3.5-flash");
       expect(() => registry.getModelOrThrow("non-existent-model")).toThrow(
         ModelNotFoundError
       );
@@ -192,24 +192,24 @@ describe("ModelRegistry", () => {
       }
 
       const groqModels = registry.getModelsByProvider("groq");
-      expect(groqModels.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(true);
+      expect(groqModels.some((m) => m.id === "openai/gpt-oss-120b")).toBe(true);
     });
   });
 
   describe("Logical Alias Resolution", () => {
     it("resolves canonical model ID directly (case-insensitive)", () => {
-      const resolved = registry.resolveModel("gemini-2.0-flash");
-      expect(resolved?.id).toBe("gemini-2.0-flash");
+      const resolved = registry.resolveModel("gemini-3.5-flash");
+      expect(resolved?.id).toBe("gemini-3.5-flash");
 
-      const resolvedUpper = registry.resolveModel("GEMINI-2.0-FLASH");
-      expect(resolvedUpper?.id).toBe("gemini-2.0-flash");
+      const resolvedUpper = registry.resolveModel("GEMINI-3.5-FLASH");
+      expect(resolvedUpper?.id).toBe("gemini-3.5-flash");
     });
 
     it("resolves logical aliases to canonical models (tc-06)", () => {
-      // 'smart-fast' maps to 'gemini-2.0-flash'
+      // 'smart-fast' maps to 'gemini-3.8-flash' (first link of its chain)
       const resolved = registry.resolveModel("smart-fast");
       expect(resolved).toBeDefined();
-      expect(resolved?.id).toBe("gemini-2.0-flash");
+      expect(resolved?.id).toBe("gemini-3.8-flash");
       expect(resolved?.provider).toBe("google");
     });
 
@@ -242,10 +242,11 @@ describe("ModelRegistry", () => {
 
     it("hasAlias correctly identifies configured aliases", () => {
       expect(registry.hasAlias("smart-fast")).toBe(true);
-      expect(registry.hasAlias("fast-model")).toBe(true);
+      expect(registry.hasAlias("fast")).toBe(true);
+      expect(registry.hasAlias("fast-model")).toBe(false);
       expect(registry.hasAlias("unknown-alias-xyz")).toBe(false);
 
-      registry.registerAlias("custom-alias", "gemini-1.5-pro");
+      registry.registerAlias("custom-alias", "gemini-3.1-pro-preview");
       expect(registry.hasAlias("custom-alias")).toBe(true);
     });
 
@@ -262,23 +263,23 @@ describe("ModelRegistry", () => {
     });
 
     it("getAliasesForModel returns all aliases associated with model", () => {
-      const aliases = registry.getAliasesForModel("gemini-2.0-flash");
-      expect(aliases).toContain("smart-fast");
-      expect(aliases).toContain("fast-model");
-      expect(aliases).toContain("fast");
+      expect(registry.getAliasesForModel("gemini-3.8-flash")).toContain("smart-fast");
+      expect(registry.getAliasesForModel("gemini-3.5-flash-lite")).toContain("fast");
     });
 
     it("getAliasMap returns a consolidated mapping of all active aliases", () => {
       const aliasMap = registry.getAliasMap(true);
       expect(aliasMap.has("smart-fast")).toBe(true);
-      expect(aliasMap.get("smart-fast")).toBe("gemini-2.0-flash");
-      expect(aliasMap.has("smart-model")).toBe(true);
+      expect(aliasMap.get("smart-fast")).toBe("gemini-3.8-flash");
+      expect(aliasMap.get("coder-high")).toBe("gemini-3.1-pro-preview");
+      expect(aliasMap.get("open-groq")).toBe("openai/gpt-oss-120b");
+      expect(aliasMap.get("fast")).toBe("gemini-3.5-flash-lite");
     });
 
-    it("resolves every WP-1.4 alias (auto, smart-fast, coder-high, open-groq) against the full catalog", () => {
+    it("resolves every alias (auto, smart-fast, coder-high, open-groq, fast) against the full catalog", () => {
       const fullRegistry = new ModelRegistry([...ALL_MODEL_DEFINITIONS]);
 
-      for (const alias of ["auto", "smart-fast", "coder-high", "open-groq"]) {
+      for (const alias of ["auto", "smart-fast", "coder-high", "open-groq", "fast"]) {
         const resolved = fullRegistry.resolveModel(alias);
         expect(resolved, `alias '${alias}' should resolve to a catalog model`).toBeDefined();
         expect(
@@ -290,55 +291,55 @@ describe("ModelRegistry", () => {
 
   describe("Context Window Tracking & Token Limits (tc-05)", () => {
     it("retrieves context window and max output tokens for models and aliases", () => {
-      expect(registry.getContextWindow("gemini-2.0-flash")).toBe(1_048_576);
+      expect(registry.getContextWindow("gemini-3.5-flash")).toBe(1_048_576);
       expect(registry.getContextWindow("smart-fast")).toBe(1_048_576);
-      expect(registry.getMaxOutputTokens("gemini-1.5-pro")).toBe(8192);
+      expect(registry.getMaxOutputTokens("gemini-3.1-pro-preview")).toBe(65_536);
     });
 
     it("fitsContextWindow evaluates token fits accurately", () => {
-      // Gemini 2.0 Flash context window: 1_048_576
-      expect(registry.fitsContextWindow("gemini-2.0-flash", 100_000)).toBe(true);
-      expect(registry.fitsContextWindow("gemini-2.0-flash", 1_048_576)).toBe(true);
-      expect(registry.fitsContextWindow("gemini-2.0-flash", 1_048_577)).toBe(false);
+      // Gemini 3.5 Flash context window: 1_048_576
+      expect(registry.fitsContextWindow("gemini-3.5-flash", 100_000)).toBe(true);
+      expect(registry.fitsContextWindow("gemini-3.5-flash", 1_048_576)).toBe(true);
+      expect(registry.fitsContextWindow("gemini-3.5-flash", 1_048_577)).toBe(false);
 
-      // Llama 3.3 70B context window: 128_000
-      expect(registry.fitsContextWindow("llama-3.3-70b-versatile", 100_000)).toBe(true);
-      expect(registry.fitsContextWindow("llama-3.3-70b-versatile", 130_000)).toBe(false);
-      expect(registry.fitsContextWindow("llama-3.3-70b-versatile", 100_000, 30_000)).toBe(false); // 100k + 30k > 128k
+      // gpt-oss-120b context window: 131_072
+      expect(registry.fitsContextWindow("openai/gpt-oss-120b", 100_000)).toBe(true);
+      expect(registry.fitsContextWindow("openai/gpt-oss-120b", 131_073)).toBe(false);
+      expect(registry.fitsContextWindow("openai/gpt-oss-120b", 100_000, 32_000)).toBe(false); // 132k > 131,072
     });
 
     it("getRemainingContextWindow returns remaining capacity", () => {
-      const remaining = registry.getRemainingContextWindow("llama-3.3-70b-versatile", 28_000);
+      const remaining = registry.getRemainingContextWindow("openai/gpt-oss-120b", 31_072);
       expect(remaining).toBe(100_000);
 
-      const overflowRemaining = registry.getRemainingContextWindow("llama-3.3-70b-versatile", 140_000);
+      const overflowRemaining = registry.getRemainingContextWindow("openai/gpt-oss-120b", 140_000);
       expect(overflowRemaining).toBe(0);
     });
 
     it("validateTokenLimits reports comprehensive limits assessment", () => {
       // Valid request
-      const validRes = registry.validateTokenLimits("llama-3.3-70b-versatile", {
+      const validRes = registry.validateTokenLimits("openai/gpt-oss-120b", {
         promptTokens: 10_000,
         maxOutputTokens: 4096,
       });
       expect(validRes.valid).toBe(true);
-      expect(validRes.contextWindow).toBe(128_000);
-      expect(validRes.maxOutputTokens).toBe(32768);
+      expect(validRes.contextWindow).toBe(131_072);
+      expect(validRes.maxOutputTokens).toBe(65_536);
       expect(validRes.totalEstimatedTokens).toBe(14_096);
-      expect(validRes.remainingTokens).toBe(118_000);
+      expect(validRes.remainingTokens).toBe(121_072);
       expect(validRes.errorReason).toBeUndefined();
 
       // Exceeds context window
-      const overflowPromptRes = registry.validateTokenLimits("llama-3.3-70b-versatile", {
-        promptTokens: 130_000,
+      const overflowPromptRes = registry.validateTokenLimits("openai/gpt-oss-120b", {
+        promptTokens: 140_000,
       });
       expect(overflowPromptRes.valid).toBe(false);
-      expect(overflowPromptRes.errorReason).toContain("exceed model 'llama-3.3-70b-versatile' context window");
+      expect(overflowPromptRes.errorReason).toContain("exceed model 'openai/gpt-oss-120b' context window");
 
       // Exceeds max output limit
-      const overflowOutputRes = registry.validateTokenLimits("llama-3.3-70b-versatile", {
+      const overflowOutputRes = registry.validateTokenLimits("openai/gpt-oss-120b", {
         promptTokens: 10_000,
-        maxOutputTokens: 40_000, // max is 32768
+        maxOutputTokens: 70_000, // max is 65,536
       });
       expect(overflowOutputRes.valid).toBe(false);
       expect(overflowOutputRes.errorReason).toContain("maximum output limit");
@@ -347,13 +348,13 @@ describe("ModelRegistry", () => {
     it("assertWithinContextWindow throws ContextWindowExceededError (HTTP 400) on overflow (tc-05)", () => {
       // Should not throw when valid
       expect(() =>
-        registry.assertWithinContextWindow("gemini-2.0-flash", 10_000)
+        registry.assertWithinContextWindow("gemini-3.5-flash", 10_000)
       ).not.toThrow();
 
       // Should throw ContextWindowExceededError when prompt exceeds limit
       let caughtError: unknown;
       try {
-        registry.assertWithinContextWindow("llama-3.3-70b-versatile", 150_000); // 150k > 128k
+        registry.assertWithinContextWindow("openai/gpt-oss-120b", 150_000); // 150k > 131,072
       } catch (err) {
         caughtError = err;
       }
@@ -365,8 +366,8 @@ describe("ModelRegistry", () => {
       const windowError = caughtError as ContextWindowExceededError;
       expect(windowError.statusCode).toBe(400);
       expect(windowError.code).toBe("CONTEXT_WINDOW_EXCEEDED");
-      expect(windowError.modelId).toBe("llama-3.3-70b-versatile");
-      expect(windowError.contextWindow).toBe(128_000);
+      expect(windowError.modelId).toBe("openai/gpt-oss-120b");
+      expect(windowError.contextWindow).toBe(131_072);
       expect(windowError.requestedTokens).toBe(150_000);
 
       // Verify toResponse serializes with HTTP 400
@@ -377,7 +378,7 @@ describe("ModelRegistry", () => {
 
   describe("Model Pricing", () => {
     it("getPricing returns correct pricing structure", () => {
-      const pricing = registry.getPricing("gemini-2.0-flash");
+      const pricing = registry.getPricing("gemini-3.5-flash");
       expect(pricing.cuBase).toBe(10n);
       expect(pricing.cuInPer1k).toBe(1n);
       expect(pricing.cuCachedPer1k).toBe(0n);
@@ -403,7 +404,7 @@ describe("ModelRegistry", () => {
       }
 
       // Llama 3.3 70B lacks vision, should not be included
-      expect(visionCandidates.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(false);
+      expect(visionCandidates.some((m) => m.id === "openai/gpt-oss-120b")).toBe(false);
     });
 
     it("findCandidates filters by minimum context window", () => {
@@ -414,7 +415,7 @@ describe("ModelRegistry", () => {
       for (const m of hugeContextCandidates) {
         expect(m.contextWindow).toBeGreaterThanOrEqual(500_000);
       }
-      expect(hugeContextCandidates.some((m) => m.id === "llama-3.3-70b-versatile")).toBe(false); // 128k < 500k
+      expect(hugeContextCandidates.some((m) => m.id === "openai/gpt-oss-120b")).toBe(false); // 128k < 500k
     });
 
     it("findCandidates filters by max cost", () => {
@@ -425,18 +426,18 @@ describe("ModelRegistry", () => {
       for (const m of cheapCandidates) {
         expect(cuWeight(m) <= 20n).toBe(true);
       }
-      expect(cheapCandidates.some((m) => m.id === "gemini-1.5-pro")).toBe(false); // $1.25 > $0.20
+      expect(cheapCandidates.some((m) => m.id === "gemini-3.1-pro-preview")).toBe(false); // 75 > 20
     });
 
-    it("getCheapestModel returns model with lowest input cost", () => {
+    it("getCheapestModel returns the model with the lowest CU weight", () => {
       const candidates = registry.findCandidates({ provider: "google" });
       const cheapest = registry.getCheapestModel(candidates);
-      expect(cheapest?.id).toBe("gemini-2.0-flash");
+      expect(cheapest?.id).toBe("gemini-3.5-flash-lite");
     });
 
     it("compareByCost provides a stable comparator", () => {
-      const cheap = registry.getModelOrThrow("gemini-2.0-flash");
-      const expensive = registry.getModelOrThrow("gemini-1.5-pro");
+      const cheap = registry.getModelOrThrow("gemini-3.5-flash");
+      const expensive = registry.getModelOrThrow("gemini-3.1-pro-preview");
 
       expect(registry.compareByCost(cheap, expensive)).toBe(-1);
       expect(registry.compareByCost(expensive, cheap)).toBe(1);

@@ -129,7 +129,7 @@ export interface UpstreamClientOptions {
 export interface UpstreamRequest {
   /** Target provider (e.g. "openai", "anthropic", "google", "groq", "deepseek") */
   provider: string;
-  /** Target model identifier (e.g. "gpt-4o", "gemini-2.0-flash", "claude-3-5-sonnet") */
+  /** Target model identifier (e.g. "gpt-4o", "gemini-3.5-flash", "claude-3-5-sonnet") */
   model?: string;
   /** Endpoint path (e.g. "/chat/completions", "/messages") or full URL */
   endpoint?: string;
