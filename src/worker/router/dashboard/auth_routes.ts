@@ -4,8 +4,13 @@
 
 import type { WorkerEnv } from "../../auth/index";
 import { verifyFirebaseIdToken } from "../../../auth/google/verify_id_token";
+import { isAdminEmail } from "../../gateway/admin_verifier";
 import {
+  ADMIN_SESSION_COOKIE,
+  ADMIN_SESSION_TTL_SECONDS,
   SESSION_COOKIE,
+  adminCookieDomain,
+  buildAdminSessionCookie,
   buildClearSessionCookie,
   buildPendingCookie,
   buildSessionCookie,
@@ -63,18 +68,27 @@ export async function handleGoogleAuth(
   const tenantId = `usr_goog_${uid}`;
   const tier = "builder";
   const sybilScore = 95;
+  // QA-15: role follows ADMIN_EMAILS at every sign-in (verifyFirebaseIdToken already
+  // requires email_verified). Leaving the list demotes an admin to 'user'.
+  const role = isAdminEmail(env, email) ? "admin" : "user";
 
 
   if (env.DB && typeof env.DB.prepare === "function") {
     try {
       // 1. Upsert into users table — tier is only ever set on INSERT, never
-      // overwritten by a subsequent sign-in.
+      // overwritten by a subsequent sign-in. Role is granted or revoked from ADMIN_EMAILS;
+      // any other role is left alone.
       await env.DB.prepare(
         `INSERT INTO users (id, email, tier, role, sybil_score, auth_phase, is_quarantined, created_at)
-         VALUES (?, ?, ?, 'user', ?, 3, 0, CURRENT_TIMESTAMP)
+         VALUES (?, ?, ?, ?, ?, 3, 0, CURRENT_TIMESTAMP)
          ON CONFLICT(id) DO UPDATE SET
-           email = excluded.email`
-      ).bind(tenantId, email, tier, sybilScore).run();
+           email = excluded.email,
+           role = CASE
+             WHEN excluded.role = 'admin' THEN 'admin'
+             WHEN users.role = 'admin' THEN 'user'
+             ELSE users.role
+           END`
+      ).bind(tenantId, email, tier, role, sybilScore).run();
       await env.DB.prepare(
         `INSERT INTO user_identities (user_id, provider, subject, email) VALUES (?, 'google', ?, ?)
          ON CONFLICT(provider, subject) DO UPDATE SET email = excluded.email`
@@ -91,16 +105,20 @@ export async function handleGoogleAuth(
   // (possibly pre-existing) tier and registration status.
   let responseTier = tier;
   let registrationStatus = "PENDING_CONSENT";
+  let persistedRole = "user";
   if (env.DB && typeof env.DB.prepare === "function") {
     try {
-      const row = await env.DB.prepare("SELECT tier, registration_status FROM users WHERE id = ?")
+      const row = await env.DB.prepare("SELECT tier, registration_status, role FROM users WHERE id = ?")
         .bind(tenantId)
-        .first<{ tier: string; registration_status: string }>();
+        .first<{ tier: string; registration_status: string; role: string | null }>();
       if (row?.tier) {
         responseTier = row.tier;
       }
       if (row?.registration_status) {
         registrationStatus = row.registration_status;
+      }
+      if (row?.role) {
+        persistedRole = row.role;
       }
     } catch (err: unknown) {
       console.error("Failed to read user after Google sign-in:", err instanceof Error ? err.message : String(err));
@@ -133,6 +151,21 @@ export async function handleGoogleAuth(
   // The console authenticates with the session cookie only; sign-in mints no API credential (RA-01).
   const headers = new Headers({ "content-type": "application/json; charset=utf-8" });
   headers.append("Set-Cookie", buildSessionCookie(session.token));
+
+  // QA-15 option A: an ADMIN_EMAILS account also gets a separate, short-lived admin session.
+  // kc_session stays host-only; kc_admin_session is scoped to the parent of the console and
+  // admin hosts so the admin host receives it.
+  if (role === "admin" && persistedRole === "admin") {
+    const adminSession = await createSession(env.DB, tenantId, "admin", {
+      ip: request.headers.get("cf-connecting-ip") ?? undefined,
+      userAgent: request.headers.get("user-agent") ?? undefined,
+      ttlSeconds: ADMIN_SESSION_TTL_SECONDS,
+    });
+    headers.append(
+      "Set-Cookie",
+      buildAdminSessionCookie(adminSession.token, adminCookieDomain(env.CONSOLE_HOST, env.ADMIN_HOST))
+    );
+  }
   return new Response(
     JSON.stringify({
       success: true,
@@ -152,11 +185,17 @@ export async function handleLogout(request: Request, env: WorkerEnv): Promise<Re
   if (token && env.DB) {
     await revokeSession(env.DB, token);
   }
-  return new Response(JSON.stringify({ success: true }), {
-    status: 200,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "Set-Cookie": buildClearSessionCookie(),
-    },
-  });
+  const headers = new Headers({ "content-type": "application/json; charset=utf-8" });
+  headers.append("Set-Cookie", buildClearSessionCookie());
+  const adminToken = readCookie(request, ADMIN_SESSION_COOKIE);
+  if (adminToken) {
+    if (env.DB) {
+      await revokeSession(env.DB, adminToken);
+    }
+    headers.append(
+      "Set-Cookie",
+      buildAdminSessionCookie("", adminCookieDomain(env.CONSOLE_HOST, env.ADMIN_HOST), 0)
+    );
+  }
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers });
 }

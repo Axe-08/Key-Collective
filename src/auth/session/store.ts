@@ -114,6 +114,41 @@ export function buildClearSessionCookie(): string {
   return buildSessionCookie("", 0);
 }
 
+/** The admin host's session cookie (QA-15 option A). Separate from kc_session. */
+export const ADMIN_SESSION_COOKIE = "kc_admin_session";
+export const ADMIN_SESSION_TTL_SECONDS = 43200;
+
+/**
+ * The cookie Domain that lets the admin host receive a cookie set on the console host:
+ * the longest common parent of both hosts, with at least two labels. Null (host-only)
+ * when the hosts share no such parent.
+ */
+export function adminCookieDomain(consoleHost: unknown, adminHost: unknown): string | null {
+  const labels = (h: unknown): string[] =>
+    typeof h === "string" ? h.split(":")[0].trim().toLowerCase().split(".").filter((l) => l.length > 0) : [];
+  const a = labels(consoleHost);
+  const b = labels(adminHost);
+  const common: string[] = [];
+  while (common.length < a.length && common.length < b.length) {
+    const la = a[a.length - 1 - common.length];
+    const lb = b[b.length - 1 - common.length];
+    if (la !== lb) break;
+    common.unshift(la);
+  }
+  // Both hosts must sit strictly below the parent, and a single label (a TLD) is never a cookie domain.
+  if (common.length < 2 || common.length >= a.length || common.length >= b.length) return null;
+  return common.join(".");
+}
+
+export function buildAdminSessionCookie(
+  token: string,
+  domain: string | null,
+  maxAge: number = ADMIN_SESSION_TTL_SECONDS
+): string {
+  const domainAttr = domain ? `; Domain=${domain}` : "";
+  return `${ADMIN_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}${domainAttr}`;
+}
+
 /** Reads a cookie value from a Cookie header; null when absent or empty. */
 export function readCookie(request: Request, name: string): string | null {
   const header = request.headers.get("cookie");

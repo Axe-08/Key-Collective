@@ -440,7 +440,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
 
   describe("Subdomain 3: admin.* -> Admin Surveillance Router with Zero-Knowledge Denial", () => {
     it("rejects ?token= query parameter on admin.* with zero-knowledge 404 (WP-0.3)", async () => {
-      const req = new Request(`https://admin.key-col.axe08.tech/?token=${adminToken}`, {
+      const req = new Request(`https://admin.key-col.axe08.tech/api/admin/tenants?token=${adminToken}`, {
         method: "GET",
         headers: { host: "admin.key-col.axe08.tech" },
       });
@@ -450,7 +450,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
 
     it("TC-ADMIN-01: Non-admin access returns 404 zero-knowledge denial", async () => {
       // Golden Test TC-ADMIN-01
-      const req = new Request("https://admin.key-col.axe08.tech/", {
+      const req = new Request("https://admin.key-col.axe08.tech/api/admin/tenants", {
         method: "GET",
         headers: {
           host: "admin.key-col.axe08.tech",
@@ -464,7 +464,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
     });
 
     it("denies unauthenticated visitors with 404 Not Found (zero knowledge)", async () => {
-      const req = new Request("https://admin.key-col.axe08.tech/", {
+      const req = new Request("https://admin.key-col.axe08.tech/api/admin/tenants", {
         method: "GET",
         headers: { host: "admin.key-col.axe08.tech" },
       });
@@ -487,7 +487,7 @@ describe("Subdomain Routing (AUTH-03)", () => {
     });
 
     it("denies quarantined admin users with 404 Not Found", async () => {
-      const req = new Request("https://admin.key-col.axe08.tech/", {
+      const req = new Request("https://admin.key-col.axe08.tech/api/admin/tenants", {
         method: "GET",
         headers: {
           host: "admin.key-col.axe08.tech",
@@ -499,19 +499,19 @@ describe("Subdomain Routing (AUTH-03)", () => {
       expect(await res.text()).toBe("Not Found");
     });
 
-    it("allows authorized admin to inspect status probe", async () => {
-      const req = new Request("https://admin.key-col.axe08.tech/", {
-        method: "GET",
-        headers: {
-          host: "admin.key-col.axe08.tech",
-          authorization: `Bearer ${adminToken}`,
-        },
-      });
-      const res = await worker.fetch(req, env);
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as { status: string; service: string };
-      expect(body.status).toBe("authorized");
-      expect(body.service).toContain("Admin Surveillance");
+    it("serves the public SPA shell on GET / (T-F.9.2), so a browser can sign in", async () => {
+      const shellRequests: Record<string, string>[] = [
+        { host: "admin.key-col.axe08.tech" },
+        { host: "admin.key-col.axe08.tech", authorization: `Bearer ${adminToken}` },
+      ];
+      for (const headers of shellRequests) {
+        const res = await worker.fetch(
+          new Request("https://admin.key-col.axe08.tech/", { method: "GET", headers }),
+          env
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-type")).toContain("text/html");
+      }
     });
 
     it("allows authorized admin to list tenants on GET /api/admin/tenants", async () => {

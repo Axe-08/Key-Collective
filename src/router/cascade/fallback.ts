@@ -30,6 +30,7 @@ import {
   isQuotaJailError,
   ProviderUnavailableError,
   FallbackExhaustedError,
+  NoCapacityError,
   ProviderRoutingError,
   type FallbackAttempt,
 } from "../../errors";
@@ -403,6 +404,14 @@ export async function executeCascadeRouting(
     )
   ) {
     throw new ProviderUnavailableError(provUnavailableAttempt.provider);
+  }
+  // QA-08: no upstream was reached because no candidate had a key to lease. That is a
+  // capacity condition (503, retry later), not an upstream or internal failure.
+  if (
+    attempts.length > 0 &&
+    attempts.every((a) => a.error.startsWith("No lease available"))
+  ) {
+    throw new NoCapacityError(attempts);
   }
   throw new FallbackExhaustedError(
     attempts,

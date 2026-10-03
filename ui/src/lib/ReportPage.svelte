@@ -1,5 +1,6 @@
 <script lang="ts">
   import Turnstile from './Turnstile.svelte';
+  import { describeReportError, submitKeyReport } from './report_key';
 
   interface Props {
     onBack?: () => void;
@@ -21,29 +22,19 @@
     statusMsg = null;
 
     try {
-      const res = await fetch('/api/abuse/report-key', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-turnstile-token': turnstileToken,
-        },
-        body: JSON.stringify({
-          leaked_key: leakedKey.trim(),
-          turnstile_token: turnstileToken,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      statusMsg = {
-        type: 'success',
-        text: 'Report received. If this key is registered in Key Collective, it has been immediately revoked and tombstoned.',
-      };
-      leakedKey = '';
-    } catch {
-      statusMsg = {
-        type: 'error',
-        text: 'Failed to submit key report. Please verify your Turnstile challenge and try again.',
-      };
+      const result = await submitKeyReport(leakedKey.trim(), turnstileToken);
+      if (result.ok) {
+        statusMsg = {
+          type: 'success',
+          text: 'Report received. If this key is registered in Key Collective, it has been immediately revoked and tombstoned.',
+        };
+        leakedKey = '';
+      } else {
+        statusMsg = { type: 'error', text: describeReportError(result) };
+      }
+    } catch (err) {
+      console.error('Key report request failed', err);
+      statusMsg = { type: 'error', text: 'Report failed: the network request did not complete.' };
     } finally {
       isSubmitting = false;
       turnstile?.reset();

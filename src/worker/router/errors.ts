@@ -9,7 +9,11 @@ import {
   QuotaExceededError,
   RateLimitExceededError,
 } from "../../errors/key_errors";
-import { isQuotaJailError } from "../../errors/routing_errors";
+import {
+  isFallbackExhaustedError,
+  isNoCapacityError,
+  isQuotaJailError,
+} from "../../errors/routing_errors";
 import { sanitize } from "../error_normalizer";
 import { Logger } from "../../utils/logger";
 
@@ -35,7 +39,7 @@ export interface FormatRouterErrorOptions {
  * Formats any caught error or exception into a standardized HTTP Response.
  * The client body is always { error: { message, type, code } } plus x-kc-request-id.
  * details is never serialised to clients. Full details go to the server logger keyed by trace id.
- * Injects WWW-Authenticate on 401 and Retry-After on 429.
+ * Injects WWW-Authenticate on 401 and Retry-After on 429 and on 503 no_capacity.
  */
 export function formatRouterError(
   error: unknown,
@@ -109,6 +113,12 @@ export function formatRouterError(
       retryAfter = DEFAULT_RETRY_AFTER_SECONDS;
     } else if (statusCode === 503) {
       type = "service_unavailable";
+      if (isNoCapacityError(error)) {
+        retryAfter = error.retryAfterSeconds;
+      }
+    } else if (statusCode === 502 && isFallbackExhaustedError(error)) {
+      // Every candidate reached an upstream and failed (QA-08): an upstream error, not ours.
+      type = "upstream_error";
     } else if (statusCode >= 400 && statusCode < 500) {
       type = "invalid_request_error";
     } else {
