@@ -1,5 +1,6 @@
 import type { WorkerEnv } from "../auth/index";
 import type { ControlMaintenanceState } from "../../pool/coordinator_do";
+import { Logger } from "../../utils/logger";
 
 let cachedState: { state: ControlMaintenanceState; expiresAt: number } | null = null;
 
@@ -34,7 +35,10 @@ export async function checkMaintenance(
       return state.maintenance ? state : null;
     }
   } catch (err) {
-    void err;
+    // Fail open: an unreachable kill switch must not take the API down.
+    new Logger({ traceId: "maintenance-check", tenantId: "system" }).error("maintenance_check_failed", {
+      error: err,
+    });
   }
 
   return null;
