@@ -5,19 +5,13 @@
  * - Reads COMMONS_ENFORCEMENT ("observe" | "enforce", default "observe")
  * - Reads optional COMMONS_ENFORCE_RULES (comma-separated list of enforced rules)
  * - Emits commons_would_deny telemetry with SHA-256 hashed tenant IDs
- * - Bounded in-memory event buffer for admin surveillance inspection
+ * - Durable hourly would-deny counters in D1 (would_deny_hourly, WP-F.10 AU-03)
  */
 
 import type { WorkerEnv } from "../worker/auth/types";
+import { Logger } from "../utils/logger";
 
 export type CommonsRule = "brake" | "eye_for_eye" | "share_cap" | "jail";
-
-export interface WouldDenyEvent {
-  rule: CommonsRule;
-  tenantHash: string;
-  detail: string;
-  timestamp: number;
-}
 
 export interface WouldDenyStats {
   rules: Record<CommonsRule, number>;
@@ -29,10 +23,25 @@ export interface WouldDenyStats {
   total: number;
 }
 
-/** Maximum in-memory would-deny events to retain for local aggregation */
-const MAX_WOULD_DENY_EVENTS = 10_000;
+const HOUR_MS = 3_600_000;
+const COMMONS_RULES: readonly CommonsRule[] = ["brake", "eye_for_eye", "share_cap", "jail"];
 
-const inMemoryWouldDenyEvents: WouldDenyEvent[] = [];
+function emptyRuleCounts(): Record<CommonsRule, number> {
+  return { brake: 0, eye_for_eye: 0, share_cap: 0, jail: 0 };
+}
+
+function isCommonsRule(value: string): value is CommonsRule {
+  return (COMMONS_RULES as readonly string[]).includes(value);
+}
+
+function d1From(aeOrEnv: unknown): D1Database | null {
+  if (!aeOrEnv || typeof aeOrEnv !== "object" || !("DB" in aeOrEnv)) return null;
+  const db = (aeOrEnv as { DB?: unknown }).DB;
+  if (db && typeof db === "object" && typeof (db as { prepare?: unknown }).prepare === "function") {
+    return db as D1Database;
+  }
+  return null;
+}
 
 /**
  * Computes SHA-256 hex digest for a tenant identifier to ensure privacy in telemetry.
@@ -84,27 +93,41 @@ export function commonsEnforcement(
 
 /**
  * Records a hypothetical refusal event when a commons rule triggers under observe mode.
- * Emits a privacy-preserving telemetry data point and stores the event for admin review.
+ * Emits a privacy-preserving telemetry data point and upserts the hourly counter in D1
+ * (`would_deny_hourly`) when the env carries a `DB` binding. The D1 write goes through
+ * `waitUntil` when one is given; a failure is logged and never thrown.
  */
 export async function recordWouldDeny(
   rule: CommonsRule,
   tenantIdOrHash: string,
   detail: string = "",
-  aeOrEnv?: unknown
+  aeOrEnv?: unknown,
+  waitUntil?: (promise: Promise<unknown>) => void
 ): Promise<void> {
   const tenantHash = await hashTenantId(tenantIdOrHash);
   const now = Date.now();
+  const logger = new Logger({ traceId: "commons-would-deny", tenantId: tenantHash });
 
-  const event: WouldDenyEvent = {
-    rule,
-    tenantHash,
-    detail,
-    timestamp: now,
-  };
-
-  inMemoryWouldDenyEvents.push(event);
-  if (inMemoryWouldDenyEvents.length > MAX_WOULD_DENY_EVENTS) {
-    inMemoryWouldDenyEvents.shift();
+  const db = d1From(aeOrEnv);
+  if (db) {
+    const write = db
+      .prepare(
+        `INSERT INTO would_deny_hourly (hour_utc, rule, tenant_hash, count) VALUES (?, ?, ?, 1)
+         ON CONFLICT(hour_utc, rule, tenant_hash) DO UPDATE SET count = count + 1`
+      )
+      .bind(Math.floor(now / HOUR_MS), rule, tenantHash)
+      .run()
+      .then(
+        () => undefined,
+        (err: unknown) => {
+          logger.error("would_deny_write_failed", { rule, error: err });
+        }
+      );
+    if (waitUntil) {
+      waitUntil(write);
+    } else {
+      await write;
+    }
   }
 
   // Extract analytics dataset binding from argument
@@ -135,66 +158,65 @@ export async function recordWouldDeny(
 }
 
 /**
- * Aggregates would-deny events over the trailing time window.
+ * Aggregates would-deny counts from D1 over the trailing `hours` hourly buckets
+ * (the current hour included).
  */
-export function getWouldDenyStats(hours: number = 24): WouldDenyStats {
-  const cutoff = Date.now() - Math.max(1, hours) * 3600 * 1000;
-  const recentEvents = inMemoryWouldDenyEvents.filter((e) => e.timestamp >= cutoff);
+export async function getWouldDenyStats(db: D1Database, hours: number = 24): Promise<WouldDenyStats> {
+  const windowHours = Math.max(1, Math.floor(hours));
+  const minHour = Math.floor(Date.now() / HOUR_MS) - windowHours + 1;
 
-  const ruleCounts: Record<CommonsRule, number> = {
-    brake: 0,
-    eye_for_eye: 0,
-    share_cap: 0,
-    jail: 0,
-  };
+  const ruleRows = await db
+    .prepare(
+      "SELECT rule, SUM(count) AS total FROM would_deny_hourly WHERE hour_utc >= ? GROUP BY rule"
+    )
+    .bind(minHour)
+    .all<{ rule: string; total: number }>();
 
-  const tenantMap = new Map<
-    string,
-    {
-      count: number;
-      rules: Record<CommonsRule, number>;
+  const ruleCounts = emptyRuleCounts();
+  let total = 0;
+  for (const row of ruleRows.results ?? []) {
+    const n = Number(row.total) || 0;
+    if (isCommonsRule(row.rule)) {
+      ruleCounts[row.rule] += n;
     }
-  >();
+    total += n;
+  }
 
-  for (const event of recentEvents) {
-    if (event.rule in ruleCounts) {
-      ruleCounts[event.rule]++;
-    }
+  const tenantRows = await db
+    .prepare(
+      `SELECT w.tenant_hash, w.rule, SUM(w.count) AS total
+         FROM would_deny_hourly w
+         JOIN (
+           SELECT tenant_hash, SUM(count) AS t
+             FROM would_deny_hourly
+            WHERE hour_utc >= ?
+            GROUP BY tenant_hash
+            ORDER BY t DESC, tenant_hash ASC
+            LIMIT 10
+         ) top ON top.tenant_hash = w.tenant_hash
+        WHERE w.hour_utc >= ?
+        GROUP BY w.tenant_hash, w.rule`
+    )
+    .bind(minHour, minHour)
+    .all<{ tenant_hash: string; rule: string; total: number }>();
 
-    let tenantData = tenantMap.get(event.tenantHash);
+  const tenantMap = new Map<string, { count: number; rules: Record<CommonsRule, number> }>();
+  for (const row of tenantRows.results ?? []) {
+    let tenantData = tenantMap.get(row.tenant_hash);
     if (!tenantData) {
-      tenantData = {
-        count: 0,
-        rules: { brake: 0, eye_for_eye: 0, share_cap: 0, jail: 0 },
-      };
-      tenantMap.set(event.tenantHash, tenantData);
+      tenantData = { count: 0, rules: emptyRuleCounts() };
+      tenantMap.set(row.tenant_hash, tenantData);
     }
-
-    tenantData.count++;
-    if (event.rule in tenantData.rules) {
-      tenantData.rules[event.rule]++;
+    const n = Number(row.total) || 0;
+    tenantData.count += n;
+    if (isCommonsRule(row.rule)) {
+      tenantData.rules[row.rule] += n;
     }
   }
 
   const topTenants = Array.from(tenantMap.entries())
-    .map(([tenantHash, data]) => ({
-      tenantHash,
-      count: data.count,
-      rules: data.rules,
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .map(([tenantHash, data]) => ({ tenantHash, count: data.count, rules: data.rules }))
+    .sort((a, b) => b.count - a.count || a.tenantHash.localeCompare(b.tenantHash));
 
-  return {
-    rules: ruleCounts,
-    topTenants,
-    total: recentEvents.length,
-  };
-}
-
-/**
- * Clears recorded events in memory (strictly for unit and integration testing).
- */
-export function clearWouldDenyEventsForTest(): void {
-  inMemoryWouldDenyEvents.length = 0;
+  return { rules: ruleCounts, topTenants, total };
 }

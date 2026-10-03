@@ -61,6 +61,30 @@ describe("Logger", () => {
     expect(payload.code).toBe("ECONNREFUSED");
   });
 
+  it("logs debug message to console.debug", () => {
+    const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const logger = new Logger({ traceId: "trace-123", tenantId: "tenant-abc" });
+    logger.debug("telemetry_drop", { site: "x" });
+
+    expect(debugSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(debugSpy.mock.calls[0][0]);
+    expect(payload.level).toBe("debug");
+    expect(payload.site).toBe("x");
+  });
+
+  it("keeps the message of an Error passed as meta or as a meta field", () => {
+    const logger = new Logger({ traceId: "trace-123", tenantId: "tenant-abc" });
+    logger.error("write_failed", new Error("no such table"));
+    logger.error("write_failed", { error: new Error("disk full"), table: "t" });
+
+    const first = JSON.parse(errorSpy.mock.calls[0][0]);
+    expect(first.error).toBe("no such table");
+    expect(first.errorName).toBe("Error");
+    const second = JSON.parse(errorSpy.mock.calls[1][0]);
+    expect(second.error).toBe("disk full");
+    expect(second.table).toBe("t");
+  });
+
   it("handles empty meta gracefully", () => {
     const logger = new Logger({ traceId: "trace-123", tenantId: "tenant-abc" });
     logger.info("Heartbeat");

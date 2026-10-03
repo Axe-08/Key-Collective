@@ -1,21 +1,24 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { PoolCoordinatorDO } from "../../../src/pool/coordinator_do";
 import { LeaseOrchestrator } from "../../../src/router/leases/orchestrator";
 import {
-  clearWouldDenyEventsForTest,
   getWouldDenyStats,
 } from "../../../src/pool/enforcement";
 import { EyeForEyeError } from "../../../src/errors";
 import { addProviderKey, createSession, createUser } from "../../helpers/world";
+
+async function clearWouldDenyStats(): Promise<void> {
+  await env.DB.prepare("DELETE FROM would_deny_hourly").run();
+}
 
 function getCoordinatorStub(name: string): DurableObjectStub {
   return env.POOL_COORDINATOR.get(env.POOL_COORDINATOR.idFromName(name));
 }
 
 describe("Eye-for-eye firewall (WP-5.7 T-5.7.1)", () => {
-  beforeEach(() => {
-    clearWouldDenyEventsForTest();
+  beforeEach(async () => {
+    await clearWouldDenyStats();
   });
 
   it("Gemini-only contributor cannot borrow Groq in enforce mode -> 429 eye_for_eye", async () => {
@@ -131,7 +134,7 @@ describe("Eye-for-eye firewall (WP-5.7 T-5.7.1)", () => {
 
     const groqStub = getCoordinatorStub("pool:groq");
     await runInDurableObject(groqStub, async (coord: PoolCoordinatorDO) => {
-      clearWouldDenyEventsForTest();
+      await clearWouldDenyStats();
       coord.setEnvForTest({ COMMONS_ENFORCEMENT: "observe" });
       await coord.upsertKey({
         keyId: groqKey.id,
@@ -152,9 +155,11 @@ describe("Eye-for-eye firewall (WP-5.7 T-5.7.1)", () => {
       expect(lease?.source).toBe("borrowed");
       expect(lease?.keyId).toBe(groqKey.id);
 
-      const stats = getWouldDenyStats(24);
-      expect(stats.rules.eye_for_eye).toBe(1);
-      expect(stats.total).toBe(1);
+      await vi.waitFor(async () => {
+        const stats = await getWouldDenyStats(env.DB, 24);
+        expect(stats.rules.eye_for_eye).toBe(1);
+        expect(stats.total).toBe(1);
+      });
     });
   });
 });

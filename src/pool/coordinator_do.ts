@@ -888,7 +888,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
             "eye_for_eye",
             req.tenant,
             `provider=${providerFilter ?? this.getMeta("provider") ?? "unknown"}`,
-            effectiveEnv
+            effectiveEnv,
+            (p) => this.ctx.waitUntil(p)
           );
         }
       }
@@ -954,7 +955,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
             "brake",
             req.tenant,
             `share=${tenantUnits5min}/${poolUnits5min};borrowers=${activeBorrowers}`,
-            effectiveEnv
+            effectiveEnv,
+            (p) => this.ctx.waitUntil(p)
           );
         }
       }
@@ -1113,7 +1115,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         "share_cap",
         chosen.owner,
         `cap=${shareCapPct}%`,
-        this.getEffectiveEnv()
+        this.getEffectiveEnv(),
+        (p) => this.ctx.waitUntil(p)
       );
     }
 

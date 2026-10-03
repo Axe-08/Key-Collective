@@ -381,7 +381,15 @@ export async function handleAdminRequest(
     const hoursParam = parseInt(url.searchParams.get("hours") || "24", 10);
     const hours = isNaN(hoursParam) || hoursParam <= 0 ? 24 : hoursParam;
 
-    const stats = getWouldDenyStats(hours);
+    const db = (env.DB || env.D1_DB) as D1Database | undefined;
+    if (!db || typeof db.prepare !== "function") {
+      const unavailable = Response.json(
+        { error: "database_unavailable", message: "Would-deny stats need the D1 binding" },
+        { status: 503 }
+      );
+      return options.cors !== false ? applyCors(unavailable) : unavailable;
+    }
+    const stats = await getWouldDenyStats(db, hours);
 
     const res = Response.json({
       status: "success",

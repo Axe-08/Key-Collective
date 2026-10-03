@@ -1,18 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   type CommonsRule,
-  clearWouldDenyEventsForTest,
   commonsEnforcement,
-  getWouldDenyStats,
   hashTenantId,
   recordWouldDeny,
 } from "../../../src/pool/enforcement";
 
 describe("Commons Enforcement Switch & Would-Deny Tracking (WP-5.1 T-5.1.1)", () => {
-  beforeEach(() => {
-    clearWouldDenyEventsForTest();
-  });
-
   describe("commonsEnforcement", () => {
     const rules: CommonsRule[] = ["brake", "eye_for_eye", "share_cap", "jail"];
 
@@ -91,32 +85,6 @@ describe("Commons Enforcement Switch & Would-Deny Tracking (WP-5.1 T-5.1.1)", ()
       const expectedHash = await hashTenantId(rawTenant);
       expect(point.blobs[2]).toBe(expectedHash);
       expect(point.indexes).toContain(expectedHash);
-    });
-
-    it("aggregates recorded would-deny events by rule and top affected tenants", async () => {
-      const tenantA = "usr_goog_tenant_a";
-      const tenantB = "usr_goog_tenant_b";
-      const hashA = await hashTenantId(tenantA);
-      const hashB = await hashTenantId(tenantB);
-
-      await recordWouldDeny("brake", tenantA, "brake 1");
-      await recordWouldDeny("brake", tenantA, "brake 2");
-      await recordWouldDeny("eye_for_eye", tenantB, "no groq key");
-      await recordWouldDeny("jail", tenantA, "debt ratio 120%");
-
-      const stats = getWouldDenyStats(24);
-      expect(stats.rules.brake).toBe(2);
-      expect(stats.rules.eye_for_eye).toBe(1);
-      expect(stats.rules.jail).toBe(1);
-      expect(stats.rules.share_cap).toBe(0);
-      expect(stats.total).toBe(4);
-
-      // Top tenants
-      expect(stats.topTenants.length).toBeGreaterThanOrEqual(2);
-      expect(stats.topTenants[0].tenantHash).toBe(hashA);
-      expect(stats.topTenants[0].count).toBe(3);
-      expect(stats.topTenants[1].tenantHash).toBe(hashB);
-      expect(stats.topTenants[1].count).toBe(1);
     });
   });
 });

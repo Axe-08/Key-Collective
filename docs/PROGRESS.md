@@ -358,7 +358,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 
 ### WP-F.10
 - [x] T-F.10.1 Migration 0025_would_deny_hourly.sql (AU-03)
-- [ ] T-F.10.2 Would-deny stats in D1 (AU-03)
+- [x] T-F.10.2 Would-deny stats in D1 (AU-03)
 - [ ] T-F.10.3 New tenant lastResetDay = today (AU-04)
 - [ ] T-F.10.4 coordinator_do.ts swallows (AU-02)
 - [ ] T-F.10.5 tenant_do.ts swallows (AU-02)
