@@ -30,3 +30,4 @@ node_modules
 
 # mdBook build output (regenerate with `mdbook build docs/study_guide`)
 docs/study_guide/book/
+.wp/

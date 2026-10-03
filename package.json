@@ -10,7 +10,7 @@
     "test:unit": "vitest run",
     "test:workers": "vitest run -c vitest.workers.config.ts",
     "test:ui": "vitest run --root ui && vitest run --root ui -c vitest.dom.config.ts",
-    "gate:fast": "npm run typecheck && npm run test:unit && node scripts/check-no-sql-mocks.mjs && node scripts/check-ui-literals.mjs",
+    "gate:fast": "npm run typecheck && npm run test:unit && node scripts/check-no-sql-mocks.mjs && node scripts/check-ui-literals.mjs && node scripts/check-baselines.mjs",
     "gate": "npm run gate:fast && npm run test:workers && npm run test:ui && node scripts/reachability.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
