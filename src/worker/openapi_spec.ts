@@ -14,8 +14,7 @@ export const OPENAPI_SPEC = {
       "Enterprise multi-tenant LLM router and dynamic key pool with zero-plaintext storage, AES-256-GCM encryption, sub-10ms edge routing, and automated failover.",
     contact: {
       name: "Key Collective Team",
-      url: "https://key-col.axe08.tech",
-      email: "support@keycollective.io",
+      url: "https://console.key-col.axe08.tech",
     },
     license: {
       name: "MIT",
@@ -69,13 +68,6 @@ export const OPENAPI_SPEC = {
               enum: ["strict", "lenient"],
               default: "lenient",
             },
-          },
-          {
-            name: "x-tenant-id",
-            in: "header",
-            description: "Tenant namespace for key isolation (administrators only)",
-            required: false,
-            schema: { type: "string" },
           },
         ],
         requestBody: {

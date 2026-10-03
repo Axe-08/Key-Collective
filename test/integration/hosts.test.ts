@@ -37,6 +37,17 @@ describe("WP-2.7 Host Topology Integration Tests", () => {
       expect(data.openapi).toBeDefined();
     });
 
+    it("GET /v1/openapi.json documents no x-tenant-id and a real contact (T-F.1.4)", async () => {
+      const res = await fetchWorker("https://api.test/v1/openapi.json", { method: "GET" });
+      expect(res.status).toBe(200);
+      const text = await res.text();
+      expect(text.toLowerCase()).not.toContain("x-tenant-id");
+      expect(text).not.toContain("support@keycollective.io");
+      const data = JSON.parse(text) as { info: { contact: Record<string, string> } };
+      expect(data.info.contact.url).toBe("https://console.key-col.axe08.tech");
+      expect(data.info.contact.email).toBeUndefined();
+    });
+
     it("GET / returns 200 ready message", async () => {
       const res = await fetchWorker("https://api.test/", { method: "GET" });
       expect(res.status).toBe(200);
