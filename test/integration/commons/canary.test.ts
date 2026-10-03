@@ -60,7 +60,7 @@ describe("Passive contributor canary (WP-5.9 T-5.9.1)", () => {
         await quotaDo.consumeQuota({
           tenantId: owner.id,
           cu: 10n,
-          costMicrodollars: 100n,
+          costCu: 100n,
         });
       }
     });
@@ -158,7 +158,7 @@ describe("Passive contributor canary (WP-5.9 T-5.9.1)", () => {
         const res = await quotaDo.consumeQuota({
           tenantId: activeOwner.id,
           cu: 1n,
-          costMicrodollars: 10n,
+          costCu: 10n,
         });
         expect(res.allowed).toBe(true);
       }

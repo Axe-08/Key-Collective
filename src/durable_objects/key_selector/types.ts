@@ -68,8 +68,8 @@ export interface KeySelectorOptions<TKey extends SelectableKey = SelectableKey> 
 export interface SelectKeyOptions<TKey extends SelectableKey = SelectableKey> {
   /** Selection strategy override for this call */
   strategy?: KeySelectionStrategy;
-  /** Estimated cost in microdollars to verify financial budget capacity */
-  costMicrodollars?: bigint;
+  /** Estimated cost in credit units to verify financial budget capacity */
+  costCu?: bigint;
   /** Whether to throw KeyExhaustedError if no healthy keys are available (defaults to true) */
   throwOnExhausted?: boolean;
   /** Whether to fallback to any available healthy provider if preferred is exhausted */

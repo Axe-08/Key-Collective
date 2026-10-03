@@ -40,7 +40,7 @@ export class RateLimiter {
   public readonly windowSizeMs: number;
   public readonly dayWindowSeconds: number;
   public readonly dayWindowMs: number;
-  public readonly maxBudgetMicrodollars?: bigint;
+  public readonly maxBudgetCu?: bigint;
   private readonly storageKeyPrefix: string;
   private readonly timeProvider: () => number;
 
@@ -71,7 +71,7 @@ export class RateLimiter {
     this.windowSizeMs = this.windowSizeSeconds * 1000;
     this.dayWindowSeconds = opts?.dayWindowSeconds ?? ONE_DAY_SECONDS;
     this.dayWindowMs = this.dayWindowSeconds * 1000;
-    this.maxBudgetMicrodollars = opts?.maxBudgetMicrodollars;
+    this.maxBudgetCu = opts?.maxBudgetCu;
     this.storageKeyPrefix = opts?.storageKeyPrefix ?? "rl:";
     this.timeProvider = opts?.timeProvider ?? (() => Date.now());
   }
@@ -99,7 +99,7 @@ export class RateLimiter {
   }
 
   /**
-   * Helper to normalize overloaded arguments (keyId and costMicrodollars).
+   * Helper to normalize overloaded arguments (keyId and costCu).
    */
   private resolveArgs(
     arg1?: string | bigint,
@@ -136,7 +136,7 @@ export class RateLimiter {
     const storageKey = this.getStorageKey(keyId);
     await this.storage.put<RateLimiterData>(storageKey, {
       entries: [...data.entries],
-      totalCostMicrodollars: data.totalCostMicrodollars,
+      totalCostCu: data.totalCostCu,
       lastRequestTime: data.lastRequestTime,
     });
   }
@@ -155,7 +155,7 @@ export class RateLimiter {
       if (stored && isRateLimiterData(stored)) {
         data = {
           entries: [...stored.entries],
-          totalCostMicrodollars: stored.totalCostMicrodollars,
+          totalCostCu: stored.totalCostCu,
           lastRequestTime: stored.lastRequestTime,
         };
       } else {
@@ -186,14 +186,14 @@ export class RateLimiter {
    */
   public async checkLimitDetailed(
     keyId?: string,
-    costMicrodollars = 0n,
+    costCu = 0n,
     limits?: { rpmLimit?: number; rpdLimit?: number }
   ): Promise<RateLimitCheckResult> {
     const data = await this.getData(keyId);
     const now = this.now();
     const currentRpm = calculateRpm(data, now, this.windowSizeMs);
     const currentRpd = calculateRpd(data, now, this.dayWindowMs);
-    const accumulatedCost = BigInt(data.totalCostMicrodollars);
+    const accumulatedCost = BigInt(data.totalCostCu);
     const effectiveRpmLimit = limits?.rpmLimit ?? this.rpmLimit;
     const effectiveRpdLimit = limits?.rpdLimit ?? this.rpdLimit;
 
@@ -206,8 +206,8 @@ export class RateLimiter {
         rpmLimit: effectiveRpmLimit,
         currentRpd,
         rpdLimit: effectiveRpdLimit,
-        costAccumulatedMicrodollars: accumulatedCost,
-        maxBudgetMicrodollars: this.maxBudgetMicrodollars,
+        costAccumulatedCu: accumulatedCost,
+        maxBudgetCu: this.maxBudgetCu,
         retryAfterSeconds,
         reason: "rpm_limit_exceeded",
       };
@@ -222,24 +222,24 @@ export class RateLimiter {
         rpmLimit: effectiveRpmLimit,
         currentRpd,
         rpdLimit: effectiveRpdLimit,
-        costAccumulatedMicrodollars: accumulatedCost,
-        maxBudgetMicrodollars: this.maxBudgetMicrodollars,
+        costAccumulatedCu: accumulatedCost,
+        maxBudgetCu: this.maxBudgetCu,
         retryAfterSeconds,
         reason: "rpd_limit_exceeded",
       };
     }
 
     // 3. Check optional financial budget limit
-    if (this.maxBudgetMicrodollars !== undefined) {
-      if (accumulatedCost + costMicrodollars > this.maxBudgetMicrodollars) {
+    if (this.maxBudgetCu !== undefined) {
+      if (accumulatedCost + costCu > this.maxBudgetCu) {
         return {
           allowed: false,
           currentRpm,
           rpmLimit: effectiveRpmLimit,
           currentRpd,
           rpdLimit: effectiveRpdLimit,
-          costAccumulatedMicrodollars: accumulatedCost,
-          maxBudgetMicrodollars: this.maxBudgetMicrodollars,
+          costAccumulatedCu: accumulatedCost,
+          maxBudgetCu: this.maxBudgetCu,
           retryAfterSeconds: DEFAULT_RETRY_AFTER_SECONDS,
           reason: "budget_exceeded",
         };
@@ -252,17 +252,17 @@ export class RateLimiter {
       rpmLimit: effectiveRpmLimit,
       currentRpd,
       rpdLimit: effectiveRpdLimit,
-      costAccumulatedMicrodollars: accumulatedCost,
-      maxBudgetMicrodollars: this.maxBudgetMicrodollars,
+      costAccumulatedCu: accumulatedCost,
+      maxBudgetCu: this.maxBudgetCu,
       retryAfterSeconds: 0,
     };
   }
 
   /**
-   * Contract method: checkLimit(costMicrodollars) (LLD 3.2)
+   * Contract method: checkLimit(costCu) (LLD 3.2)
    */
-  public async checkLimit(costMicrodollars?: bigint): Promise<boolean>;
-  public async checkLimit(keyId?: string, costMicrodollars?: bigint): Promise<boolean>;
+  public async checkLimit(costCu?: bigint): Promise<boolean>;
+  public async checkLimit(keyId?: string, costCu?: bigint): Promise<boolean>;
   public async checkLimit(arg1?: string | bigint, arg2?: bigint): Promise<boolean> {
     const { keyId, cost } = this.resolveArgs(arg1, arg2);
     const result = await this.checkLimitDetailed(keyId, cost);
@@ -272,10 +272,10 @@ export class RateLimiter {
   /**
    * Synchronous check from in-memory cache.
    */
-  public checkLimitSync(costMicrodollars?: bigint): boolean;
+  public checkLimitSync(costCu?: bigint): boolean;
   public checkLimitSync(
     keyId?: string,
-    costMicrodollars?: bigint,
+    costCu?: bigint,
     limits?: { rpmLimit?: number; rpdLimit?: number }
   ): boolean;
   public checkLimitSync(
@@ -303,9 +303,9 @@ export class RateLimiter {
       return false;
     }
 
-    if (this.maxBudgetMicrodollars !== undefined) {
-      const accumulatedCost = BigInt(data.totalCostMicrodollars);
-      if (accumulatedCost + cost > this.maxBudgetMicrodollars) {
+    if (this.maxBudgetCu !== undefined) {
+      const accumulatedCost = BigInt(data.totalCostCu);
+      if (accumulatedCost + cost > this.maxBudgetCu) {
         return false;
       }
     }
@@ -314,10 +314,10 @@ export class RateLimiter {
   }
 
   /**
-   * Contract method: increment(costMicrodollars) (LLD 3.2)
+   * Contract method: increment(costCu) (LLD 3.2)
    */
-  public async increment(costMicrodollars?: bigint): Promise<void>;
-  public async increment(keyId?: string, costMicrodollars?: bigint): Promise<void>;
+  public async increment(costCu?: bigint): Promise<void>;
+  public async increment(keyId?: string, costCu?: bigint): Promise<void>;
   public async increment(arg1?: string | bigint, arg2?: bigint): Promise<void> {
     const { keyId, cost } = this.resolveArgs(arg1, arg2);
     const id = this.resolveKeyId(keyId);
@@ -326,21 +326,21 @@ export class RateLimiter {
 
     data.lastRequestTime = currentTime;
 
-    // Accumulate total spend in fixed-point microdollars
-    const previousCost = BigInt(data.totalCostMicrodollars);
-    data.totalCostMicrodollars = (previousCost + cost).toString();
+    // Accumulate total spend in fixed-point credit units
+    const previousCost = BigInt(data.totalCostCu);
+    data.totalCostCu = (previousCost + cost).toString();
 
     // Append or merge into existing entry if exact same millisecond
     const lastEntry = data.entries[data.entries.length - 1];
     if (lastEntry && lastEntry.timestamp === currentTime) {
       lastEntry.count += 1;
-      const prevEntryCost = BigInt(lastEntry.costMicrodollars);
-      lastEntry.costMicrodollars = (prevEntryCost + cost).toString();
+      const prevEntryCost = BigInt(lastEntry.costCu);
+      lastEntry.costCu = (prevEntryCost + cost).toString();
     } else {
       data.entries.push({
         timestamp: currentTime,
         count: 1,
-        costMicrodollars: cost.toString(),
+        costCu: cost.toString(),
       });
     }
 
@@ -355,16 +355,16 @@ export class RateLimiter {
    * Adds cost to a key's accumulated total without incrementing the request count.
    * Used during lease settlement when the request count was already incremented at lease acquisition.
    */
-  public async recordCostOnly(keyId: string, costMicrodollars: bigint): Promise<void> {
-    if (costMicrodollars <= 0n) return;
+  public async recordCostOnly(keyId: string, costCu: bigint): Promise<void> {
+    if (costCu <= 0n) return;
     const id = this.resolveKeyId(keyId);
     const data = await this.getData(id);
-    const previousCost = BigInt(data.totalCostMicrodollars);
-    data.totalCostMicrodollars = (previousCost + costMicrodollars).toString();
+    const previousCost = BigInt(data.totalCostCu);
+    data.totalCostCu = (previousCost + costCu).toString();
     const lastEntry = data.entries[data.entries.length - 1];
     if (lastEntry) {
-      const prevEntryCost = BigInt(lastEntry.costMicrodollars);
-      lastEntry.costMicrodollars = (prevEntryCost + costMicrodollars).toString();
+      const prevEntryCost = BigInt(lastEntry.costCu);
+      lastEntry.costCu = (prevEntryCost + costCu).toString();
     }
     this.memory.set(id, data);
     await this.persist(id, data);
@@ -375,9 +375,9 @@ export class RateLimiter {
    */
   public async throwIfExceeded(
     keyId?: string,
-    costMicrodollars = 0n
+    costCu = 0n
   ): Promise<void> {
-    const result = await this.checkLimitDetailed(keyId, costMicrodollars);
+    const result = await this.checkLimitDetailed(keyId, costCu);
     if (!result.allowed) {
       const id = this.resolveKeyId(keyId);
 
@@ -412,8 +412,8 @@ export class RateLimiter {
           {
             tenantId: this.tenantId ?? "default",
             quotaType: "spend_limit",
-            limit: result.maxBudgetMicrodollars,
-            consumed: result.costAccumulatedMicrodollars,
+            limit: result.maxBudgetCu,
+            consumed: result.costAccumulatedCu,
           }
         );
       }
@@ -453,11 +453,11 @@ export class RateLimiter {
   }
 
   /**
-   * Returns accumulated cost in microdollars.
+   * Returns accumulated cost in credit units.
    */
   public async getAccumulatedCost(keyId?: string): Promise<bigint> {
     const data = await this.getData(keyId);
-    return BigInt(data.totalCostMicrodollars);
+    return BigInt(data.totalCostCu);
   }
 
   /**
@@ -476,7 +476,7 @@ export class RateLimiter {
     const now = this.now();
     const rpm = calculateRpm(data, now, this.windowSizeMs);
     const rpd = calculateRpd(data, now, this.dayWindowMs);
-    const cost = BigInt(data.totalCostMicrodollars);
+    const cost = BigInt(data.totalCostCu);
     const remainingRpm = Math.max(0, this.rpmLimit - rpm);
     const remainingRpd = Math.max(0, this.rpdLimit - rpd);
     const isRateLimited = rpm >= this.rpmLimit || rpd >= this.rpdLimit;
@@ -489,7 +489,7 @@ export class RateLimiter {
     return {
       rpm,
       rpd,
-      costAccumulatedMicrodollars: cost,
+      costAccumulatedCu: cost,
       remainingRpm,
       remainingRpd,
       isRateLimited,

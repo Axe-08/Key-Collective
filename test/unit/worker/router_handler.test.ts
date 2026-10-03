@@ -7,8 +7,8 @@
  * 2. Per-Tenant DO Isolation:
  *    env.KEY_POOL.idFromName(tenantId) ensures compute & state isolation.
  *    Cross-tenant mismatch throws TenantIsolationError (HTTP 403).
- * 3. Fixed-Point Microdollars:
- *    All costs in int64 / bigint microdollars. Zero floating-point math.
+ * 3. Fixed-Point CreditUnits:
+ *    All costs in int64 / bigint credit units. Zero floating-point math.
  * 4. Streaming Passthrough (Golden Test tc-02):
  *    SSE chunks forwarded with 0ms added latency, terminal usage block parsed, cost logged.
  * 5. Non-Blocking Telemetry:
@@ -89,7 +89,7 @@ class MockExecutionContext implements ExecutionContextLike {
 class MockDurableObjectStub implements DurableObjectStubLike {
   public tenantId: string;
   public keys: Map<string, string> = new Map(); // provider -> keyId
-  public usageRecords: { keyId: string; costMicrodollars: bigint }[] = [];
+  public usageRecords: { keyId: string; costCu: bigint }[] = [];
   public resultRecords: { keyId: string; success: boolean }[] = [];
   public statusCodeRecords: { keyId: string; statusCode: number }[] = [];
   public fetchCalls: { url: string; method: string; headers: Headers; body?: unknown }[] = [];
@@ -134,10 +134,10 @@ class MockDurableObjectStub implements DurableObjectStubLike {
     }
 
     if (url.pathname === "/keys/usage" && method === "POST") {
-      const b = parsedBody as { keyId: string; costMicrodollars: string };
+      const b = parsedBody as { keyId: string; costCu: string };
       this.usageRecords.push({
         keyId: b.keyId,
-        costMicrodollars: BigInt(b.costMicrodollars ?? "0"),
+        costCu: BigInt(b.costCu ?? "0"),
       });
       return Response.json({ success: true });
     }
@@ -159,7 +159,7 @@ class MockDurableObjectStub implements DurableObjectStubLike {
         metrics: {
           rpm: 5,
           circuitBreakerTripped: false,
-          costAccumulatedMicrodollars: "1500",
+          costAccumulatedCu: "1500",
         },
       });
     }
@@ -266,8 +266,8 @@ describe("RouterHandler Unit Tests (T3)", () => {
         id: "token-uuid-1",
         hashSha256: "hash123",
         tenantId: "tenant-alpha",
-        budgetMicrodollars: 10_000_000n, // 10 USD
-        spentMicrodollars: 500_000n,    // 0.5 USD
+        budgetCeilingCu: 10_000_000n, // 10 USD
+        spentTotalCu: 500_000n,    // 0.5 USD
         allowedProviders: [],
         rpmLimit: 60,
         expiresAt: null,
@@ -276,9 +276,9 @@ describe("RouterHandler Unit Tests (T3)", () => {
       rpmLimit: 60,
       currentRpm: 1,
       remainingRpm: 59,
-      budgetMicrodollars: 10_000_000n,
-      spentMicrodollars: 500_000n,
-      budgetRemainingMicrodollars: 9_500_000n,
+      budgetCeilingCu: 10_000_000n,
+      spentTotalCu: 500_000n,
+      budgetRemainingCu: 9_500_000n,
     };
 
     env = {
@@ -347,14 +347,14 @@ describe("RouterHandler Unit Tests (T3)", () => {
       await expect(client.getKey("google")).rejects.toThrow(TenantIsolationError);
     });
 
-    it("records usage and cost in microdollars to DO", async () => {
+    it("records usage and cost in credit units to DO", async () => {
       const stub = new MockDurableObjectStub("tenant-alpha");
       const client = new DurableObjectKeyPoolClient(stub, "tenant-alpha");
 
       await client.recordUsage("key-1", 450n);
 
       expect(stub.usageRecords).toHaveLength(1);
-      expect(stub.usageRecords[0]).toEqual({ keyId: "key-1", costMicrodollars: 450n });
+      expect(stub.usageRecords[0]).toEqual({ keyId: "key-1", costCu: 450n });
     });
 
     it("records result success and failure to DO", async () => {
@@ -385,7 +385,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
 
       const metrics = await client.getKeyMetrics("key-1");
       expect(metrics.rpm).toBe(5);
-      expect(metrics.costAccumulatedMicrodollars).toBe(1500n);
+      expect(metrics.costAccumulatedCu).toBe(1500n);
 
       const capacity = await client.getCapacitySummary("google");
       expect(capacity.totalKeys).toBe(3);
@@ -501,7 +501,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       expect(ledgerEvent.provider).toBe("google");
       expect(ledgerEvent.promptTokens).toBe(100);
       expect(ledgerEvent.completionTokens).toBe(50);
-      expect(ledgerEvent.costMicrodollars ?? 0n).toBe(0n);
+      expect(ledgerEvent.costCu ?? 0n).toBe(0n);
       expect(ledgerEvent.statusCode).toBe(200);
 
       // Verify AuthToken spend update
@@ -601,7 +601,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       expect(ledgerEvent.requestId).toBe("trace-tc02");
       expect(ledgerEvent.promptTokens).toBe(1000);
       expect(ledgerEvent.completionTokens).toBe(500);
-      expect(ledgerEvent.costMicrodollars ?? 0n).toBe(0n);
+      expect(ledgerEvent.costCu ?? 0n).toBe(0n);
       expect(ledgerEvent.statusCode).toBe(200);
 
       // Assert telemetry emitted
@@ -849,7 +849,7 @@ describe("RouterHandler Unit Tests (T3)", () => {
       const res = await handler.handle(req, env, undefined, defaultAuthContext);
       expect(res.status).toBe(200);
 
-      const json = await res.json() as { data: unknown; meta: { latencyMs: number; costMicrodollars: string; model: string } };
+      const json = await res.json() as { data: unknown; meta: { latencyMs: number; costCu: string; model: string } };
       expect(json.data).toBeDefined();
       expect(json.meta).toBeDefined();
       expect(json.meta.model).toBe("gemini-2.0-flash");

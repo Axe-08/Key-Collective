@@ -3,7 +3,7 @@
  * Unit Tests: ModelRegistry (router-model-registry)
  *
  * Invariants & Standards:
- * - Fixed-Point Microdollars: All pricing and cost calculations in int64 / bigint microdollars.
+ * - Fixed-Point CreditUnits: All pricing and cost calculations in int64 / bigint credit units.
  * - Zero floating-point math for financials.
  * - Logical alias lookup: handles direct models, implicit aliases, explicit overrides, and cost-optimal ties.
  * - Context window tracking: enforces context boundaries, token limits, and HTTP 400 error triggers (tc-05).
@@ -103,7 +103,7 @@ describe("ModelRegistry", () => {
       expect(customReg.resolveAlias("my-alias")).toBe("mock-fast-1");
     });
 
-    it("normalizes number costs to bigint microdollars without floating-point errors", () => {
+    it("normalizes number costs to bigint credit units without floating-point errors", () => {
       const numberModel: ModelDef<number> = {
         id: "number-model",
         provider: "google",

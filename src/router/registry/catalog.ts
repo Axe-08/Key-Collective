@@ -3,7 +3,7 @@
  *
  * Invariants (GEMINI.md Constitution):
  * - Credit Units (CU) as first-class billing unit across models.
- * - Fixed-point microdollars (bigint / int64) throughout (deprecated, kept until WP-7.3).
+ * - Fixed-point credit units (bigint / int64) throughout (deprecated, kept until WP-7.3).
  * - Multi-provider benchmark configurations (Google, Groq) callable with free-tier keys.
  */
 
@@ -86,7 +86,7 @@ export const DEFAULT_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
 
 /**
  * Modern Next-Generation Model Definitions.
- * All pricing strictly in int64 microdollars (bigint) per 1M tokens.
+ * All pricing strictly in int64 credit units (bigint) per 1M tokens.
  */
 export const FREE_TIER_MODEL_DEFINITIONS: readonly ModelDef<bigint>[] = [
   {

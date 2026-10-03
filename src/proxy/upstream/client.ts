@@ -10,7 +10,7 @@
  *   4. Adaptive timeout via EWMA (mean + 3*sigma).
  *   5. Seamless response normalization for Cloudflare Workers routing.
  * - GEMINI.md Constitution: TypeScript strict mode (no `any`), no plaintext keys in logs,
- *   fixed-point microdollars (int64/bigint), non-blocking telemetry.
+ *   Integer Credit Units (int64/bigint), non-blocking telemetry.
  */
 import type { KeyPoolContract } from "../../contracts/key_pool";
 import {
@@ -603,7 +603,7 @@ export class UpstreamClient {
         model: request.model,
         provider: request.provider,
         usage: null,
-        costMicrodollars: 0n,
+        costCu: 0n,
         response: upstreamRes,
       };
     }
@@ -618,9 +618,9 @@ export class UpstreamClient {
       }
     }
     const usage = await upstreamRes.getUsage();
-    let costMicrodollars = 0n;
+    let costCu = 0n;
     if (usage && this.options.costCalculator) {
-      costMicrodollars = this.options.costCalculator(request.model, usage);
+      costCu = this.options.costCalculator(request.model, usage);
     }
 
     return {
@@ -628,7 +628,7 @@ export class UpstreamClient {
       model: request.model,
       provider: request.provider,
       usage,
-      costMicrodollars,
+      costCu,
       response: upstreamRes,
     };
   }

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  // Cryptographic
   ENCRYPTION_ALGORITHM,
   ENCRYPTION_KEY_LENGTH,
   ENCRYPTION_KEY_LENGTH_BYTES,
@@ -13,7 +12,8 @@ import {
   isValidNonceLength,
   isValidKeyLength,
   maskApiKey,
-  // Limits
+} from "../src/constants/crypto";
+import {
   DEFAULT_CIRCUIT_BREAKER_THRESHOLD,
   DEFAULT_RPM_LIMIT,
   DEFAULT_RPD_LIMIT,
@@ -28,7 +28,7 @@ import {
   DEFAULT_FALLBACK_BACKOFF_MS,
   isValidRpmLimit,
   isValidCircuitBreakerThreshold,
-} from "../src/constants";
+} from "../src/constants/limits";
 
 describe("Cryptographic Constants & Utilities (LLD 1.2)", () => {
   it("defines standard AES-GCM parameters", () => {

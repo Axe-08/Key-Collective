@@ -30,12 +30,12 @@ export { DurableObject } from "cloudflare:workers";
 
 /**
  * Individual timestamped counter entry in the sliding window.
- * Serializes costMicrodollars as string for safe JSON storage in DO transactional storage.
+ * Serializes costCu as string for safe JSON storage in DO transactional storage.
  */
 export interface QuotaEntry {
   readonly timestamp: number;
   readonly count: number;
-  readonly costMicrodollars: string;
+  readonly costCu: string;
   readonly cu?: string;
   readonly projectId?: string;
 }
@@ -47,7 +47,7 @@ export interface TenantQuotaData {
   readonly tenantId: string;
   readonly tier: UserTier;
   readonly entries: QuotaEntry[];
-  readonly totalCostMicrodollars: string;
+  readonly totalCostCu: string;
 
   readonly cuUsed24h?: string;
   readonly communityDebtCu?: string;
@@ -72,7 +72,7 @@ export interface ConsumeQuotaRequest {
   readonly projectId?: string;
   readonly tier?: UserTier;
   readonly projectMaxSubCap?: number | null;
-  readonly costMicrodollars?: bigint | number | string;
+  readonly costCu?: bigint | number | string;
   readonly cu?: bigint | number | string;
   readonly count?: number;
   readonly checkOnly?: boolean;
@@ -92,7 +92,7 @@ export interface ConsumeQuotaResult {
   readonly rpdLimit: number;
   readonly currentProjectRpm?: number;
   readonly projectRpmLimit?: number;
-  readonly totalCostMicrodollars: string;
+  readonly totalCostCu: string;
 
   readonly cuUsed24h?: string;
   readonly communityDebtCu?: string;
@@ -127,10 +127,10 @@ export interface TenantQuotaDOOptions {
 }
 
 /**
- * Safely converts an unknown cost representation to a bigint in int64 microdollars.
+ * Safely converts an unknown cost representation to a bigint in int64 credit units.
  * Guarantees zero floating-point math.
  */
-export function toMicrodollars(cost: unknown): bigint {
+export function toCuAmount(cost: unknown): bigint {
   if (typeof cost === "bigint") {
     return cost;
   }
@@ -156,5 +156,5 @@ export function toMicrodollars(cost: unknown): bigint {
  * Guarantees zero floating-point math.
  */
 export function toCu(cu: unknown): bigint {
-  return toMicrodollars(cu);
+  return toCuAmount(cu);
 }

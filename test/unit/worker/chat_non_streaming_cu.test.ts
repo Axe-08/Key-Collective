@@ -92,7 +92,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
     const cascadeRes: CascadeRouteResponse = {
       content: "Hello from non-streaming test!",
-      costMicrodollars: 5000n,
+      costCu: 5000n,
       model: modelDef.id,
       provider: modelDef.provider,
       modelDef,
@@ -127,7 +127,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
         total_tokens: number;
         kc_cu: number;
       };
-      cost_microdollars: string;
+      cost_amount: string;
     };
 
     expect(body.usage).toBeDefined();
@@ -136,7 +136,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
     expect(body.usage.prompt_tokens).toBe(1000);
     expect(body.usage.completion_tokens).toBe(500);
     expect(body.usage.total_tokens).toBe(1500);
-    expect(body.cost_microdollars).toBe("5000");
+    expect(body.cost_amount).toBe("5000");
   });
 
   it("returns x-kc-cu header and payload.usage.kc_cu for kc_api response format", async () => {
@@ -158,7 +158,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
     const cascadeRes: CascadeRouteResponse = {
       content: "KC API formatted test",
-      costMicrodollars: 9000n,
+      costCu: 9000n,
       model: modelDef.id,
       provider: modelDef.provider,
       modelDef,
@@ -193,7 +193,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
         };
       };
       meta: {
-        costMicrodollars: string;
+        costCu: string;
       };
     };
 
@@ -227,7 +227,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
     const cascadeRes: CascadeRouteResponse = {
       content: "Reasoning model completion",
-      costMicrodollars: 12000n,
+      costCu: 12000n,
       model: modelDef.id,
       provider: modelDef.provider,
       modelDef,
@@ -265,7 +265,7 @@ describe("Chat Non-Streaming Credit Units (CU) - T-2.2.1", () => {
 
     const cascadeRes: CascadeRouteResponse = {
       content: "No usage test",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: modelDef.id,
       provider: modelDef.provider,
       modelDef,

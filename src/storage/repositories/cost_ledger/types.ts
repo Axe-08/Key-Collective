@@ -3,7 +3,7 @@
  *
  * Invariants (GEMINI.md Constitution):
  * - Strict mode TypeScript, no `any`.
- * - Fixed-Point Microdollars: All costs in `int64` / `bigint` microdollars (1 USD = 1,000,000 µ$).
+ * - Fixed-Point CreditUnits: All costs in `int64` / `bigint` credit units (1 USD = 1,000,000 CU).
  *   Zero floating-point math for financials.
  * - Per-Tenant Isolation: Explicit `tenant_id` boundaries on all models.
  */
@@ -12,7 +12,7 @@ import type { ModelProvider } from "../../../types/models";
 
 /**
  * CostLedgerEvent records the financial impact, Credit Units, and token telemetry of a request.
- * Enforces zero floating-point math using fixed-point microdollars and bigints for CU.
+ * Enforces zero floating-point math using fixed-point credit units and bigints for CU.
  */
 export interface CostLedgerEvent<TCost = bigint> {
   /** Unique event identifier */
@@ -35,8 +35,8 @@ export interface CostLedgerEvent<TCost = bigint> {
   cachedTokens: number;
   /** Reasoning / thought tokens consumed */
   reasoningTokens: number;
-  /** Total transaction cost in int64 microdollars (deprecated, omitted in Phase 6) */
-  costMicrodollars?: TCost;
+  /** Total transaction cost in int64 credit units (deprecated, omitted in Phase 6) */
+  costCu?: TCost;
   /** Total upstream latency in milliseconds */
   latencyMs: number;
   /** HTTP status code returned by upstream */
@@ -77,8 +77,8 @@ export interface CostLedgerEventInput {
   cachedTokens?: number;
   /** Number of reasoning/thought tokens */
   reasoningTokens?: number;
-  /** Transaction cost in int64 microdollars (deprecated, optional in Phase 6) */
-  costMicrodollars?: bigint | number;
+  /** Transaction cost in int64 credit units (deprecated, optional in Phase 6) */
+  costCu?: bigint | number;
   /** Upstream latency in milliseconds */
   latencyMs?: number;
   /** HTTP status code returned by upstream */
@@ -112,8 +112,8 @@ export interface DailySpendRollup<TCost = bigint> {
   totalRequests: number;
   /** Total tokens processed (prompt + completion + reasoning) */
   totalTokens: number;
-  /** Total financial spend in int64 microdollars (deprecated) */
-  totalCostMicrodollars?: TCost;
+  /** Total financial spend in int64 credit units (deprecated) */
+  totalCostCu?: TCost;
   /** Total Credit Units */
   totalCu: bigint;
 }
@@ -143,8 +143,8 @@ export interface DailySpendRollupInput {
   requestsDelta?: number;
   /** Tokens delta to increment (defaults to 0) */
   tokensDelta?: number;
-  /** Cost delta in int64 microdollars to increment (deprecated, optional) */
-  costMicrodollarsDelta?: bigint | number;
+  /** Cost delta in int64 credit units to increment (deprecated, optional) */
+  costCuDelta?: bigint | number;
   /** CU delta to increment */
   cuDelta?: bigint | number;
 }
@@ -196,7 +196,7 @@ export interface ListDailyRollupsOptions {
  */
 export interface TenantSpendSummary {
   tenantId: string;
-  totalCostMicrodollars?: bigint;
+  totalCostCu?: bigint;
   totalRequests: number;
   totalTokens: number;
   totalCu: bigint;
@@ -218,7 +218,7 @@ export interface CostLedgerDbRow {
   completion_tokens: number;
   cached_tokens: number;
   reasoning_tokens: number;
-  cost_microdollars?: number | string | bigint | null;
+  cost_amount?: number | string | bigint | null;
   latency_ms: number;
   status_code: number;
   created_at: string;
@@ -238,7 +238,7 @@ export interface DailySpendRollupDbRow {
   model_id: string;
   total_requests: number;
   total_tokens: number;
-  total_cost_microdollars?: number | string | bigint | null;
+  total_cost_amount?: number | string | bigint | null;
   total_cu?: number | string | bigint | null;
 }
 
@@ -261,6 +261,6 @@ export interface ReconcileRollupDbRow {
   model_id: string;
   total_requests: number;
   total_tokens: number;
-  total_cost_microdollars?: number | string | bigint | null;
+  total_cost_amount?: number | string | bigint | null;
   total_cu?: number | string | bigint | null;
 }

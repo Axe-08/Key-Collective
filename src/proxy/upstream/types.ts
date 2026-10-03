@@ -3,7 +3,7 @@
  *
  * Conforms to:
  * - LLD 3.2: Upstream Client configurations, request/response models, and headers.
- * - GEMINI.md Constitution: Strict TypeScript, no `any`, fixed-point microdollars.
+ * - GEMINI.md Constitution: Strict TypeScript, no `any`, fixed-point credit units.
  */
 
 import type { KeyPoolContract } from "../../contracts/key_pool";
@@ -118,7 +118,7 @@ export interface UpstreamClientOptions {
   keyResolver?: (keyFromPool: string, provider: string) => Promise<string> | string;
 
   /**
-   * Fixed-point microdollar cost calculator for token usage.
+   * Fixed-point credit unit cost calculator for token usage.
    */
   costCalculator?: (model: string, usage: StreamUsage) => bigint;
 }
@@ -230,8 +230,8 @@ export interface UpstreamChatResponse {
   provider: string;
   /** Authoritative token usage */
   usage: StreamUsage | null;
-  /** Fixed-point cost in microdollars (bigint) */
-  costMicrodollars: bigint;
+  /** Fixed-point cost in credit units (bigint) */
+  costCu: bigint;
   /** Full underlying UpstreamResponse */
   response: UpstreamResponse;
 }

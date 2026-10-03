@@ -2,14 +2,14 @@
  * Key Collective v2 — Model Registry Normalization & Calculation Helpers
  *
  * Invariants (GEMINI.md Constitution):
- * - Fixed-Point Microdollars: All costs in `int64` / `bigint` microdollars.
+ * - Fixed-Point CreditUnits: All costs in `int64` / `bigint` credit units.
  *   Zero floating-point math for financials.
  */
 
 import type { ModelDef } from "../../types/models";
 
 /**
- * Normalizes input cost to bigint microdollars.
+ * Normalizes input cost to bigint credit units.
  */
 export function toBigIntMicro(value: bigint | number | undefined, defaultValue = 0n): bigint {
   if (value === undefined) return defaultValue;

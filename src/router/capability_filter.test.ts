@@ -4,7 +4,7 @@
  *
  * Invariants & Standards:
  * - TypeScript (strict mode, no `any`).
- * - Fixed-Point Microdollars: zero floating-point math.
+ * - Fixed-Point CreditUnits: zero floating-point math.
  * - Conforms to LLD 2.2:
  *   - Evaluates candidates based on context length needed.
  *   - Filters based on required capabilities (tools, vision, JSON schema).
@@ -204,8 +204,8 @@ describe("CapabilityFilter", () => {
       expect(filter.isCapable(multimodalFlashModel, { provider: "openai" })).toBe(false);
     });
 
-    it("validates maximum cost ceiling in microdollars", () => {
-      // flash input is 100,000 µ$; flagship is 2,500,000 µ$
+    it("validates maximum cost ceiling in credit units", () => {
+      // flash input is 100,000 CU; flagship is 2,500,000 CU
       expect(filter.isCapable(multimodalFlashModel, { maxCostPerMTokMicro: 150_000n })).toBe(true);
       expect(filter.isCapable(expensiveFlagshipModel, { maxCostPerMTokMicro: 150_000n })).toBe(false);
       expect(filter.isCapable(expensiveFlagshipModel, { maxCostPerMTokMicro: 3_000_000n })).toBe(true);
@@ -244,9 +244,9 @@ describe("CapabilityFilter", () => {
       expect(candidates.some((m) => m.id === "retired-omni")).toBe(false);
       // viable models must be present
       expect(candidates.map((m) => m.id)).toEqual([
-        "multimodal-flash",     // 100,000 µ$
-        "tools-text-model",     // 140,000 µ$
-        "flagship-omni",        // 2,500,000 µ$
+        "multimodal-flash",     // 100,000 CU
+        "tools-text-model",     // 140,000 CU
+        "flagship-omni",        // 2,500,000 CU
       ]);
     });
 
@@ -626,7 +626,7 @@ describe("CapabilityFilter", () => {
     it("orders viable default catalog models cost-optimally (cheapest first)", () => {
       const visionCandidates = registryFilter.filterRegistry({ requiresVision: true });
 
-      // gemini-2.0-flash is 100,000 µ$, gemini-1.5-pro is 1,250,000 µ$
+      // gemini-2.0-flash is 100,000 CU, gemini-1.5-pro is 1,250,000 CU
       expect(visionCandidates[0].id).toBe("gemini-2.0-flash");
       expect(visionCandidates[1].id).toBe("gemini-1.5-pro");
       expect(visionCandidates[0].inputCostPerMTokMicro).toBeLessThanOrEqual(

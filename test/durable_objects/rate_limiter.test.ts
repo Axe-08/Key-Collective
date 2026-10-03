@@ -7,8 +7,8 @@
  * - Conforms to LLD 3.2:
  *   - Sliding-window counters for RPM and RPD.
  *   - DO Transactional Storage persistence (survives eviction).
- *   - Contract: checkLimit(costMicrodollars), increment(costMicrodollars).
- * - Fixed-point microdollars (zero floating-point math).
+ *   - Contract: checkLimit(costCu), increment(costCu).
+ * - Fixed-point credit units (zero floating-point math).
  * - Strict tenant isolation.
  */
 
@@ -136,7 +136,7 @@ describe("RateLimiter (T-02)", () => {
 
       const data = await rl.getData();
       expect(data.entries).toEqual([]);
-      expect(data.totalCostMicrodollars).toBe("0");
+      expect(data.totalCostCu).toBe("0");
       expect(data.lastRequestTime).toBeNull();
     });
 
@@ -148,7 +148,7 @@ describe("RateLimiter (T-02)", () => {
         rpdLimit: 200,
         windowSizeSeconds: 30,
         dayWindowSeconds: 43200,
-        maxBudgetMicrodollars: 50_000_000n,
+        maxBudgetCu: 50_000_000n,
         storageKeyPrefix: "custom-rl:",
         timeProvider,
       });
@@ -160,7 +160,7 @@ describe("RateLimiter (T-02)", () => {
       expect(rl.windowSizeMs).toBe(30_000);
       expect(rl.dayWindowSeconds).toBe(43200);
       expect(rl.dayWindowMs).toBe(43_200_000);
-      expect(rl.maxBudgetMicrodollars).toBe(50_000_000n);
+      expect(rl.maxBudgetCu).toBe(50_000_000n);
       expect(rl.getStorageKey()).toBe("custom-rl:key-custom");
       expect(rl.getStorageKey("override-key")).toBe("custom-rl:override-key");
     });
@@ -331,8 +331,8 @@ describe("RateLimiter (T-02)", () => {
     });
   });
 
-  describe("4. Fixed-Point Microdollars & Financial Budget Invariants", () => {
-    it("accumulates costs in fixed-point microdollars without precision loss", async () => {
+  describe("4. Fixed-Point CreditUnits & Financial Budget Invariants", () => {
+    it("accumulates costs in fixed-point credit units without precision loss", async () => {
       const rl = new RateLimiter(storage, { timeProvider });
 
       await rl.increment(123_456n);
@@ -345,29 +345,29 @@ describe("RateLimiter (T-02)", () => {
       expect(accumulated).toBe(912_469n);
 
       const data = await rl.getData();
-      expect(data.totalCostMicrodollars).toBe("912469");
+      expect(data.totalCostCu).toBe("912469");
     });
 
-    it("enforces maxBudgetMicrodollars ceiling when configured", async () => {
+    it("enforces maxBudgetCu ceiling when configured", async () => {
       const rl = new RateLimiter(storage, {
-        maxBudgetMicrodollars: 1_000_000n, // $1.00 USD
+        maxBudgetCu: 1_000_000n, // $1.00 USD
         timeProvider,
       });
 
-      // Request 1: 800_000n µ$ ($0.80) -> within budget
+      // Request 1: 800_000n CU ($0.80) -> within budget
       expect(await rl.checkLimit(800_000n)).toBe(true);
       await rl.increment(800_000n);
       expect(await rl.getAccumulatedCost()).toBe(800_000n);
 
-      // Prospective Request 2: 250_000n µ$ ($0.25) -> exceeds $1.00 budget ceiling
+      // Prospective Request 2: 250_000n CU ($0.25) -> exceeds $1.00 budget ceiling
       expect(await rl.checkLimit(250_000n)).toBe(false);
 
       const check = await rl.checkLimitDetailed(undefined, 250_000n);
       expect(check.allowed).toBe(false);
       expect(check.reason).toBe("budget_exceeded");
-      expect(check.costAccumulatedMicrodollars).toBe(800_000n);
+      expect(check.costAccumulatedCu).toBe(800_000n);
 
-      // Prospective Request 3: 150_000n µ$ ($0.15) -> fits within remaining $0.20 budget
+      // Prospective Request 3: 150_000n CU ($0.15) -> fits within remaining $0.20 budget
       expect(await rl.checkLimit(150_000n)).toBe(true);
       await rl.increment(150_000n);
       expect(await rl.getAccumulatedCost()).toBe(950_000n);
@@ -438,7 +438,7 @@ describe("RateLimiter (T-02)", () => {
       const rl = new RateLimiter(storage, {
         tenantId: "tenant-budget",
         keyId: "key-o1",
-        maxBudgetMicrodollars: 500_000n,
+        maxBudgetCu: 500_000n,
         timeProvider,
       });
 
@@ -471,8 +471,8 @@ describe("RateLimiter (T-02)", () => {
       expect(raw.entries.length).toBe(1);
       expect(raw.entries[0]?.timestamp).toBe(currentTime);
       expect(raw.entries[0]?.count).toBe(1);
-      expect(raw.entries[0]?.costMicrodollars).toBe("10000");
-      expect(raw.totalCostMicrodollars).toBe("10000");
+      expect(raw.entries[0]?.costCu).toBe("10000");
+      expect(raw.totalCostCu).toBe("10000");
       expect(raw.lastRequestTime).toBe(currentTime);
     });
 
@@ -574,8 +574,8 @@ describe("RateLimiter (T-02)", () => {
       // Should be merged into 1 entry to optimize DO storage footprint
       expect(data.entries.length).toBe(1);
       expect(data.entries[0]?.count).toBe(3);
-      expect(data.entries[0]?.costMicrodollars).toBe("600");
-      expect(data.totalCostMicrodollars).toBe("600");
+      expect(data.entries[0]?.costCu).toBe("600");
+      expect(data.totalCostCu).toBe("600");
       expect(await rl.getCurrentRpm()).toBe(3);
       expect(await rl.getAccumulatedCost()).toBe(600n);
     });
@@ -595,7 +595,7 @@ describe("RateLimiter (T-02)", () => {
       const metrics = await rl.getMetrics("key-1");
       expect(metrics.rpm).toBe(2);
       expect(metrics.rpd).toBe(2);
-      expect(metrics.costAccumulatedMicrodollars).toBe(3000n);
+      expect(metrics.costAccumulatedCu).toBe(3000n);
       expect(metrics.remainingRpm).toBe(8);
       expect(metrics.remainingRpd).toBe(98);
       expect(metrics.isRateLimited).toBe(false);
@@ -606,16 +606,16 @@ describe("RateLimiter (T-02)", () => {
   describe("10. Type Guards & Data Validation", () => {
     it("validates RateLimitEntry with isRateLimitEntry", () => {
       expect(
-        isRateLimitEntry({ timestamp: 12345, count: 1, costMicrodollars: "100" })
+        isRateLimitEntry({ timestamp: 12345, count: 1, costCu: "100" })
       ).toBe(true);
       expect(isRateLimitEntry(null)).toBe(false);
-      expect(isRateLimitEntry({ timestamp: "bad", count: 1, costMicrodollars: "100" })).toBe(
+      expect(isRateLimitEntry({ timestamp: "bad", count: 1, costCu: "100" })).toBe(
         false
       );
-      expect(isRateLimitEntry({ timestamp: 12345, count: "one", costMicrodollars: "100" })).toBe(
+      expect(isRateLimitEntry({ timestamp: 12345, count: "one", costCu: "100" })).toBe(
         false
       );
-      expect(isRateLimitEntry({ timestamp: 12345, count: 1, costMicrodollars: 100 })).toBe(
+      expect(isRateLimitEntry({ timestamp: 12345, count: 1, costCu: 100 })).toBe(
         false
       );
     });
@@ -626,7 +626,7 @@ describe("RateLimiter (T-02)", () => {
 
       expect(isRateLimiterData(null)).toBe(false);
       expect(isRateLimiterData({ ...valid, entries: "invalid" })).toBe(false);
-      expect(isRateLimiterData({ ...valid, totalCostMicrodollars: 100 })).toBe(false);
+      expect(isRateLimiterData({ ...valid, totalCostCu: 100 })).toBe(false);
     });
 
     it("gracefully recovers to default clean state if storage data is corrupted", async () => {
@@ -636,7 +636,7 @@ describe("RateLimiter (T-02)", () => {
       const data = await rl.getData();
 
       expect(data.entries).toEqual([]);
-      expect(data.totalCostMicrodollars).toBe("0");
+      expect(data.totalCostCu).toBe("0");
       expect(await rl.checkLimit()).toBe(true);
     });
   });

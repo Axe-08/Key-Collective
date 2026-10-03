@@ -7,7 +7,7 @@
  * - Nonce must strictly be 12-bytes (96 bits) as mandated by AES-GCM standard & GEMINI.md.
  * - Strict TypeScript: No `any`, strict mode, strict null checks.
  * - Per-Tenant DO Isolation: Operates on tenant-isolated EncryptedKey records.
- * - Fixed-Point Microdollars: Ecosystem alignment with zero floating-point math.
+ * - Fixed-Point CreditUnits: Ecosystem alignment with zero floating-point math.
  */
 
 import {

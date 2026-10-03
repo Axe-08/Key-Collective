@@ -4,7 +4,7 @@
  *
  * Invariants Enforced (GEMINI.md Constitution):
  * - TypeScript (strict mode, no `any`).
- * - Fixed-Point Microdollars: All pricing calculations utilize int64 / bigint microdollars. Zero floating-point math.
+ * - Fixed-Point CreditUnits: All pricing calculations utilize int64 / bigint credit units. Zero floating-point math.
  */
 
 import type { RouteRequest, RouteResponse } from "../../contracts/router";
@@ -80,8 +80,8 @@ export interface CascadeRouteRequest extends RouteRequest {
 export interface CascadeRouteResponse extends RouteResponse {
   /** Extracted completion content text (or empty string if stream=true) */
   content: string;
-  /** Authoritative transaction cost in microdollars (bigint) */
-  costMicrodollars: bigint;
+  /** Authoritative transaction cost in credit units (bigint) */
+  costCu: bigint;
   /** Canonical model ID that fulfilled the request */
   model: string;
   /** Upstream provider that fulfilled the request */
@@ -153,7 +153,7 @@ export function isCascadeRouteResponse(value: unknown): value is CascadeRouteRes
     typeof value === "object" &&
     value !== null &&
     "content" in value &&
-    "costMicrodollars" in value &&
+    "costCu" in value &&
     "model" in value &&
     "provider" in value &&
     "attempts" in value &&

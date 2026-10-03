@@ -3,12 +3,6 @@ import {
   KNOWN_MODEL_PROVIDERS,
   KNOWN_MODEL_ALIASES,
   KEY_STATUSES,
-  ROUTING_STRATEGIES,
-  FALLBACK_TRIGGERS,
-  DEFAULT_KEY_ROUTING_CONFIG,
-  DEFAULT_FALLBACK_CONFIG,
-  DEFAULT_RATE_LIMIT_CONFIG,
-  DEFAULT_CIRCUIT_BREAKER_CONFIG,
   ModelProvider,
   ModelAlias,
   KeyStatus,
@@ -16,16 +10,7 @@ import {
   APIKey,
   RouterDecision,
   CostLedgerEvent,
-  RoutingStrategy,
-  FallbackTrigger,
-  KeyRoutingConfig,
-  FallbackConfig,
-  RateLimitConfig,
-  CircuitBreakerConfig,
-  TenantBudgetConfig,
-  TenantConfig,
   createModelDef,
-  createTenantConfig,
   isModelProvider,
   isKnownModelProvider,
   isModelAlias,
@@ -34,12 +19,29 @@ import {
   isModelDef,
   isAPIKey,
   isRouterDecision,
+} from "../src/types/models";
+import {
+  ROUTING_STRATEGIES,
+  FALLBACK_TRIGGERS,
+  DEFAULT_KEY_ROUTING_CONFIG,
+  DEFAULT_FALLBACK_CONFIG,
+  DEFAULT_RATE_LIMIT_CONFIG,
+  DEFAULT_CIRCUIT_BREAKER_CONFIG,
+  RoutingStrategy,
+  FallbackTrigger,
+  KeyRoutingConfig,
+  FallbackConfig,
+  RateLimitConfig,
+  CircuitBreakerConfig,
+  TenantBudgetConfig,
+  TenantConfig,
+  createTenantConfig,
   isRoutingStrategy,
   isFallbackTrigger,
   isCircuitBreakerConfig,
   isRateLimitConfig,
   isTenantConfig,
-} from "../src/types";
+} from "../src/types/config";
 
 describe("Model and Provider Types (LLD 2.2)", () => {
   describe("ModelProvider and ModelAlias", () => {
@@ -112,7 +114,7 @@ describe("Model and Provider Types (LLD 2.2)", () => {
   });
 
   describe("ModelDef", () => {
-    it("instantiates ModelDef with fixed-point microdollar pricing (BigInt)", () => {
+    it("instantiates ModelDef with fixed-point credit unit pricing (BigInt)", () => {
       const model: ModelDef = {
         id: "gemini-2.0-flash",
         provider: "google",
@@ -270,7 +272,7 @@ describe("Model and Provider Types (LLD 2.2)", () => {
       expect(isRouterDecision(null)).toBe(false);
     });
 
-    it("captures financial impact via CostLedgerEvent with BigInt microdollars", () => {
+    it("captures financial impact via CostLedgerEvent with BigInt credit units", () => {
       const event: CostLedgerEvent = {
         id: "evt-001",
         requestId: "req-999",
@@ -282,13 +284,13 @@ describe("Model and Provider Types (LLD 2.2)", () => {
         completionTokens: 500,
         cachedTokens: 200,
         reasoningTokens: 0,
-        costMicrodollars: 450n, // exact microdollars
+        costCu: 450n, // exact credit units
         latencyMs: 185,
         statusCode: 200,
         createdAt: "2026-09-09T21:00:00Z",
       };
 
-      expect(event.costMicrodollars).toBe(450n);
+      expect(event.costCu).toBe(450n);
       expect(event.promptTokens).toBe(1000);
       expect(event.cachedTokens).toBe(200);
     });
@@ -404,10 +406,10 @@ describe("Configuration Types (LLD 2.3)", () => {
       expect(config.fallback.triggers).toEqual(["rate_limit", "circuit_breaker_open"]);
     });
 
-    it("configures tenant financial budget with int64 microdollars", () => {
+    it("configures tenant financial budget with int64 credit units", () => {
       const budget: TenantBudgetConfig = {
-        maxBudgetMicrodollars: 50_000_000n, // $50 USD
-        spentMicrodollars: 12_500_000n, // $12.50 USD
+        maxBudgetCu: 50_000_000n, // $50 USD
+        spentTotalCu: 12_500_000n, // $12.50 USD
         onExhaustion: "block",
         alertThresholdPercent: 80,
       };
@@ -416,8 +418,8 @@ describe("Configuration Types (LLD 2.3)", () => {
         budget,
       });
 
-      expect(config.budget?.maxBudgetMicrodollars).toBe(50_000_000n);
-      expect(config.budget?.spentMicrodollars).toBe(12_500_000n);
+      expect(config.budget?.maxBudgetCu).toBe(50_000_000n);
+      expect(config.budget?.spentTotalCu).toBe(12_500_000n);
       expect(config.budget?.onExhaustion).toBe("block");
       expect(config.budget?.alertThresholdPercent).toBe(80);
       expect(isTenantConfig(config)).toBe(true);

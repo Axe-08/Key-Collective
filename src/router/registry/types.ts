@@ -3,7 +3,7 @@
  *
  * Conforms to:
  * - LLD 2.1: Model definitions, context window limits, and pricing information.
- * - GEMINI.md Constitution: TypeScript strict mode, no `any`, fixed-point microdollars.
+ * - GEMINI.md Constitution: TypeScript strict mode, no `any`, fixed-point credit units.
  */
 
 import type {
@@ -27,19 +27,19 @@ export interface TokenUsage {
 }
 
 /**
- * Detailed breakdown of transaction costs in fixed-point microdollars.
+ * Detailed breakdown of transaction costs in fixed-point credit units.
  */
 export interface CostBreakdown {
-  /** Cost for prompt / input tokens in microdollars */
-  promptCostMicrodollars: bigint;
-  /** Cost for completion / output tokens in microdollars */
-  completionCostMicrodollars: bigint;
-  /** Cost for cached prompt tokens in microdollars */
-  cacheReadCostMicrodollars: bigint;
-  /** Cost for reasoning / thought tokens in microdollars */
-  reasoningCostMicrodollars: bigint;
-  /** Total transaction cost in microdollars */
-  totalCostMicrodollars: bigint;
+  /** Cost for prompt / input tokens in credit units */
+  promptCostCu: bigint;
+  /** Cost for completion / output tokens in credit units */
+  completionCostCu: bigint;
+  /** Cost for cached prompt tokens in credit units */
+  cacheReadCostCu: bigint;
+  /** Cost for reasoning / thought tokens in credit units */
+  reasoningCostCu: bigint;
+  /** Total transaction cost in credit units */
+  totalCostCu: bigint;
 }
 
 /**
@@ -74,7 +74,7 @@ export interface ModelFilterCriteria {
   onlyActive?: boolean;
   /** Minimum context window in tokens */
   minContextWindow?: number;
-  /** Maximum allowable input token cost in microdollars */
+  /** Maximum allowable input token cost in credit units */
   maxCostPerMTokMicro?: bigint | number;
   /** Require tool / function calling capability */
   supportsTools?: boolean;

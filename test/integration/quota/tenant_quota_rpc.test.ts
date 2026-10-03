@@ -26,7 +26,7 @@ interface ConsumeResult {
 }
 
 interface QuotaStub {
-  consumeQuota(req: { tenantId: string; costMicrodollars: bigint; count: number }): Promise<ConsumeResult>;
+  consumeQuota(req: { tenantId: string; costCu: bigint; count: number }): Promise<ConsumeResult>;
 }
 
 describe("TenantQuotaDO over native RPC", () => {
@@ -34,7 +34,7 @@ describe("TenantQuotaDO over native RPC", () => {
     const ns = (env as unknown as { TENANT_QUOTA: DurableObjectNamespace }).TENANT_QUOTA;
     const stub = ns.get(ns.idFromName("usr_goog_rpc_probe")) as unknown as QuotaStub;
 
-    const result = await stub.consumeQuota({ tenantId: "usr_goog_rpc_probe", costMicrodollars: 0n, count: 1 });
+    const result = await stub.consumeQuota({ tenantId: "usr_goog_rpc_probe", costCu: 0n, count: 1 });
 
     expect(result.allowed).toBe(true);
   });

@@ -76,7 +76,7 @@ export function checkCapabilities(
   ) {
     missingCapabilities.push("cost_limit");
     reasons.push(
-      `Model '${model.id}' input cost (${model.inputCostPerMTokMicro} µ$) exceeds max allowed cost (${requirements.maxCostPerMTokMicro} µ$)`
+      `Model '${model.id}' input cost (${model.inputCostPerMTokMicro} CU) exceeds max allowed cost (${requirements.maxCostPerMTokMicro} CU)`
     );
   }
 

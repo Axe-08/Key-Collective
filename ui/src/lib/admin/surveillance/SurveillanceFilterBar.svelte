@@ -87,7 +87,7 @@
       class="px-2.5 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-on-surface text-[12px] focus:outline-none focus:border-primary cursor-pointer"
     >
       <option value="rpm">RPM Velocity</option>
-      <option value="spend">Today's Spend (µ$)</option>
+      <option value="spend">Today's Spend (CU)</option>
       <option value="recent">Recently Active</option>
       <option value="id">Tenant ID</option>
     </select>

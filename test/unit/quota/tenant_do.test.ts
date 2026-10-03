@@ -3,7 +3,7 @@ import {
   TenantQuotaDO,
   DurableObject,
   DurableObjectStateLike,
-  toMicrodollars,
+  toCuAmount,
   toCu,
   calculateMultiplierCeiling,
   determineJailStatus,
@@ -101,26 +101,26 @@ describe('src/quota/tenant_do.ts', () => {
     });
   });
 
-  describe('Microdollar Cost Tracking (Fixed-Point Math)', () => {
-    it('accurately parses microdollars from bigint, number, and string', () => {
-      expect(toMicrodollars(1000n)).toBe(1000n);
-      expect(toMicrodollars(500)).toBe(500n);
-      expect(toMicrodollars(12.9)).toBe(12n);
-      expect(toMicrodollars('2500000')).toBe(2500000n);
-      expect(toMicrodollars('invalid')).toBe(0n);
-      expect(toMicrodollars(null)).toBe(0n);
+  describe('CreditUnit Cost Tracking (Fixed-Point Math)', () => {
+    it('accurately parses credit units from bigint, number, and string', () => {
+      expect(toCuAmount(1000n)).toBe(1000n);
+      expect(toCuAmount(500)).toBe(500n);
+      expect(toCuAmount(12.9)).toBe(12n);
+      expect(toCuAmount('2500000')).toBe(2500000n);
+      expect(toCuAmount('invalid')).toBe(0n);
+      expect(toCuAmount(null)).toBe(0n);
     });
 
-    it('accumulates exact int64 microdollars without floating-point errors', async () => {
+    it('accumulates exact int64 credit units without floating-point errors', async () => {
       const doInstance = new TenantQuotaDO(mockState, {}, {
         timeProvider: () => currentTime,
       });
 
-      await doInstance.consumeQuota({ costMicrodollars: 100_000n });
-      await doInstance.consumeQuota({ costMicrodollars: '250000' });
-      await doInstance.consumeQuota({ costMicrodollars: 50_000 });
+      await doInstance.consumeQuota({ costCu: 100_000n });
+      await doInstance.consumeQuota({ costCu: '250000' });
+      await doInstance.consumeQuota({ costCu: 50_000 });
 
-      expect(doInstance.getTotalCostMicrodollars()).toBe(400_000n);
+      expect(doInstance.getTotalCostCu()).toBe(400_000n);
     });
   });
 
@@ -257,33 +257,33 @@ describe('src/quota/tenant_do.ts', () => {
       for (let i = 0; i < 10; i++) {
         await doInstance.consumeQuota({
           projectId: 'proj_persist',
-          costMicrodollars: 10_000n,
+          costCu: 10_000n,
         });
       }
 
       expect(doInstance.getRpm()).toBe(10);
-      expect(doInstance.getTotalCostMicrodollars()).toBe(100_000n);
+      expect(doInstance.getTotalCostCu()).toBe(100_000n);
 
       // Verify stored in storage
       const stored = await mockStorage.get<any>('quota:data');
       expect(stored).toBeDefined();
       expect(stored.entries.length).toBe(10);
-      expect(stored.totalCostMicrodollars).toBe('100000');
+      expect(stored.totalCostCu).toBe('100000');
 
       // Simulate DO eviction
       doInstance.clearMemoryCache();
       expect(doInstance.getRpm()).toBe(0);
-      expect(doInstance.getTotalCostMicrodollars()).toBe(0n);
+      expect(doInstance.getTotalCostCu()).toBe(0n);
 
       // Next request re-hydrates from storage
       const nextRes = await doInstance.consumeQuota({
         projectId: 'proj_persist',
-        costMicrodollars: 5_000n,
+        costCu: 5_000n,
       });
 
       expect(nextRes.allowed).toBe(true);
       expect(doInstance.getRpm()).toBe(11);
-      expect(doInstance.getTotalCostMicrodollars()).toBe(105_000n);
+      expect(doInstance.getTotalCostCu()).toBe(105_000n);
     });
 
     it('resets counters and persists empty state to storage', async () => {
@@ -291,16 +291,16 @@ describe('src/quota/tenant_do.ts', () => {
         timeProvider: () => currentTime,
       });
 
-      await doInstance.consumeQuota({ costMicrodollars: 50_000n });
+      await doInstance.consumeQuota({ costCu: 50_000n });
       expect(doInstance.getRpm()).toBe(1);
 
       await doInstance.reset();
       expect(doInstance.getRpm()).toBe(0);
-      expect(doInstance.getTotalCostMicrodollars()).toBe(0n);
+      expect(doInstance.getTotalCostCu()).toBe(0n);
 
       const stored = await mockStorage.get<any>('quota:data');
       expect(stored.entries.length).toBe(0);
-      expect(stored.totalCostMicrodollars).toBe('0');
+      expect(stored.totalCostCu).toBe('0');
     });
   });
 
@@ -316,7 +316,7 @@ describe('src/quota/tenant_do.ts', () => {
         body: JSON.stringify({
           projectId: 'proj_fetch',
           count: 2,
-          costMicrodollars: '10000',
+          costCu: '10000',
         }),
       });
 
@@ -326,7 +326,7 @@ describe('src/quota/tenant_do.ts', () => {
       const data = await res.json() as any;
       expect(data.allowed).toBe(true);
       expect(data.currentRpm).toBe(2);
-      expect(data.totalCostMicrodollars).toBe('10000');
+      expect(data.totalCostCu).toBe('10000');
     });
 
     it('handles POST /consume returning HTTP 429 when quota exceeded', async () => {
@@ -455,7 +455,7 @@ describe('src/quota/tenant_do.ts', () => {
 
       await doInstance.consumeQuota({ cu: 100n });
       await doInstance.consumeQuota({ cu: 250n });
-      await doInstance.consumeQuota({ costMicrodollars: 50n });
+      await doInstance.consumeQuota({ costCu: 50n });
 
       expect(doInstance.getCuUsed24h()).toBe(400n);
     });

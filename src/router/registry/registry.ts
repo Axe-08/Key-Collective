@@ -5,12 +5,12 @@
  * - LLD 2.1: Manages model definitions, context window limits, and pricing information.
  * - Logical alias lookup (e.g. mapping 'fast-model' or 'smart-fast' to canonical provider model ID).
  * - Context window tracking and token limits.
- * - Fixed-point microdollar pricing math (1 USD = 1,000,000 microdollars) to avoid floating point precision issues.
+ * - Fixed-point credit unit pricing math (1 USD = 1,000,000 credit units) to avoid floating point precision issues.
  * - Exposing methods to calculate estimated or exact costs based on token usage.
  *
  * Invariants Enforced (GEMINI.md Constitution):
  * - TypeScript (strict mode, no `any`).
- * - Fixed-Point Microdollars: All costs in int64 / bigint microdollars. Zero floating-point math.
+ * - Fixed-Point CreditUnits: All costs in int64 / bigint credit units. Zero floating-point math.
  */
 
 import {
@@ -494,11 +494,11 @@ export class ModelRegistry implements IModelRegistry {
   }
 
   // ==========================================
-  // Fixed-Point Microdollar Pricing Math (Deprecated)
+  // Fixed-Point CreditUnit Pricing Math (Deprecated)
   // ==========================================
 
   /**
-   * Calculates the exact total transaction cost in int64 microdollars for a model.
+   * Calculates the exact total transaction cost in int64 credit units for a model.
    * Zero floating-point arithmetic:
    * promptCost = (promptTokens * inputCost) // 1_000_000n
    * outputCost = ((completionTokens + reasoningTokens) * outputCost) // 1_000_000n

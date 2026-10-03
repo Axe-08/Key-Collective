@@ -12,7 +12,6 @@
  * - x-kc-cu: string (when present in ctx)
  *
  * Forbidden internal and deprecated headers stripped:
- * - x-kc-cost-microdollars
  * - x-kc-tenant-id
  * - x-kc-trace-id
  * - x-kc-model
@@ -26,7 +25,6 @@ export interface KcHeaderContext {
   provider?: string;
   attempts?: number | string | unknown[];
   cu?: number | string | bigint;
-  costMicrodollars?: number | string | bigint;
   isStream?: boolean;
   commonsNotice?: string;
 }
@@ -118,7 +116,11 @@ export function applyKcHeaders(res: Response, ctx: KcHeaderContext = {}): Respon
   }
 
   // Strip deprecated and internal routing headers
-  headers.delete("x-kc-cost-microdollars");
+  for (const key of Array.from(headers.keys())) {
+    if (key.toLowerCase().startsWith("x-kc-cost-")) {
+      headers.delete(key);
+    }
+  }
   headers.delete("x-kc-tenant-id");
   headers.delete("x-kc-trace-id");
   headers.delete("x-kc-model");

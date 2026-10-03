@@ -23,11 +23,11 @@ export interface EncryptedKey {
 export interface KeyMetrics {
     rpm: number;
     circuitBreakerTripped: boolean;
-    costAccumulatedMicrodollars: bigint;
+    costAccumulatedCu: bigint;
 }
 
 export interface KeyPoolContract {
     getKey(provider: string): Promise<string>;
-    recordUsage(keyId: string, costMicrodollars: bigint): Promise<void>;
+    recordUsage(keyId: string, costCu: bigint): Promise<void>;
     recordResult?(keyId: string, success: boolean): Promise<void>;
 }

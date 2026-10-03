@@ -2,7 +2,7 @@
  * Key Collective v2 — Cost Ledger Validation & Math Helpers
  *
  * Invariants (GEMINI.md Constitution):
- * - Fixed-Point Microdollars: All costs in `int64` / `bigint` microdollars (1 USD = 1,000,000 µ$).
+ * - Fixed-Point CreditUnits: All costs in `int64` / `bigint` credit units (1 USD = 1,000,000 CU).
  *   Zero floating-point math for financials to eliminate IEEE 754 precision errors.
  * - Strict type-guarding and canonical day formatting.
  */
@@ -11,15 +11,15 @@ import type { CostLedgerEvent, ModelPricing } from "../../../types/models";
 import { InvalidCostLedgerEventError } from "./errors";
 import type { DailySpendRollup } from "./types";
 
-const MICRODOLLAR_MULTIPLIER = 1_000_000n;
+const CU_SCALE_MULTIPLIER = 1_000_000n;
 
 /**
- * Validates that an input value is a valid int64 microdollar amount.
+ * Validates that an input value is a valid int64 credit unit amount.
  * Strictly forbids floating-point numbers to prevent financial precision loss.
  */
-export function validateMicrodollars(
+export function validateCuAmount(
   value: bigint | number,
-  fieldName = "costMicrodollars"
+  fieldName = "costCu"
 ): bigint {
   if (typeof value === "bigint") {
     if (value < 0n) {
@@ -82,10 +82,10 @@ export function formatCalendarDay(dateOrString: string | Date): string {
 }
 
 /**
- * Calculates exact transaction cost in int64 microdollars from token counts and pricing.
+ * Calculates exact transaction cost in int64 credit units from token counts and pricing.
  * Zero floating-point arithmetic: (tokens * price_micro) // 1_000_000n.
  */
-export function calculateEventCostMicrodollars(
+export function calculateEventCostCu(
   tokens: {
     promptTokens: number;
     completionTokens: number;
@@ -99,12 +99,12 @@ export function calculateEventCostMicrodollars(
   const reasoningTokens = BigInt(Math.max(0, Math.trunc(tokens.reasoningTokens ?? 0)));
   const cachedTokens = BigInt(Math.max(0, Math.trunc(tokens.cachedTokens ?? 0)));
 
-  const inputCost = (promptTokens * pricing.inputCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
+  const inputCost = (promptTokens * pricing.inputCostPerMTokMicro) / CU_SCALE_MULTIPLIER;
   const outputCost =
     ((completionTokens + reasoningTokens) * pricing.outputCostPerMTokMicro) /
-    MICRODOLLAR_MULTIPLIER;
+    CU_SCALE_MULTIPLIER;
   const cacheCost =
-    (cachedTokens * pricing.cacheReadCostPerMTokMicro) / MICRODOLLAR_MULTIPLIER;
+    (cachedTokens * pricing.cacheReadCostPerMTokMicro) / CU_SCALE_MULTIPLIER;
 
   return inputCost + outputCost + cacheCost;
 }
@@ -118,10 +118,10 @@ export function isDailySpendRollup(value: unknown): value is DailySpendRollup {
   }
   const candidate = value as Record<string, unknown>;
   const hasValidCost =
-    candidate.totalCostMicrodollars === undefined ||
-    typeof candidate.totalCostMicrodollars === "bigint" ||
-    (typeof candidate.totalCostMicrodollars === "number" &&
-      Number.isInteger(candidate.totalCostMicrodollars));
+    candidate.totalCostCu === undefined ||
+    typeof candidate.totalCostCu === "bigint" ||
+    (typeof candidate.totalCostCu === "number" &&
+      Number.isInteger(candidate.totalCostCu));
   return (
     typeof candidate.tenantId === "string" &&
     typeof candidate.day === "string" &&
@@ -142,10 +142,10 @@ export function isCostLedgerEvent(value: unknown): value is CostLedgerEvent {
   }
   const candidate = value as Record<string, unknown>;
   const hasValidCost =
-    candidate.costMicrodollars === undefined ||
-    typeof candidate.costMicrodollars === "bigint" ||
-    (typeof candidate.costMicrodollars === "number" &&
-      Number.isInteger(candidate.costMicrodollars));
+    candidate.costCu === undefined ||
+    typeof candidate.costCu === "bigint" ||
+    (typeof candidate.costCu === "number" &&
+      Number.isInteger(candidate.costCu));
   return (
     typeof candidate.id === "string" &&
     typeof candidate.requestId === "string" &&

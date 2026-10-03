@@ -79,8 +79,8 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
         id: "tok-tool-1",
         hashSha256: "hash123",
         tenantId: "tenant-tool-calls",
-        budgetMicrodollars: 10_000_000n,
-        spentMicrodollars: 100_000n,
+        budgetCeilingCu: 10_000_000n,
+        spentTotalCu: 100_000n,
         allowedProviders: [],
         rpmLimit: 60,
         expiresAt: null,
@@ -89,9 +89,9 @@ describe("T-2.3.2: OpenAI-Compatible Tool-Call Response Round-Trip", () => {
       rpmLimit: 60,
       currentRpm: 1,
       remainingRpm: 59,
-      budgetMicrodollars: 10_000_000n,
-      spentMicrodollars: 100_000n,
-      budgetRemainingMicrodollars: 9_900_000n,
+      budgetCeilingCu: 10_000_000n,
+      spentTotalCu: 100_000n,
+      budgetRemainingCu: 9_900_000n,
     };
     env = {
       KEY_POOL: doNamespace as unknown as DurableObjectNamespace,

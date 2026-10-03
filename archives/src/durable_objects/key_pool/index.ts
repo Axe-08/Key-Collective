@@ -4,5 +4,4 @@
  */
 
 export * from "./types";
-export * from "./rpc";
 export * from "./key_pool_do";

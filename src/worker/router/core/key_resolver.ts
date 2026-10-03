@@ -14,6 +14,7 @@
 
 import { deriveTenantKey, decrypt, type KeyInput } from "../../../crypto/encryption/index";
 import { KeyDecryptionError } from "../../../errors/key_errors";
+import { Logger } from "../../../utils/logger";
 import type { WorkerEnv } from "../../auth/index";
 
 export interface LeasedKeyTarget {
@@ -54,7 +55,10 @@ async function quarantineKey(env: WorkerEnv, keyId: string): Promise<void> {
         .bind(Date.now(), keyId)
         .run();
     } catch (err) {
-      console.error(`Failed to quarantine key '${keyId}':`, err);
+      new Logger({ traceId: "quarantine-key", tenantId: "system" }).error(
+        `Failed to quarantine key '${keyId}'`,
+        { error: err instanceof Error ? err.message : String(err) }
+      );
     }
   }
 }
@@ -116,7 +120,7 @@ export async function resolveLeasedKey(
 
   // AC-07 Invariant: Assert row.tenant_id matches lease.ownerTenantId strictly
   if (row.tenant_id !== lease.ownerTenantId) {
-    console.error(
+    new Logger({ traceId: "ac-07", tenantId: lease.ownerTenantId }).error(
       `Security Alert (AC-07): Cross-tenant key access attempt. Key '${lease.keyId}' owned by '${row.tenant_id}', lease requested by '${lease.ownerTenantId}'`
     );
     await quarantineKey(env, lease.keyId);
@@ -135,7 +139,9 @@ export async function resolveLeasedKey(
 
   // Require HKDF migration (WP-7.6 T-7.6.1): unmigrated rows are quarantined and rejected
   if (row.hkdf_migrated !== 1) {
-    console.error(`Security Alert: Key '${lease.keyId}' is not HKDF-migrated (hkdf_migrated=${String(row.hkdf_migrated)})`);
+    new Logger({ traceId: "hkdf-check", tenantId: row.tenant_id }).error(
+      `Security Alert: Key '${lease.keyId}' is not HKDF-migrated (hkdf_migrated=${String(row.hkdf_migrated)})`
+    );
     await quarantineKey(env, lease.keyId);
     throw new KeyDecryptionError(
       `Decryption rejected for unmigrated key '${lease.keyId}': hkdf_migrated must be 1`,
@@ -163,7 +169,10 @@ export async function resolveLeasedKey(
 
     return clean;
   } catch (decryptErr) {
-    console.error(`Security Alert: Decryption failed for key '${lease.keyId}':`, decryptErr);
+    new Logger({ traceId: "decrypt-key", tenantId: row.tenant_id }).error(
+      `Security Alert: Decryption failed for key '${lease.keyId}'`,
+      { error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr) }
+    );
     await quarantineKey(env, lease.keyId);
     throw new KeyDecryptionError(
       `Decryption failed for key '${lease.keyId}': invalid ciphertext or corrupted nonce`,

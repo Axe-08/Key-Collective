@@ -15,7 +15,7 @@ import {
   isApiRequest,
   isApiResponse,
   isApiErrorResponse,
-} from "../src/types";
+} from "../src/types/api";
 
 describe("API Types and Helpers", () => {
   describe("ApiRequest<T>", () => {
@@ -70,7 +70,7 @@ describe("API Types and Helpers", () => {
   });
 
   describe("ApiResponse<T>", () => {
-    it("correctly encapsulates data and fixed-point microdollars meta", () => {
+    it("correctly encapsulates data and fixed-point credit units meta", () => {
       interface GenerationResult {
         text: string;
         finishReason: string;
@@ -78,7 +78,7 @@ describe("API Types and Helpers", () => {
 
       const meta: ApiResponseMeta = {
         latencyMs: 145,
-        costMicrodollars: 1_250_000n, // $1.25 USD in int64 microdollars
+        costCu: 1_250_000n, // $1.25 USD in int64 credit units
         traceId: "trace-001",
         requestId: "req-001",
         timestamp: Date.now(),
@@ -97,8 +97,8 @@ describe("API Types and Helpers", () => {
 
       expect(response.data.finishReason).toBe("stop");
       expect(response.meta.latencyMs).toBe(145);
-      expect(response.meta.costMicrodollars).toBe(1_250_000n);
-      expect(typeof response.meta.costMicrodollars).toBe("bigint");
+      expect(response.meta.costCu).toBe(1_250_000n);
+      expect(typeof response.meta.costCu).toBe("bigint");
       expect(response.meta.provider).toBe("google");
       expect(response.meta.cached).toBe(false);
     });
@@ -106,7 +106,7 @@ describe("API Types and Helpers", () => {
     it("creates an ApiResponse via createApiResponse factory", () => {
       const meta: ApiResponseMeta = {
         latencyMs: 88,
-        costMicrodollars: 500_000n,
+        costCu: 500_000n,
         provider: "openai",
         model: "gpt-4o-mini",
       };
@@ -114,19 +114,19 @@ describe("API Types and Helpers", () => {
       const res = createApiResponse({ reply: "Hello there" }, meta);
       expect(res.data.reply).toBe("Hello there");
       expect(res.meta.latencyMs).toBe(88);
-      expect(res.meta.costMicrodollars).toBe(500_000n);
+      expect(res.meta.costCu).toBe(500_000n);
     });
 
     it("supports serialized number costs when specified", () => {
       const meta: ApiResponseMeta<number> = {
         latencyMs: 50,
-        costMicrodollars: 500,
+        costCu: 500,
       };
       const res: ApiResponse<{ status: string }, number> = {
         data: { status: "ok" },
         meta,
       };
-      expect(res.meta.costMicrodollars).toBe(500);
+      expect(res.meta.costCu).toBe(500);
     });
   });
 
@@ -136,14 +136,14 @@ describe("API Types and Helpers", () => {
         "RATE_LIMIT_EXCEEDED",
         "Tenant RPM limit reached",
         { limit: 60, current: 61 },
-        { latencyMs: 2, costMicrodollars: 0n }
+        { latencyMs: 2, costCu: 0n }
       );
 
       expect(errRes.error.code).toBe("RATE_LIMIT_EXCEEDED");
       expect(errRes.error.message).toBe("Tenant RPM limit reached");
       expect(errRes.error.details?.limit).toBe(60);
       expect(errRes.meta?.latencyMs).toBe(2);
-      expect(errRes.meta?.costMicrodollars).toBe(0n);
+      expect(errRes.meta?.costCu).toBe(0n);
     });
 
     it("creates error without details or meta", () => {
@@ -158,7 +158,7 @@ describe("API Types and Helpers", () => {
   describe("ApiResult<T> Discriminated Union", () => {
     function processResult(result: ApiResult<{ answer: number }>): string {
       if (result.success) {
-        return `Success: answer=${result.data.answer}, cost=${result.meta.costMicrodollars}`;
+        return `Success: answer=${result.data.answer}, cost=${result.meta.costCu}`;
       } else {
         return `Error: ${result.error.code} - ${result.error.message}`;
       }
@@ -168,7 +168,7 @@ describe("API Types and Helpers", () => {
       const successResult: ApiSuccessResponse<{ answer: number }> = {
         success: true,
         data: { answer: 42 },
-        meta: { latencyMs: 12, costMicrodollars: 100n },
+        meta: { latencyMs: 12, costCu: 100n },
       };
       const output = processResult(successResult);
       expect(output).toBe("Success: answer=42, cost=100");
@@ -190,7 +190,7 @@ describe("API Types and Helpers", () => {
         data: [{ id: "1" }, { id: "2" }],
         meta: {
           latencyMs: 15,
-          costMicrodollars: 0n,
+          costCu: 0n,
         },
         pagination: {
           page: 1,
@@ -232,13 +232,13 @@ describe("API Types and Helpers", () => {
         expect(
           isApiResponse({
             data: { result: "ok" },
-            meta: { latencyMs: 50, costMicrodollars: 1000n },
+            meta: { latencyMs: 50, costCu: 1000n },
           })
         ).toBe(true);
         expect(
           isApiResponse({
             data: "simple string",
-            meta: { latencyMs: 0, costMicrodollars: 0 },
+            meta: { latencyMs: 0, costCu: 0 },
           })
         ).toBe(true);
       });

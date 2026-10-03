@@ -5,13 +5,13 @@
 import { UserTier } from "../../contracts/v3_types";
 import { calculateProjectQuota, getTierLimits } from "../limits";
 import type { ConsumeQuotaRequest, ConsumeQuotaResult, QuotaEntry } from "./types";
-import { toMicrodollars } from "./types";
+import { toCuAmount } from "./types";
 
 export interface QuotaEvaluationContext {
   tenantId: string;
   tier: UserTier;
   entries: QuotaEntry[];
-  totalCostMicrodollars: bigint;
+  totalCostCu: bigint;
   communityDebtMicroCu: bigint;
   dailyContributedCu: bigint;
   trustedContributor: boolean;
@@ -62,7 +62,7 @@ export function evaluateQuota(
 ): { result: ConsumeQuotaResult; newEntry?: QuotaEntry; incomingCost: bigint } {
   const effectiveTier = request.tier ?? ctx.tier;
   const requestedCount = request.count !== undefined && request.count > 0 ? request.count : 1;
-  const incomingCost = toMicrodollars(request.costMicrodollars);
+  const incomingCost = toCuAmount(request.costCu);
 
   const tierLimits = getTierLimits(effectiveTier);
   const multiplierPct =
@@ -102,7 +102,7 @@ export function evaluateQuota(
         rpmLimit: rootRpmLimit,
         currentRpd: currentRootRpd,
         rpdLimit: rootRpdLimit,
-        totalCostMicrodollars: ctx.totalCostMicrodollars.toString(),
+        totalCostCu: ctx.totalCostCu.toString(),
         ...baseDebtFields,
         remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
         remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
@@ -129,7 +129,7 @@ export function evaluateQuota(
         rpmLimit: rootRpmLimit,
         currentRpd: currentRootRpd,
         rpdLimit: rootRpdLimit,
-        totalCostMicrodollars: ctx.totalCostMicrodollars.toString(),
+        totalCostCu: ctx.totalCostCu.toString(),
         ...baseDebtFields,
         remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
         remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
@@ -164,7 +164,7 @@ export function evaluateQuota(
           rpdLimit: rootRpdLimit,
           currentProjectRpm,
           projectRpmLimit,
-          totalCostMicrodollars: ctx.totalCostMicrodollars.toString(),
+          totalCostCu: ctx.totalCostCu.toString(),
           ...baseDebtFields,
           remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
           remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
@@ -192,7 +192,7 @@ export function evaluateQuota(
         rpdLimit: rootRpdLimit,
         currentProjectRpm,
         projectRpmLimit,
-        totalCostMicrodollars: ctx.totalCostMicrodollars.toString(),
+        totalCostCu: ctx.totalCostCu.toString(),
         ...baseDebtFields,
         remainingRpm: Math.max(0, rootRpmLimit - currentRootRpm),
         remainingRpd: Math.max(0, rootRpdLimit - currentRootRpd),
@@ -204,7 +204,7 @@ export function evaluateQuota(
   const newEntry: QuotaEntry = {
     timestamp: ctx.now,
     count: requestedCount,
-    costMicrodollars: incomingCost.toString(),
+    costCu: incomingCost.toString(),
     ...(request.projectId ? { projectId: request.projectId } : {}),
   };
 
@@ -223,7 +223,7 @@ export function evaluateQuota(
       rpdLimit: rootRpdLimit,
       currentProjectRpm: currentProjectRpm !== undefined ? currentProjectRpm + requestedCount : undefined,
       projectRpmLimit,
-      totalCostMicrodollars: (ctx.totalCostMicrodollars + incomingCost).toString(),
+      totalCostCu: (ctx.totalCostCu + incomingCost).toString(),
       ...baseDebtFields,
       remainingRpm: rootRpmLimit === Infinity ? Infinity : Math.max(0, rootRpmLimit - updatedRootRpm),
       remainingRpd: rootRpdLimit === Infinity ? Infinity : Math.max(0, rootRpdLimit - updatedRootRpd),

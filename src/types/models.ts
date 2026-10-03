@@ -4,7 +4,7 @@
  *
  * Invariants:
  * - Strict mode, no `any`.
- * - Fixed-point microdollars (int64 microdollars, 1 USD = 1,000,000 µ$). Zero floating-point math.
+ * - Fixed-point credit units (int64 credit units, 1 USD = 1,000,000 CU). Zero floating-point math.
  * - Multi-tenant isolation: per-tenant key pools and configuration.
  */
 
@@ -97,17 +97,17 @@ export interface ModelCapabilities {
 }
 
 /**
- * Fixed-point microdollar pricing per 1M tokens.
+ * Fixed-point credit unit pricing per 1M tokens.
  * By default typed as `bigint` to enforce zero floating-point math.
  */
 export interface ModelPricing<TCost = bigint> {
-  /** Input token cost per 1M tokens in microdollars */
+  /** Input token cost per 1M tokens in credit units */
   /** @deprecated Use Credit Units (cuInPer1k) instead */
   inputCostPerMTokMicro: TCost;
-  /** Output token cost per 1M tokens in microdollars */
+  /** Output token cost per 1M tokens in credit units */
   /** @deprecated Use Credit Units (cuOutPer1k) instead */
   outputCostPerMTokMicro: TCost;
-  /** Cached token read cost per 1M tokens in microdollars */
+  /** Cached token read cost per 1M tokens in credit units */
   /** @deprecated Use Credit Units (cuCachedPer1k) instead */
   cacheReadCostPerMTokMicro: TCost;
   /** Base Credit Units per request */
@@ -135,13 +135,13 @@ export interface ModelDef<TCost = bigint> {
   contextWindow: number;
   /** Maximum output tokens */
   maxOutputTokens: number;
-  /** Input cost per 1,000,000 tokens in microdollars (int64) */
+  /** Input cost per 1,000,000 tokens in credit units (int64) */
   /** @deprecated Use Credit Units (cuInPer1k) instead */
   inputCostPerMTokMicro: TCost;
-  /** Output cost per 1,000,000 tokens in microdollars (int64) */
+  /** Output cost per 1,000,000 tokens in credit units (int64) */
   /** @deprecated Use Credit Units (cuOutPer1k) instead */
   outputCostPerMTokMicro: TCost;
-  /** Cache read cost per 1,000,000 tokens in microdollars (int64) */
+  /** Cache read cost per 1,000,000 tokens in credit units (int64) */
   /** @deprecated Use Credit Units (cuCachedPer1k) instead */
   cacheReadCostPerMTokMicro: TCost;
   /** Base Credit Units per request */
@@ -241,7 +241,7 @@ export interface RouterDecision {
 
 /**
  * CostLedgerEvent records the financial impact and token telemetry of a single request.
- * Enforces zero floating-point math using fixed-point microdollars.
+ * Enforces zero floating-point math using fixed-point credit units.
  */
 export interface CostLedgerEvent<TCost = bigint> {
   /** Unique event identifier */
@@ -264,8 +264,8 @@ export interface CostLedgerEvent<TCost = bigint> {
   cachedTokens: number;
   /** Reasoning / thought tokens consumed */
   reasoningTokens: number;
-  /** Total transaction cost in int64 microdollars */
-  costMicrodollars: TCost;
+  /** Total transaction cost in int64 credit units */
+  costCu: TCost;
   /** Total upstream latency in milliseconds */
   latencyMs: number;
   /** HTTP status code returned by upstream */

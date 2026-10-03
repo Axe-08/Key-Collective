@@ -22,8 +22,8 @@ import {
   WorkerEnv,
 } from "../auth/index";
 import { ExecutionContextLike, TelemetryEmitter } from "../telemetry_emitter";
-import { ChatHandler } from "./chat_handler";
-import { DashboardHandler } from "./dashboard_handler";
+import { ChatHandler } from "./chat/index";
+import { DashboardHandler } from "./dashboard/index";
 import { ModelRoutesHandler } from "./model_routes";
 import type { RouterHandlerOptions } from "./types";
 import { RouterContextResolver } from "./core/resolver";

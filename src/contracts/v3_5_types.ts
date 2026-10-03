@@ -4,7 +4,7 @@
  */
 
 // 1. Fixed-Point Financial Units (Invariants)
-export type Microdollars = number; // int64 microdollars: 1 USD = 1,000,000 µ$
+export type CreditUnits = number; // int64 credit units: 1 USD = 1,000,000 CU
 export type Milliseconds = number;
 
 // 2. Subdomain Host Routing Contracts
@@ -90,7 +90,7 @@ export interface TenantSurveillanceRow {
   readonly tier: UserTier;
   readonly currentRpm: number;
   readonly rpmLimit: number;
-  readonly todaySpendMicrodollars: Microdollars;
+  readonly todaySpendCu: CreditUnits;
   readonly activeKeyCount: number;
   readonly isQuarantined: boolean;
   readonly lastActiveTimestamp: Milliseconds;

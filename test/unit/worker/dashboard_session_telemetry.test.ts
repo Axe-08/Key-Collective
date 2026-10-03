@@ -11,8 +11,8 @@ describe("Dashboard Session & Telemetry Stream Endpoints", () => {
         return {
           tenantId: "usr_gh_testdev",
           tokenHash: "hash123",
-          budgetMicrodollars: 50000000n,
-          spentMicrodollars: 0n,
+          budgetCeilingCu: 50000000n,
+          spentTotalCu: 0n,
           allowedProviders: [],
           rpmLimit: 60,
         };

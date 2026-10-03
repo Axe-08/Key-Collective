@@ -245,14 +245,15 @@ Plan: `docs/PHASE7_PLAN.md`
 - [x] T-7.2.3 Archive legacy cookie-based auth token fallback
 
 ### WP-7.7
-- [ ] T-7.7.1 Archive parallel storage layer
-- [ ] T-7.7.2 Archive unused contracts and barrels
-- [ ] T-7.7.3 Archive facade modules
-- [ ] T-7.7.4 Archive one-off maintenance routes
-- [ ] T-7.7.5 Wire src/utils/logger.ts as the only logger
-- [ ] T-7.7.6 Verify sybil engine is wired
-- [ ] T-7.7.7 Create scripts/reachability.mjs and add to gate
-- [ ] T-7.7.8 Wire contracts/keys.ts (KeyStatus, PoolType enums)
+- [x] T-7.7.1 Archive parallel storage layer
+- [x] T-7.7.2 Archive unused contracts and barrels
+- [x] T-7.7.3 Archive facade modules
+- [x] T-7.7.4 Archive one-off maintenance routes
+- [x] T-7.7.5 Wire src/utils/logger.ts as the only logger
+- [x] T-7.7.6 Verify sybil engine is wired
+- [x] T-7.7.7 Create scripts/reachability.mjs and add to gate
+- [x] T-7.7.8 Wire contracts/keys.ts (KeyStatus, PoolType enums)
+- [x] T-7.7.9 Remove µ$ leftovers (AU-07)
 
 ## Phase 8
 

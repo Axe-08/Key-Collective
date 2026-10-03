@@ -22,6 +22,7 @@ import {
 import { commonsEnforcement, recordWouldDeny } from "./enforcement";
 import { nextProviderReset } from "../providers/config";
 import { Clock, systemClock } from "../utils/clock";
+import { Logger } from "../utils/logger";
 import type { WorkerEnv } from "../worker/auth/index";
 
 export type CoordinatorKeyStatus =
@@ -423,8 +424,10 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           .bind(notifId, owner, key_id, now)
           .run();
       } catch (err) {
-        // Non-blocking sync
-        void err;
+        new Logger({ traceId: "promote-observation", tenantId: owner }).warn(
+          "Failed to persist observation promotion in D1",
+          { keyId: key_id, error: err instanceof Error ? err.message : String(err) }
+        );
       }
     }
   }

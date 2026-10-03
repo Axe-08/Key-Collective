@@ -2,7 +2,7 @@
  * Key Collective v2 — Cost Ledger Repository Implementation
  *
  * Encapsulates all persistent D1 SQL operations for:
- * 1. Immutable Cost Ledger transaction events (dual-writing microdollars and Credit Units).
+ * 1. Immutable Cost Ledger transaction events (dual-writing credit units and Credit Units).
  * 2. Pre-aggregated Daily Spend Rollups and Daily CU Rollups.
  * 3. Daily reconciliation from raw immutable records.
  *
@@ -17,7 +17,7 @@ import {
 } from "./errors";
 import {
   formatCalendarDay,
-  validateMicrodollars,
+  validateCuAmount,
 } from "./helpers";
 import type {
   AggregateDbRow,
@@ -72,18 +72,18 @@ export class CostLedgerRepository {
 
   /**
    * Records a single cost transaction into the immutable cost_ledger table.
-   * Dual-writes both cost_microdollars and cu.
+   * Dual-writes both cost_amount and cu.
    *
-   * @param input CostLedgerEventInput containing request metrics, cost in microdollars, and optional CU.
-   * @returns Persisted CostLedgerEvent with int64 bigint microdollars and cu.
+   * @param input CostLedgerEventInput containing request metrics, cost in credit units, and optional CU.
+   * @returns Persisted CostLedgerEvent with int64 bigint credit units and cu.
    */
   public async recordEvent(input: CostLedgerEventInput): Promise<CostLedgerEvent> {
     this.validateEventInput(input);
 
     const id = input.id ?? crypto.randomUUID();
     const createdAt = this.normalizeCreatedAt(input.createdAt);
-    const costBigInt = input.costMicrodollars !== undefined
-      ? validateMicrodollars(input.costMicrodollars, "costMicrodollars")
+    const costBigInt = input.costCu !== undefined
+      ? validateCuAmount(input.costCu, "costCu")
       : 0n;
     const promptTokens = Math.max(0, Math.trunc(input.promptTokens ?? 0));
     const completionTokens = Math.max(0, Math.trunc(input.completionTokens ?? 0));
@@ -92,7 +92,7 @@ export class CostLedgerRepository {
     const latencyMs = Math.max(0, Math.trunc(input.latencyMs ?? 0));
 
     const cuBigInt = input.cu !== undefined
-      ? validateMicrodollars(input.cu, "cu")
+      ? validateCuAmount(input.cu, "cu")
       : computeFallbackCu(promptTokens, completionTokens, reasoningTokens);
     const usageEstimated = input.usageEstimated ?? 0;
     const borrowed = input.borrowed ?? 0;
@@ -148,7 +148,7 @@ export class CostLedgerRepository {
       completionTokens,
       cachedTokens,
       reasoningTokens,
-      costMicrodollars: costBigInt,
+      costCu: costBigInt,
       latencyMs,
       statusCode: input.statusCode,
       createdAt,
@@ -187,8 +187,8 @@ export class CostLedgerRepository {
 
       const id = input.id ?? crypto.randomUUID();
       const createdAt = this.normalizeCreatedAt(input.createdAt);
-      const costBigInt = input.costMicrodollars !== undefined
-        ? validateMicrodollars(input.costMicrodollars, "costMicrodollars")
+      const costBigInt = input.costCu !== undefined
+        ? validateCuAmount(input.costCu, "costCu")
         : 0n;
       const promptTokens = Math.max(0, Math.trunc(input.promptTokens ?? 0));
       const completionTokens = Math.max(0, Math.trunc(input.completionTokens ?? 0));
@@ -197,7 +197,7 @@ export class CostLedgerRepository {
       const latencyMs = Math.max(0, Math.trunc(input.latencyMs ?? 0));
 
       const cuBigInt = input.cu !== undefined
-        ? validateMicrodollars(input.cu, "cu")
+        ? validateCuAmount(input.cu, "cu")
         : computeFallbackCu(promptTokens, completionTokens, reasoningTokens);
       const usageEstimated = input.usageEstimated ?? 0;
       const borrowed = input.borrowed ?? 0;
@@ -235,7 +235,7 @@ export class CostLedgerRepository {
         completionTokens,
         cachedTokens,
         reasoningTokens,
-        costMicrodollars: costBigInt,
+        costCu: costBigInt,
         latencyMs,
         statusCode: input.statusCode,
         createdAt,
@@ -273,8 +273,8 @@ export class CostLedgerRepository {
     const id = input.id ?? crypto.randomUUID();
     const createdAt = this.normalizeCreatedAt(input.createdAt);
     const day = formatCalendarDay(createdAt);
-    const costBigInt = input.costMicrodollars !== undefined
-      ? validateMicrodollars(input.costMicrodollars, "costMicrodollars")
+    const costBigInt = input.costCu !== undefined
+      ? validateCuAmount(input.costCu, "costCu")
       : 0n;
     const promptTokens = Math.max(0, Math.trunc(input.promptTokens ?? 0));
     const completionTokens = Math.max(0, Math.trunc(input.completionTokens ?? 0));
@@ -284,7 +284,7 @@ export class CostLedgerRepository {
     const totalTokens = promptTokens + completionTokens + reasoningTokens;
 
     const cuBigInt = input.cu !== undefined
-      ? validateMicrodollars(input.cu, "cu")
+      ? validateCuAmount(input.cu, "cu")
       : computeFallbackCu(promptTokens, completionTokens, reasoningTokens);
     const usageEstimated = input.usageEstimated ?? 0;
     const borrowed = input.borrowed ?? 0;
@@ -363,7 +363,7 @@ export class CostLedgerRepository {
       completionTokens,
       cachedTokens,
       reasoningTokens,
-      costMicrodollars: costBigInt,
+      costCu: costBigInt,
       latencyMs,
       statusCode: input.statusCode,
       createdAt,
@@ -541,7 +541,7 @@ export class CostLedgerRepository {
     const requestsDelta = Math.max(0, Math.trunc(input.requestsDelta ?? 1));
     const tokensDelta = Math.max(0, Math.trunc(input.tokensDelta ?? 0));
     const cuDelta = input.cuDelta !== undefined
-      ? validateMicrodollars(input.cuDelta, "cuDelta")
+      ? validateCuAmount(input.cuDelta, "cuDelta")
       : BigInt(Math.max(0, Math.floor((tokensDelta + 999) / 1000)));
 
     const cuQuery = `
@@ -599,7 +599,7 @@ export class CostLedgerRepository {
         model_id,
         total_requests,
         total_tokens,
-        0 as total_cost_microdollars,
+        0 as total_cost_amount,
         total_cu
       FROM daily_cu_rollup
       WHERE tenant_id = ?
@@ -698,7 +698,7 @@ export class CostLedgerRepository {
 
       return {
         tenantId: tenantId.trim(),
-        totalCostMicrodollars: 0n,
+        totalCostCu: 0n,
         totalRequests: Number(totalRequestsRaw),
         totalTokens: Number(totalTokensRaw),
         totalCu: BigInt(row?.total_cu ?? 0),
@@ -716,14 +716,14 @@ export class CostLedgerRepository {
   }
 
   /**
-   * Returns the exact total spend in int64 microdollars for a tenant over an optional timeframe.
+   * Returns the exact total spend in int64 credit units for a tenant over an optional timeframe.
    */
-  public async getTenantTotalSpendMicrodollars(
+  public async getTenantTotalSpendCu(
     tenantId: string,
     options: { startDate?: string | Date; endDate?: string | Date } = {}
   ): Promise<bigint> {
     const summary = await this.getTenantSpendSummary(tenantId, options);
-    return summary.totalCostMicrodollars ?? 0n;
+    return summary.totalCostCu ?? 0n;
   }
 
   /**
@@ -808,7 +808,7 @@ export class CostLedgerRepository {
           modelId: r.model_id,
           totalRequests: requests,
           totalTokens: tokens,
-          totalCostMicrodollars: 0n,
+          totalCostCu: 0n,
           totalCu: cuBigInt,
         });
       }
@@ -932,7 +932,7 @@ export class CostLedgerRepository {
   private toSqlInteger(value: bigint): number {
     if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {
       throw new InvalidCostLedgerEventError(
-        `Cost microdollar or CU amount exceeds JavaScript safe integer bounds: ${value.toString()}`
+        `Cost credit unit or CU amount exceeds JavaScript safe integer bounds: ${value.toString()}`
       );
     }
     return Number(value);
@@ -966,8 +966,8 @@ export class CostLedgerRepository {
       completionTokens,
       cachedTokens,
       reasoningTokens,
-      costMicrodollars: row.cost_microdollars !== null && row.cost_microdollars !== undefined
-        ? BigInt(row.cost_microdollars)
+      costCu: row.cost_amount !== null && row.cost_amount !== undefined
+        ? BigInt(row.cost_amount)
         : 0n,
       latencyMs: Number(row.latency_ms),
       statusCode: Number(row.status_code),
@@ -990,8 +990,8 @@ export class CostLedgerRepository {
       modelId: row.model_id,
       totalRequests: Number(row.total_requests),
       totalTokens: Number(row.total_tokens),
-      totalCostMicrodollars: row.total_cost_microdollars !== null && row.total_cost_microdollars !== undefined
-        ? BigInt(row.total_cost_microdollars)
+      totalCostCu: row.total_cost_amount !== null && row.total_cost_amount !== undefined
+        ? BigInt(row.total_cost_amount)
         : 0n,
       totalCu: BigInt(row.total_cu ?? 0),
     };

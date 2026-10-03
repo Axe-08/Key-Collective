@@ -49,12 +49,12 @@ export interface AuthenticatedContext extends AuthContext {
   currentRpm: number;
   /** Remaining requests allowed in the active RPM sliding window */
   remainingRpm: number;
-  /** Budget ceiling in fixed-point int64 microdollars (0n = unlimited) */
-  budgetMicrodollars: bigint;
-  /** Spend accumulated so far in fixed-point int64 microdollars */
-  spentMicrodollars: bigint;
-  /** Remaining budget in microdollars, or undefined if unlimited */
-  budgetRemainingMicrodollars?: bigint;
+  /** Budget ceiling in fixed-point int64 credit units (0n = unlimited) */
+  budgetCeilingCu: bigint;
+  /** Spend accumulated so far in fixed-point int64 credit units */
+  spentTotalCu: bigint;
+  /** Remaining budget in credit units, or undefined if unlimited */
+  budgetRemainingCu?: bigint;
 }
 
 /**
@@ -77,8 +77,8 @@ export interface AuthMiddlewareOptions {
   rateLimiterFactory?: (tenantId: string, rpmLimit: number) => RateLimiter;
   /** Explicit RPM limit override */
   rpmLimitOverride?: number;
-  /** Estimated cost of the incoming request in microdollars to check against budget */
-  costMicrodollars?: bigint;
+  /** Estimated cost of the incoming request in credit units to check against budget */
+  costCu?: bigint;
   /** Injectable time provider for deterministic testing (defaults to Date.now) */
   timeProvider?: () => number;
   /**

@@ -28,9 +28,9 @@ import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
 import { checkProofOfLife } from "../../ingress/probe";
 import { canonicalCoordinatorProvider } from "../../pool/coordinator_do";
 import { Clock, systemClock } from "../../utils/clock";
+import { Logger } from "../../utils/logger";
 import type { WorkerEnv } from "../../worker/auth/types";
 import { resolveLeasedKey } from "../../worker/router/core/key_resolver";
-import { handleKeyPoolRpc } from "./rpc";
 import {
   DurableObjectStateLike,
   isEncryptedKey,
@@ -719,7 +719,11 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
             { keyId, ownerTenantId: this.tenantId, provider },
             this.env as unknown as WorkerEnv
           );
-        } catch {
+        } catch (err) {
+          new Logger({ traceId: "canary-probe", tenantId: this.tenantId }).warn(
+            "Failed to resolve leased key during nightly canary probe",
+            { keyId, error: err instanceof Error ? err.message : String(err) }
+          );
           rawKey = undefined;
         }
       }
@@ -928,7 +932,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
   public async recordUsage(
     keyId: string,
-    costMicrodollars: bigint
+    costCu: bigint
   ): Promise<void> {
     if (!keyId || keyId.trim().length === 0) {
       throw new InvalidKeyError("Key ID cannot be empty");
@@ -941,9 +945,9 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       throw new KeyNotFoundError(keyId, undefined, { tenantId: this.tenantId });
     }
 
-    await this.rateLimiter.increment(keyId, costMicrodollars);
+    await this.rateLimiter.increment(keyId, costCu);
     this.keySelector.recordUsage(keyId);
-    this.emitTelemetry("key_usage", keyId, costMicrodollars);
+    this.emitTelemetry("key_usage", keyId, costCu);
   }
 
   // =========================================================================
@@ -1084,7 +1088,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     const selected = await this.keySelector.selectKey(provider, {
       candidateKeys: candidates,
       throwOnExhausted: false,
-      costMicrodollars: costBigInt,
+      costCu: costBigInt,
     });
 
     if (!selected) {
@@ -1278,7 +1282,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
   private emitTelemetry(
     eventType: string,
     keyId: string,
-    costMicrodollars: bigint = 0n,
+    costCu: bigint = 0n,
     metadata?: Record<string, string>
   ): void {
     const key = this.keysMap.get(keyId);
@@ -1293,7 +1297,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
           timestamp,
           eventType,
           latencyMs: 0,
-          costMicrodollars,
+          costCu,
           metadata: {
             keyId,
             provider,
@@ -1310,7 +1314,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       try {
         this.env.TELEMETRY.writeDataPoint({
           blobs: [this.tenantId, keyId, provider, eventType],
-          doubles: [Number(costMicrodollars), timestamp],
+          doubles: [Number(costCu), timestamp],
           indexes: [this.tenantId],
         });
       } catch {
@@ -1395,24 +1399,18 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       return Response.json({ now: this.now(), alarm });
     }
 
-    return handleKeyPoolRpc(request, {
-      tenantId: this.tenantId,
-      assertTenant: (t) => this.assertTenant(t),
-      ensureLoaded: () => this.ensureLoaded(),
-      getKey: (p) => this.getKey(p),
-      getKeyById: (id) => this.getKeyById(id),
-      recordUsage: (id, c) => this.recordUsage(id, c),
-      recordResult: (id, s) => this.recordResult(id, s),
-      recordStatusCode: (id, sc) => this.recordStatusCode(id, sc),
-      getKeys: (p) => this.getKeys(p),
-      addKey: (k) => this.addKey(k),
-      addKeys: (ks) => this.addKeys(ks),
-      setKeys: (ks) => this.setKeys(ks),
-      removeKey: (id) => this.removeKey(id),
-      getKeyMetrics: (id) => this.getKeyMetrics(id),
-      getCapacitySummary: (p) => this.getCapacitySummary(p),
-      now: () => this.now(),
-      keysCount: () => this.keysMap.size,
-    });
+    const headerTenantId = request.headers.get("x-tenant-id");
+    if (headerTenantId && headerTenantId.trim().length > 0) {
+      try {
+        this.assertTenant(headerTenantId.trim());
+      } catch (err) {
+        return Response.json(
+          { error: err instanceof Error ? err.message : "Tenant isolation violation" },
+          { status: 403 }
+        );
+      }
+    }
+
+    return new Response("Not Found", { status: 404 });
   }
 }

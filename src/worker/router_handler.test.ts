@@ -241,8 +241,8 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
           id: "tok_test_default",
           hashSha256: "hash_default",
           tenantId: "default",
-          budgetMicrodollars: 10_000_000n,
-          spentMicrodollars: 0n,
+          budgetCeilingCu: 10_000_000n,
+          spentTotalCu: 0n,
           allowedProviders: [],
           rpmLimit: 1000,
           expiresAt: null,
@@ -251,8 +251,8 @@ describe("ROUTER: Plaintext Key Decryption for Upstream Calls", () => {
         rpmLimit: 1000,
         currentRpm: 1,
         remainingRpm: 999,
-        budgetMicrodollars: 10_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 10_000_000n,
+        spentTotalCu: 0n,
       };
 
       const request = new Request("http://localhost/v1/chat/completions", {

@@ -23,7 +23,7 @@ export interface CapabilityRequirements {
   requiresStreaming?: boolean;
   /** Upstream provider to filter by (optional) */
   provider?: ModelProvider;
-  /** Maximum allowable input cost per 1M tokens in microdollars (bigint) */
+  /** Maximum allowable input cost per 1M tokens in credit units (bigint) */
   maxCostPerMTokMicro?: bigint;
   /** Whether to only include active models (default: true) */
   onlyActive?: boolean;
@@ -70,7 +70,7 @@ export interface RequirementExtractionOptions {
   defaultMaxOutputTokens?: number;
   /** Provider filter override */
   provider?: ModelProvider;
-  /** Maximum cost ceiling in microdollars */
+  /** Maximum cost ceiling in credit units */
   maxCostPerMTokMicro?: bigint;
   /** Only consider active models (default: true) */
   onlyActive?: boolean;

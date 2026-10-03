@@ -105,8 +105,8 @@ describe("N-01 Security Regression: Raw DO RPC forwarding removed", () => {
         id: "token-uuid-1",
         hashSha256: "hash123",
         tenantId: "tenant-alpha",
-        budgetMicrodollars: 10_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 10_000_000n,
+        spentTotalCu: 0n,
         allowedProviders: [],
         rpmLimit: 60,
         expiresAt: null,
@@ -115,9 +115,9 @@ describe("N-01 Security Regression: Raw DO RPC forwarding removed", () => {
       rpmLimit: 60,
       currentRpm: 1,
       remainingRpm: 59,
-      budgetMicrodollars: 10_000_000n,
-      spentMicrodollars: 0n,
-      budgetRemainingMicrodollars: 10_000_000n,
+      budgetCeilingCu: 10_000_000n,
+      spentTotalCu: 0n,
+      budgetRemainingCu: 10_000_000n,
     };
 
     // Auth middleware stubbed to always succeed, so that route resolution

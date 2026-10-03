@@ -25,7 +25,7 @@ export interface Env {
 }
 
 export type { HealthResponse, WorkerEnv, WorkerOptions };
-export { KeyPoolDO } from "./durable_objects/key_pool_do";
+export { KeyPoolDO } from "./durable_objects/key_pool/key_pool_do";
 export { DemoDO } from "./auth/demo/index";
 export { PoolCoordinatorDO } from "./pool/coordinator_do";
 export { TenantQuotaDO } from "./quota/tenant/index";

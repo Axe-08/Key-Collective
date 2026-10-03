@@ -531,7 +531,15 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
 
       // Fetch KeyPoolDO stub via env.KEY_POOL.get(env.KEY_POOL.idFromName(tenantId))
       const doId = env.KEY_POOL.idFromName(doTenantId);
-      const stub = env.KEY_POOL.get(doId);
+      const stub = env.KEY_POOL.get(doId) as unknown as {
+        fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+        leasePrivate(
+          provider: string,
+          estimateCu?: number | bigint,
+          tenantId?: string
+        ): Promise<{ leaseId: string; keyId: string; provider: string; ownerTenantId: string } | null>;
+        getKeys(provider?: string): Promise<Array<{ id: string; provider: string; status?: string; ciphertext: string }>>;
+      };
 
       // Settle DO instance
       const settleRes = await stub.fetch("https://do.test/__test__/clock", {
@@ -539,44 +547,20 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
       });
       await settleRes.text();
 
-      // Verify KeyPoolDO serves the healthy key in a get request
-      const getRes = await stub.fetch("http://key-pool/keys/get", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-tenant-id": doTenantId,
-        },
-        body: JSON.stringify({ provider: "groq", tenantId: doTenantId }),
-      });
-      expect(getRes.status).toBe(200);
+      // Verify KeyPoolDO serves the healthy key in a native leasePrivate RPC request
+      const lease = await stub.leasePrivate("groq", 1, doTenantId);
+      expect(lease).not.toBeNull();
+      expect(lease?.keyId).toBe(keyId);
+      expect(lease?.provider).toBe("groq");
+      expect(lease?.ownerTenantId).toBe(doTenantId);
 
-      const getBody = (await getRes.json()) as {
-        keyId: string;
-        key?: {
-          id: string;
-          provider: string;
-          status: string;
-          ciphertext: string;
-        };
-      };
-
-      expect(getBody.keyId).toBe(keyId);
-      expect(getBody.key?.id).toBe(keyId);
-      expect(getBody.key?.provider).toBe("groq");
-      expect(getBody.key?.status).toBe("HEALTHY");
-      expect(getBody.key?.ciphertext).toBe(ciphertextB64);
-
-      // Also verify GET /keys returns the healthy key
-      const listRes = await stub.fetch("http://key-pool/keys?provider=groq", {
-        headers: { "x-tenant-id": doTenantId },
-      });
-      expect(listRes.status).toBe(200);
-      const listBody = (await listRes.json()) as {
-        keys: Array<{ id: string; provider: string; status: string }>;
-      };
-      const found = listBody.keys.find((k) => k.id === keyId);
+      // Also verify native getKeys RPC returns the healthy key
+      const keys = await stub.getKeys("groq");
+      const found = keys.find((k) => k.id === keyId);
       expect(found).toBeDefined();
+      expect(found?.provider).toBe("groq");
       expect(found?.status).toBe("HEALTHY");
+      expect(found?.ciphertext).toBe(ciphertextB64);
     });
   });
 });

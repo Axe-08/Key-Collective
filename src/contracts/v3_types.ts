@@ -5,7 +5,7 @@
  * Invariants Enforced (GEMINI.md Constitution):
  * 1. Zero Plaintext Keys: Upstream keys encrypted via AES-256-GCM with 12-byte CSPRNG nonces.
  * 2. Per-Tenant Compute Isolation: User root accounts isolated via Durable Objects (`idFromName(tenantId)`).
- * 3. Fixed-Point Microdollars: All financial tracking in int64/bigint microdollars (1 USD = 1,000,000 µ$).
+ * 3. Fixed-Point CreditUnits: All financial tracking in int64/bigint credit units (1 USD = 1,000,000 CU).
  * 4. Strict TypeScript: No `any`, strict null checks, full runtime assertion guards.
  */
 

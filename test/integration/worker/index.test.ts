@@ -7,8 +7,8 @@
  * 2. Per-Tenant DO Isolation:
  *    env.KEY_POOL.idFromName(tenantId) ensures compute & state isolation.
  *    Cross-tenant header mismatch throws TenantIsolationError (HTTP 403).
- * 3. Fixed-Point Microdollars:
- *    All costs in int64 / bigint microdollars (1 USD = 1,000,000 µ$). Zero floating-point math.
+ * 3. Fixed-Point CreditUnits:
+ *    All costs in int64 / bigint credit units (1 USD = 1,000,000 CU). Zero floating-point math.
  * 4. Streaming Passthrough (Golden Test tc-02):
  *    SSE chunks forwarded with 0ms added latency, terminal usage parsed, cost logged in D1.
  * 5. Non-Blocking Telemetry:
@@ -78,7 +78,7 @@ class MockExecutionContext implements ExecutionContextLike {
 class MockDurableObjectStub implements DurableObjectStubLike {
   public tenantId: string;
   public keys: Map<string, string> = new Map();
-  public usageRecords: { keyId: string; costMicrodollars: bigint }[] = [];
+  public usageRecords: { keyId: string; costCu: bigint }[] = [];
   public resultRecords: { keyId: string; success: boolean }[] = [];
   public fetchCalls: { url: string; method: string; headers: Headers; body?: unknown }[] = [];
 
@@ -122,10 +122,10 @@ class MockDurableObjectStub implements DurableObjectStubLike {
     }
 
     if (url.pathname === "/keys/usage" && method === "POST") {
-      const b = parsedBody as { keyId: string; costMicrodollars: string };
+      const b = parsedBody as { keyId: string; costCu: string };
       this.usageRecords.push({
         keyId: b.keyId,
-        costMicrodollars: BigInt(b.costMicrodollars ?? "0"),
+        costCu: BigInt(b.costCu ?? "0"),
       });
       return Response.json({ success: true });
     }
@@ -267,13 +267,13 @@ class MockD1PreparedStatement implements D1PreparedStatement {
 
     // UPDATE AUTH_TOKENS
     if (upper.includes("UPDATE") && upper.includes("AUTH_TOKENS")) {
-      if (upper.includes("SPENT_CU") || upper.includes("SPENT_MICRODOLLARS")) {
+      if (upper.includes("SPENT_CU") || upper.includes("SPENT_TOTAL_CU")) {
         const newSpent = Number(this.boundParams[0]);
         const id = String(this.boundParams[1]);
         const row = this.db.tokens.get(id);
         if (row) {
           row.spent_cu = String(newSpent);
-          row.spent_microdollars = newSpent;
+          row.spent_amount = newSpent;
         }
       }
       return {
@@ -317,7 +317,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           completionTokens: Number(completion_tokens),
           cachedTokens: Number(cached_tokens),
           reasoningTokens: Number(reasoning_tokens),
-          costMicrodollars: 0n,
+          costCu: 0n,
           latencyMs: Number(latency_ms),
           statusCode: Number(status_code),
           createdAt: String(created_at),
@@ -337,7 +337,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           completion_tokens,
           cached_tokens,
           reasoning_tokens,
-          cost_microdollars,
+          cost_amount,
           latency_ms,
           status_code,
           error_message,
@@ -355,7 +355,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           completionTokens: Number(completion_tokens),
           cachedTokens: Number(cached_tokens),
           reasoningTokens: Number(reasoning_tokens),
-          costMicrodollars: BigInt(cost_microdollars as string | number),
+          costCu: BigInt(cost_amount as string | number),
           latencyMs: Number(latency_ms),
           statusCode: Number(status_code),
           errorMessage: error_message ? String(error_message) : undefined,
@@ -411,8 +411,8 @@ describe("Worker Integration Tests (T4)", () => {
       tenant_id: "tenant-alpha",
       encrypted_token_b64: null,
       nonce_b64: null,
-      budget_microdollars: 50_000_000, // 50 USD
-      spent_microdollars: 100_000,     // 0.1 USD
+      budget_amount: 50_000_000, // 50 USD
+      spent_amount: 100_000,     // 0.1 USD
       allowed_providers: "[]",
       rpm_limit: 100,
       expires_at: null,
@@ -427,8 +427,8 @@ describe("Worker Integration Tests (T4)", () => {
       tenant_id: "tenant-alpha",
       encrypted_token_b64: null,
       nonce_b64: null,
-      budget_microdollars: 10_000_000,
-      spent_microdollars: 0,
+      budget_amount: 10_000_000,
+      spent_amount: 0,
       allowed_providers: "[]",
       rpm_limit: 100,
       expires_at: "2020-01-01T00:00:00.000Z", // Expired
@@ -443,8 +443,8 @@ describe("Worker Integration Tests (T4)", () => {
       tenant_id: "tenant-alpha",
       encrypted_token_b64: null,
       nonce_b64: null,
-      budget_microdollars: 1_000_000, // 1 USD
-      spent_microdollars: 1_000_000,  // 1 USD (exhausted)
+      budget_amount: 1_000_000, // 1 USD
+      spent_amount: 1_000_000,  // 1 USD (exhausted)
       allowed_providers: "[]",
       rpm_limit: 100,
       expires_at: null,
@@ -459,8 +459,8 @@ describe("Worker Integration Tests (T4)", () => {
       tenant_id: "tenant-alpha",
       encrypted_token_b64: null,
       nonce_b64: null,
-      budget_microdollars: 10_000_000,
-      spent_microdollars: 0,
+      budget_amount: 10_000_000,
+      spent_amount: 0,
       allowed_providers: JSON.stringify(["openai"]),
       rpm_limit: 100,
       expires_at: null,
@@ -475,8 +475,8 @@ describe("Worker Integration Tests (T4)", () => {
       tenant_id: "tenant-beta",
       encrypted_token_b64: null,
       nonce_b64: null,
-      budget_microdollars: 10_000_000,
-      spent_microdollars: 0,
+      budget_amount: 10_000_000,
+      spent_amount: 0,
       allowed_providers: "[]",
       rpm_limit: 1, // Limit of 1 request per minute
       expires_at: null,
@@ -827,7 +827,7 @@ describe("Worker Integration Tests (T4)", () => {
         model: string;
         choices: Array<{ message: { content: string } }>;
         usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-        cost_microdollars: string;
+        cost_amount: string;
       };
 
       expect(body.object).toBe("chat.completion");
@@ -835,7 +835,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(body.choices[0].message.content).toBe("The capital of France is Paris.");
       expect(body.usage.prompt_tokens).toBe(15);
       expect(body.usage.completion_tokens).toBe(8);
-      expect(BigInt(body.cost_microdollars)).toBe(0n);
+      expect(BigInt(body.cost_amount)).toBe(0n);
 
       // Flush background execution context promises (non-blocking telemetry & D1 writes)
       await ctx.flush();
@@ -849,7 +849,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(ledgerEntry.provider).toBe("google");
       expect(ledgerEntry.promptTokens).toBe(15);
       expect(ledgerEntry.completionTokens).toBe(8);
-      expect(ledgerEntry.costMicrodollars ?? 0n).toBe(0n);
+      expect(ledgerEntry.costCu ?? 0n).toBe(0n);
       expect(ledgerEntry.statusCode).toBe(200);
 
       // Verify D1 Token spend increment
@@ -948,7 +948,7 @@ describe("Worker Integration Tests (T4)", () => {
       expect(ledgerEntry.requestId).toBe("trace-integration-tc02");
       expect(ledgerEntry.promptTokens).toBe(250);
       expect(ledgerEntry.completionTokens).toBe(120);
-      expect(ledgerEntry.costMicrodollars ?? 0n).toBe(0n);
+      expect(ledgerEntry.costCu ?? 0n).toBe(0n);
       expect(ledgerEntry.statusCode).toBe(200);
 
       // Verify Telemetry event

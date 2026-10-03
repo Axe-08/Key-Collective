@@ -106,8 +106,8 @@ export function handleStreamingResponse(
         null;
     }
 
-    // 2. Cost in microdollars (deprecated, defaults to 0n)
-    const costMicrodollars = 0n;
+    // 2. Cost in credit units (deprecated, defaults to 0n)
+    const costCu = 0n;
 
     const cuWeight = getCalculatedCu(usage);
     const statusCode = errorOccurred ? 500 : 200;
@@ -152,7 +152,7 @@ export function handleStreamingResponse(
           completionTokens: usage?.completionTokens ?? 0,
           cachedTokens: usage?.cachedTokens ?? 0,
           reasoningTokens: usage?.reasoningTokens ?? 0,
-          costMicrodollars,
+          costCu,
           cu: cuWeight > 0n ? cuWeight : undefined,
           borrowed: isBorrowed,
           lenderTenantId,
@@ -169,7 +169,7 @@ export function handleStreamingResponse(
 
     // 5. Update AuthToken spend in D1
     const authTokensRepo = deps.getAuthTokensRepo(env);
-    const tokenSpend = cuWeight > 0n ? cuWeight : costMicrodollars;
+    const tokenSpend = cuWeight > 0n ? cuWeight : costCu;
     if (authContext.token && authTokensRepo && tokenSpend > 0n) {
       try {
         await authTokensRepo.recordSpend(
@@ -192,7 +192,7 @@ export function handleStreamingResponse(
         timestamp: startTime,
         eventType: "chat_completion_stream",
         latencyMs: durationMs,
-        costMicrodollars,
+        costCu,
         metadata: {
           model: cascadeRes.model,
           provider: cascadeRes.provider,

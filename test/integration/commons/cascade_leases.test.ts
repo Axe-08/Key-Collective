@@ -96,7 +96,7 @@ describe("CascadeRouter on leases (WP-4.1 T-4.1.5)", () => {
       async recordResult() {},
       async recordStatusCode() {},
       async getKeyMetrics() {
-        return { rpm: 0, circuitBreakerTripped: false, costAccumulatedMicrodollars: 0n };
+        return { rpm: 0, circuitBreakerTripped: false, costAccumulatedCu: 0n };
       },
       async addKey() {},
       async removeKey() {},
