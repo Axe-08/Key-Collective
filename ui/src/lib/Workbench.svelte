@@ -33,6 +33,7 @@
     projects = [],
     keys = [],
     providerKeys: propProviderKeys,
+    communityPool = false,
     onSelectTier,
     onCreateProject,
     onRotateKey,
@@ -105,7 +106,7 @@
 
   function openSwitchPoolModal(key: any) {
     const targetPool = key.pool_type === 'COMMUNITY' ? 'PRIVATE' : 'COMMUNITY';
-    if (targetPool === 'COMMUNITY' && (!account?.githubId || account.githubId <= 0)) {
+    if (targetPool === 'COMMUNITY' && !communityPool) {
        alert("GitHub Authentication Required to contribute keys to the Community Pool.");
        return;
     }
@@ -551,7 +552,7 @@
   <ProviderKeysSection
     {providerKeys}
     {providerKeysLoading}
-    authProvider={account.authProvider}
+    canContributeToCommunity={communityPool}
     onRotate={rotateProviderKey}
     onOpenSwitchPool={openSwitchPoolModal}
     onDelete={deleteProviderKey}

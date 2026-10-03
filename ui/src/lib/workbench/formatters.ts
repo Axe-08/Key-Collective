@@ -57,10 +57,10 @@ export function generateMarkdownExport(
 
 ## 👤 User Identity & Anti-Sybil Assessment
 - **Account ID:** \`${account.id}\`
-- **GitHub Username:** \`@${account.githubUsername}\`
+- **GitHub Username:** ${account.githubUsername ? `\`@${account.githubUsername}\`` : 'not linked'}
 - **Primary Email:** ${account.primaryEmail} (Verified: ${account.isEmailVerified ? 'Yes' : 'No'})
 - **Registration IP:** \`${account.registrationIp}\` (Singapore • Dedicated ASN)
-- **Sybil Trust Score:** **${account.sybilScore}/100** (Low Risk • High Reputation)
+- **Sybil Trust Score:** ${account.sybilScore === null ? 'Unverified, link GitHub' : `**${account.sybilScore}/100**`}
 - **Active Governance Tier:** **${selectedTier.toUpperCase()}**
 
 ### 5-Layer Trust Verification

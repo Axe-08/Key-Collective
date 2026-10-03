@@ -67,7 +67,6 @@ export async function handleGoogleAuth(
   // in the request body is ignored to prevent identity spoofing.
   const tenantId = `usr_goog_${uid}`;
   const tier = "builder";
-  const sybilScore = 95;
   // QA-15: role follows ADMIN_EMAILS at every sign-in (verifyFirebaseIdToken already
   // requires email_verified). Leaving the list demotes an admin to 'user'.
   const role = isAdminEmail(env, email) ? "admin" : "user";
@@ -79,8 +78,9 @@ export async function handleGoogleAuth(
       // overwritten by a subsequent sign-in. Role is granted or revoked from ADMIN_EMAILS;
       // any other role is left alone.
       await env.DB.prepare(
+        // QA-02: a Google-only account has no trust score; GitHub linking produces the real one.
         `INSERT INTO users (id, email, tier, role, sybil_score, auth_phase, is_quarantined, created_at)
-         VALUES (?, ?, ?, ?, ?, 3, 0, CURRENT_TIMESTAMP)
+         VALUES (?, ?, ?, ?, NULL, 3, 0, CURRENT_TIMESTAMP)
          ON CONFLICT(id) DO UPDATE SET
            email = excluded.email,
            role = CASE
@@ -88,7 +88,7 @@ export async function handleGoogleAuth(
              WHEN users.role = 'admin' THEN 'user'
              ELSE users.role
            END`
-      ).bind(tenantId, email, tier, role, sybilScore).run();
+      ).bind(tenantId, email, tier, role).run();
       await env.DB.prepare(
         `INSERT INTO user_identities (user_id, provider, subject, email) VALUES (?, 'google', ?, ?)
          ON CONFLICT(provider, subject) DO UPDATE SET email = excluded.email`

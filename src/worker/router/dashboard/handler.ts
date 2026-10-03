@@ -50,6 +50,33 @@ import { verifyAdminRequest } from "../../gateway/admin_verifier";
 
 const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+/** The GitHub profile facts the link flow assessed (user_identities.profile_json). */
+interface GitHubProfileSummary {
+  created_at: string;
+  public_repos: number;
+  contributions: number;
+}
+
+/** Returns the stored GitHub profile, or null when the row predates it or is malformed. */
+function parseGitHubProfile(profileJson: string | null): GitHubProfileSummary | null {
+  if (!profileJson) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(profileJson);
+  } catch (err) {
+    new Logger({ traceId: "session-user", tenantId: "system" }).warn("Malformed user_identities.profile_json", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const p = parsed as Record<string, unknown>;
+  if (typeof p.created_at !== "string" || typeof p.public_repos !== "number" || typeof p.contributions !== "number") {
+    return null;
+  }
+  return { created_at: p.created_at, public_repos: p.public_repos, contributions: p.contributions };
+}
+
 export class DashboardRouter {
   constructor(
     private readonly options: RouterHandlerOptions,
@@ -253,7 +280,11 @@ export class DashboardRouter {
         email: string;
         tier: string;
         role: string;
-        sybil_score?: number;
+        providers: string[];
+        github_id: string | null;
+        github_username: string | null;
+        github_profile: GitHubProfileSummary | null;
+        sybil_score: number | null;
       } | null = null;
 
       if (tenantId === "admin") {
@@ -262,6 +293,10 @@ export class DashboardRouter {
           email: "admin@keycollective.ai",
           tier: "admin",
           role: "admin",
+          providers: [],
+          github_id: null,
+          github_username: null,
+          github_profile: null,
           sybil_score: 100,
         };
       } else if (env.DB && typeof env.DB.prepare === "function" && tenantId && tenantId !== "anonymous") {
@@ -273,16 +308,27 @@ export class DashboardRouter {
             email: string;
             tier: string;
             role: string;
-            sybil_score: number;
+            sybil_score: number | null;
           }>();
 
           if (userRow) {
+            const identities = (
+              await env.DB.prepare("SELECT provider, subject, username, profile_json FROM user_identities WHERE user_id = ? ORDER BY provider")
+                .bind(tenantId)
+                .all<{ provider: string; subject: string; username: string | null; profile_json: string | null }>()
+            ).results;
+            const github = identities.find((i) => i.provider === "github");
             user = {
               id: userRow.id,
               email: userRow.email,
               tier: userRow.tier,
               role: userRow.role || (userRow.tier === "admin" ? "admin" : "user"),
-              sybil_score: userRow.sybil_score ?? 95,
+              providers: identities.map((i) => i.provider),
+              github_id: github?.subject ?? null,
+              github_username: github?.username ?? null,
+              github_profile: github ? parseGitHubProfile(github.profile_json) : null,
+              // QA-02: only GitHub linking produces a trust score; an unlinked account has none.
+              sybil_score: github ? userRow.sybil_score : null,
             };
           }
         } catch (err) {
@@ -298,7 +344,11 @@ export class DashboardRouter {
           email: `${tenantId}@keycollective.local`,
           tier: tenantId.startsWith("usr_gh_") || tenantId.startsWith("gh_") ? "max" : "builder",
           role: "user",
-          sybil_score: 90,
+          providers: [],
+          github_id: null,
+          github_username: null,
+          github_profile: null,
+          sybil_score: null,
         };
       }
 

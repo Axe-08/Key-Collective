@@ -37,6 +37,8 @@ export interface WorkbenchProps {
   projects?: Project[];
   keys?: ProjectKey[];
   providerKeys?: APIKey[];
+  /** Session rights: may this account lend to the community pool (D-21). */
+  communityPool?: boolean;
   onSelectTier?: (tier: UserTier) => void;
   onCreateProject?: (project: Partial<Project>) => void;
   onRotateKey?: (keyId: string) => void;
@@ -55,7 +57,7 @@ export const DEFAULT_USER_ACCOUNT: UserAccount = {
   avatarUrl: '',
   isEmailVerified: false,
   githubCreatedAt: '',
-  sybilScore: 0,
+  sybilScore: null,
   registrationIp: '',
   createdAt: '',
   updatedAt: '',

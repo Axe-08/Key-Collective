@@ -59,6 +59,14 @@ export function openModal(type: KeyType = 'gemini'): void {
   notifyListeners();
 }
 
+/**
+ * Records the provider the user picked (QA-11). It does not notify: the modal is the only
+ * writer, and a later notify (submitKey) must replay this choice, not the stale default.
+ */
+export function setModalProvider(type: KeyType): void {
+  modalState.type = type;
+}
+
 export function closeModal(): void {
   modalState.isOpen = false;
   notifyListeners();

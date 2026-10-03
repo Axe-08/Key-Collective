@@ -326,15 +326,15 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [ ] T-F.4.1 GCP project probe via blocked/disabled service ErrorInfo (RA-07)
 
 ### WP-F.5
-- [ ] T-F.5.1 /api/session returns linked identities; no 95 fallback (QA-03, QA-09)
-- [ ] T-F.5.2 Google-only users get sybil_score NULL (QA-02)
-- [ ] T-F.5.3 App maps identity; AddKeyModal and Workbench use rights (QA-03, QA-09)
-- [ ] T-F.5.4 IdentityCard shows Unverified until GitHub is linked (QA-02)
-- [ ] T-F.5.5 Standing and contribution fetch after sign-in (QA-01)
+- [x] T-F.5.1 /api/session returns linked identities; no 95 fallback (QA-03, QA-09)
+- [x] T-F.5.2 Google-only users get sybil_score NULL (QA-02)
+- [x] T-F.5.3 App maps identity; AddKeyModal and Workbench use rights (QA-03, QA-09)
+- [x] T-F.5.4 IdentityCard shows Unverified until GitHub is linked (QA-02)
+- [x] T-F.5.5 Standing and contribution fetch after sign-in (QA-01)
 
 ### WP-F.6
-- [ ] T-F.6.1 Provider selection survives submit (QA-11)
-- [ ] T-F.6.2 Add-key modal scrolls on short screens (QA-10)
+- [x] T-F.6.1 Provider selection survives submit (QA-11)
+- [x] T-F.6.2 Add-key modal scrolls on short screens (QA-10)
 
 ### WP-F.7
 - [ ] T-F.7.1 Read-only tier cards (QA-04)

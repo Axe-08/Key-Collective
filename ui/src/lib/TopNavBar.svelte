@@ -75,7 +75,9 @@
     return () => clearInterval(notifInterval);
   });
 
-  let displayUsername = $derived(devDisplayName || userAccount?.githubUsername || 'collective-dev');
+  // A GitHub handle gets an @; a Google-only account shows its email (QA-03).
+  let displayUsername = $derived(devDisplayName || userAccount?.githubUsername || userAccount?.primaryEmail || 'guest');
+  let displayHandle = $derived(!devDisplayName && userAccount?.githubUsername ? `@${userAccount.githubUsername}` : displayUsername);
   let displayAvatarUrl = $derived(devAvatarUrl || userAccount?.avatarUrl || '');
   let isLoggedIn = $derived(
     Boolean(userAccount?.id && userAccount.tier !== 'demo' && (userAccount.githubUsername || userAccount.primaryEmail))
@@ -295,7 +297,7 @@
       <div class="hidden xl:flex flex-col">
         <div class="flex items-center gap-1.5">
           <span class="font-code-sm text-code-sm text-on-surface font-semibold leading-tight">
-            @{displayUsername}
+            {displayHandle}
           </span>
           <span class="font-label-sm text-[9px] px-1 rounded bg-primary/10 text-primary border border-primary/20 uppercase font-mono">
             {userAccount?.tier || 'guest'}
@@ -406,7 +408,7 @@
                 </div>
               {/if}
               <div class="min-w-0 flex-1">
-                <p class="font-semibold text-xs text-on-surface truncate">@{displayUsername}</p>
+                <p class="font-semibold text-xs text-on-surface truncate">{displayHandle}</p>
                 <p class="font-mono text-[10px] text-outline truncate">{userAccount?.primaryEmail || 'Authenticated'}</p>
               </div>
             </div>
