@@ -1,6 +1,6 @@
 {
-  "swallows": 45,
-  "voidErr": 1,
+  "swallows": 44,
+  "voidErr": 0,
   "catchSwallow": 44,
   "console": 4,
   "tsSuppressions": 9
