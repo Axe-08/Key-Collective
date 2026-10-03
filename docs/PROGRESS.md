@@ -369,7 +369,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.10.10 abuse_routes.ts swallows (AU-02)
 - [x] T-F.10.11 keys/ops.ts swallows (AU-02)
 - [x] T-F.10.12 get_keys.ts swallow and empty catch (AU-02)
-- [ ] T-F.10.13 Archive ops/migrate_keys_hkdf.ts (AU-05)
+- [x] T-F.10.13 Archive ops/migrate_keys_hkdf.ts (AU-05)
 
 ### Operator steps for Phase F
 - [ ] Purge login bearer tokens on dev and prod after WP-F.1 deploys: `SELECT COUNT(*) ...` then `DELETE FROM auth_tokens WHERE project_id IS NULL AND id NOT LIKE 'tok_play_%'`
