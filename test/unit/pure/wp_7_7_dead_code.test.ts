@@ -144,4 +144,19 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
 
     expect(hits).toEqual([]);
   });
+
+  it("T-7.7.7: scripts/reachability.mjs exists, passes, and is wired into package.json gate", async () => {
+    const scriptPath = path.join(ROOT, "scripts/reachability.mjs");
+    expect(fs.existsSync(scriptPath)).toBe(true);
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    expect(pkg.scripts?.gate).toContain("node scripts/reachability.mjs");
+
+    const { execFileSync } = await import("node:child_process");
+    const out = execFileSync("node", [scriptPath], { cwd: ROOT, encoding: "utf8" });
+    expect(out).toContain("Reachability check passed");
+  });
 });
+
