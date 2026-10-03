@@ -348,7 +348,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 
 ### WP-F.8
 - [x] T-F.8.1 CORS allow/expose headers for the browser Playground (QA-07)
-- [ ] T-F.8.2 No-capacity exhaustion → 503 service_unavailable (QA-08)
+- [x] T-F.8.2 No-capacity exhaustion → 503 service_unavailable (QA-08)
 
 ### WP-F.9
 - [ ] T-F.9.1 Admin session for ADMIN_EMAILS at Google sign-in (QA-15)

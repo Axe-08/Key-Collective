@@ -373,6 +373,42 @@ export class FallbackExhaustedError extends DomainError {
   }
 }
 
+/**
+ * NoCapacityError (HTTP 503)
+ * Thrown when the cascade was exhausted only because no candidate provider had a key
+ * available to lease (QA-08). No upstream was reached, so this is a capacity condition,
+ * not an upstream or internal failure. The client should retry later.
+ */
+export class NoCapacityError extends DomainError {
+  public override readonly name = "NoCapacityError";
+  public readonly attemptedRoutes: readonly FallbackAttempt[];
+  public readonly retryAfterSeconds: number;
+
+  constructor(
+    attemptedRoutes: readonly FallbackAttempt[],
+    retryAfterSeconds = 30,
+    message = "No provider capacity is available for this request right now; retry later"
+  ) {
+    super(message, {
+      statusCode: 503,
+      code: "no_capacity",
+      details: { attemptedRoutes: [...attemptedRoutes] },
+    });
+    this.attemptedRoutes = [...attemptedRoutes];
+    this.retryAfterSeconds = retryAfterSeconds;
+    Object.setPrototypeOf(this, NoCapacityError.prototype);
+  }
+}
+
+export function isNoCapacityError(value: unknown): value is NoCapacityError {
+  return (
+    value instanceof NoCapacityError ||
+    (typeof value === "object" &&
+      value !== null &&
+      (value as Record<string, unknown>).name === "NoCapacityError")
+  );
+}
+
 // Type Guards
 export function isCircuitBreakerTrippedError(value: unknown): value is CircuitBreakerTrippedError {
   return (
