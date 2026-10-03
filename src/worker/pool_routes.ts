@@ -164,29 +164,11 @@ async function fetchLiveStandingFromDO(
 
 async function handlePoolStanding(env: WorkerEnv, tenantId: string): Promise<Response> {
   if (!tenantId || tenantId === 'anonymous' || tenantId === 'default' || tenantId === 'guest') {
-    return Response.json({
-      multiplier: 1.0,
-      multiplier_pct: 100,
-      multiplier_ceiling: 1.0,
-      community_debt_cu: 0,
-      contributed_cu_24h: 0,
-      daily_contributed_cu: 0,
-      cu_contributed_today: 0,
-      cu_consumed_today: 0,
-      net_cu_balance: 0,
-      trusted_contributor: false,
-      jail_status: 'PRISTINE',
-      consecutive_debt_free_days: 0,
-      caps: {
-        vesting: 450,
-        debt: 450,
-        band: 450,
-      },
-      recovery: {
-        debt_decay: '20% per day at 00:00 UTC',
-        estimated_days: 0,
-      },
-    });
+    // RA-12: a caller with no tenant has no standing; never answer an invented PRISTINE one.
+    return Response.json(
+      { error: { message: 'Authentication required', code: 'UNAUTHORIZED', statusCode: 401 } },
+      { status: 401 }
+    );
   }
 
   const doState = await fetchLiveStandingFromDO(env, tenantId);

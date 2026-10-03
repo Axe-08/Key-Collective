@@ -348,3 +348,22 @@ describe("Standing mirror to D1 (WP-5.3 T-5.3.3)", () => {
     });
   });
 });
+
+describe("GET /api/pool/standing without a real tenant (T-F.7.8, RA-12)", () => {
+  it.each(["anonymous", "guest", "default", ""])("answers 401 for %j, never an invented PRISTINE standing", async (tenantId) => {
+    const { handlePoolRoute } = await import("../../../src/worker/pool_routes");
+    const res = await handlePoolRoute(
+      "/api/pool/standing",
+      "GET",
+      new Request("https://console.test/api/pool/standing"),
+      { DB: env.DB } as unknown as Parameters<typeof handlePoolRoute>[3],
+      tenantId,
+      { waitUntil: () => {} }
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(401);
+    const body = (await res!.json()) as Record<string, unknown>;
+    expect("jail_status" in body).toBe(false);
+    expect("caps" in body).toBe(false);
+  });
+});
