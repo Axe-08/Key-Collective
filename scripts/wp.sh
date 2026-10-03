@@ -12,14 +12,23 @@ BASE="${WP_BASE:-docs/intent-audit-and-remediation}"
 cd "$(git rev-parse --show-toplevel)"
 
 run_tests() {
-  local node=() workers=()
+  local node=() workers=() ui=() uidom=()
   for f in "$@"; do
-    case "$f" in test/integration/*|test/do/*|tests/admin/*) workers+=("$f") ;; *) node+=("$f") ;; esac
+    case "$f" in
+      test/integration/*|test/do/*|tests/admin/*) workers+=("$f") ;;
+      ui/src/*.dom.test.ts) uidom+=("${f#ui/}") ;;
+      ui/src/*) ui+=("${f#ui/}") ;;
+      *) node+=("$f") ;;
+    esac
   done
   local status=0
   if ((${#node[@]})); then npx vitest run "${node[@]}" || status=$?; fi
   if [[ $status -ne 0 ]]; then return $status; fi
   if ((${#workers[@]})); then npx vitest run -c vitest.workers.config.ts "${workers[@]}" || status=$?; fi
+  if [[ $status -ne 0 ]]; then return $status; fi
+  if ((${#ui[@]})); then npx vitest run --root ui "${ui[@]}" || status=$?; fi
+  if [[ $status -ne 0 ]]; then return $status; fi
+  if ((${#uidom[@]})); then npx vitest run --root ui -c vitest.dom.config.ts "${uidom[@]}" || status=$?; fi
   return $status
 }
 

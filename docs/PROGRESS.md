@@ -274,16 +274,17 @@ Plan: `docs/REMEDIATION_PLAN_V3.md`
 ## Operator steps for Phases 4–8
 
 ### D.1 Before deploy (STOP)
-- [ ] D.1.1 Back up both databases (`npx wrangler d1 export key-collective-d1-dev --remote --output backups/dev-<date>.sql` and `key-collective-d1 --remote --output backups/prod-<date>.sql`)
-- [ ] D.1.2 Count keys that are not HKDF-migrated (`SELECT COUNT(*) AS n FROM api_keys WHERE hkdf_migrated = 0`) on `key-collective-d1-dev` and `key-collective-d1`
-- [ ] D.1.3 D-27 count on production (`SELECT COUNT(*) FROM users WHERE id LIKE 'gh_%' OR id LIKE 'usr_gh_%'`)
-- [ ] D.1.4 Check dev secrets (`npx wrangler secret list --env dev`: `KC_MASTER_KEY`, `SESSION_SIGNING_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`)
-- [ ] D.1.5 List pending migrations on dev (`npx wrangler d1 migrations list key-collective-d1-dev --remote`; expect 0015–0024)
+- [x] D.1.1 Back up both databases (`npx wrangler d1 export key-collective-d1-dev --remote --output backups/dev-<date>.sql` and `key-collective-d1 --remote --output backups/prod-<date>.sql`)
+- [x] D.1.2 Count keys that are not HKDF-migrated (`SELECT COUNT(*) AS n FROM api_keys WHERE hkdf_migrated = 0`) on `key-collective-d1-dev` and `key-collective-d1`
+- [x] D.1.3 D-27 count on production (`SELECT COUNT(*) FROM users WHERE id LIKE 'gh_%' OR id LIKE 'usr_gh_%'`)
+- [x] D.1.4 Check dev secrets (`npx wrangler secret list --env dev`: `KC_MASTER_KEY`, `SESSION_SIGNING_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`)
+- [x] D.1.5 List pending migrations on dev (`npx wrangler d1 migrations list key-collective-d1-dev --remote`; expect 0015–0024)
 
 ### D.2 Deploy (STOP)
-- [ ] D.2.1 Push `git push origin docs/intent-audit-and-remediation:develop` and verify CI gate, D1 migrations, and `--env dev` deploy
+- [x] D.2.1 Push `git push origin docs/intent-audit-and-remediation:develop` and verify CI gate, D1 migrations, and `--env dev` deploy
 
 ### D.3 Smoke on dev
+Pass 1 (2026-10-03): 16 findings in `docs/specs/dev_smoke_2026-10-03.md`; pass 2 after Phase F (`docs/PHASEF_PLAN.md` §5).
 - [ ] D.3.1 Sign in, complete consent, link GitHub; verify rights show private and community pools
 - [ ] D.3.2 Submit a Gemini key with Turnstile (expect 201, record GCP probe in `docs/specs/gcp_probe.md`; duplicate returns 409 `key_already_registered`)
 - [ ] D.3.3 Create a project and project token; call `POST https://api-dev.key-col.axe08.tech/v1/chat/completions` (expect 200, CU header, Analytics row)
@@ -298,6 +299,82 @@ Plan: `docs/REMEDIATION_PLAN_V3.md`
 - [ ] D.4.1 Verify `standing_history` and `key_daily_stats` each gain a row for the day
 - [ ] D.4.2 Verify coordinator hourly stats rows exist
 - [ ] D.4.3 Verify no key moved to `QUARANTINED` unexpectedly
+
+## Phase F — Audit, re-audit and dev QA fixes
+
+Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev smoke QA-01..QA-16, re-audit RA-01..RA-15.
+
+### WP-F.1
+- [ ] T-F.1.1 Stop minting the login bearer token (RA-01)
+- [ ] T-F.1.2 Strip x-kc-* and x-tenant-id from upstream requests (RA-02)
+- [ ] T-F.1.3 Lease rights fail closed (RA-03)
+- [ ] T-F.1.4 OpenAPI: no x-tenant-id parameter, real contact (RA-13)
+
+### WP-F.2
+- [ ] T-F.2.1 Gemini 400 API_KEY_INVALID → key_invalid (RA-04)
+- [ ] T-F.2.2 404 / model_not_found → model_unavailable, no key action (RA-05)
+- [ ] T-F.2.3 Real provider fixtures in upstream_outcomes test
+
+### WP-F.3
+- [ ] T-F.3.1 Rebuild the model catalog from verified lists (RA-06)
+- [ ] T-F.3.2 Skip deprecated / sunset models in routing and /v1/models
+- [ ] T-F.3.3 Remove µ$ price fields; cheapest by CU (RA-09)
+- [ ] T-F.3.4 Proof-of-life on gemini-3.5-flash-lite and gpt-oss-20b (QA-12, RA-08)
+- [ ] T-F.3.5 UI model pickers read /v1/models only
+
+### WP-F.4
+- [ ] T-F.4.1 GCP project probe via blocked/disabled service ErrorInfo (RA-07)
+
+### WP-F.5
+- [ ] T-F.5.1 /api/session returns linked identities; no 95 fallback (QA-03, QA-09)
+- [ ] T-F.5.2 Google-only users get sybil_score NULL (QA-02)
+- [ ] T-F.5.3 App maps identity; AddKeyModal and Workbench use rights (QA-03, QA-09)
+- [ ] T-F.5.4 IdentityCard shows Unverified until GitHub is linked (QA-02)
+- [ ] T-F.5.5 Standing and contribution fetch after sign-in (QA-01)
+
+### WP-F.6
+- [ ] T-F.6.1 Provider selection survives submit (QA-11)
+- [ ] T-F.6.2 Add-key modal scrolls on short screens (QA-10)
+
+### WP-F.7
+- [ ] T-F.7.1 Read-only tier cards (QA-04)
+- [ ] T-F.7.2 Export without invented telemetry (QA-05)
+- [ ] T-F.7.3 /api/tokens lists only project keys; no 'Production Gateway' (QA-13)
+- [ ] T-F.7.4 Honest project-key actions; no fake copy (QA-14)
+- [ ] T-F.7.5 No duplicate polling (QA-06)
+- [ ] T-F.7.6 Remove remaining invented UI data (RA-10)
+- [ ] T-F.7.7 Pattern-based check-ui-literals (RA-11)
+- [ ] T-F.7.8 /api/pool/standing 401 for anonymous ids (RA-12)
+
+### WP-F.8
+- [ ] T-F.8.1 CORS allow/expose headers for the browser Playground (QA-07)
+- [ ] T-F.8.2 No-capacity exhaustion → 503 service_unavailable (QA-08)
+
+### WP-F.9
+- [ ] T-F.9.1 Admin session for ADMIN_EMAILS at Google sign-in (QA-15)
+- [ ] T-F.9.2 Admin host serves SPA and sign-in; admin-dev host detected (QA-15)
+- [ ] T-F.9.3 getAdminActor uses hashed session lookup (QA-15)
+- [ ] T-F.9.4 Public report skips session CSRF; real error shown (QA-16)
+
+### WP-F.10
+- [ ] T-F.10.1 Migration 0025_would_deny_hourly.sql (AU-03)
+- [ ] T-F.10.2 Would-deny stats in D1 (AU-03)
+- [ ] T-F.10.3 New tenant lastResetDay = today (AU-04)
+- [ ] T-F.10.4 coordinator_do.ts swallows (AU-02)
+- [ ] T-F.10.5 tenant_do.ts swallows (AU-02)
+- [ ] T-F.10.6 enforcement.ts swallow (AU-02)
+- [ ] T-F.10.7 pool_routes.ts swallows (AU-02)
+- [ ] T-F.10.8 control.ts swallow (AU-02)
+- [ ] T-F.10.9 admin_handler.ts swallow (AU-02)
+- [ ] T-F.10.10 abuse_routes.ts swallows (AU-02)
+- [ ] T-F.10.11 keys/ops.ts swallows (AU-02)
+- [ ] T-F.10.12 get_keys.ts swallow and empty catch (AU-02)
+- [ ] T-F.10.13 Archive ops/migrate_keys_hkdf.ts (AU-05)
+
+### Operator steps for Phase F
+- [ ] Purge login bearer tokens on dev and prod after WP-F.1 deploys: `SELECT COUNT(*) ...` then `DELETE FROM auth_tokens WHERE project_id IS NULL AND id NOT LIKE 'tok_play_%'`
+- [ ] Run `scripts/verify_catalog.mjs` with real keys after WP-F.3
+- [ ] D.3 pass 2 and §5 Q-01..Q-16 of `docs/PHASEF_PLAN.md`
 
 ## Phase 8
 
