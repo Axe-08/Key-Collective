@@ -88,6 +88,27 @@ describe('AddKeyModal (WP-3.6)', () => {
   });
 });
 
+describe('AddKeyModal layout (WP-F.6, QA-10)', () => {
+  it('caps the card at the viewport height and scrolls the form inside it', async () => {
+    const modal = mount(AddKeyModal, { target: document.body, props: { isOpen: true } });
+    await settle();
+
+    const backdrop = document.querySelector('[role="dialog"]') as HTMLElement;
+    const card = backdrop.firstElementChild as HTMLElement;
+    const form = card.querySelector('form') as HTMLFormElement;
+
+    expect(backdrop.classList).toContain('items-start');
+    expect(backdrop.classList).toContain('sm:items-center');
+    expect(backdrop.classList).not.toContain('items-center');
+    expect(card.classList).toContain('max-h-[calc(100vh-2rem)]');
+    expect(card.classList).toContain('flex');
+    expect(card.classList).toContain('flex-col');
+    expect(form.classList).toContain('overflow-y-auto');
+    expect(form.classList).toContain('min-h-0');
+    unmount(modal);
+  });
+});
+
 describe('AddKeyModal provider selection (WP-F.6, QA-11)', () => {
   it('keeps Groq selected through submit and sends provider "groq"', async () => {
     reply = () => HttpResponse.json({ error: 'key_already_registered' }, { status: 409 });

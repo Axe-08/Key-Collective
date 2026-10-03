@@ -196,7 +196,7 @@
 {#if visible}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto animate-fade-in"
     role="dialog"
     aria-modal="true"
     tabindex="-1"
@@ -207,9 +207,9 @@
       if (e.key === 'Escape' && !isSubmitting) handleClose();
     }}
   >
-    <div class="w-full max-w-lg rounded-2xl bg-[#0e121a] border border-white/10 shadow-2xl shadow-indigo-950/40 overflow-hidden my-8">
+    <div class="w-full max-w-lg max-h-[calc(100vh-2rem)] flex flex-col rounded-2xl bg-[#0e121a] border border-white/10 shadow-2xl shadow-indigo-950/40 overflow-hidden">
       <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between bg-slate-900/50">
+      <div class="shrink-0 px-6 py-4 border-b border-white/[0.08] flex items-center justify-between bg-slate-900/50">
         <div class="flex items-center gap-2.5">
           <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
             <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -235,7 +235,7 @@
       </div>
 
       <!-- Form Content -->
-      <form onsubmit={handleSubmit} class="p-6 space-y-4 text-xs font-mono">
+      <form onsubmit={handleSubmit} class="flex-1 min-h-0 overflow-y-auto p-6 space-y-4 text-xs font-mono">
         {#if errorMessage}
           <div class="p-3 rounded-lg bg-rose-950/60 border border-rose-500/30 text-rose-300 text-xs">
             {errorMessage}

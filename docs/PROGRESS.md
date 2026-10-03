@@ -334,7 +334,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 
 ### WP-F.6
 - [x] T-F.6.1 Provider selection survives submit (QA-11)
-- [ ] T-F.6.2 Add-key modal scrolls on short screens (QA-10)
+- [x] T-F.6.2 Add-key modal scrolls on short screens (QA-10)
 
 ### WP-F.7
 - [ ] T-F.7.1 Read-only tier cards (QA-04)
