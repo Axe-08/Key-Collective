@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { env, fetchMock, runInDurableObject } from "cloudflare:test";
 import { defaultMainWorker } from "../../../src/worker/index";
 import type { WorkerEnv } from "../../../src/worker/auth/index";
@@ -473,3 +473,87 @@ describe("WP-5.11 T-5.11.3 — Tombstone lifecycle and project-preserving key ro
   });
 });
 
+describe("WP-F.10 T-F.10.11 — key ops report failed syncs (AU-02)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("DELETE answers sync: pending and logs when the coordinator cannot drop the key", async () => {
+    proofOfLifeStatus = 200;
+    const owner = await createUser({ github: true, eligible: true });
+    scenarioProject = `proj-del-sync-${Date.now()}`;
+    const created = await submitAs(owner, {
+      provider: "google",
+      key: googleKey(),
+      k1: true,
+      k2: true,
+      pool_type: "COMMUNITY",
+    });
+    expect(created.status).toBe(201);
+    const { id: keyId } = (await created.json()) as { id: string };
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const failingEnv = {
+      ...(env as unknown as WorkerEnv),
+      POOL_COORDINATOR: {
+        idFromName: (name: string) => name,
+        get: () => ({
+          removeKey: async (): Promise<never> => {
+            throw new Error("coordinator unreachable");
+          },
+        }),
+      },
+    } as unknown as WorkerEnv;
+    const res = await handleDeleteKey(`/api/keys/${keyId}`, failingEnv, owner.id);
+    const lines = warnSpy.mock.calls.map((c) => String(c[0]));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, keyId, sync: "pending" });
+    expect(lines.some((l) => l.includes("key_delete_coordinator_sync_failed"))).toBe(true);
+  });
+
+  it("rotate answers 503 registry_update_failed when the registry write fails, and a retry succeeds", async () => {
+    proofOfLifeStatus = 200;
+    const owner = await createUser({ github: true, eligible: true });
+    scenarioProject = `proj-rot-reg-${Date.now()}`;
+    const created = await submitAs(owner, {
+      provider: "google",
+      key: googleKey(),
+      k1: true,
+      k2: true,
+      pool_type: "COMMUNITY",
+    });
+    expect(created.status).toBe(201);
+    const { id: keyId } = (await created.json()) as { id: string };
+    const masterKey =
+      (env as unknown as { KC_MASTER_KEY?: string }).KC_MASTER_KEY || "test-master-key-please-rotate";
+    const newKey = googleKey();
+    const rotate = () =>
+      handleRotateKeySecret(
+        `/api/keys/${keyId}/rotate`,
+        new Request(`https://console.test/api/keys/${keyId}/rotate`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ new_key: newKey }),
+        }),
+        env as unknown as WorkerEnv,
+        owner.id,
+        masterKey
+      );
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await env.DB.prepare("ALTER TABLE project_hash_registry RENAME TO phr_x").run();
+    let failed: Response;
+    try {
+      failed = await rotate();
+    } finally {
+      await env.DB.prepare("ALTER TABLE phr_x RENAME TO project_hash_registry").run();
+    }
+    expect(failed.status).toBe(503);
+    expect(((await failed.json()) as { error: string }).error).toBe("registry_update_failed");
+    expect(errorSpy.mock.calls.some((c) => String(c[0]).includes("key_rotate_registry_update_failed"))).toBe(true);
+
+    const retried = await rotate();
+    expect(retried.status).toBe(200);
+  });
+});

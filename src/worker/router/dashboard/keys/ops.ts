@@ -14,6 +14,7 @@ import { resolvePlaintextKey, evict } from "../../core/key_resolver";
 import { deriveTenantKey, encrypt, type KeyInput } from "../../../../crypto/encryption/index";
 import type { WorkerEnv } from "../../../auth/index";
 import { RouterError } from "../../errors";
+import { Logger } from "../../../../utils/logger";
 import type { DurableObjectNamespaceLike } from "../../types";
 
 
@@ -114,6 +115,7 @@ export async function handleDeleteKey(
   }
 
   const targetTenantId = deletedMeta?.tenant_id ?? tenantId;
+  let coordinatorSyncPending = false;
 
   try {
     const keyPoolNamespace = env.KEY_POOL as unknown as DurableObjectNamespaceLike | undefined;
@@ -154,7 +156,12 @@ export async function handleDeleteKey(
               await coordStub.removeKey(keyId);
             }
           } catch (err) {
-            void err;
+            // Degraded: the coordinator's 5-minute D1 reconcile drops the key; report sync pending.
+            coordinatorSyncPending = true;
+            new Logger({ traceId: "key-delete", tenantId: targetTenantId }).warn(
+              "key_delete_coordinator_sync_failed",
+              { keyId, shard: shardName, error: err }
+            );
           }
         }
       }
@@ -164,7 +171,7 @@ export async function handleDeleteKey(
   }
 
   evict(keyId);
-  return Response.json({ success: true, keyId });
+  return Response.json({ success: true, keyId, ...(coordinatorSyncPending ? { sync: "pending" } : {}) });
 }
 
 export async function handlePoolMode(
@@ -452,6 +459,42 @@ export async function handleRotateKeySecret(
   const keyPrefix = rawKey.slice(0, 8);
   const keySuffix = rawKey.slice(-4);
 
+  if (existingRow.provider_project_hash) {
+    const now = Date.now();
+    const vestingStart =
+      typeof existingRow.created_at === "number"
+        ? existingRow.created_at
+        : typeof existingRow.created_at === "string"
+        ? Date.parse(existingRow.created_at) || now
+        : now;
+    try {
+      await env.DB.prepare(
+        `UPDATE project_hash_registry
+            SET state = 'ACTIVE',
+                rotating_until = NULL,
+                vesting_started_at = COALESCE(vesting_started_at, ?),
+                updated_at = ?
+          WHERE project_hash = ?`
+      )
+        .bind(vestingStart, now, existingRow.provider_project_hash)
+        .run();
+    } catch (err) {
+      // Nothing has changed yet (the registry is written before the secret), so the
+      // caller can simply retry.
+      new Logger({ traceId: "key-rotate", tenantId: targetTenantId }).error(
+        "key_rotate_registry_update_failed",
+        { keyId, error: err }
+      );
+      return Response.json(
+        {
+          error: "registry_update_failed",
+          message: "The project registry could not be updated; the key was not rotated. Retry the rotation.",
+        },
+        { status: 503 }
+      );
+    }
+  }
+
   const rotated = await repo.replaceSecret(keyId, scope, {
     ciphertextB64,
     nonceB64,
@@ -461,29 +504,6 @@ export async function handleRotateKeySecret(
   });
   if (!rotated) {
     throw new RouterError("Key not found or you do not have permission to rotate it", { statusCode: 404 });
-  }
-
-  if (existingRow.provider_project_hash) {
-    const now = Date.now();
-    const vestingStart =
-      typeof existingRow.created_at === "number"
-        ? existingRow.created_at
-        : typeof existingRow.created_at === "string"
-        ? Date.parse(existingRow.created_at) || now
-        : now;
-    await env.DB.prepare(
-      `UPDATE project_hash_registry
-          SET state = 'ACTIVE',
-              rotating_until = NULL,
-              vesting_started_at = COALESCE(vesting_started_at, ?),
-              updated_at = ?
-        WHERE project_hash = ?`
-    )
-      .bind(vestingStart, now, existingRow.provider_project_hash)
-      .run()
-      .catch((err) => {
-        void err;
-      });
   }
 
   evict(keyId);
