@@ -5,7 +5,7 @@ import { PoolStatsSchema } from "../../../src/contracts/api/responses";
 import type { WorkerEnv } from "../../../src/worker/auth/types";
 import type { KeyPoolContract } from "../../../src/contracts/key_pool";
 
-describe("Dashboard CU responses and microdollar purge", () => {
+describe("Dashboard CU responses and credit unit purge", () => {
   function createMockEnv(): WorkerEnv {
     const mockDb: D1Database = {
       prepare(query: string) {
@@ -117,7 +117,7 @@ describe("Dashboard CU responses and microdollar purge", () => {
       expect(parsed.cu_used_today).toBe(1250);
       expect(parsed.cu_allowance_today).toBe(10000);
 
-      // Invariant: No microdollar or dollar fields in stats payload
+      // Invariant: No credit unit or dollar fields in stats payload
       expect("total_spend_today_microdollars" in json).toBe(false);
       const keysWithDollar = Object.keys(json).filter((k) =>
         k.toLowerCase().includes("dollar")
@@ -144,7 +144,7 @@ describe("Dashboard CU responses and microdollar purge", () => {
   });
 
   describe("handlePoolRoute (/api/pool/*)", () => {
-    it("handlePoolStanding reports CU standing and balance fields with no dollar or micro_cu fields", async () => {
+    it("handlePoolStanding reports CU standing and balance fields with no dollar or sub_cu fields", async () => {
       const env = createMockEnv();
       const req = new Request("http://localhost/api/pool/standing");
       const ctx = { waitUntil: () => {} };

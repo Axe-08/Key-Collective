@@ -29,7 +29,7 @@ export async function handleNonStreamingResponse(
   startTime: number = deps.timeProvider()
 ): Promise<Response> {
   const durationMs = deps.timeProvider() - startTime;
-  const costMicrodollars = cascadeRes.costMicrodollars;
+  const costCu = cascadeRes.costCu;
 
   // Calculate Credit Units (CU) from cascadeRes.usage
   let cu = 0n;
@@ -77,7 +77,7 @@ export async function handleNonStreamingResponse(
           completionTokens: cascadeRes.usage?.completionTokens ?? 0,
           cachedTokens: cascadeRes.usage?.cachedTokens ?? 0,
           reasoningTokens: cascadeRes.usage?.reasoningTokens ?? 0,
-          costMicrodollars,
+          costCu,
           cu: cu > 0n ? cu : undefined,
           borrowed: isBorrowed,
           lenderTenantId,
@@ -91,7 +91,7 @@ export async function handleNonStreamingResponse(
 
     // 3. Update AuthToken spend in D1
     const authTokensRepo = deps.getAuthTokensRepo(env);
-    const tokenSpend = cu > 0n ? cu : costMicrodollars;
+    const tokenSpend = cu > 0n ? cu : costCu;
     if (authContext.token && authTokensRepo && tokenSpend > 0n) {
       try {
         await authTokensRepo.recordSpend(
@@ -114,7 +114,7 @@ export async function handleNonStreamingResponse(
         timestamp: startTime,
         eventType: "chat_completion",
         latencyMs: durationMs,
-        costMicrodollars,
+        costCu,
         metadata: {
           model: cascadeRes.model,
           provider: cascadeRes.provider,
@@ -256,7 +256,7 @@ export async function handleNonStreamingResponse(
       },
     ],
     usage: finalUsage,
-    cost_microdollars: (upstreamJson.cost_microdollars as string) ?? costMicrodollars.toString(),
+    cost_amount: (upstreamJson.cost_amount as string) ?? costCu.toString(),
   };
 
   const rawResponse =
@@ -265,7 +265,7 @@ export async function handleNonStreamingResponse(
           JSON.stringify(
             createApiResponse(payload, {
               latencyMs: durationMs,
-              costMicrodollars: costMicrodollars.toString(),
+              costCu: costCu.toString(),
               traceId,
               requestId: traceId,
               timestamp: startTime,

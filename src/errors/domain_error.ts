@@ -5,7 +5,7 @@
  * Invariants:
  * - Strict mode, no `any`.
  * - All domain errors inherit from `DomainError`.
- * - Fixed-point microdollars compatible.
+ * - Integer Credit Units compatible.
  * - Deterministic serialization to JSON and Web API `Response`.
  */
 

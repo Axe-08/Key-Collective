@@ -43,8 +43,8 @@ class InMemoryStorage implements DurableObjectStorageLike {
   }
 }
 
-describe("WP-6.5 / T-6.5.3: Contributor standing D1 sync without microdollars", () => {
-  it("does not name community_debt_micro_cu when synchronizing TenantQuotaDO to D1 contributor_standing", async () => {
+describe("WP-6.5 / T-6.5.3: Contributor standing D1 sync without credit units", () => {
+  it("does not name community_debt_sub_cu when synchronizing TenantQuotaDO to D1 contributor_standing", async () => {
     const tenantId = `usr_standing_sync_${Date.now()}`;
     const storage = new InMemoryStorage();
     const state: DurableObjectStateLike = {
@@ -84,7 +84,7 @@ describe("WP-6.5 / T-6.5.3: Contributor standing D1 sync without microdollars", 
 
     expect(executedSqls.length).toBeGreaterThan(0);
     for (const sql of executedSqls) {
-      expect(sql).not.toContain("community_debt_micro_cu");
+      expect(sql).not.toContain("community_debt_sub_cu");
     }
 
     const d1Row = await env.DB.prepare(

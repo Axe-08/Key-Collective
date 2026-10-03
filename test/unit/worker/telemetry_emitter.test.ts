@@ -19,7 +19,7 @@ describe("TelemetryEmitter & Validation", () => {
     timestamp: 1726000000000,
     eventType: "chat_completion",
     latencyMs: 145,
-    costMicrodollars: 2500n,
+    costCu: 2500n,
     metadata: {
       model: "gpt-4o",
       provider: "openai",
@@ -91,14 +91,14 @@ describe("TelemetryEmitter & Validation", () => {
       expect(validateTelemetryEvent({ ...validEvent, cu: -1n }).valid).toBe(false);
     });
 
-    it("does not require or validate costMicrodollars in telemetry_emitter.ts (T-7.3.2)", async () => {
+    it("does not require or validate costCu in telemetry_emitter.ts (T-7.3.2)", async () => {
       const fs = await import("node:fs");
       const path = await import("node:path");
       const src = fs.readFileSync(
         path.resolve(process.cwd(), "src/worker/telemetry_emitter.ts"),
         "utf-8"
       );
-      expect(src).not.toMatch(/costMicrodollars|microdollar|Microdollar/);
+      expect(src).not.toMatch(/costCu|credit unit|CreditUnit/);
     });
 
     it("rejects invalid metadata", () => {

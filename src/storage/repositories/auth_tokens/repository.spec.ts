@@ -2,7 +2,7 @@
  * Unit Tests for AuthTokensRepository (Micro-task SEC-CORE-001)
  *
  * Acceptance Criteria Verified:
- * 1. AuthTokenRecord properly types microdollars as bigint
+ * 1. AuthTokenRecord properly types credit units as bigint
  * 2. AuthTokensRepository.createToken encrypts tokens with AES-256-GCM and unique 12-byte nonce
  * 3. AuthTokensRepository.validateToken hashes plaintext with SHA-256 for fast D1 lookups
  * 4. Repository enforces strict tenant isolation on list/delete
@@ -13,7 +13,7 @@ import {
   AuthTokensRepository,
   AuthTokenRow,
   AuthTokenRecord,
-  Microdollars,
+  CreditUnits,
 } from "./index";
 import { hashToken, decrypt } from "../../../crypto";
 import { AuthenticationError, TenantIsolationError } from "../../../errors/auth_errors";
@@ -125,8 +125,8 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           nonce_b64: (nonce_b64 as string | null) ?? null,
           budget_cu: (budget_cu as string | null) ?? null,
           spent_cu: String(spent_cu ?? "0"),
-          budget_microdollars: budget_cu ? Number(budget_cu) : 0,
-          spent_microdollars: spent_cu ? Number(spent_cu) : 0,
+          budget_amount: budget_cu ? Number(budget_cu) : 0,
+          spent_amount: spent_cu ? Number(spent_cu) : 0,
           allowed_providers: String(allowed_providers),
           rpm_limit: Number(rpm_limit),
           expires_at: (expires_at as string | null) ?? null,
@@ -139,8 +139,8 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           tenant_id,
           encrypted_token_b64,
           nonce_b64,
-          budget_microdollars,
-          spent_microdollars,
+          budget_amount,
+          spent_amount,
           allowed_providers,
           rpm_limit,
           expires_at,
@@ -153,8 +153,8 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           tenant_id: String(tenant_id),
           encrypted_token_b64: (encrypted_token_b64 as string | null) ?? null,
           nonce_b64: (nonce_b64 as string | null) ?? null,
-          budget_microdollars: Number(budget_microdollars),
-          spent_microdollars: Number(spent_microdollars),
+          budget_amount: Number(budget_amount),
+          spent_amount: Number(spent_amount),
           allowed_providers: String(allowed_providers),
           rpm_limit: Number(rpm_limit),
           expires_at: (expires_at as string | null) ?? null,
@@ -272,21 +272,21 @@ describe("SEC-CORE-001: AuthTokensRepository", () => {
     repo = new AuthTokensRepository(db, MASTER_KEY);
   });
 
-  describe("1. AuthTokenRecord properly types microdollars as bigint", () => {
-    it("stores and returns budgetMicrodollars and spentMicrodollars as bigint", async () => {
+  describe("1. AuthTokenRecord properly types credit units as bigint", () => {
+    it("stores and returns budgetCeilingCu and spentTotalCu as bigint", async () => {
       const record: AuthTokenRecord = await repo.createToken({
-        token: "kc_token_microdollar_check",
+        token: "kc_token_cu_check",
         tenantId: "tenant_fin",
-        budgetMicrodollars: 5_000_000n,
-        spentMicrodollars: 1_250_000n,
+        budgetCeilingCu: 5_000_000n,
+        spentTotalCu: 1_250_000n,
       });
 
-      expect(typeof record.budgetMicrodollars).toBe("bigint");
-      expect(typeof record.spentMicrodollars).toBe("bigint");
-      expect(record.budgetMicrodollars).toBe(5_000_000n);
-      expect(record.spentMicrodollars).toBe(1_250_000n);
+      expect(typeof record.budgetCeilingCu).toBe("bigint");
+      expect(typeof record.spentTotalCu).toBe("bigint");
+      expect(record.budgetCeilingCu).toBe(5_000_000n);
+      expect(record.spentTotalCu).toBe(1_250_000n);
 
-      const typeCheck: Microdollars = record.budgetMicrodollars;
+      const typeCheck: CreditUnits = record.budgetCeilingCu;
       expect(typeCheck).toBe(5_000_000n);
     });
   });
@@ -322,7 +322,7 @@ describe("SEC-CORE-001: AuthTokensRepository", () => {
       const created = await repo.createToken({
         token: plain,
         tenantId: "tenant_val",
-        budgetMicrodollars: 10_000_000n,
+        budgetCeilingCu: 10_000_000n,
       });
 
       expect(created.hashSha256).toBe(expectedHash);

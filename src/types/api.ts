@@ -4,19 +4,19 @@
  * 
  * Invariants:
  * - Strict mode, no `any`.
- * - Fixed-point microdollars (int64 microdollars, 1 USD = 1,000,000 µ$).
+ * - Fixed-point credit units (int64 credit units, 1 USD = 1,000,000 CU).
  * - Multi-tenant isolation: requests wrap incoming payload with extracted tenantId.
  */
 
 /**
  * Metadata attached to structured API responses.
- * By default, `costMicrodollars` is typed as `bigint` to enforce zero floating-point math.
+ * By default, `costCu` is typed as `bigint` to enforce zero floating-point math.
  */
 export interface ApiResponseMeta<TCost = bigint> {
   /** Execution latency in milliseconds */
   latencyMs: number;
-  /** Fixed-point cost in microdollars (int64 BigInt by default) */
-  costMicrodollars: TCost;
+  /** Fixed-point cost in credit units (int64 BigInt by default) */
+  costCu: TCost;
   /** Unique distributed trace identifier */
   traceId?: string;
   /** Internal request identifier */
@@ -33,7 +33,7 @@ export interface ApiResponseMeta<TCost = bigint> {
 
 /**
  * Standard structured JSON response format as defined in LLD 2.1:
- * `{ data: T, meta: { latencyMs, costMicrodollars, ... } }`
+ * `{ data: T, meta: { latencyMs, costCu, ... } }`
  */
 export interface ApiResponse<T, TCost = bigint> {
   /** Response payload */
@@ -210,7 +210,7 @@ export function isApiResponse<T = unknown>(value: unknown): value is ApiResponse
   }
   const meta = candidate.meta as Record<string, unknown>;
   const hasValidCost =
-    typeof meta.costMicrodollars === "bigint" || typeof meta.costMicrodollars === "number";
+    typeof meta.costCu === "bigint" || typeof meta.costCu === "number";
   return typeof meta.latencyMs === "number" && hasValidCost;
 }
 

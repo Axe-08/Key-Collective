@@ -6,7 +6,7 @@
  * 1. Strict TypeScript (strict mode, zero any).
  * 2. Timing-Safe Cryptographic Comparisons: Constant-time Web Crypto verification.
  * 3. No Plaintext Keys/Tokens in D1: AES-256-GCM encrypted tokens + SHA-256 hash indexing.
- * 4. Fixed-Point Microdollars: int64 / bigint microdollars, zero floating-point math.
+ * 4. Fixed-Point CreditUnits: int64 / bigint credit units, zero floating-point math.
  * 5. Budget Gating (HTTP 429 + Retry-After per golden test tc-08).
  * 6. Auth Token Validation before downstream (HTTP 401 per golden test tc-12).
  * 7. Sliding-window RPM rate limiting.
@@ -132,7 +132,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 10_000_000n,
+        budgetCeilingCu: 10_000_000n,
         rpmLimit: 120,
       });
 
@@ -146,9 +146,9 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       expect(ctx.rpmLimit).toBe(120);
       expect(ctx.currentRpm).toBe(1);
       expect(ctx.remainingRpm).toBe(119);
-      expect(ctx.budgetMicrodollars).toBe(10_000_000n);
-      expect(ctx.spentMicrodollars).toBe(0n);
-      expect(ctx.budgetRemainingMicrodollars).toBe(10_000_000n);
+      expect(ctx.budgetCeilingCu).toBe(10_000_000n);
+      expect(ctx.spentTotalCu).toBe(0n);
+      expect(ctx.budgetRemainingCu).toBe(10_000_000n);
     });
 
     it("rejects unknown bearer token with HTTP 401 (invalid_token)", async () => {
@@ -359,13 +359,13 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
     });
   });
 
-  describe("Budget Gating (Fixed-Point Microdollars — Golden Test tc-08)", () => {
-    it("allows request when budgetMicrodollars is 0n (unlimited)", async () => {
+  describe("Budget Gating (Fixed-Point CreditUnits — Golden Test tc-08)", () => {
+    it("allows request when budgetCeilingCu is 0n (unlimited)", async () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 0n,
-        spentMicrodollars: 999_999_999n,
+        budgetCeilingCu: 0n,
+        spentTotalCu: 999_999_999n,
       });
 
       const req = new Request("https://api.keycollective.com/v1/chat/completions", {
@@ -374,16 +374,16 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
 
       const ctx = await middleware.authenticate(req);
       expect(ctx.isAuthenticated).toBe(true);
-      expect(ctx.budgetMicrodollars).toBe(0n);
-      expect(ctx.budgetRemainingMicrodollars).toBeUndefined();
+      expect(ctx.budgetCeilingCu).toBe(0n);
+      expect(ctx.budgetRemainingCu).toBeUndefined();
     });
 
     it("allows request when spent is strictly below budget ceiling", async () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 500_000n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 500_000n,
       });
 
       const req = new Request("https://api.keycollective.com/v1/chat/completions", {
@@ -392,15 +392,15 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
 
       const ctx = await middleware.authenticate(req);
       expect(ctx.isAuthenticated).toBe(true);
-      expect(ctx.budgetRemainingMicrodollars).toBe(500_000n);
+      expect(ctx.budgetRemainingCu).toBe(500_000n);
     });
 
     it("blocks request and throws QuotaExceededError (HTTP 429) when budget exhausted (tc-08)", async () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 1_000_000n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 1_000_000n,
       });
 
       const req = new Request("https://api.keycollective.com/v1/chat/completions", {
@@ -424,12 +424,12 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       }
     });
 
-    it("blocks request when estimated costMicrodollars exceeds remaining headroom", async () => {
+    it("blocks request when estimated costCu exceeds remaining headroom", async () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 900_000n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 900_000n,
       });
 
       const req = new Request("https://api.keycollective.com/v1/chat/completions", {
@@ -438,7 +438,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
 
       await expect(
         middleware.authenticate(req, undefined, {
-          costMicrodollars: 150_000n,
+          costCu: 150_000n,
         })
       ).rejects.toThrowError(QuotaExceededError);
     });
@@ -674,8 +674,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 500_000n,
-        spentMicrodollars: 500_000n,
+        budgetCeilingCu: 500_000n,
+        spentTotalCu: 500_000n,
       });
 
       let routeCalled = false;
@@ -726,8 +726,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
       });
 
       const mockConsumeQuota = vi.fn().mockResolvedValue({
@@ -740,7 +740,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
         rpdLimit: 2000,
         remainingRpm: 13,
         remainingRpd: 1985,
-        totalCostMicrodollars: "0",
+        totalCostCu: "0",
       });
 
       const mockStub = {
@@ -766,7 +766,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       expect(mockConsumeQuota).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: TEST_TENANT,
-          costMicrodollars: 0n,
+          costCu: 0n,
           count: 1,
         })
       );
@@ -780,8 +780,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
       });
 
       const mockConsumeQuota = vi.fn().mockResolvedValue({
@@ -791,7 +791,7 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
         currentRpm: 2,
         rpmLimit: 20,
         remainingRpm: 18,
-        totalCostMicrodollars: "0",
+        totalCostCu: "0",
       });
 
       const mockStub = {
@@ -819,8 +819,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
       });
 
       const mockStub = {
@@ -858,8 +858,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
       });
 
       const mockStub = {
@@ -896,8 +896,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
       });
 
       const mockFetch = vi.fn().mockResolvedValue(
@@ -947,8 +947,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
       });
 
       const mockFetch = vi.fn().mockResolvedValue(
@@ -990,8 +990,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
       });
 
       const mockFetch = vi.fn().mockResolvedValue(
@@ -1024,8 +1024,8 @@ describe("AuthMiddleware — Edge Authentication & Invariants", () => {
       await authRepo.createToken({
         token: TEST_TOKEN,
         tenantId: TEST_TENANT,
-        budgetMicrodollars: 1_000_000n,
-        spentMicrodollars: 0n,
+        budgetCeilingCu: 1_000_000n,
+        spentTotalCu: 0n,
         rpmLimit: 10,
       });
 

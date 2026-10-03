@@ -123,8 +123,8 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
         id: "token-uuid-ac08",
         hashSha256: "hash123",
         tenantId: "tenant-ac08",
-        budgetMicrodollars: 10_000_000n,
-        spentMicrodollars: 500_000n,
+        budgetCeilingCu: 10_000_000n,
+        spentTotalCu: 500_000n,
         allowedProviders: [],
         rpmLimit: 60,
         expiresAt: null,
@@ -133,9 +133,9 @@ describe("AC-08 Upstream Header Stripping & Allowlisting", () => {
       rpmLimit: 60,
       currentRpm: 1,
       remainingRpm: 59,
-      budgetMicrodollars: 10_000_000n,
-      spentMicrodollars: 500_000n,
-      budgetRemainingMicrodollars: 9_500_000n,
+      budgetCeilingCu: 10_000_000n,
+      spentTotalCu: 500_000n,
+      budgetRemainingCu: 9_500_000n,
     };
     env = {
       KEY_POOL: doNamespace as unknown as DurableObjectNamespace,

@@ -3,7 +3,7 @@
  * Unit Tests: Cost Ledger & Daily Spend Rollup Repository (storage-repo-ledger)
  *
  * Invariants Enforced (GEMINI.md Constitution):
- * - Fixed-Point Microdollars: All financial costs in int64 / bigint microdollars.
+ * - Fixed-Point CreditUnits: All financial costs in int64 / bigint credit units.
  *   Zero floating-point math for financials.
  * - Per-Tenant Isolation: Queries enforce strict tenant_id boundaries.
  *   Zero cross-tenant state leakage.
@@ -20,11 +20,11 @@ import {
   DailySpendRollupInput,
   InvalidCostLedgerEventError,
   TenantIsolationViolationError,
-  calculateEventCostMicrodollars,
+  calculateEventCostCu,
   formatCalendarDay,
   isCostLedgerEvent,
   isDailySpendRollup,
-  validateMicrodollars,
+  validateCuAmount,
 } from "../../../src/storage/repositories/cost_ledger/index";
 
 /**
@@ -136,7 +136,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         completion_tokens,
         cached_tokens,
         reasoning_tokens,
-        cost_microdollars: 0,
+        cost_amount: 0,
         latency_ms,
         status_code,
         created_at,
@@ -181,12 +181,12 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           // Overwrite mode (from reconciliation)
           existing.total_requests = requests_delta;
           existing.total_tokens = tokens_delta;
-          existing.total_cost_microdollars = cost_delta;
+          existing.total_cost_amount = cost_delta;
         } else {
           // Increment mode (from standard upsert)
           existing.total_requests += requests_delta;
           existing.total_tokens += tokens_delta;
-          existing.total_cost_microdollars += cost_delta;
+          existing.total_cost_amount += cost_delta;
         }
       } else {
         this.db.rollupRows.set(key, {
@@ -196,7 +196,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           model_id,
           total_requests: requests_delta,
           total_tokens: tokens_delta,
-          total_cost_microdollars: cost_delta,
+          total_cost_amount: cost_delta,
         });
       }
 
@@ -359,7 +359,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           model_id: string;
           total_requests: number;
           total_tokens: number;
-          total_cost_microdollars: number;
+          total_cost_amount: number;
           total_cu: number;
         }
       >();
@@ -377,7 +377,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         if (existing) {
           existing.total_requests += 1;
           existing.total_tokens += tokens;
-          existing.total_cost_microdollars += r.cost_microdollars;
+          existing.total_cost_amount += r.cost_amount;
           existing.total_cu += rowCu;
         } else {
           groups.set(gKey, {
@@ -385,7 +385,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
             model_id: r.model_id,
             total_requests: 1,
             total_tokens: tokens,
-            total_cost_microdollars: r.cost_microdollars,
+            total_cost_amount: r.cost_amount,
             total_cu: rowCu,
           });
         }
@@ -454,7 +454,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
     // 9. Spend summary aggregation from daily_cu_rollup or daily_spend_rollup
     if (
       (upper.includes("FROM DAILY_CU_ROLLUP") || upper.includes("FROM DAILY_SPEND_ROLLUP")) &&
-      (upper.includes("COALESCE(SUM(TOTAL_REQUESTS)") || upper.includes("SUM(TOTAL_COST_MICRODOLLARS)") || upper.includes("SUM(S.TOTAL_COST_MICRODOLLARS)"))
+      (upper.includes("COALESCE(SUM(TOTAL_REQUESTS)") || upper.includes("SUM(TOTAL_COST_CU)") || upper.includes("SUM(S.TOTAL_COST_CU)"))
     ) {
       const [tenant_id] = this.boundParams as [string];
       const rawRows = this.db.cuRollupRows.size > 0
@@ -478,7 +478,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
       let totalCu = 0;
 
       for (const r of rows) {
-        totalCost += (r as { total_cost_microdollars?: number }).total_cost_microdollars ?? 0;
+        totalCost += (r as { total_cost_amount?: number }).total_cost_amount ?? 0;
         totalRequests += r.total_requests;
         totalTokens += r.total_tokens;
         const cuKey = `${r.tenant_id}:${r.day}:${r.provider}:${r.model_id}`;
@@ -546,7 +546,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         const cuRow = this.db.cuRollupRows.get(cuKey);
         return {
           ...r,
-          total_cost_microdollars: 0,
+          total_cost_amount: 0,
           total_cu: cuRow?.total_cu ?? (r as { total_cu?: number }).total_cu ?? 0,
         };
       });
@@ -579,7 +579,7 @@ class MockD1Database implements D1Database {
       completion_tokens: number;
       cached_tokens: number;
       reasoning_tokens: number;
-      cost_microdollars: number;
+      cost_amount: number;
       latency_ms: number;
       status_code: number;
       created_at: string;
@@ -599,7 +599,7 @@ class MockD1Database implements D1Database {
       model_id: string;
       total_requests: number;
       total_tokens: number;
-      total_cost_microdollars: number;
+      total_cost_amount: number;
     }
   >();
 
@@ -671,37 +671,37 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
   });
 
   describe("Validation & Financial Helpers", () => {
-    describe("validateMicrodollars", () => {
-      it("accepts valid BigInt microdollars", () => {
-        expect(validateMicrodollars(0n)).toBe(0n);
-        expect(validateMicrodollars(1_000_000n)).toBe(1_000_000n);
-        expect(validateMicrodollars(450n)).toBe(450n);
+    describe("validateCuAmount", () => {
+      it("accepts valid BigInt credit units", () => {
+        expect(validateCuAmount(0n)).toBe(0n);
+        expect(validateCuAmount(1_000_000n)).toBe(1_000_000n);
+        expect(validateCuAmount(450n)).toBe(450n);
       });
 
       it("accepts valid integer numbers and converts them to BigInt", () => {
-        expect(validateMicrodollars(0)).toBe(0n);
-        expect(validateMicrodollars(450)).toBe(450n);
-        expect(validateMicrodollars(1000000)).toBe(1000000n);
+        expect(validateCuAmount(0)).toBe(0n);
+        expect(validateCuAmount(450)).toBe(450n);
+        expect(validateCuAmount(1000000)).toBe(1000000n);
       });
 
       it("rejects negative BigInt or number", () => {
-        expect(() => validateMicrodollars(-1n)).toThrow(InvalidCostLedgerEventError);
-        expect(() => validateMicrodollars(-500)).toThrow(InvalidCostLedgerEventError);
+        expect(() => validateCuAmount(-1n)).toThrow(InvalidCostLedgerEventError);
+        expect(() => validateCuAmount(-500)).toThrow(InvalidCostLedgerEventError);
       });
 
       it("strictly forbids floating point numbers to prevent precision loss", () => {
-        expect(() => validateMicrodollars(450.5)).toThrow(InvalidCostLedgerEventError);
-        expect(() => validateMicrodollars(0.0001)).toThrow(InvalidCostLedgerEventError);
-        expect(() => validateMicrodollars(1.23)).toThrow(InvalidCostLedgerEventError);
+        expect(() => validateCuAmount(450.5)).toThrow(InvalidCostLedgerEventError);
+        expect(() => validateCuAmount(0.0001)).toThrow(InvalidCostLedgerEventError);
+        expect(() => validateCuAmount(1.23)).toThrow(InvalidCostLedgerEventError);
       });
 
       it("rejects non-finite numbers (NaN, Infinity)", () => {
-        expect(() => validateMicrodollars(Number.NaN)).toThrow(InvalidCostLedgerEventError);
-        expect(() => validateMicrodollars(Number.POSITIVE_INFINITY)).toThrow(InvalidCostLedgerEventError);
+        expect(() => validateCuAmount(Number.NaN)).toThrow(InvalidCostLedgerEventError);
+        expect(() => validateCuAmount(Number.POSITIVE_INFINITY)).toThrow(InvalidCostLedgerEventError);
       });
 
       it("rejects non-numeric inputs", () => {
-        expect(() => validateMicrodollars("100" as unknown as number)).toThrow(
+        expect(() => validateCuAmount("100" as unknown as number)).toThrow(
           InvalidCostLedgerEventError
         );
       });
@@ -728,9 +728,9 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       });
     });
 
-    describe("calculateEventCostMicrodollars", () => {
+    describe("calculateEventCostCu", () => {
       it("calculates cost using fixed-point integer math with zero floating point", () => {
-        // Pricing: $0.15/1M input ($150,000 µ$), $0.60/1M output ($600,000 µ$), $0.075/1M cached ($75,000 µ$)
+        // Pricing: $0.15/1M input ($150,000 CU), $0.60/1M output ($600,000 CU), $0.075/1M cached ($75,000 CU)
         const pricing = {
           inputCostPerMTokMicro: 150_000n,
           outputCostPerMTokMicro: 600_000n,
@@ -738,7 +738,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         };
 
         // 1000 input tokens, 500 output tokens, 200 reasoning tokens, 400 cached tokens
-        const cost = calculateEventCostMicrodollars(
+        const cost = calculateEventCostCu(
           {
             promptTokens: 1000,
             completionTokens: 500,
@@ -749,10 +749,10 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         );
 
         // Expected:
-        // input: (1000 * 150,000) / 1,000,000 = 150 µ$
-        // output: ((500 + 200) * 600,000) / 1,000,000 = 420 µ$
-        // cached: (400 * 75,000) / 1,000,000 = 30 µ$
-        // total: 150 + 420 + 30 = 600 µ$ ($0.000600 USD)
+        // input: (1000 * 150,000) / 1,000,000 = 150 CU
+        // output: ((500 + 200) * 600,000) / 1,000,000 = 420 CU
+        // cached: (400 * 75,000) / 1,000,000 = 30 CU
+        // total: 150 + 420 + 30 = 600 CU ($0.000600 USD)
         expect(cost).toBe(600n);
       });
     });
@@ -770,7 +770,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
           completionTokens: 20,
           cachedTokens: 0,
           reasoningTokens: 0,
-          costMicrodollars: 500n,
+          costCu: 500n,
           latencyMs: 120,
           statusCode: 200,
           createdAt: "2026-09-09T20:00:00.000Z",
@@ -779,7 +779,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         expect(isCostLedgerEvent(validEvent)).toBe(true);
         expect(isCostLedgerEvent(null)).toBe(false);
         expect(isCostLedgerEvent({})).toBe(false);
-        expect(isCostLedgerEvent({ ...validEvent, costMicrodollars: "invalid" })).toBe(false);
+        expect(isCostLedgerEvent({ ...validEvent, costCu: "invalid" })).toBe(false);
       });
 
       it("validates isDailySpendRollup", () => {
@@ -790,7 +790,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
           modelId: "gpt-4o",
           totalRequests: 5,
           totalTokens: 500,
-          totalCostMicrodollars: 2500n,
+          totalCostCu: 2500n,
           totalCu: 2500n,
         };
 
@@ -815,7 +815,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         completionTokens: 350,
         cachedTokens: 200,
         reasoningTokens: 50,
-        costMicrodollars: 450n,
+        costCu: 450n,
         latencyMs: 180,
         statusCode: 200,
         createdAt: "2026-09-09T21:00:00.000Z",
@@ -827,7 +827,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(event.tenantId).toBe(TENANT_A);
       expect(event.provider).toBe("google");
       expect(event.modelId).toBe("gemini-2.0-flash");
-      expect(event.costMicrodollars).toBe(450n);
+      expect(event.costCu).toBe(450n);
       expect(event.promptTokens).toBe(1200);
       expect(event.reasoningTokens).toBe(50);
       expect(event.statusCode).toBe(200);
@@ -835,10 +835,10 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       // Verify row in database
       const dbRow = mockDb.ledgerRows.get("evt_explicit_1");
       expect(dbRow).toBeDefined();
-      expect(dbRow?.cost_microdollars).toBe(0);
+      expect(dbRow?.cost_amount).toBe(0);
     });
 
-    it("non-streaming completion writes a cost_ledger row with cu and cost_microdollars populated", async () => {
+    it("non-streaming completion writes a cost_ledger row with cu and cost_amount populated", async () => {
       const input: CostLedgerEventInput = {
         requestId: "req_non_streaming_1",
         tenantId: TENANT_A,
@@ -848,7 +848,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         promptTokens: 1000,
         completionTokens: 500,
         reasoningTokens: 0,
-        costMicrodollars: 450n,
+        costCu: 450n,
         statusCode: 200,
       };
 
@@ -857,12 +857,12 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       // Expected CU: 10 + Math.floor((1000 + 999) / 1000) + Math.floor(((500 + 0) * 4 + 999) / 1000)
       // = 10 + 1 + 2 = 13
       expect(event.cu).toBe(13n);
-      expect(event.costMicrodollars).toBe(450n);
+      expect(event.costCu).toBe(450n);
 
       const dbRow = mockDb.ledgerRows.get(event.id);
       expect(dbRow).toBeDefined();
       expect(dbRow?.cu).toBe(13);
-      expect(dbRow?.cost_microdollars).toBe(0);
+      expect(dbRow?.cost_amount).toBe(0);
     });
 
     it("auto-generates UUID and timestamps if omitted", async () => {
@@ -872,7 +872,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_openai_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 1200n,
+        costCu: 1200n,
         statusCode: 200,
       };
 
@@ -888,19 +888,19 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(event.latencyMs).toBe(0);
     });
 
-    it("converts integer number costMicrodollars to BigInt seamlessly", async () => {
+    it("converts integer number costCu to BigInt seamlessly", async () => {
       const input: CostLedgerEventInput = {
         requestId: "req_num_1",
         tenantId: TENANT_A,
         keyId: "key_openai_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 500, // integer number
+        costCu: 500, // integer number
         statusCode: 200,
       };
 
       const event = await repo.recordEvent(input);
-      expect(event.costMicrodollars).toBe(500n);
+      expect(event.costCu).toBe(500n);
     });
 
     it("enforces tenant boundary invariants and rejects empty tenantId", async () => {
@@ -910,7 +910,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
       };
 
@@ -924,7 +924,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
       };
 
@@ -949,7 +949,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 99,
       };
 
@@ -968,7 +968,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
       };
 
@@ -991,7 +991,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
           keyId: "key_1",
           provider: "openai",
           modelId: "gpt-4o",
-          costMicrodollars: 100n,
+          costCu: 100n,
           statusCode: 200,
         },
         {
@@ -1001,7 +1001,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
           keyId: "key_1",
           provider: "openai",
           modelId: "gpt-4o",
-          costMicrodollars: 200n,
+          costCu: 200n,
           statusCode: 200,
         },
       ];
@@ -1024,7 +1024,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
           keyId: "key_1",
           provider: "openai",
           modelId: "gpt-4o",
-          costMicrodollars: 100n,
+          costCu: 100n,
           statusCode: 200,
         },
       ];
@@ -1045,7 +1045,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         promptTokens: 400,
         completionTokens: 100,
         reasoningTokens: 50,
-        costMicrodollars: 250n,
+        costCu: 250n,
         statusCode: 200,
         createdAt: "2026-09-09T10:00:00.000Z",
       };
@@ -1074,7 +1074,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gpt-4o",
         promptTokens: 100,
         completionTokens: 50,
-        costMicrodollars: 300n,
+        costCu: 300n,
         statusCode: 200,
         createdAt: "2026-09-09T10:00:00.000Z",
       };
@@ -1087,7 +1087,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gpt-4o",
         promptTokens: 200,
         completionTokens: 100,
-        costMicrodollars: 600n,
+        costCu: 600n,
         statusCode: 200,
         createdAt: "2026-09-09T14:00:00.000Z",
       };
@@ -1112,7 +1112,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
       });
 
@@ -1123,7 +1123,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_2",
         provider: "anthropic",
         modelId: "claude-3-5-sonnet",
-        costMicrodollars: 200n,
+        costCu: 200n,
         statusCode: 200,
       });
     });
@@ -1155,7 +1155,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 429,
         createdAt: "2026-09-09T10:00:00.000Z",
       });
@@ -1167,7 +1167,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_2",
         provider: "google",
         modelId: "gemini-2.0-flash",
-        costMicrodollars: 120n,
+        costCu: 120n,
         statusCode: 200,
         createdAt: "2026-09-09T10:00:01.000Z",
       });
@@ -1188,7 +1188,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
         createdAt: "2026-09-01T12:00:00.000Z",
       });
@@ -1200,7 +1200,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_2",
         provider: "google",
         modelId: "gemini-2.0-flash",
-        costMicrodollars: 200n,
+        costCu: 200n,
         statusCode: 200,
         createdAt: "2026-09-05T12:00:00.000Z",
       });
@@ -1212,7 +1212,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 300n,
+        costCu: 300n,
         statusCode: 200,
         createdAt: "2026-09-09T12:00:00.000Z",
       });
@@ -1225,7 +1225,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_3",
         provider: "anthropic",
         modelId: "claude-3-5-sonnet",
-        costMicrodollars: 500n,
+        costCu: 500n,
         statusCode: 200,
         createdAt: "2026-09-09T12:00:00.000Z",
       });
@@ -1282,7 +1282,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gpt-4o",
         requestsDelta: 5,
         tokensDelta: 1000,
-        costMicrodollarsDelta: 15000n,
+        costCuDelta: 15000n,
       };
 
       await repo.upsertDailyRollup(input);
@@ -1300,7 +1300,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         day: "2026-09-01",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollarsDelta: 1000n,
+        costCuDelta: 1000n,
       });
 
       await repo.upsertDailyRollup({
@@ -1308,7 +1308,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         day: "2026-09-09",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollarsDelta: 2000n,
+        costCuDelta: 2000n,
       });
 
       const filtered = await repo.getDailyRollups(TENANT_A, {
@@ -1328,7 +1328,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gpt-4o",
         requestsDelta: 10,
         tokensDelta: 5000,
-        costMicrodollarsDelta: 25_000n,
+        costCuDelta: 25_000n,
       });
 
       await repo.upsertDailyRollup({
@@ -1338,7 +1338,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gemini-2.0-flash",
         requestsDelta: 20,
         tokensDelta: 10000,
-        costMicrodollarsDelta: 35_000n,
+        costCuDelta: 35_000n,
       });
 
       const summary = await repo.getTenantSpendSummary(TENANT_A);
@@ -1346,7 +1346,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
       expect(summary.totalTokens).toBe(15000);
       expect(summary.totalCu).toBeGreaterThan(0n);
 
-      const totalMicro = await repo.getTenantTotalSpendMicrodollars(TENANT_A);
+      const totalMicro = await repo.getTenantTotalSpendCu(TENANT_A);
       expect(totalMicro).toBe(0n);
     });
   });
@@ -1362,7 +1362,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gpt-4o",
         promptTokens: 100,
         completionTokens: 50,
-        costMicrodollars: 300n,
+        costCu: 300n,
         statusCode: 200,
         createdAt: "2026-09-09T08:00:00.000Z",
       });
@@ -1375,7 +1375,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gpt-4o",
         promptTokens: 200,
         completionTokens: 100,
-        costMicrodollars: 600n,
+        costCu: 600n,
         statusCode: 200,
         createdAt: "2026-09-09T12:00:00.000Z",
       });
@@ -1388,7 +1388,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         modelId: "gemini-2.0-flash",
         promptTokens: 500,
         completionTokens: 250,
-        costMicrodollars: 400n,
+        costCu: 400n,
         statusCode: 200,
         createdAt: "2026-09-09T16:00:00.000Z",
       });
@@ -1426,7 +1426,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
       });
 
@@ -1436,7 +1436,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         keyId: "key_1",
         provider: "openai",
         modelId: "gpt-4o",
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
       });
 
@@ -1465,7 +1465,7 @@ describe("CostLedgerRepository & Financials (storage-repo-ledger)", () => {
         completion_tokens: completionTokens,
         cached_tokens: 0,
         reasoning_tokens: reasoningTokens,
-        cost_microdollars: 1000,
+        cost_amount: 1000,
         latency_ms: 150,
         status_code: 200,
         created_at: createdAt,

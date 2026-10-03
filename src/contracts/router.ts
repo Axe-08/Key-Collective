@@ -6,7 +6,7 @@ export interface RouteRequest {
 
 export interface RouteResponse {
     content: string;
-    costMicrodollars: bigint;
+    costCu: bigint;
 }
 
 export interface RouterContract {

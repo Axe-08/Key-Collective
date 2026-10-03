@@ -35,7 +35,7 @@ import {
   TenantQuotaData,
   TenantQuotaDOOptions,
   toCu,
-  toMicrodollars,
+  toCuAmount,
 } from "./types";
 
 declare module "./types" {
@@ -64,7 +64,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   private tenantBound = false;
   private tier: UserTier = "builder";
   private entries: QuotaEntry[] = [];
-  private totalCostMicrodollars: bigint = 0n;
+  private totalCostCu: bigint = 0n;
   private cuUsed24h: bigint = 0n;
   private isLoaded = false;
 
@@ -112,7 +112,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     this.tenantBound = false;
     this.tier = options?.initialTier ?? "builder";
     this.entries = [];
-    this.totalCostMicrodollars = 0n;
+    this.totalCostCu = 0n;
     this.cuUsed24h = 0n;
     this.isLoaded = false;
     this.communityDebtCu = 0n;
@@ -206,8 +206,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     for (const e of this.entries) {
       if (e.cu !== undefined) {
         cuTotal += BigInt(e.cu);
-      } else if (e.costMicrodollars !== undefined) {
-        cuTotal += BigInt(e.costMicrodollars);
+      } else if (e.costCu !== undefined) {
+        cuTotal += BigInt(e.costCu);
       }
     }
     this.cuUsed24h = cuTotal;
@@ -253,7 +253,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       tenantId: this.tenantId,
       tier: this.tier,
       entries: [...this.entries],
-      totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+      totalCostCu: this.totalCostCu.toString(),
 
       cuUsed24h: this.cuUsed24h.toString(),
       communityDebtCu: this.communityDebtCu.toString(),
@@ -295,8 +295,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       if (Array.isArray(stored.entries)) {
         this.entries = [...stored.entries];
       }
-      if (typeof stored.totalCostMicrodollars === "string") {
-        this.totalCostMicrodollars = toMicrodollars(stored.totalCostMicrodollars);
+      if (typeof stored.totalCostCu === "string") {
+        this.totalCostCu = toCuAmount(stored.totalCostCu);
       }
       if (typeof stored.cuUsed24h === "string") {
         this.cuUsed24h = BigInt(stored.cuUsed24h);
@@ -354,7 +354,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
 
   public clearMemoryCache(): void {
     this.entries = [];
-    this.totalCostMicrodollars = 0n;
+    this.totalCostCu = 0n;
     this.cuUsed24h = 0n;
     this.contributedBuckets = new Array<bigint>(24).fill(0n);
     this.lastBucketHour = null;
@@ -871,8 +871,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
     return calculateUsage(this.entries, this.rpdWindowMs, now);
   }
 
-  public getTotalCostMicrodollars(): bigint {
-    return this.totalCostMicrodollars;
+  public getTotalCostCu(): bigint {
+    return this.totalCostCu;
   }
 
   public getCuUsed24h(): bigint {
@@ -896,7 +896,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       tenantId: this.tenantId,
       tier: this.tier,
       entries: this.entries,
-      totalCostMicrodollars: this.totalCostMicrodollars,
+      totalCostCu: this.totalCostCu,
       communityDebtMicroCu: this.communityDebtCu,
       dailyContributedCu: this.dailyContributedCu,
       trustedContributor: this.trustedContributor,
@@ -914,7 +914,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
         cu: incomingCu.toString(),
       };
       this.entries.push(entryWithCu);
-      this.totalCostMicrodollars += incomingCost;
+      this.totalCostCu += incomingCost;
       this.cuUsed24h += incomingCu;
       await this.persist();
     }
@@ -930,7 +930,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
   public async reset(): Promise<void> {
     await this.ensureLoaded();
     this.entries = [];
-    this.totalCostMicrodollars = 0n;
+    this.totalCostCu = 0n;
     this.cuUsed24h = 0n;
     this.communityDebtCu = 0n;
     this.standingDirty = true;
@@ -1024,7 +1024,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           currentRpd,
           rpdLimit: tierLimits.rpdLimit,
           currentProjectRpm,
-          totalCostMicrodollars: this.totalCostMicrodollars.toString(),
+          totalCostCu: this.totalCostCu.toString(),
           cuUsed24h: this.cuUsed24h.toString(),
           communityDebtCu: this.communityDebtCu.toString(),
           communityDebtMicroCu: this.communityDebtCu.toString(),

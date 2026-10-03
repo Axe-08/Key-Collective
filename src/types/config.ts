@@ -4,7 +4,7 @@
  *
  * Invariants:
  * - Strict mode, no `any`.
- * - Fixed-point microdollars (int64 microdollars, 1 USD = 1,000,000 µ$). Zero floating-point math.
+ * - Fixed-point credit units (int64 credit units, 1 USD = 1,000,000 CU). Zero floating-point math.
  * - Multi-tenant isolation: strict per-tenant configuration and RPM/circuit-breaker thresholds.
  */
 
@@ -113,13 +113,13 @@ export interface CircuitBreakerConfig {
 
 /**
  * Financial budget configuration for a tenant.
- * Uses fixed-point microdollars (int64) to strictly prohibit floating point math.
+ * Uses fixed-point credit units (int64) to strictly prohibit floating point math.
  */
 export interface TenantBudgetConfig<TCost = bigint> {
-  /** Maximum allowed spend in microdollars */
-  maxBudgetMicrodollars: TCost;
-  /** Current spend in microdollars */
-  spentMicrodollars: TCost;
+  /** Maximum allowed spend in credit units */
+  maxBudgetCu: TCost;
+  /** Current spend in credit units */
+  spentTotalCu: TCost;
   /** Policy when budget is exhausted: "block" (reject with 429) or "warn" (emit telemetry) */
   onExhaustion?: "block" | "warn";
   /** Budget consumption percentage (0-100) at which warning alerts fire */
@@ -146,7 +146,7 @@ export interface TenantConfig<TCost = bigint> {
   rateLimits: RateLimitConfig;
   /** Circuit breaker thresholds and cooldown */
   circuitBreaker: CircuitBreakerConfig;
-  /** Optional financial budget cap in microdollars */
+  /** Optional financial budget cap in credit units */
   budget?: TenantBudgetConfig<TCost>;
   /** Optional tenant metadata or tags */
   metadata?: Record<string, string>;

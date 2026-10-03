@@ -231,7 +231,7 @@ export async function dispatchRoute(params: DispatchParams): Promise<Response> {
         timestamp: startTime,
         eventType: "request_error",
         latencyMs: now() - startTime,
-        costMicrodollars: 0n,
+        costCu: 0n,
         metadata: {
           pathname,
           method,

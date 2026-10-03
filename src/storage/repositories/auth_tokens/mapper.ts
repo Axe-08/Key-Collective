@@ -18,17 +18,17 @@ export function mapRowToAuthTokenRecord(row: AuthTokenRow): AuthTokenRecord {
   }
 
   const budget =
-    typeof row.budget_microdollars === "bigint"
-      ? row.budget_microdollars
-      : (row.budget_microdollars != null && !isNaN(Number(row.budget_microdollars)))
-        ? BigInt(row.budget_microdollars)
+    typeof row.budget_amount === "bigint"
+      ? row.budget_amount
+      : (row.budget_amount != null && !isNaN(Number(row.budget_amount)))
+        ? BigInt(row.budget_amount)
         : 0n;
 
   const spent =
-    typeof row.spent_microdollars === "bigint"
-      ? row.spent_microdollars
-      : (row.spent_microdollars != null && !isNaN(Number(row.spent_microdollars)))
-        ? BigInt(row.spent_microdollars)
+    typeof row.spent_amount === "bigint"
+      ? row.spent_amount
+      : (row.spent_amount != null && !isNaN(Number(row.spent_amount)))
+        ? BigInt(row.spent_amount)
         : 0n;
 
   return {
@@ -37,8 +37,8 @@ export function mapRowToAuthTokenRecord(row: AuthTokenRow): AuthTokenRecord {
     tenantId: row.tenant_id,
     encryptedTokenB64: row.encrypted_token_b64,
     nonceB64: row.nonce_b64,
-    budgetMicrodollars: budget,
-    spentMicrodollars: spent,
+    budgetCeilingCu: budget,
+    spentTotalCu: spent,
     allowedProviders,
     rpmLimit: Number(row.rpm_limit ?? DEFAULT_RPM_LIMIT),
     expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null,

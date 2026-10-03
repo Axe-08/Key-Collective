@@ -111,9 +111,37 @@ describe("WP-7.7 — Dead code archived and active modules wired", () => {
     expect(keyPoolDo).toMatch(/from\s+["'][^"']*contracts\/keys["']/);
     expect(getKeys).toMatch(/from\s+["'][^"']*contracts\/keys["']/);
   });
+
+  it("T-7.7.9: zero microdollar, micro_cu, or µ$ leftovers in src/ and ui/src/", () => {
+    const collectFiles = (dir: string): string[] => {
+      const out: string[] = [];
+      if (!fs.existsSync(dir)) return out;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          out.push(...collectFiles(full));
+        } else if (entry.isFile() && /\.(ts|tsx|svelte|js|mjs)$/.test(entry.name)) {
+          out.push(full);
+        }
+      }
+      return out;
+    };
+
+    const files = [
+      ...collectFiles(path.join(ROOT, "src")),
+      ...collectFiles(path.join(ROOT, "ui/src")),
+    ];
+
+    const forbidden = /microdollar|micro_cu|µ\$/i;
+    const hits: string[] = [];
+
+    for (const file of files) {
+      const content = fs.readFileSync(file, "utf8");
+      if (forbidden.test(content)) {
+        hits.push(path.relative(ROOT, file));
+      }
+    }
+
+    expect(hits).toEqual([]);
+  });
 });
-
-
-
-
-

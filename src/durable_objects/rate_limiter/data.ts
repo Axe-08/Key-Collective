@@ -6,7 +6,7 @@ import type { RateLimitEntry, RateLimiterData } from "./types";
 export function createDefaultRateLimiterData(): RateLimiterData {
   return {
     entries: [],
-    totalCostMicrodollars: "0",
+    totalCostCu: "0",
     lastRequestTime: null,
   };
 }
@@ -22,7 +22,7 @@ export function isRateLimitEntry(value: unknown): value is RateLimitEntry {
   return (
     typeof candidate.timestamp === "number" &&
     typeof candidate.count === "number" &&
-    typeof candidate.costMicrodollars === "string"
+    typeof candidate.costCu === "string"
   );
 }
 
@@ -37,7 +37,7 @@ export function isRateLimiterData(value: unknown): value is RateLimiterData {
   return (
     Array.isArray(candidate.entries) &&
     candidate.entries.every(isRateLimitEntry) &&
-    typeof candidate.totalCostMicrodollars === "string" &&
+    typeof candidate.totalCostCu === "string" &&
     (candidate.lastRequestTime === null || typeof candidate.lastRequestTime === "number")
   );
 }

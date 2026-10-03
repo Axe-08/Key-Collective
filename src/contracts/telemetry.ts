@@ -4,7 +4,7 @@ export interface TelemetryEvent {
     timestamp: number;
     eventType: string;
     latencyMs: number;
-    costMicrodollars?: bigint;
+    costCu?: bigint;
     cu?: bigint;
     metadata: Record<string, string>;
 }

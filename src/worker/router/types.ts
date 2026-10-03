@@ -26,7 +26,7 @@ export interface DurableObjectStubLike {
   };
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
   getKey?(provider: string): Promise<string>;
-  recordUsage?(keyId: string, costMicrodollars: bigint): Promise<void>;
+  recordUsage?(keyId: string, costCu: bigint): Promise<void>;
   recordResult?(keyId: string, success: boolean): Promise<void>;
   recordStatusCode?(keyId: string, statusCode: number): Promise<void>;
   getKeyMetrics?(keyId: string): Promise<KeyMetrics>;

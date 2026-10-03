@@ -9,8 +9,8 @@
  *    Tokens are hashed using SHA-256 for indexed lookup.
  * 2. Strict Tenant Isolation:
  *    Cross-tenant operations throw TenantIsolationError or are rejected.
- * 3. Fixed-Point Microdollars:
- *    Budgets and spend calculations use int64 / bigint microdollars.
+ * 3. Fixed-Point CreditUnits:
+ *    Budgets and spend calculations use int64 / bigint credit units.
  *    Zero floating-point math.
  * 4. TypeScript strict mode, zero any.
  */
@@ -140,8 +140,8 @@ class MockD1PreparedStatement implements D1PreparedStatement {
         tenant_id: String(tenant_id),
         encrypted_token_b64: (encrypted_token_b64 as string | null) ?? null,
         nonce_b64: (nonce_b64 as string | null) ?? null,
-        budget_microdollars: 0,
-        spent_microdollars: 0,
+        budget_amount: 0,
+        spent_amount: 0,
         allowed_providers: String(allowed_providers),
         rpm_limit: Number(rpm_limit),
         expires_at: (expires_at as string | null) ?? null,
@@ -247,7 +247,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
     // 8. UPDATE AUTH_TOKENS SET BUDGET_CU = ? WHERE ID = ? AND TENANT_ID = ?
     if (
       upper === "UPDATE AUTH_TOKENS SET BUDGET_CU = ? WHERE ID = ? AND TENANT_ID = ?" ||
-      upper === "UPDATE AUTH_TOKENS SET BUDGET_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?"
+      upper === "UPDATE AUTH_TOKENS SET BUDGET_CEILING_CU = ? WHERE ID = ? AND TENANT_ID = ?"
     ) {
       const budget = this.boundParams[0] !== null ? String(this.boundParams[0]) : null;
       const id = String(this.boundParams[1]);
@@ -264,7 +264,7 @@ class MockD1PreparedStatement implements D1PreparedStatement {
     // 9. UPDATE AUTH_TOKENS SET SPENT_CU = ? WHERE ID = ? AND TENANT_ID = ?
     if (
       upper === "UPDATE AUTH_TOKENS SET SPENT_CU = ? WHERE ID = ? AND TENANT_ID = ?" ||
-      upper === "UPDATE AUTH_TOKENS SET SPENT_MICRODOLLARS = ? WHERE ID = ? AND TENANT_ID = ?"
+      upper === "UPDATE AUTH_TOKENS SET SPENT_TOTAL_CU = ? WHERE ID = ? AND TENANT_ID = ?"
     ) {
       const spent = String(this.boundParams[0]);
       const id = String(this.boundParams[1]);
@@ -310,8 +310,8 @@ class MockD1PreparedStatement implements D1PreparedStatement {
           const val = this.boundParams[i];
           if (col === "budget_cu") found.budget_cu = val !== null ? String(val) : null;
           if (col === "spent_cu") found.spent_cu = String(val);
-          if (col === "budget_microdollars") found.budget_microdollars = Number(val);
-          if (col === "spent_microdollars") found.spent_microdollars = Number(val);
+          if (col === "budget_amount") found.budget_amount = Number(val);
+          if (col === "spent_amount") found.spent_amount = Number(val);
           if (col === "allowed_providers") found.allowed_providers = String(val);
           if (col === "rpm_limit") found.rpm_limit = Number(val);
           if (col === "expires_at") found.expires_at = (val as string | null) ?? null;
@@ -490,7 +490,7 @@ describe("AuthTokensRepository", () => {
       const created = await repo.createToken({
         token: tokenStr,
         tenantId: "tenant_lookup",
-        budgetMicrodollars: 50_000_000n,
+        budgetCeilingCu: 50_000_000n,
         rpmLimit: 120,
         allowedProviders: ["google", "groq"],
       });
@@ -499,7 +499,7 @@ describe("AuthTokensRepository", () => {
       expect(found).not.toBeNull();
       expect(found!.id).toBe(created.id);
       expect(found!.tenantId).toBe("tenant_lookup");
-      expect(found!.budgetMicrodollars).toBe(50_000_000n);
+      expect(found!.budgetCeilingCu).toBe(50_000_000n);
       expect(found!.rpmLimit).toBe(120);
       expect(found!.allowedProviders).toEqual(["google", "groq"]);
     });
@@ -583,7 +583,7 @@ describe("AuthTokensRepository", () => {
       const tokenA = await repo.createToken({
         token: "kc_token_budget_boundary",
         tenantId: "tenant_A",
-        budgetMicrodollars: 10_000_000n,
+        budgetCeilingCu: 10_000_000n,
       });
 
       await expect(repo.updateBudget(tokenA.id, "tenant_B", 999_999_999n)).rejects.toThrow(
@@ -591,7 +591,7 @@ describe("AuthTokensRepository", () => {
       );
 
       const check = await repo.findById(tokenA.id, "tenant_A");
-      expect(check!.budgetMicrodollars).toBe(10_000_000n);
+      expect(check!.budgetCeilingCu).toBe(10_000_000n);
     });
 
     it("prevents cross-tenant spend recording and throws TenantIsolationError", async () => {
@@ -605,23 +605,23 @@ describe("AuthTokensRepository", () => {
       );
 
       const check = await repo.findById(tokenA.id, "tenant_A");
-      expect(check!.spentMicrodollars).toBe(0n);
+      expect(check!.spentTotalCu).toBe(0n);
     });
   });
 
-  describe("Fixed-Point Microdollars (GEMINI.md Invariant)", () => {
-    it("stores and calculates budgets in int64 microdollars (bigint)", async () => {
+  describe("Fixed-Point CreditUnits (GEMINI.md Invariant)", () => {
+    it("stores and calculates budgets in int64 credit units (bigint)", async () => {
       const token = await repo.createToken({
         token: "kc_financial_token",
         tenantId: "tenant_fin",
-        budgetMicrodollars: 15_750_000n, // $15.75
-        spentMicrodollars: 2_500_000n,   // $2.50
+        budgetCeilingCu: 15_750_000n, // $15.75
+        spentTotalCu: 2_500_000n,   // $2.50
       });
 
-      expect(typeof token.budgetMicrodollars).toBe("bigint");
-      expect(typeof token.spentMicrodollars).toBe("bigint");
-      expect(token.budgetMicrodollars).toBe(15_750_000n);
-      expect(token.spentMicrodollars).toBe(2_500_000n);
+      expect(typeof token.budgetCeilingCu).toBe("bigint");
+      expect(typeof token.spentTotalCu).toBe("bigint");
+      expect(token.budgetCeilingCu).toBe(15_750_000n);
+      expect(token.spentTotalCu).toBe(2_500_000n);
     });
 
     it("accurately accumulates multiple spends with zero floating-point error", async () => {
@@ -632,7 +632,7 @@ describe("AuthTokensRepository", () => {
 
       const spend1 = 123_456n;
       const spend2 = 654_321n;
-      const spend3 = 1n; // 1 microdollar exact
+      const spend3 = 1n; // 1 credit unit exact
 
       const res1 = await repo.recordSpend(token.id, "tenant_fin", spend1);
       expect(res1).toBe(123_456n);
@@ -644,7 +644,7 @@ describe("AuthTokensRepository", () => {
       expect(res3).toBe(777_778n);
 
       const reloaded = await repo.findById(token.id, "tenant_fin");
-      expect(reloaded!.spentMicrodollars).toBe(777_778n);
+      expect(reloaded!.spentTotalCu).toBe(777_778n);
     });
 
     it("rejects negative budgets and spends", async () => {
@@ -652,7 +652,7 @@ describe("AuthTokensRepository", () => {
         repo.createToken({
           token: "kc_neg_budget",
           tenantId: "t1",
-          budgetMicrodollars: -100n,
+          budgetCeilingCu: -100n,
         })
       ).rejects.toThrow(TypeError);
 
@@ -660,7 +660,7 @@ describe("AuthTokensRepository", () => {
         repo.createToken({
           token: "kc_neg_spent",
           tenantId: "t1",
-          spentMicrodollars: -50n,
+          spentTotalCu: -50n,
         })
       ).rejects.toThrow(TypeError);
 
@@ -677,8 +677,8 @@ describe("AuthTokensRepository", () => {
       await repo.createToken({
         token: plainToken,
         tenantId: "tenant_val",
-        budgetMicrodollars: 100_000_000n,
-        spentMicrodollars: 10_000_000n,
+        budgetCeilingCu: 100_000_000n,
+        spentTotalCu: 10_000_000n,
         allowedProviders: ["gemini", "openai"],
       });
 
@@ -751,8 +751,8 @@ describe("AuthTokensRepository", () => {
       await repo.createToken({
         token: plainToken,
         tenantId: "tenant_val",
-        budgetMicrodollars: 500_000n, // $0.50
-        spentMicrodollars: 500_000n,  // exactly capped
+        budgetCeilingCu: 500_000n, // $0.50
+        spentTotalCu: 500_000n,  // exactly capped
       });
 
       const res = await repo.validateToken(plainToken);
@@ -764,8 +764,8 @@ describe("AuthTokensRepository", () => {
       await repo.createToken({
         token: unlimitedToken,
         tenantId: "tenant_val",
-        budgetMicrodollars: 0n,
-        spentMicrodollars: 999_999_999n,
+        budgetCeilingCu: 0n,
+        spentTotalCu: 999_999_999n,
       });
 
       const resUnlimited = await repo.validateToken(unlimitedToken);
@@ -799,19 +799,19 @@ describe("AuthTokensRepository", () => {
       const created = await repo.createToken({
         token: "kc_token_for_updates",
         tenantId: "tenant_upd",
-        budgetMicrodollars: 1_000_000n,
+        budgetCeilingCu: 1_000_000n,
         rpmLimit: 60,
         allowedProviders: ["google"],
       });
 
       const updated = await repo.updateToken(created.id, "tenant_upd", {
-        budgetMicrodollars: 5_000_000n,
+        budgetCeilingCu: 5_000_000n,
         rpmLimit: 120,
         allowedProviders: ["google", "groq", "openai"],
       });
 
       expect(updated).not.toBeNull();
-      expect(updated!.budgetMicrodollars).toBe(5_000_000n);
+      expect(updated!.budgetCeilingCu).toBe(5_000_000n);
       expect(updated!.rpmLimit).toBe(120);
       expect(updated!.allowedProviders).toEqual(["google", "groq", "openai"]);
     });
@@ -873,8 +873,8 @@ describe("AuthTokensRepository", () => {
         tenant_id: "tenant_corrupt",
         encrypted_token_b64: null,
         nonce_b64: null,
-        budget_microdollars: 0,
-        spent_microdollars: 0,
+        budget_amount: 0,
+        spent_amount: 0,
         allowed_providers: "invalid-json-content{",
         rpm_limit: 60,
         expires_at: null,
@@ -987,13 +987,13 @@ describe("AuthTokensRepository", () => {
         const record = await repo.create({
           token: plainToken,
           tenantId: validTenantId,
-          budgetMicrodollars: 2_500_000n,
+          budgetCeilingCu: 2_500_000n,
           rpmLimit: 120,
         });
 
         expect(record.id).toBeDefined();
         expect(record.tenantId).toBe(validTenantId);
-        expect(record.budgetMicrodollars).toBe(2_500_000n);
+        expect(record.budgetCeilingCu).toBe(2_500_000n);
         expect(record.rpmLimit).toBe(120);
 
         const found = await repo.findById(record.id, validTenantId);

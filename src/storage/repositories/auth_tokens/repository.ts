@@ -10,7 +10,7 @@ import type {
   AuthTokenRepositoryConfig,
   TokenValidationResult,
   UpdateAuthTokenParams,
-  Microdollars,
+  CreditUnits,
 } from "./types";
 import { mapRowToAuthTokenRecord } from "./mapper";
 
@@ -60,8 +60,8 @@ function toAuthTokenRecord(row: AuthTokenRow): AuthTokenRecord {
       : 0n;
   return {
     ...base,
-    budgetMicrodollars: budgetCu !== undefined && budgetCu !== null ? budgetCu : base.budgetMicrodollars,
-    spentMicrodollars: spentCu !== 0n ? spentCu : base.spentMicrodollars,
+    budgetCeilingCu: budgetCu !== undefined && budgetCu !== null ? budgetCu : base.budgetCeilingCu,
+    spentTotalCu: spentCu !== 0n ? spentCu : base.spentTotalCu,
     budgetCu,
     spentCu,
   };
@@ -157,26 +157,26 @@ export class AuthTokensRepository {
     const encryptedTokenB64 = encrypted.ciphertextB64;
     const nonceB64 = encrypted.nonceB64;
 
-    // 3. Normalize financial values (Fixed-Point microdollars, no floats)
+    // 3. Normalize financial values (Fixed-Point credit units, no floats)
     let budgetMicro = 0n;
-    if (params.budgetMicrodollars !== undefined) {
+    if (params.budgetCeilingCu !== undefined) {
       budgetMicro =
-        typeof params.budgetMicrodollars === "bigint"
-          ? params.budgetMicrodollars
-          : BigInt(params.budgetMicrodollars);
+        typeof params.budgetCeilingCu === "bigint"
+          ? params.budgetCeilingCu
+          : BigInt(params.budgetCeilingCu);
       if (budgetMicro < 0n) {
-        throw new TypeError("budgetMicrodollars cannot be negative");
+        throw new TypeError("budgetCeilingCu cannot be negative");
       }
     }
 
     let spentMicro = 0n;
-    if (params.spentMicrodollars !== undefined) {
+    if (params.spentTotalCu !== undefined) {
       spentMicro =
-        typeof params.spentMicrodollars === "bigint"
-          ? params.spentMicrodollars
-          : BigInt(params.spentMicrodollars);
+        typeof params.spentTotalCu === "bigint"
+          ? params.spentTotalCu
+          : BigInt(params.spentTotalCu);
       if (spentMicro < 0n) {
-        throw new TypeError("spentMicrodollars cannot be negative");
+        throw new TypeError("spentTotalCu cannot be negative");
       }
     }
 
@@ -192,7 +192,7 @@ export class AuthTokensRepository {
       if (budgetCu !== null && budgetCu < 0n) {
         throw new TypeError("budgetCu cannot be negative");
       }
-    } else if (params.budgetMicrodollars !== undefined) {
+    } else if (params.budgetCeilingCu !== undefined) {
       budgetCu = budgetMicro === 0n ? null : budgetMicro;
     }
 
@@ -205,7 +205,7 @@ export class AuthTokensRepository {
       if (spentCu < 0n) {
         throw new TypeError("spentCu cannot be negative");
       }
-    } else if (params.spentMicrodollars !== undefined) {
+    } else if (params.spentTotalCu !== undefined) {
       spentCu = spentMicro;
     }
 
@@ -264,8 +264,8 @@ export class AuthTokensRepository {
       tenantId,
       encryptedTokenB64,
       nonceB64,
-      budgetMicrodollars: budgetMicro,
-      spentMicrodollars: spentMicro,
+      budgetCeilingCu: budgetMicro,
+      spentTotalCu: spentMicro,
       budgetCu: budgetCu ?? null,
       spentCu,
       allowedProviders,
@@ -454,21 +454,21 @@ export class AuthTokensRepository {
   }
 
   /**
-   * Updates the budget ceiling of a token in fixed-point int64 microdollars and/or Credit Units.
+   * Updates the budget ceiling of a token in fixed-point int64 credit units and/or Credit Units.
    */
   public async updateBudget(
     id: string,
     tenantId: string,
-    budgetMicrodollars: Microdollars | number,
+    budgetCeilingCu: CreditUnits | number,
     budgetCu?: bigint | number | null
   ): Promise<boolean> {
     const budget =
-      typeof budgetMicrodollars === "bigint"
-        ? budgetMicrodollars
-        : BigInt(budgetMicrodollars);
+      typeof budgetCeilingCu === "bigint"
+        ? budgetCeilingCu
+        : BigInt(budgetCeilingCu);
 
     if (budget < 0n) {
-      throw new TypeError("budgetMicrodollars cannot be negative");
+      throw new TypeError("budgetCeilingCu cannot be negative");
     }
 
     const existing = await this.findById(id, tenantId);
@@ -498,22 +498,22 @@ export class AuthTokensRepository {
   }
 
   /**
-   * Records financial expenditure against a token in fixed-point int64 microdollars and Credit Units.
+   * Records financial expenditure against a token in fixed-point int64 credit units and Credit Units.
    * Binds bigint values as strings, never Number(bigint).
    */
   public async recordSpend(
     id: string,
     tenantId: string,
-    spendMicrodollars: Microdollars | number,
+    spendAmountCu: CreditUnits | number,
     spendCu?: bigint | number
-  ): Promise<Microdollars> {
+  ): Promise<CreditUnits> {
     const spend =
-      typeof spendMicrodollars === "bigint"
-        ? spendMicrodollars
-        : BigInt(spendMicrodollars);
+      typeof spendAmountCu === "bigint"
+        ? spendAmountCu
+        : BigInt(spendAmountCu);
 
     if (spend < 0n) {
-      throw new TypeError("spendMicrodollars cannot be negative");
+      throw new TypeError("spendAmountCu cannot be negative");
     }
 
     const cuSpend =
@@ -534,7 +534,7 @@ export class AuthTokensRepository {
       });
     }
 
-    const currentSpent = existing.spentCu ?? existing.spentMicrodollars ?? 0n;
+    const currentSpent = existing.spentCu ?? existing.spentTotalCu ?? 0n;
     const newSpent = currentSpent + spend;
     const newSpentCu = (existing.spentCu ?? currentSpent) + cuSpend;
 
@@ -560,12 +560,12 @@ export class AuthTokensRepository {
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    if (params.budgetMicrodollars !== undefined && params.budgetCu === undefined) {
+    if (params.budgetCeilingCu !== undefined && params.budgetCu === undefined) {
       const b =
-        typeof params.budgetMicrodollars === "bigint"
-          ? params.budgetMicrodollars
-          : BigInt(params.budgetMicrodollars);
-      if (b < 0n) throw new TypeError("budgetMicrodollars cannot be negative");
+        typeof params.budgetCeilingCu === "bigint"
+          ? params.budgetCeilingCu
+          : BigInt(params.budgetCeilingCu);
+      if (b < 0n) throw new TypeError("budgetCeilingCu cannot be negative");
       updates.push("budget_cu = ?");
       values.push(b.toString());
     }
@@ -676,8 +676,8 @@ export class AuthTokensRepository {
       }
       // NULL budget_cu means unlimited
     } else {
-      // Fallback for microdollars when budgetCu column is not present
-      if (record.budgetMicrodollars > 0n && record.spentMicrodollars >= record.budgetMicrodollars) {
+      // Fallback for credit units when budgetCu column is not present
+      if (record.budgetCeilingCu > 0n && record.spentTotalCu >= record.budgetCeilingCu) {
         return { valid: false, reason: "budget_exceeded", token: record };
       }
     }

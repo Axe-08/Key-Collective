@@ -264,7 +264,7 @@ describe("WP-5.12 T-5.12.2 — Quota evaluator scales effective_limit by multipl
 
     // 1. Non-contributor (multiplierCeiling = 100) stays at base tier limits (10 RPM, 250 RPD)
     const nonContributorRes = evaluateQuota(
-      { count: 1, costMicrodollars: 0n },
+      { count: 1, costCu: 0n },
       {
         tenantId: "tenant-non-contrib",
         tier: "builder",
@@ -272,10 +272,10 @@ describe("WP-5.12 T-5.12.2 — Quota evaluator scales effective_limit by multipl
           {
             timestamp: now - 5_000,
             count: tierLimits.rpmLimit,
-            costMicrodollars: "0",
+            costCu: "0",
           },
         ],
-        totalCostMicrodollars: 0n,
+        totalCostCu: 0n,
         communityDebtMicroCu: 0n,
         dailyContributedCu: 0n,
         trustedContributor: false,
@@ -292,7 +292,7 @@ describe("WP-5.12 T-5.12.2 — Quota evaluator scales effective_limit by multipl
 
     // 2. SOFT_WARNING tenant (multiplierCeiling = 150) has RPM ceiling = tier_rpm * 1.5 = 15, RPD = 375
     const softWarningAllowed = evaluateQuota(
-      { count: 1, costMicrodollars: 0n },
+      { count: 1, costCu: 0n },
       {
         tenantId: "tenant-soft-warning",
         tier: "builder",
@@ -300,10 +300,10 @@ describe("WP-5.12 T-5.12.2 — Quota evaluator scales effective_limit by multipl
           {
             timestamp: now - 5_000,
             count: tierLimits.rpmLimit, // 10 requests already used, allowed up to 15
-            costMicrodollars: "0",
+            costCu: "0",
           },
         ],
-        totalCostMicrodollars: 0n,
+        totalCostCu: 0n,
         communityDebtMicroCu: 75n,
         dailyContributedCu: 100n,
         trustedContributor: false,
@@ -320,7 +320,7 @@ describe("WP-5.12 T-5.12.2 — Quota evaluator scales effective_limit by multipl
 
     // Request #16 exceeds the 15 RPM effective limit
     const softWarningBlocked = evaluateQuota(
-      { count: 1, costMicrodollars: 0n },
+      { count: 1, costCu: 0n },
       {
         tenantId: "tenant-soft-warning",
         tier: "builder",
@@ -328,10 +328,10 @@ describe("WP-5.12 T-5.12.2 — Quota evaluator scales effective_limit by multipl
           {
             timestamp: now - 5_000,
             count: Math.floor((tierLimits.rpmLimit * 150) / 100),
-            costMicrodollars: "0",
+            costCu: "0",
           },
         ],
-        totalCostMicrodollars: 0n,
+        totalCostCu: 0n,
         communityDebtMicroCu: 75n,
         dailyContributedCu: 100n,
         trustedContributor: false,

@@ -15,7 +15,7 @@
  *
  * Invariants Enforced (GEMINI.md Constitution):
  * - TypeScript (strict mode, no `any`).
- * - Fixed-Point Microdollars: All pricing calculations utilize int64 / bigint microdollars (1 USD = 1,000,000 µ$). Zero floating-point math.
+ * - Fixed-Point CreditUnits: All pricing calculations utilize int64 / bigint credit units (1 USD = 1,000,000 CU). Zero floating-point math.
  * - Non-blocking hot path: Non-blocking telemetry and key result recording.
  */
 

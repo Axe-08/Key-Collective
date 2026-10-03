@@ -9,7 +9,7 @@
  * Invariants (GEMINI.md Constitution):
  * - No Plaintext Keys: AES-256-GCM encryption via Web Crypto API with unique 12-byte nonces stored in D1.
  * - Per-Tenant Compute & Storage Isolation: Scoped by tenantId. Zero cross-tenant state.
- * - Fixed-Point Microdollars: All costs/budgets in microdollars.
+ * - Fixed-Point CreditUnits: All costs/budgets in credit units.
  * - Strict TypeScript (zero `any`).
  */
 
@@ -21,8 +21,8 @@ export interface TokenSummary {
   id: string;
   tenant_id: string;
   rpm_limit: number;
-  budget_microdollars?: number;
-  spent_microdollars?: number;
+  budget_amount?: number;
+  spent_amount?: number;
   budget_cu?: string | null;
   spent_cu?: string;
   created_at: string;
@@ -36,7 +36,7 @@ export interface CreateTokenBody {
   id?: string;
   rpm_limit?: number;
   budget_cu?: bigint | number | string | null;
-  budget_microdollars?: number | bigint;
+  budget_amount?: number | bigint;
   allowed_providers?: string[];
   expires_at?: string | null;
   tenant_id?: string;
@@ -50,8 +50,8 @@ interface RawTokenRow {
   tenant_id: string;
   budget_cu?: string | null;
   spent_cu?: string | null;
-  budget_microdollars?: number;
-  spent_microdollars?: number;
+  budget_amount?: number;
+  spent_amount?: number;
   allowed_providers: string;
   rpm_limit: number;
   expires_at: string | null;
@@ -248,8 +248,8 @@ export async function handleGetTokens(
         id: row.id,
         tenant_id: row.tenant_id,
         rpm_limit: Number(row.rpm_limit),
-        budget_microdollars: budgetCu !== null ? Number(budgetCu) : Number(row.budget_microdollars ?? 0),
-        spent_microdollars: Number(spentCu !== 0n ? spentCu : (row.spent_microdollars ?? 0)),
+        budget_amount: budgetCu !== null ? Number(budgetCu) : Number(row.budget_amount ?? 0),
+        spent_amount: Number(spentCu !== 0n ? spentCu : (row.spent_amount ?? 0)),
         budget_cu: budgetCu !== null ? budgetCu.toString() : null,
         spent_cu: spentCu.toString(),
         created_at: row.created_at,
@@ -359,8 +359,8 @@ export async function handlePostTokens(
   let budgetCu: bigint | null = null;
   if (body.budget_cu !== undefined) {
     budgetCu = body.budget_cu === null ? null : BigInt(body.budget_cu);
-  } else if (body.budget_microdollars !== undefined) {
-    const b = BigInt(body.budget_microdollars);
+  } else if (body.budget_amount !== undefined) {
+    const b = BigInt(body.budget_amount);
     budgetCu = b === 0n ? null : b;
   }
 
@@ -421,8 +421,8 @@ export async function handlePostTokens(
         token: plaintextToken,
         tenant_id: targetTenantId,
         rpm_limit: rpmLimit,
-        budget_microdollars: budgetMicro,
-        spent_microdollars: 0,
+        budget_amount: budgetMicro,
+        spent_amount: 0,
         budget_cu: budgetCu !== null ? budgetCu.toString() : null,
         spent_cu: "0",
         allowed_providers: Array.isArray(body.allowed_providers) ? body.allowed_providers : [],

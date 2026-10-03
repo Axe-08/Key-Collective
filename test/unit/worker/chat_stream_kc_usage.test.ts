@@ -79,7 +79,7 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
     const modelDef = modelRegistry.getModelOrThrow("gemini-1.5-pro");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: "gemini-1.5-pro",
       provider: "google",
       modelDef,
@@ -157,7 +157,7 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
     const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: "gemini-2.0-flash",
       provider: "google",
       modelDef,
@@ -218,7 +218,7 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
     const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: "gemini-2.0-flash",
       provider: "google",
       modelDef,
@@ -284,7 +284,7 @@ describe("T-2.3.3: Chat Streaming kc.usage and Mid-Stream Error Sanitization", (
     const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: "gemini-2.0-flash",
       provider: "google",
       modelDef,

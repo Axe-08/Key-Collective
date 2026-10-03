@@ -11,7 +11,7 @@
  * - TypeScript (strict mode, no `any`).
  * - No Plaintext Keys: Keys injected solely into headers, never leaked in errors.
  * - Non-blocking hot path: Streaming passthrough delivers chunks with 0ms added latency.
- * - Fixed-Point Microdollars: All pricing calculations utilize int64 / bigint microdollars.
+ * - Fixed-Point CreditUnits: All pricing calculations utilize int64 / bigint credit units.
  */
 
 import { describe, it, expect, vi } from "vitest";
@@ -601,14 +601,14 @@ describe("UpstreamClient", () => {
       expect(mockKeyPool.recordResult).toHaveBeenCalledWith("failing-key-id", false);
     });
 
-    it("records usage with int64 microdollars when costCalculator is provided (non-streaming)", async () => {
+    it("records usage with int64 credit units when costCalculator is provided (non-streaming)", async () => {
       const mockKeyPool: KeyPoolContract = {
         getKey: vi.fn().mockResolvedValue("active-key-id"),
         recordUsage: vi.fn().mockResolvedValue(undefined),
         recordResult: vi.fn().mockResolvedValue(undefined),
       };
 
-      const costCalculator = vi.fn().mockReturnValue(125_000n); // 0.125 USD = 125,000 µ$
+      const costCalculator = vi.fn().mockReturnValue(125_000n); // 0.125 USD = 125,000 CU
 
       const mockFetch: typeof fetch = vi.fn().mockImplementation(async () => {
         return new Response(
@@ -847,7 +847,7 @@ describe("UpstreamClient", () => {
       expect(chatRes.model).toBe("llama-3.3-70b-versatile");
       expect(chatRes.provider).toBe("groq");
       expect(chatRes.usage?.totalTokens).toBe(40);
-      expect(chatRes.costMicrodollars).toBe(400_000n);
+      expect(chatRes.costCu).toBe(400_000n);
     });
 
     it("formats Google request and returns parsed UpstreamChatResponse", async () => {

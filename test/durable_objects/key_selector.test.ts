@@ -8,7 +8,7 @@
  *   - Logic: Filters out rate-limited or circuit-broken private keys (community priority lives in PoolCoordinatorDO).
  *   - Selection: Implements Round-Robin or Least-Used selection among healthy keys.
  *   - Multi-provider fallback support.
- * - Credit Units (CU): Integer `bigint` credit units (legacy microdollar budget fields preserved for compatibility until WP-7.3).
+ * - Credit Units (CU): Integer `bigint` credit units (legacy credit unit budget fields preserved for compatibility until WP-7.3).
  * - DO Transactional Storage: Survives DO instance eviction.
  */
 
@@ -301,10 +301,10 @@ describe("KeySelector (T-03)", () => {
       expect(triage.rateLimitedKeys[0]?.retryAfterSeconds).toBeGreaterThan(0);
     });
 
-    it("filters out keys exceeding financial microdollar budget capacity", async () => {
+    it("filters out keys exceeding financial credit unit budget capacity", async () => {
       const budgetLimiter = new RateLimiter(storage, {
         tenantId: "tenant-1",
-        maxBudgetMicrodollars: 500_000n, // $0.50 cap
+        maxBudgetCu: 500_000n, // $0.50 cap
         timeProvider,
       });
 
@@ -314,18 +314,18 @@ describe("KeySelector (T-03)", () => {
         timeProvider,
       });
 
-      // Advance spend to 400_000 µ$
+      // Advance spend to 400_000 CU
       await budgetLimiter.increment("key-openai-1", 400_000n);
 
-      // Cost of 50_000 µ$ is permitted (400k + 50k <= 500k)
+      // Cost of 50_000 CU is permitted (400k + 50k <= 500k)
       const allowed = await budgetSelector.filterHealthyKeys("openai", {
-        costMicrodollars: 50_000n,
+        costCu: 50_000n,
       });
       expect(allowed).toHaveLength(1);
 
-      // Cost of 150_000 µ$ breaches ceiling (400k + 150k > 500k)
+      // Cost of 150_000 CU breaches ceiling (400k + 150k > 500k)
       const triage = await budgetSelector.triageKeys("openai", {
-        costMicrodollars: 150_000n,
+        costCu: 150_000n,
       });
       expect(triage.healthyKeys).toHaveLength(0);
       expect(triage.rateLimitedKeys[0]?.reason).toBe("budget_exceeded");
@@ -570,7 +570,7 @@ describe("KeySelector (T-03)", () => {
       const metrics1 = await selector.getKeyMetrics("key-openai-1");
       expect(metrics1.rpm).toBe(1);
       expect(metrics1.circuitBreakerTripped).toBe(false);
-      expect(metrics1.costAccumulatedMicrodollars).toBe(125_000n);
+      expect(metrics1.costAccumulatedCu).toBe(125_000n);
 
       const metrics2 = await selector.getKeyMetrics("key-openai-2");
       expect(metrics2.circuitBreakerTripped).toBe(true);

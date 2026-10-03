@@ -176,7 +176,7 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
         modelId: "gemini-2.0-flash",
         promptTokens: 10,
         completionTokens: 5,
-        costMicrodollars: 100n,
+        costCu: 100n,
         statusCode: 200,
       })
     ).rejects.toThrow(InvalidCostLedgerEventError);
@@ -191,7 +191,7 @@ describe("WP-4.2 Account usage to the key, not the model (T-4.2.1)", () => {
           modelId: "llama-3.3-70b-versatile",
           promptTokens: 10,
           completionTokens: 5,
-          costMicrodollars: 100n,
+          costCu: 100n,
           statusCode: 200,
         },
       ])

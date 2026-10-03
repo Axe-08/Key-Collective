@@ -125,12 +125,12 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
   }
 
   /**
-   * Records token usage and microdollar cost against the key in the tenant's DO.
+   * Records token usage and credit unit cost against the key in the tenant's DO.
    */
-  public async recordUsage(keyId: string, costMicrodollars: bigint): Promise<void> {
+  public async recordUsage(keyId: string, costCu: bigint): Promise<void> {
     if (this.isPlainMockStub() && typeof this.stub.recordUsage === "function") {
       try {
-        return await this.stub.recordUsage(keyId, costMicrodollars);
+        return await this.stub.recordUsage(keyId, costCu);
       } catch (err: unknown) {
         if (this.isRpcError(err)) {
           this.rpcDisabled = true;
@@ -148,7 +148,7 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
       },
       body: JSON.stringify({
         keyId,
-        costMicrodollars: costMicrodollars.toString(),
+        costCu: costCu.toString(),
         tenantId: this.tenantId,
       }),
     });
@@ -248,14 +248,14 @@ export class DurableObjectKeyPoolClient implements KeyPoolContract {
       metrics: {
         rpm: number;
         circuitBreakerTripped: boolean;
-        costAccumulatedMicrodollars: string;
+        costAccumulatedCu: string;
       };
     };
 
     return {
       rpm: data.metrics.rpm,
       circuitBreakerTripped: data.metrics.circuitBreakerTripped,
-      costAccumulatedMicrodollars: BigInt(data.metrics.costAccumulatedMicrodollars ?? "0"),
+      costAccumulatedCu: BigInt(data.metrics.costAccumulatedCu ?? "0"),
     };
   }
 

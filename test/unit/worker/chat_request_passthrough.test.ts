@@ -84,8 +84,8 @@ describe("Chat Request Passthrough & stream_options Unit Tests", () => {
         id: "token-uuid-1",
         hashSha256: "hash123",
         tenantId: "tenant-alpha",
-        budgetMicrodollars: 10_000_000n,
-        spentMicrodollars: 500_000n,
+        budgetCeilingCu: 10_000_000n,
+        spentTotalCu: 500_000n,
         allowedProviders: [],
         rpmLimit: 60,
         expiresAt: null,
@@ -94,9 +94,9 @@ describe("Chat Request Passthrough & stream_options Unit Tests", () => {
       rpmLimit: 60,
       currentRpm: 1,
       remainingRpm: 59,
-      budgetMicrodollars: 10_000_000n,
-      spentMicrodollars: 500_000n,
-      budgetRemainingMicrodollars: 9_500_000n,
+      budgetCeilingCu: 10_000_000n,
+      spentTotalCu: 500_000n,
+      budgetRemainingCu: 9_500_000n,
     };
     env = {
       KEY_POOL: doNamespace as unknown as DurableObjectNamespace,

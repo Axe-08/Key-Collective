@@ -56,11 +56,11 @@ export async function handleBackfillKeyHash(
         await db.prepare("UPDATE api_keys SET key_hash = ? WHERE id = ?").bind(keyHash, row.id).run();
         updatedCount += 1;
       } catch {
-        // Skip rows that fail to decrypt or hash; never surface plaintext or row detail.
+        // Skip rows that fail to decrypt or hash
       }
     }
   } catch {
-    // Query failed; fall through and report whatever count was updated so far.
+    // Query failed
   }
 
   const res = Response.json({ success: true, updated: updatedCount });

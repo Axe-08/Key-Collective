@@ -226,8 +226,8 @@ export class AuthMiddleware implements AuthContract {
               id: `demo_${rawToken.slice(0, 16)}`,
               hashSha256: await hashToken(rawToken),
               tenantId: "sys_demo",
-              budgetMicrodollars: 1_000_000n, // $1 demo budget
-              spentMicrodollars: 0n,
+              budgetCeilingCu: 1_000_000n, // $1 demo budget
+              spentTotalCu: 0n,
               allowedProviders: [],
               rpmLimit: consumeData.rateLimit?.rpmLimit ?? 3,
               expiresAt: null,
@@ -236,8 +236,8 @@ export class AuthMiddleware implements AuthContract {
             rpmLimit: consumeData.rateLimit?.rpmLimit ?? 3,
             currentRpm: consumeData.rateLimit?.currentRpm ?? 1,
             remainingRpm: consumeData.rateLimit?.remainingRpm ?? 2,
-            budgetMicrodollars: 1_000_000n,
-            spentMicrodollars: 0n,
+            budgetCeilingCu: 1_000_000n,
+            spentTotalCu: 0n,
           };
         }
       }
@@ -278,16 +278,16 @@ export class AuthMiddleware implements AuthContract {
       }
     }
 
-    // 5. Budget Gating (Fixed-point int64 microdollars, zero floats)
-    const budget = record.budgetMicrodollars;
-    const spent = record.spentMicrodollars;
-    const incomingCost = mergedOptions.costMicrodollars ?? 0n;
+    // 5. Budget Gating (Fixed-point int64 credit units, zero floats)
+    const budget = record.budgetCeilingCu;
+    const spent = record.spentTotalCu;
+    const incomingCost = mergedOptions.costCu ?? 0n;
 
     if (budget > 0n) {
       // Check if already exhausted
       if (spent >= budget) {
         throw new QuotaExceededError(
-          `Tenant budget ceiling reached: token budget exhausted (${spent}/${budget} µ$)`,
+          `Tenant budget ceiling reached: token budget exhausted (${spent}/${budget} CU)`,
           {
             tenantId: record.tenantId,
             quotaType: "spend_limit",
@@ -370,7 +370,7 @@ export class AuthMiddleware implements AuthContract {
       if (typeof stub?.consumeQuota === "function") {
         const consumeReq: any = {
           tenantId: targetTenantId,
-          costMicrodollars: incomingCost,
+          costCu: incomingCost,
           count: 1,
         };
         if (projectId) {
@@ -436,7 +436,7 @@ export class AuthMiddleware implements AuthContract {
           },
           body: JSON.stringify({
             tenantId: targetTenantId,
-            costMicrodollars: incomingCost.toString(),
+            costCu: incomingCost.toString(),
             count: 1,
             ...(projectId ? { projectId } : {}),
             ...((projectSubCap ?? mergedOptions.rpmLimitOverride) !== undefined
@@ -524,7 +524,7 @@ export class AuthMiddleware implements AuthContract {
         );
       }
 
-      const budgetRemainingMicrodollars =
+      const budgetRemainingCu =
         budget > 0n ? budget - spent : undefined;
 
       return {
@@ -534,9 +534,9 @@ export class AuthMiddleware implements AuthContract {
         rpmLimit: effectiveRpmLimit,
         currentRpm,
         remainingRpm,
-        budgetMicrodollars: budget,
-        spentMicrodollars: spent,
-        budgetRemainingMicrodollars,
+        budgetCeilingCu: budget,
+        spentTotalCu: spent,
+        budgetRemainingCu,
         ...(projectId ? { projectId } : {}),
       };
     }
@@ -582,8 +582,8 @@ export class AuthMiddleware implements AuthContract {
         {
           tenantId: record.tenantId,
           quotaType: "spend_limit",
-          limit: checkResult.maxBudgetMicrodollars,
-          consumed: checkResult.costAccumulatedMicrodollars,
+          limit: checkResult.maxBudgetCu,
+          consumed: checkResult.costAccumulatedCu,
         }
       );
     }
@@ -594,7 +594,7 @@ export class AuthMiddleware implements AuthContract {
     // Calculate remaining metrics
     const currentRpm = checkResult.currentRpm + 1;
     const remainingRpm = Math.max(0, effectiveRpm - currentRpm);
-    const budgetRemainingMicrodollars =
+    const budgetRemainingCu =
       budget > 0n ? budget - spent : undefined;
 
     return {
@@ -604,9 +604,9 @@ export class AuthMiddleware implements AuthContract {
       rpmLimit: effectiveRpm,
       currentRpm,
       remainingRpm,
-      budgetMicrodollars: budget,
-      spentMicrodollars: spent,
-      budgetRemainingMicrodollars,
+      budgetCeilingCu: budget,
+      spentTotalCu: spent,
+      budgetRemainingCu,
     };
   }
 

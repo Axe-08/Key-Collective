@@ -4,7 +4,7 @@
  *
  * Invariants & Standards Enforced (GEMINI.md Constitution):
  * - TypeScript (strict mode, no `any`).
- * - Fixed-Point Microdollars: zero floating-point math (int64 / bigint microdollars).
+ * - Fixed-Point CreditUnits: zero floating-point math (int64 / bigint credit units).
  * - Non-blocking hot path: KeyPool usage & result tracking.
  *
  * Conforms to:
@@ -149,7 +149,7 @@ describe("CascadeRouter", () => {
         completionTokens: 500,
         totalTokens: 1500,
       },
-      costMicrodollars: 300n,
+      costCu: 300n,
       response: createMockUpstreamResponse(),
     };
   }
@@ -347,7 +347,7 @@ describe("CascadeRouter", () => {
       expect(response.model).toBe("gemini-2.0-flash");
       expect(response.provider).toBe("google");
       expect(response.attempts.length).toBe(0);
-      expect(response.costMicrodollars).toBeGreaterThan(0n);
+      expect(response.costCu).toBeGreaterThan(0n);
 
       // Verify LeaseProvider interactions
       expect(mockLeaseProvider.acquire).toHaveBeenCalledWith(
@@ -369,7 +369,7 @@ describe("CascadeRouter", () => {
       expect(callArgs.apiKey).toBe("key-for-google");
     });
 
-    it("preserves costMicrodollars from upstream response and settles lease", async () => {
+    it("preserves costCu from upstream response and settles lease", async () => {
       mockUpstreamClient.chat.mockResolvedValueOnce({
         content: "Exact cost calculation",
         model: "gemini-2.0-flash",
@@ -379,7 +379,7 @@ describe("CascadeRouter", () => {
           completionTokens: 500,
           totalTokens: 1500,
         },
-        costMicrodollars: 300n,
+        costCu: 300n,
         response: createMockUpstreamResponse(),
       });
 
@@ -396,7 +396,7 @@ describe("CascadeRouter", () => {
         stream: false,
       });
 
-      expect(response.costMicrodollars).toBe(300n);
+      expect(response.costCu).toBe(300n);
       expect(mockLeaseProvider.settle).toHaveBeenCalledTimes(1);
     });
 
@@ -406,7 +406,7 @@ describe("CascadeRouter", () => {
         model: "gemini-2.0-flash",
         provider: "google",
         usage: null,
-        costMicrodollars: 0n,
+        costCu: 0n,
         response: createMockUpstreamResponse({
           body: new ReadableStream(),
         }),
@@ -426,7 +426,7 @@ describe("CascadeRouter", () => {
       });
 
       expect(response.content).toBe("");
-      expect(response.costMicrodollars).toBe(0n);
+      expect(response.costCu).toBe(0n);
       expect(response.response?.body).toBeDefined();
       expect(response.lease?.keyId).toBe("key-for-google");
     });
@@ -777,7 +777,7 @@ describe("CascadeRouter", () => {
 
       const validRes: CascadeRouteResponse = {
         content: "done",
-        costMicrodollars: 100n,
+        costCu: 100n,
         model: "gemini-2.0-flash",
         provider: "google",
         modelDef: cheapGoogleModel,

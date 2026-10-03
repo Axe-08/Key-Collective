@@ -200,15 +200,15 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
    */
   public async triageKeys(
     provider?: string,
-    options?: { costMicrodollars?: bigint; candidateKeys?: TKey[] }
+    options?: { costCu?: bigint; candidateKeys?: TKey[] }
   ): Promise<KeyTriageResult<TKey>> {
     const candidates = options?.candidateKeys ?? this.getKeys(provider);
-    const costMicrodollars = options?.costMicrodollars ?? 0n;
+    const costCu = options?.costCu ?? 0n;
 
     return triageKeysAsync({
       candidates,
       provider,
-      costMicrodollars,
+      costCu,
       circuitBreaker: this.circuitBreaker,
       rateLimiter: this.rateLimiter,
       now: () => this.now(),
@@ -220,15 +220,15 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
    */
   public triageKeysSync(
     provider?: string,
-    options?: { costMicrodollars?: bigint; candidateKeys?: TKey[] }
+    options?: { costCu?: bigint; candidateKeys?: TKey[] }
   ): KeyTriageResult<TKey> {
     const candidates = options?.candidateKeys ?? this.getKeys(provider);
-    const costMicrodollars = options?.costMicrodollars ?? 0n;
+    const costCu = options?.costCu ?? 0n;
 
     return triageKeysSync({
       candidates,
       provider,
-      costMicrodollars,
+      costCu,
       circuitBreaker: this.circuitBreaker,
       rateLimiter: this.rateLimiter,
       now: () => this.now(),
@@ -240,7 +240,7 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
    */
   public async filterHealthyKeys(
     provider?: string,
-    options?: { costMicrodollars?: bigint; candidateKeys?: TKey[] }
+    options?: { costCu?: bigint; candidateKeys?: TKey[] }
   ): Promise<TKey[]> {
     const triage = await this.triageKeys(provider, options);
     return triage.healthyKeys;
@@ -251,7 +251,7 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
    */
   public filterHealthyKeysSync(
     provider?: string,
-    options?: { costMicrodollars?: bigint; candidateKeys?: TKey[] }
+    options?: { costCu?: bigint; candidateKeys?: TKey[] }
   ): TKey[] {
     const triage = this.triageKeysSync(provider, options);
     return triage.healthyKeys;
@@ -330,11 +330,11 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
   ): Promise<TKey> {
     const throwOnExhausted = options?.throwOnExhausted ?? true;
     const strategy = options?.strategy ?? this.defaultStrategy;
-    const cost = options?.costMicrodollars ?? 0n;
+    const cost = options?.costCu ?? 0n;
 
     // 1. Primary triage for requested provider
     let triage = await this.triageKeys(provider, {
-      costMicrodollars: cost,
+      costCu: cost,
       candidateKeys: options?.candidateKeys,
     });
 
@@ -344,7 +344,7 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
       options?.fallbackToAnyProvider === true
     ) {
       const fallbackTriage = await this.triageKeys("*", {
-        costMicrodollars: cost,
+        costCu: cost,
       });
       if (fallbackTriage.healthyKeys.length > 0) {
         triage = fallbackTriage;
@@ -413,10 +413,10 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
   ): TKey | null {
     const throwOnExhausted = options?.throwOnExhausted ?? true;
     const strategy = options?.strategy ?? this.defaultStrategy;
-    const cost = options?.costMicrodollars ?? 0n;
+    const cost = options?.costCu ?? 0n;
 
     let triage = this.triageKeysSync(provider, {
-      costMicrodollars: cost,
+      costCu: cost,
       candidateKeys: options?.candidateKeys,
     });
 
@@ -425,7 +425,7 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
       options?.fallbackToAnyProvider === true
     ) {
       const fallbackTriage = this.triageKeysSync("*", {
-        costMicrodollars: cost,
+        costCu: cost,
       });
       if (fallbackTriage.healthyKeys.length > 0) {
         triage = fallbackTriage;
@@ -520,14 +520,14 @@ export class KeySelector<TKey extends SelectableKey = SelectableKey> {
       ? (await this.circuitBreaker.getState(keyId)) === "OPEN"
       : false;
 
-    const costAccumulatedMicrodollars = this.rateLimiter
+    const costAccumulatedCu = this.rateLimiter
       ? await this.rateLimiter.getAccumulatedCost(keyId)
       : 0n;
 
     return {
       rpm,
       circuitBreakerTripped,
-      costAccumulatedMicrodollars,
+      costAccumulatedCu,
     };
   }
 

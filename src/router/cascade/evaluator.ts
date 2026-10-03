@@ -10,7 +10,7 @@
  *
  * Invariants Enforced (GEMINI.md Constitution):
  * - TypeScript (strict mode, no `any`).
- * - Fixed-Point Microdollars: All sorting and cost operations use bigint microdollars.
+ * - Fixed-Point CreditUnits: All sorting and cost operations use bigint credit units.
  */
 
 import type { RouteRequest } from "../../contracts/router";

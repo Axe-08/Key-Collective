@@ -14,12 +14,12 @@ export const ONE_DAY_SECONDS = 86_400 as const;
 
 /**
  * Individual timestamped counter entry in the sliding window.
- * Stores costMicrodollars as string to guarantee safe JSON serialization in DO storage.
+ * Stores costCu as string to guarantee safe JSON serialization in DO storage.
  */
 export interface RateLimitEntry {
   timestamp: number;
   count: number;
-  costMicrodollars: string;
+  costCu: string;
 }
 
 /**
@@ -27,7 +27,7 @@ export interface RateLimitEntry {
  */
 export interface RateLimiterData {
   entries: RateLimitEntry[];
-  totalCostMicrodollars: string;
+  totalCostCu: string;
   lastRequestTime: number | null;
 }
 
@@ -47,8 +47,8 @@ export interface RateLimiterOptions {
   windowSizeSeconds?: number;
   /** Daily window duration in seconds for RPD (defaults to 86,400) */
   dayWindowSeconds?: number;
-  /** Optional spending ceiling in fixed-point microdollars */
-  maxBudgetMicrodollars?: bigint;
+  /** Optional spending ceiling in fixed-point credit units */
+  maxBudgetCu?: bigint;
   /** Storage key prefix in DO storage (defaults to "rl:") */
   storageKeyPrefix?: string;
   /** Injectable time provider for deterministic testing (defaults to Date.now) */
@@ -64,8 +64,8 @@ export interface RateLimitCheckResult {
   rpmLimit: number;
   currentRpd: number;
   rpdLimit: number;
-  costAccumulatedMicrodollars: bigint;
-  maxBudgetMicrodollars?: bigint;
+  costAccumulatedCu: bigint;
+  maxBudgetCu?: bigint;
   retryAfterSeconds: number;
   reason?: "rpm_limit_exceeded" | "rpd_limit_exceeded" | "budget_exceeded";
 }
@@ -76,7 +76,7 @@ export interface RateLimitCheckResult {
 export interface RateLimiterMetrics {
   rpm: number;
   rpd: number;
-  costAccumulatedMicrodollars: bigint;
+  costAccumulatedCu: bigint;
   remainingRpm: number;
   remainingRpd: number;
   isRateLimited: boolean;

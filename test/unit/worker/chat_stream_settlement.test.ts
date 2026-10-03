@@ -39,7 +39,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
         completionTokens: 20,
         cachedTokens: 0,
         reasoningTokens: 0,
-        costMicrodollars: 5000n,
+        costCu: 5000n,
         latencyMs: 100,
         statusCode: 200,
         createdAt: new Date().toISOString(),
@@ -125,7 +125,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
     const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: "gemini-2.0-flash",
       provider: "google",
       modelDef,
@@ -215,7 +215,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
     const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: "gemini-2.0-flash",
       provider: "google",
       modelDef,
@@ -301,7 +301,7 @@ describe("T-2.4.2: Stream Settlement on Flush or Abort", () => {
     const modelDef = modelRegistry.getModelOrThrow("gemini-2.0-flash");
     const cascadeRes: CascadeRouteResponse = {
       content: "",
-      costMicrodollars: 0n,
+      costCu: 0n,
       model: "gemini-2.0-flash",
       provider: "google",
       modelDef,

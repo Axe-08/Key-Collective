@@ -1,10 +1,10 @@
 import type { KeyInput } from "../../../crypto";
 
 /**
- * Fixed-point int64 microdollars (1 USD = 1,000,000 µ$).
+ * Fixed-point int64 credit units (1 USD = 1,000,000 CU).
  * Zero floating-point math allowed for financial values (GEMINI.md Invariant).
  */
-export type Microdollars = bigint;
+export type CreditUnits = bigint;
 
 /**
  * Raw database row shape for the `auth_tokens` table in Cloudflare D1.
@@ -15,8 +15,8 @@ export interface AuthTokenRow {
   tenant_id: string;
   encrypted_token_b64: string | null;
   nonce_b64: string | null;
-  budget_microdollars?: number | bigint;
-  spent_microdollars?: number | bigint;
+  budget_amount?: number | bigint;
+  spent_amount?: number | bigint;
   allowed_providers: string;
   rpm_limit: number;
   expires_at: string | null;
@@ -41,10 +41,10 @@ export interface AuthTokenRecord {
   encryptedTokenB64?: string | null;
   /** 12-byte initialization vector / nonce in base64 format */
   nonceB64?: string | null;
-  /** Spending budget ceiling in int64 microdollars (deprecated, defaults to 0n) */
-  budgetMicrodollars: Microdollars;
-  /** Total spend accumulated in int64 microdollars (deprecated, defaults to 0n) */
-  spentMicrodollars: Microdollars;
+  /** Spending budget ceiling in int64 credit units (deprecated, defaults to 0n) */
+  budgetCeilingCu: CreditUnits;
+  /** Total spend accumulated in int64 credit units (deprecated, defaults to 0n) */
+  spentTotalCu: CreditUnits;
   /** List of allowed model provider names (empty array means all providers allowed) */
   allowedProviders: string[];
   /** Requests-per-minute rate limit */
@@ -72,10 +72,10 @@ export interface CreateAuthTokenParams {
   tenantId: string;
   /** Optional encryption master key or secret passphrase. Overrides repository default. */
   encryptionKey?: KeyInput;
-  /** Spending budget ceiling in int64 microdollars (defaults to 0n = unlimited). */
-  budgetMicrodollars?: Microdollars | number;
-  /** Initial spend in int64 microdollars (defaults to 0n). */
-  spentMicrodollars?: Microdollars | number;
+  /** Spending budget ceiling in int64 credit units (defaults to 0n = unlimited). */
+  budgetCeilingCu?: CreditUnits | number;
+  /** Initial spend in int64 credit units (defaults to 0n). */
+  spentTotalCu?: CreditUnits | number;
   /** Spending budget ceiling in Credit Units (defaults to null = unlimited). */
   budgetCu?: bigint | number | null;
   /** Initial spend in Credit Units (defaults to 0n). */
@@ -113,7 +113,7 @@ export interface TokenValidationResult {
  * Parameters for updating an existing auth token.
  */
 export interface UpdateAuthTokenParams {
-  budgetMicrodollars?: bigint | number;
+  budgetCeilingCu?: bigint | number;
   budgetCu?: bigint | number | null;
   spentCu?: bigint | number;
   allowedProviders?: string[];

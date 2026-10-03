@@ -8,7 +8,7 @@
  *
  * Invariants Enforced (GEMINI.md Constitution):
  * - TypeScript (strict mode, no `any`).
- * - Fixed-Point Microdollars: All costs in int64 / bigint microdollars. Zero floating-point math.
+ * - Fixed-Point CreditUnits: All costs in int64 / bigint credit units. Zero floating-point math.
  * - Non-blocking hot path: Non-blocking KeyPool usage and telemetry recording.
  */
 
@@ -262,8 +262,8 @@ export async function executeCascadeRouting(
     try {
       const chatRes = await context.upstreamClient.chat(chatRequest);
 
-      // 6. Cost in microdollars (deprecated, defaults to 0n)
-      const costMicrodollars = chatRes.costMicrodollars ?? 0n;
+      // 6. Cost in credit units (deprecated, defaults to 0n)
+      const costCu = chatRes.costCu ?? 0n;
 
       if (useLeases && activeLease && activeLeaseCtx && leaseProvider) {
         // For non-streaming requests, settle immediately (idempotent if also settled in postWork)
@@ -275,15 +275,15 @@ export async function executeCascadeRouting(
         }
       } else if (context.keyPool && keyId) {
         // 7. Legacy: Record KeyPool usage (non-blocking hot path)
-        if (costMicrodollars > 0n) {
-          await context.keyPool.recordUsage(keyId, costMicrodollars).catch(() => {});
+        if (costCu > 0n) {
+          await context.keyPool.recordUsage(keyId, costCu).catch(() => {});
         }
       }
 
       // 8. Build success response
       const successResponse: CascadeRouteResponse = {
         content: chatRes.content,
-        costMicrodollars,
+        costCu,
         model: candidate.id,
         provider: candidate.provider,
         modelDef: candidate,

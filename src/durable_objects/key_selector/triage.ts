@@ -38,7 +38,7 @@ export function isStatusPermitted(status?: string): {
 export interface TriageContext<TKey extends SelectableKey = SelectableKey> {
   candidates: TKey[];
   provider?: string;
-  costMicrodollars: bigint;
+  costCu: bigint;
   circuitBreaker?: CircuitBreaker;
   rateLimiter?: RateLimiter;
   now: () => number;
@@ -50,7 +50,7 @@ export interface TriageContext<TKey extends SelectableKey = SelectableKey> {
 export async function triageKeysAsync<TKey extends SelectableKey = SelectableKey>(
   ctx: TriageContext<TKey>
 ): Promise<KeyTriageResult<TKey>> {
-  const { candidates, provider, costMicrodollars, circuitBreaker, rateLimiter, now } = ctx;
+  const { candidates, provider, costCu, circuitBreaker, rateLimiter, now } = ctx;
 
   const healthyKeys: TKey[] = [];
   const unhealthyKeys: KeyTriageItem<TKey>[] = [];
@@ -121,7 +121,7 @@ export async function triageKeysAsync<TKey extends SelectableKey = SelectableKey
     let rlReason: "rate_limit_exceeded" | "budget_exceeded" | undefined;
 
     if (rateLimiter) {
-      const limitResult = await rateLimiter.checkLimitDetailed(key.id, costMicrodollars, {
+      const limitResult = await rateLimiter.checkLimitDetailed(key.id, costCu, {
         rpmLimit: key.rpmLimit,
         rpdLimit: key.rpdLimit,
       });
@@ -181,7 +181,7 @@ export async function triageKeysAsync<TKey extends SelectableKey = SelectableKey
 export function triageKeysSync<TKey extends SelectableKey = SelectableKey>(
   ctx: TriageContext<TKey>
 ): KeyTriageResult<TKey> {
-  const { candidates, provider, costMicrodollars, circuitBreaker, rateLimiter, now } = ctx;
+  const { candidates, provider, costCu, circuitBreaker, rateLimiter, now } = ctx;
 
   const healthyKeys: TKey[] = [];
   const unhealthyKeys: KeyTriageItem<TKey>[] = [];
@@ -247,7 +247,7 @@ export function triageKeysSync<TKey extends SelectableKey = SelectableKey>(
     // 3. Rate Limiter sync check
     let rlAllowed = true;
     if (rateLimiter) {
-      rlAllowed = rateLimiter.checkLimitSync(key.id, costMicrodollars, {
+      rlAllowed = rateLimiter.checkLimitSync(key.id, costCu, {
         rpmLimit: key.rpmLimit,
         rpdLimit: key.rpdLimit,
       });

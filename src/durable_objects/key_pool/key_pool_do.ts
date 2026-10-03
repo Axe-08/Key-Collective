@@ -932,7 +932,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
 
   public async recordUsage(
     keyId: string,
-    costMicrodollars: bigint
+    costCu: bigint
   ): Promise<void> {
     if (!keyId || keyId.trim().length === 0) {
       throw new InvalidKeyError("Key ID cannot be empty");
@@ -945,9 +945,9 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       throw new KeyNotFoundError(keyId, undefined, { tenantId: this.tenantId });
     }
 
-    await this.rateLimiter.increment(keyId, costMicrodollars);
+    await this.rateLimiter.increment(keyId, costCu);
     this.keySelector.recordUsage(keyId);
-    this.emitTelemetry("key_usage", keyId, costMicrodollars);
+    this.emitTelemetry("key_usage", keyId, costCu);
   }
 
   // =========================================================================
@@ -1088,7 +1088,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
     const selected = await this.keySelector.selectKey(provider, {
       candidateKeys: candidates,
       throwOnExhausted: false,
-      costMicrodollars: costBigInt,
+      costCu: costBigInt,
     });
 
     if (!selected) {
@@ -1282,7 +1282,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
   private emitTelemetry(
     eventType: string,
     keyId: string,
-    costMicrodollars: bigint = 0n,
+    costCu: bigint = 0n,
     metadata?: Record<string, string>
   ): void {
     const key = this.keysMap.get(keyId);
@@ -1297,7 +1297,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
           timestamp,
           eventType,
           latencyMs: 0,
-          costMicrodollars,
+          costCu,
           metadata: {
             keyId,
             provider,
@@ -1314,7 +1314,7 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       try {
         this.env.TELEMETRY.writeDataPoint({
           blobs: [this.tenantId, keyId, provider, eventType],
-          doubles: [Number(costMicrodollars), timestamp],
+          doubles: [Number(costCu), timestamp],
           indexes: [this.tenantId],
         });
       } catch {
@@ -1397,6 +1397,18 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
       const alarm =
         typeof alarmStorage?.getAlarm === "function" ? await alarmStorage.getAlarm() : null;
       return Response.json({ now: this.now(), alarm });
+    }
+
+    const headerTenantId = request.headers.get("x-tenant-id");
+    if (headerTenantId && headerTenantId.trim().length > 0) {
+      try {
+        this.assertTenant(headerTenantId.trim());
+      } catch (err) {
+        return Response.json(
+          { error: err instanceof Error ? err.message : "Tenant isolation violation" },
+          { status: 403 }
+        );
+      }
     }
 
     return new Response("Not Found", { status: 404 });
