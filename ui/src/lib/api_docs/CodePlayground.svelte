@@ -19,7 +19,6 @@
     availableModels?: ModelOption[];
     payloadJson?: string;
     isSending?: boolean;
-    simulatedLatency?: string;
     simulatedStatus?: string;
     responseChunks?: ResponseChunk[];
     fallbackModelUsed?: string | null;
@@ -44,7 +43,6 @@
     availableModels = [],
     payloadJson = $bindable(''),
     isSending = false,
-    simulatedLatency = '0ms',
     simulatedStatus = 'Ready',
     responseChunks = [],
     fallbackModelUsed = null,
@@ -207,7 +205,6 @@
             {/if}
           </div>
           <div class="flex items-center gap-3 font-mono text-xs">
-            <span class="text-outline">Latency: <strong class="text-secondary">{simulatedLatency}</strong></span>
             <span class="text-outline">Status: <strong class="text-on-surface">{simulatedStatus}</strong></span>
           </div>
         </div>

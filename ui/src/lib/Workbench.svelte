@@ -187,7 +187,6 @@
 
   // Modals & Popovers
   let exportDropdownOpen = $state(false);
-  let showVerificationProofModal = $state(false);
   let showNewProjectModal = $state(false);
   let showProjectSettingsModal = $state<ExtendedProject | null>(null);
 
@@ -529,8 +528,6 @@
 
 <!-- Modals Component Container -->
 <Modals
-  {showVerificationProofModal}
-  onCloseVerificationProofModal={() => (showVerificationProofModal = false)}
   {showNewProjectModal}
   onCloseNewProjectModal={() => (showNewProjectModal = false)}
   onCreateProjectSubmit={handleCreateNewProject}

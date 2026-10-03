@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { ExtendedProject } from './types';
-  import VerificationProofModal from './modals/VerificationProofModal.svelte';
   import NewProjectModal from './modals/NewProjectModal.svelte';
   import NewKeyModal from './modals/NewKeyModal.svelte';
   import ProjectSettingsModal from './modals/ProjectSettingsModal.svelte';
@@ -8,10 +7,6 @@
   import SecretRevealModal from './modals/SecretRevealModal.svelte';
 
   interface Props {
-    // Verification proof modal
-    showVerificationProofModal: boolean;
-    onCloseVerificationProofModal: () => void;
-
     // New project modal
     showNewProjectModal: boolean;
     onCloseNewProjectModal: () => void;
@@ -52,8 +47,6 @@
   }
 
   let {
-    showVerificationProofModal,
-    onCloseVerificationProofModal,
     showNewProjectModal,
     onCloseNewProjectModal,
     onCreateProjectSubmit,
@@ -84,11 +77,6 @@
     onConfirmSwitchPool,
   }: Props = $props();
 </script>
-
-<VerificationProofModal
-  show={showVerificationProofModal}
-  onClose={onCloseVerificationProofModal}
-/>
 
 <NewProjectModal
   show={showNewProjectModal}
