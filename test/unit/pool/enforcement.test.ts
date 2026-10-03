@@ -86,5 +86,18 @@ describe("Commons Enforcement Switch & Would-Deny Tracking (WP-5.1 T-5.1.1)", ()
       expect(point.blobs[2]).toBe(expectedHash);
       expect(point.indexes).toContain(expectedHash);
     });
+
+    it("logs a dropped telemetry write at debug level and does not throw", async () => {
+      const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => undefined);
+      const throwingAe = {
+        writeDataPoint: () => {
+          throw new Error("ae unavailable");
+        },
+      };
+      await expect(recordWouldDeny("share_cap", "usr_goog_t", "cap", throwingAe)).resolves.toBeUndefined();
+      const lines = debugSpy.mock.calls.map((c) => String(c[0]));
+      debugSpy.mockRestore();
+      expect(lines.some((l) => l.includes("telemetry_drop"))).toBe(true);
+    });
   });
 });

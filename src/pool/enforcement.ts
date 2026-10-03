@@ -152,7 +152,7 @@ export async function recordWouldDeny(
       });
     } catch (err) {
       // Non-blocking telemetry invariant
-      void err;
+      logger.debug("telemetry_drop", { site: "commons_would_deny", rule, error: err });
     }
   }
 }
