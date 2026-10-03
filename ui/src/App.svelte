@@ -218,6 +218,9 @@
           // QA-03: identity comes from user_identities; never derive a GitHub handle from the email.
           githubId: u.github_id ? Number(u.github_id) : 0,
           githubUsername: u.github_username ?? '',
+          githubCreatedAt: u.github_profile?.created_at ?? '',
+          githubPublicRepos: u.github_profile?.public_repos,
+          githubContributions: u.github_profile?.contributions,
           authProvider: u.providers?.includes('github') ? 'github' : u.providers?.includes('google') ? 'google' : undefined,
           sybilScore: u.sybil_score ?? null,
           updatedAt: new Date().toISOString(),

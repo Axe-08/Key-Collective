@@ -13,6 +13,8 @@ export interface SessionUser {
   providers?: string[];
   github_id?: string | null;
   github_username?: string | null;
+  /** The GitHub profile assessed at link time (user_identities.profile_json). */
+  github_profile?: { created_at: string; public_repos: number; contributions: number } | null;
   /** null until GitHub linking runs the Sybil assessment. */
   sybil_score?: number | null;
 }

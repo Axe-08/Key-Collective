@@ -29,6 +29,7 @@ interface SessionBody {
     github_id: string | null;
     github_username: string | null;
     sybil_score: number | null;
+    github_profile?: { created_at: string; public_repos: number; contributions: number } | null;
   };
 }
 
@@ -79,6 +80,18 @@ describe("GET /api/session identity", () => {
     expect(body.user.github_id).toBe(gh?.subject);
     expect(body.user.github_username).toBe(gh?.username);
     expect(body.user.sybil_score).toBe(73);
+    expect(body.user.github_profile).toBeNull();
+  });
+
+  it("[1b] the GitHub profile stored at link time is returned for the trust checks", async () => {
+    const user = await createUser({ github: true, eligible: true });
+    await env.DB.prepare("UPDATE user_identities SET profile_json = ? WHERE user_id = ? AND provider = 'github'")
+      .bind(JSON.stringify({ created_at: "2020-01-02T00:00:00Z", public_repos: 12, contributions: 340, score: 100 }), user.id)
+      .run();
+
+    const body = await readSession(user.id);
+
+    expect(body.user.github_profile).toEqual({ created_at: "2020-01-02T00:00:00Z", public_repos: 12, contributions: 340 });
   });
 });
 
