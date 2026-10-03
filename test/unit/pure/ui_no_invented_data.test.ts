@@ -33,9 +33,8 @@ describe('WP-6.1: Frontend truth & eradication of invented UI data', () => {
     expect(content).not.toMatch(/userAccount\?\.tier\s*\|\|\s*['"]builder['"]/i);
   });
 
-  it('T-6.1.6: DebtLedgerWidget.svelte has no hardcoded standing multiplier 1.5 default', () => {
-    const content = fs.readFileSync(path.join(root, 'DebtLedgerWidget.svelte'), 'utf-8');
-    expect(content).not.toMatch(/multiplier:\s*1\.5\b/);
+  it('T-6.1.6: the dead DebtLedgerWidget.svelte (mock standing fallbacks) is archived out of ui/src (T-F.7.6)', () => {
+    expect(fs.existsSync(path.join(root, 'DebtLedgerWidget.svelte'))).toBe(false);
   });
 
   it('T-6.1.7: KeysTable.svelte has no arbitrary 60 RPM or 10000 RPD fallback literals', () => {
