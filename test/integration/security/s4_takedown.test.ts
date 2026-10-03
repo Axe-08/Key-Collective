@@ -11,7 +11,7 @@
  * 5. Rate limiting: a 6th report from the same IP within an hour is rejected with 429.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { env, fetchMock } from "cloudflare:test";
 import { mockTurnstile } from "../../helpers/upstream";
 import { handleReportKeyAbuse } from "../../../src/worker/router/dashboard/abuse_routes";
@@ -313,4 +313,36 @@ describe("S4 Security: Abuse Takedown Route (exact hashing + rate limiting)", ()
     const sixthRes = await handleReportKeyAbuse(sixthReq, testEnv);
     expect(sixthRes.status).toBe(429);
   }, 30000);
+  it("still revokes and answers the uniform 200 when the DO syncs fail, and logs both failures (WP-F.10 T-F.10.10)", async () => {
+    const key = await seedGeminiKey("dofail");
+    const throwingNs = {
+      idFromName: (name: string) => ({ toString: () => name, name }) as unknown as DurableObjectId,
+      get: () => ({
+        reconcile: async (): Promise<never> => {
+          throw new Error("key pool unreachable");
+        },
+        removeKey: async (): Promise<never> => {
+          throw new Error("coordinator unreachable");
+        },
+        fetch: async (): Promise<Response> => new Response(null, { status: 500 }),
+      }),
+    };
+    const testEnv = {
+      ...makeTestEnv(),
+      KEY_POOL: throwingNs as unknown as DurableObjectNamespace,
+      POOL_COORDINATOR: throwingNs as unknown as DurableObjectNamespace,
+    } as WorkerEnv;
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await handleReportKeyAbuse(makeReportRequest({ leaked_key: key.plaintext }, uniqueIp()), testEnv);
+    const lines = errorSpy.mock.calls.map((c) => String(c[0]));
+    errorSpy.mockRestore();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ message: "Report received. Thank you for keeping the commons safe." });
+    const row = await env.DB.prepare("SELECT status FROM api_keys WHERE id = ?").bind(key.id).first<{ status: string }>();
+    expect(row?.status).toBe("REVOKED");
+    expect(lines.some((l) => l.includes("abuse_takedown_keypool_sync_failed"))).toBe(true);
+    expect(lines.some((l) => l.includes("abuse_takedown_coordinator_remove_failed"))).toBe(true);
+  });
 });

@@ -11,6 +11,7 @@ import { ApiKeyRepository } from "../../../storage/repositories/api_keys/reposit
 import { verifyTurnstileToken } from "../../../auth/sybil/index";
 import type { WorkerEnv } from "../../auth/index";
 import { RouterError } from "../errors";
+import { Logger } from "../../../utils/logger";
 import type { DurableObjectNamespaceLike } from "../types";
 
 const RESPONSE_PAD_MS = 200;
@@ -147,7 +148,12 @@ export async function handleReportKeyAbuse(
         }
       }
     } catch (err) {
-      void err;
+      // The response stays uniform (anti-enumeration); D1 already holds REVOKED and
+      // KeyPoolDO reconciles from D1 later, so log and continue.
+      new Logger({ traceId: "abuse-takedown", tenantId: revoked.tenant_id }).error(
+        "abuse_takedown_keypool_sync_failed",
+        { keyId: revoked.id, error: err }
+      );
     }
 
     try {
@@ -165,7 +171,11 @@ export async function handleReportKeyAbuse(
         }
       }
     } catch (err) {
-      void err;
+      // The coordinator's 5-minute D1 reconcile drops the revoked key; log and continue.
+      new Logger({ traceId: "abuse-takedown", tenantId: revoked.tenant_id }).error(
+        "abuse_takedown_coordinator_remove_failed",
+        { keyId: revoked.id, error: err }
+      );
     }
 
     if (revoked && env.DB) {

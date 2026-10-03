@@ -366,7 +366,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.10.7 pool_routes.ts swallows (AU-02)
 - [x] T-F.10.8 control.ts swallow (AU-02)
 - [x] T-F.10.9 admin_handler.ts swallow (AU-02)
-- [ ] T-F.10.10 abuse_routes.ts swallows (AU-02)
+- [x] T-F.10.10 abuse_routes.ts swallows (AU-02)
 - [ ] T-F.10.11 keys/ops.ts swallows (AU-02)
 - [ ] T-F.10.12 get_keys.ts swallow and empty catch (AU-02)
 - [ ] T-F.10.13 Archive ops/migrate_keys_hkdf.ts (AU-05)
