@@ -44,6 +44,7 @@ export type PrivateLeaseOutcome =
   | "rpd_exhausted"
   | "rpm_limited"
   | "upstream_error"
+  | "model_unavailable"
   | "request_error";
 
 export interface PrivateKeyLease {
@@ -1264,6 +1265,15 @@ export class KeyPoolDO extends DurableObject<KeyPoolDOEnv> implements KeyPoolCon
           success: "false",
           outcome: "upstream_error",
         });
+        break;
+      }
+
+      case "model_unavailable": {
+        // WP-F.2 RA-05: the model is gone, not the key. No status change, no breaker failure.
+        new Logger({ traceId: "lease-settle", tenantId: this.tenantId }).warn(
+          "upstream model unavailable; key left unchanged",
+          { outcome: "model_unavailable", keyId: lease.keyId, provider: key?.provider ?? lease.provider }
+        );
         break;
       }
 

@@ -1342,6 +1342,12 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
             now
           );
         }
+      } else if (norm === "model_unavailable") {
+        // WP-F.2 RA-05: the model is gone, not the key. No status change.
+        new Logger({ traceId: "lease-settle", tenantId: tenant ?? "unknown" }).warn(
+          "upstream model unavailable; key left unchanged",
+          { outcome: "model_unavailable", keyId, provider: keyProvider, modelId: resolvedModel }
+        );
       } else if (norm === "ok") {
         if (hasDb) {
           await db!

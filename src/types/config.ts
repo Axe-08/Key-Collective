@@ -53,6 +53,7 @@ export type FallbackTrigger =
   | "rate_limit"
   | "circuit_breaker_open"
   | "upstream_error"
+  | "model_unavailable"
   | "timeout"
   | "context_overflow";
 
@@ -60,6 +61,7 @@ export const FALLBACK_TRIGGERS: readonly FallbackTrigger[] = [
   "rate_limit",
   "circuit_breaker_open",
   "upstream_error",
+  "model_unavailable",
   "timeout",
   "context_overflow",
 ] as const;
@@ -188,7 +190,7 @@ export const DEFAULT_FALLBACK_CONFIG: FallbackConfig = {
   enabled: true,
   maxRetries: 3,
   backoffMs: 250,
-  triggers: ["rate_limit", "circuit_breaker_open", "upstream_error", "timeout"],
+  triggers: ["rate_limit", "circuit_breaker_open", "upstream_error", "model_unavailable", "timeout"],
 };
 
 /**
