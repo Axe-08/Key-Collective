@@ -14,6 +14,7 @@ import {
 } from "../../errors/key_errors";
 import { getTierLimits } from "../limits";
 import { Clock, systemClock } from "../../utils/clock";
+import { Logger } from "../../utils/logger";
 import {
   calculateBandCapPct,
   calculateDebtCapPct,
@@ -54,6 +55,16 @@ interface StorageWithAlarm {
  * TenantQuotaDO — Per-Tenant Stateful Durable Object.
  * Enforces hierarchical RPM & RPD limits, sub-caps, and cost tracking with DO storage survival.
  */
+const PENDING_HISTORY_KEY = "pending_standing_history";
+
+interface PendingStandingHistory {
+  day: string;
+  multiplierPct: number;
+  debtCu: number;
+  contributedCu24h: number;
+  jailStatus: string;
+}
+
 export class TenantQuotaDO extends DurableObject<unknown> {
   public tenantId!: string;
   /**
@@ -165,6 +176,10 @@ export class TenantQuotaDO extends DurableObject<unknown> {
 
   private now(): number {
     return this.timeProvider();
+  }
+
+  private log(traceId: string): Logger {
+    return new Logger({ traceId, tenantId: this.tenantId });
   }
 
   private getUtcDay(ms = this.now()): string {
@@ -393,7 +408,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           return true;
         }
       } catch (err) {
-        void err;
+        // Degraded: fall back to the cached anti-cycling window.
+        this.log("anti-cycling").warn("anti_cycling_read_failed", { error: err });
       }
     }
     return false;
@@ -610,7 +626,8 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           this.vestingCap = calculateVestingCapPct(rows, this.trustedContributor, nowMs);
         }
       } catch (err) {
-        void err;
+        // Degraded: keep the previous vesting cap until the next alarm.
+        this.log("multiplier-caps").warn("vesting_cap_read_failed", { error: err });
       }
     }
 
@@ -632,23 +649,26 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           }
         }
       } catch (err) {
-        void err;
+        // Degraded: keep the previous band cap until the next alarm.
+        this.log("multiplier-caps").warn("band_cap_read_failed", { error: err });
       }
     }
   }
 
-  private async pushOwnerDebtToCoordinators(): Promise<void> {
+  /** Returns false when any coordinator could not be updated. */
+  private async pushOwnerDebtToCoordinators(): Promise<boolean> {
     if (!this.tenantBound || !this.tenantId) {
-      return;
+      return true;
     }
     const envWithCoord = this.env as
       | { POOL_COORDINATOR?: DurableObjectNamespace }
       | undefined;
     const coordNs = envWithCoord?.POOL_COORDINATOR;
     if (!coordNs || typeof coordNs.idFromName !== "function") {
-      return;
+      return true;
     }
     const debtNumber = parseInt(this.communityDebtCu.toString(10), 10);
+    let ok = true;
     for (const provider of ["google", "groq"]) {
       try {
         const stub = coordNs.get(coordNs.idFromName(`pool:${provider}`)) as unknown as {
@@ -658,21 +678,57 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           await stub.setOwnerDebt(this.tenantId, debtNumber);
         }
       } catch (err) {
-        void err;
+        ok = false;
+        this.log("owner-debt").error("owner_debt_push_failed", { provider, error: err });
       }
     }
+    return ok;
   }
 
-  private async insertStandingHistory(day: string, contributed24h: bigint): Promise<void> {
+  private standingHistoryRow(day: string, contributed24h: bigint): PendingStandingHistory {
+    return {
+      day,
+      multiplierPct: this.multiplierCeiling,
+      debtCu: parseInt(this.communityDebtCu.toString(), 10),
+      contributedCu24h: parseInt(contributed24h.toString(), 10),
+      jailStatus: determineJailStatus(this.communityDebtCu, contributed24h),
+    };
+  }
+
+  /**
+   * Writes the pending standing_history rows. Rows that fail stay in DO storage
+   * (`pending_standing_history`) and are retried by the next alarm.
+   * Returns true when nothing is left pending.
+   */
+  private async flushStandingHistory(newRows: PendingStandingHistory[]): Promise<boolean> {
+    const stored = await this.ctx.storage.get<PendingStandingHistory[]>(PENDING_HISTORY_KEY);
+    const pending = [...(Array.isArray(stored) ? stored : []), ...newRows];
+    if (pending.length === 0) {
+      return true;
+    }
+    const failed: PendingStandingHistory[] = [];
+    for (const row of pending) {
+      if (!(await this.insertStandingHistory(row))) {
+        failed.push(row);
+      }
+    }
+    if (failed.length > 0) {
+      await this.ctx.storage.put<PendingStandingHistory[]>(PENDING_HISTORY_KEY, failed);
+      return false;
+    }
+    await this.ctx.storage.delete(PENDING_HISTORY_KEY);
+    return true;
+  }
+
+  private async insertStandingHistory(row: PendingStandingHistory): Promise<boolean> {
     if (!this.tenantId) {
-      return;
+      return true;
     }
     const envWithDb = this.env as { DB?: D1Database } | undefined;
     const db = envWithDb?.DB;
     if (!db || typeof db.prepare !== "function") {
-      return;
+      return true;
     }
-    const jailStatus = determineJailStatus(this.communityDebtCu, contributed24h);
     try {
       await db
         .prepare(
@@ -687,26 +743,29 @@ export class TenantQuotaDO extends DurableObject<unknown> {
         )
         .bind(
           this.tenantId,
-          day,
-          this.multiplierCeiling,
-          parseInt(this.communityDebtCu.toString(), 10),
-          parseInt(contributed24h.toString(), 10),
-          jailStatus
+          row.day,
+          row.multiplierPct,
+          row.debtCu,
+          row.contributedCu24h,
+          row.jailStatus
         )
         .run();
+      return true;
     } catch (err) {
-      void err;
+      this.log("standing-history").error("standing_history_write_failed", { day: row.day, error: err });
+      return false;
     }
   }
 
-  private async syncStandingToD1(): Promise<void> {
+  /** Mirrors standing into D1 `contributor_standing`. Returns false when the write failed. */
+  private async syncStandingToD1(): Promise<boolean> {
     if (!this.tenantId) {
-      return;
+      return true;
     }
     const envWithDb = this.env as { DB?: D1Database } | undefined;
     const db = envWithDb?.DB;
     if (!db || typeof db.prepare !== "function") {
-      return;
+      return true;
     }
     const contributed24h = this.getContributed24h();
     const jailStatus = determineJailStatus(this.communityDebtCu, contributed24h);
@@ -756,14 +815,21 @@ export class TenantQuotaDO extends DurableObject<unknown> {
           nowIso
         )
         .run();
+      return true;
     } catch (err) {
-      void err;
+      this.log("standing-mirror").error("standing_mirror_failed", { error: err });
+      return false;
     }
   }
 
   public async syncDebtState(): Promise<void> {
     await this.persist();
-    await this.pushOwnerDebtToCoordinators();
+    const pushed = await this.pushOwnerDebtToCoordinators();
+    if (!pushed && !this.standingDirty) {
+      // Keep the dirty flag so the 60 s alarm pushes the debt again.
+      this.standingDirty = true;
+      await this.persist();
+    }
     if (this.standingDirty) {
       const storage = this.ctx.storage as unknown as StorageWithAlarm;
       if (typeof storage?.setAlarm === "function") {
@@ -791,6 +857,7 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       }
     }
 
+    const historyRows: PendingStandingHistory[] = [];
     for (const resetDay of daysToReset) {
       const contributed24h = this.getContributed24h(nowMs);
       const updated = nightlyReset({
@@ -809,18 +876,22 @@ export class TenantQuotaDO extends DurableObject<unknown> {
       this.lastResetDay = resetDay;
       this.updateMultiplierCeiling();
 
-      await this.insertStandingHistory(resetDay, contributed24h);
+      historyRows.push(this.standingHistoryRow(resetDay, contributed24h));
     }
 
-    this.standingDirty = false;
+    const historyOk = await this.flushStandingHistory(historyRows);
+    const mirrorOk = await this.syncStandingToD1();
+    // Never clear dirty after a failed write: the next alarm (60 s) retries it.
+    this.standingDirty = !(historyOk && mirrorOk);
     await this.syncDebtState();
-    await this.syncStandingToD1();
 
-    const tomorrow = new Date(nowMs);
-    tomorrow.setUTCHours(24, 0, 0, 0);
-    const storage = this.ctx.storage as unknown as StorageWithAlarm;
-    if (typeof storage?.setAlarm === "function") {
-      await storage.setAlarm(tomorrow.getTime());
+    if (!this.standingDirty) {
+      const tomorrow = new Date(nowMs);
+      tomorrow.setUTCHours(24, 0, 0, 0);
+      const storage = this.ctx.storage as unknown as StorageWithAlarm;
+      if (typeof storage?.setAlarm === "function") {
+        await storage.setAlarm(tomorrow.getTime());
+      }
     }
   }
 
