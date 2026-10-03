@@ -341,7 +341,7 @@ Plan: `docs/PHASEF_PLAN.md` (executed by Claude). Inputs: V3 AU-02..AU-05, dev s
 - [x] T-F.7.2 Export without invented telemetry (QA-05)
 - [x] T-F.7.3 /api/tokens lists only project keys; no 'Production Gateway' (QA-13)
 - [x] T-F.7.4 Honest project-key actions; no fake copy (QA-14)
-- [ ] T-F.7.5 No duplicate polling (QA-06)
+- [x] T-F.7.5 No duplicate polling (QA-06)
 - [ ] T-F.7.6 Remove remaining invented UI data (RA-10)
 - [ ] T-F.7.7 Pattern-based check-ui-literals (RA-11)
 - [ ] T-F.7.8 /api/pool/standing 401 for anonymous ids (RA-12)

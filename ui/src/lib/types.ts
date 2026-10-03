@@ -1,5 +1,16 @@
 export type Provider = 'gemini' | 'groq' | 'sambanova' | 'cerebras';
 
+/** A row of GET /api/notifications (src/worker/pool_routes.ts). */
+export interface NotificationItem {
+  id: string;
+  tenant_id: string;
+  type: string;
+  key_id: string | null;
+  message: string;
+  created_at: number;
+  read_at: number | null;
+}
+
 export type KeyStatus = 'healthy' | 'rate_limited' | 'exhausted' | 'invalid' | 'disabled';
 
 export type PoolType = 'COMMUNITY' | 'PRIVATE';

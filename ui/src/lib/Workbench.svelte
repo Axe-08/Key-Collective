@@ -56,8 +56,10 @@
 
   // Helper for auth headers
 
+  // A parent that passes providerKeys (even an empty list) owns the /api/keys polling;
+  // the Workbench fetches only when mounted on its own (QA-06).
   $effect(() => {
-    if (propProviderKeys && propProviderKeys.length > 0) {
+    if (propProviderKeys !== undefined) {
       providerKeys = propProviderKeys;
       providerKeysLoading = false;
       return;
@@ -65,13 +67,7 @@
 
     api.getKeys()
       .then((data) => {
-        if (Array.isArray(data)) {
-          providerKeys = data;
-        } else if (data && Array.isArray((data as any).keys)) {
-          providerKeys = (data as any).keys;
-        } else {
-          providerKeys = [];
-        }
+        providerKeys = Array.isArray(data) ? data : [];
       })
       .catch((err) => {
         console.error('Failed to fetch keys', err);

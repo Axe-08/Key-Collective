@@ -42,6 +42,7 @@
   import AnalyticsView from './lib/AnalyticsView.svelte';
   import ReportPage from './lib/ReportPage.svelte';
   import NotificationToasts from './lib/NotificationToasts.svelte';
+  import { notificationsFeed } from './lib/notifications_feed';
   import AddKeyModal from './lib/AddKeyModal.svelte';
   import Workbench from './lib/Workbench.svelte';
   import ApiDocs from './lib/ApiDocs.svelte';
@@ -251,6 +252,9 @@
       document.addEventListener('logout', handleLogout);
     }
   });
+
+  // The single /api/notifications poller; the bell and the toasts read the same feed (QA-06).
+  onMount(() => notificationsFeed.start());
 
   function handleCopyEndpoint() {
     navigator.clipboard.writeText(proxyEndpoint);
