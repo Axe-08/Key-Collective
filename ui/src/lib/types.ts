@@ -33,7 +33,7 @@ export interface APIKey {
   avg_latency_ms?: number;
   created_at?: string | number | null;
   pool_type?: PoolType;
-  community_routing_status?: CommunityRoutingStatus;
+  community_routing_status?: CommunityRoutingStatus | null;
   observation_until?: string | number | null;
   dispatches_today?: number;
   dispatches_communal?: number;

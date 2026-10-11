@@ -135,7 +135,7 @@
               <td class="py-2.5 px-3 text-on-surface">{k.dispatches_today ?? 0} today</td>
               <td class="py-2.5 px-3 text-right">
                 <div class="flex items-center justify-end gap-1.5">
-                  {#if k.community_routing_status !== 'ACTIVE'}
+                  {#if k.pool_type === 'COMMUNITY' && k.community_routing_status !== 'ACTIVE'}
                     <button
                       type="button"
                       onclick={() => onUpdateRoutingStatus?.(k.id, 'ACTIVE')}
@@ -145,7 +145,7 @@
                       Activate
                     </button>
                   {/if}
-                  {#if k.community_routing_status !== 'QUARANTINED'}
+                  {#if k.pool_type === 'COMMUNITY' && k.community_routing_status !== 'QUARANTINED'}
                     <button
                       type="button"
                       onclick={() => onUpdateRoutingStatus?.(k.id, 'QUARANTINED')}

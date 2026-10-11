@@ -318,17 +318,19 @@ export class DashboardRouter {
                 .all<{ provider: string; subject: string; username: string | null; profile_json: string | null }>()
             ).results;
             const github = identities.find((i) => i.provider === "github");
+            const effectiveRole = userRow.role || (userRow.tier === "admin" ? "admin" : "user");
+            const effectiveTier = effectiveRole === "admin" ? "admin" : userRow.tier;
             user = {
               id: userRow.id,
               email: userRow.email,
-              tier: userRow.tier,
-              role: userRow.role || (userRow.tier === "admin" ? "admin" : "user"),
+              tier: effectiveTier,
+              role: effectiveRole,
               providers: identities.map((i) => i.provider),
               github_id: github?.subject ?? null,
               github_username: github?.username ?? null,
               github_profile: github ? parseGitHubProfile(github.profile_json) : null,
-              // QA-02: only GitHub linking produces a trust score; an unlinked account has none.
-              sybil_score: github ? userRow.sybil_score : null,
+              // QA-02: only GitHub linking produces a trust score; an unlinked account has none (except admin = 100).
+              sybil_score: github ? userRow.sybil_score : (effectiveRole === "admin" ? 100 : null),
             };
           }
         } catch (err) {

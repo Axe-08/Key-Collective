@@ -348,7 +348,7 @@
                                 <td class="p-2.5 text-right whitespace-nowrap">
                                   <div class="inline-flex items-center gap-1.5">
                                     <!-- 1-Click Approve / Activate (Bypass 24h Observation or Lift Quarantine) -->
-                                    {#if k.community_routing_status === 'OBSERVATION' || k.community_routing_status === 'QUARANTINED'}
+                                    {#if k.pool_type === 'COMMUNITY' && (k.community_routing_status === 'OBSERVATION' || k.community_routing_status === 'QUARANTINED')}
                                       <button
                                         type="button"
                                         onclick={() => onUpdateKeyRoutingStatus?.(k.id, 'ACTIVE')}
@@ -358,7 +358,7 @@
                                         <span class="material-symbols-outlined text-[14px]">check_circle</span>
                                         <span>Approve &amp; Activate</span>
                                       </button>
-                                    {:else if k.community_routing_status === 'ACTIVE'}
+                                    {:else if k.pool_type === 'COMMUNITY' && k.community_routing_status === 'ACTIVE'}
                                       <!-- Quarantine Key -->
                                       <button
                                         type="button"

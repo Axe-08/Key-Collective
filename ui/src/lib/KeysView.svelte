@@ -38,13 +38,13 @@
       return keys.filter((k) => (k.pool_type ?? 'COMMUNITY') === 'PRIVATE');
     }
     if (subTab === 'observation') {
-      return keys.filter((k) => k.community_routing_status === 'OBSERVATION');
+      return keys.filter((k) => (k.pool_type ?? 'COMMUNITY') === 'COMMUNITY' && k.community_routing_status === 'OBSERVATION');
     }
     return keys;
   });
 
   let privateCount = $derived(keys.filter((k) => (k.pool_type ?? 'COMMUNITY') === 'PRIVATE').length);
-  let observationCount = $derived(keys.filter((k) => k.community_routing_status === 'OBSERVATION').length);
+  let observationCount = $derived(keys.filter((k) => (k.pool_type ?? 'COMMUNITY') === 'COMMUNITY' && k.community_routing_status === 'OBSERVATION').length);
 
   function formatCountdown(obsUntil?: string | number | null): string {
     if (!obsUntil) return 'Graduated';
@@ -182,9 +182,15 @@
                 </span>
               </td>
               <td class="py-2.5 px-3">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase {k.community_routing_status === 'OBSERVATION' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : k.status === 'healthy' ? 'bg-secondary/15 text-secondary border border-secondary/30' : 'bg-error/15 text-error border border-error/30'}">
-                  {k.community_routing_status === 'OBSERVATION' ? 'OBSERVATION' : k.status}
-                </span>
+                {#if (k.pool_type ?? 'COMMUNITY') === 'COMMUNITY' && k.community_routing_status === 'OBSERVATION'}
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    OBSERVATION
+                  </span>
+                {:else}
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase {k.status?.toLowerCase() === 'healthy' ? 'bg-secondary/15 text-secondary border border-secondary/30' : 'bg-error/15 text-error border border-error/30'}">
+                    {k.status}
+                  </span>
+                {/if}
               </td>
               <td class="py-2.5 px-3 text-on-surface">
                 {k.dispatches_today ?? k.requests_today ?? 0} / {k.rpd_limit ?? '—'}

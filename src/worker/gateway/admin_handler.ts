@@ -820,24 +820,26 @@ export async function handleAdminRequest(
         created_at: toEpochMs(user?.created_at) ?? new Date().toISOString(),
         keys: tenantKeys.map((k) => {
           const kc = coordKeyCounters.get(k.id);
+          const poolType = k.pool_type ? normalisePoolType(k.pool_type) : 'COMMUNITY';
+          const commRouting = poolType === 'COMMUNITY' ? (k.community_routing_status || 'OBSERVATION') : null;
           return {
-            id: k.id,
-            tenant_id: k.tenant_id,
-            label: k.label,
-            provider: k.provider === 'google' ? 'gemini' : k.provider,
-            key_prefix: k.key_prefix,
-            key_suffix: k.key_suffix,
-            rpm_limit: k.rpm_limit,
-            rpd_limit: k.rpd_limit,
-            priority: k.priority,
-            status: normaliseKeyStatus(k.status, k.community_routing_status).toLowerCase(),
-            pool_type: k.pool_type ? normalisePoolType(k.pool_type) : 'COMMUNITY',
-            community_routing_status: k.community_routing_status || 'OBSERVATION',
-            observation_until: toEpochMs(k.observation_until),
-            dispatches_today: kc?.dispatchedToday ?? 0,
-            dispatches_communal: kc?.dispatchedCommunal ?? 0,
-            created_at: toEpochMs(k.created_at) ?? k.created_at,
-          };
+              id: k.id,
+              tenant_id: k.tenant_id,
+              label: k.label,
+              provider: k.provider === 'google' ? 'gemini' : k.provider,
+              key_prefix: k.key_prefix,
+              key_suffix: k.key_suffix,
+              rpm_limit: k.rpm_limit,
+              rpd_limit: k.rpd_limit,
+              priority: k.priority,
+              status: normaliseKeyStatus(k.status, k.community_routing_status).toLowerCase(),
+              pool_type: poolType,
+              community_routing_status: commRouting,
+              observation_until: poolType === 'COMMUNITY' ? toEpochMs(k.observation_until) : null,
+              dispatches_today: kc?.dispatchedToday ?? 0,
+              dispatches_communal: kc?.dispatchedCommunal ?? 0,
+              created_at: toEpochMs(k.created_at) ?? k.created_at,
+            };
         }),
       };
     });
@@ -920,8 +922,12 @@ export async function handleAdminRequest(
       activeCommunityKeys: keysList.filter(
         (k) => normalisePoolType(k.pool_type) === 'COMMUNITY' && k.community_routing_status === 'ACTIVE'
       ).length,
-      observationKeys: keysList.filter((k) => k.community_routing_status === 'OBSERVATION').length,
-      quarantinedKeys: keysList.filter((k) => k.community_routing_status === 'QUARANTINED').length,
+      observationKeys: keysList.filter(
+        (k) => normalisePoolType(k.pool_type) === 'COMMUNITY' && k.community_routing_status === 'OBSERVATION'
+      ).length,
+      quarantinedKeys: keysList.filter(
+        (k) => normalisePoolType(k.pool_type) === 'COMMUNITY' && k.community_routing_status === 'QUARANTINED'
+      ).length,
       privateKeys: keysList.filter((k) => normalisePoolType(k.pool_type) === 'PRIVATE').length,
       totalDebtCu: Array.from(debtMap.values()).reduce((sum, d) => sum + d, 0),
       clusterRpmCurrent: totalClusterRpm,

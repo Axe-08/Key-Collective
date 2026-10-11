@@ -53,7 +53,7 @@ export const APIKeySchema = z.object({
   avg_latency_ms: z.number().optional(),
   created_at: z.union([z.string(), z.number()]).nullable().optional(),
   pool_type: PoolTypeSchema.optional(),
-  community_routing_status: CommunityRoutingStatusSchema.optional(),
+  community_routing_status: CommunityRoutingStatusSchema.nullable().optional(),
   observation_until: z.union([z.string(), z.number()]).nullable().optional(),
   dispatches_today: z.number().optional(),
   dispatches_communal: z.number().optional(),

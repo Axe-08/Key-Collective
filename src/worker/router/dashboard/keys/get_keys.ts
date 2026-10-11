@@ -29,7 +29,7 @@ export interface FormattedKeyItem {
   cooldown_until: number | null;
   created_at: number | null;
   pool_type: "PRIVATE" | "COMMUNITY";
-  community_routing_status: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED";
+  community_routing_status: "OBSERVATION" | "ACTIVE" | "QUARANTINED" | "REVOKED" | null;
   observation_until: number | null;
   dispatches_today: number;
   dispatches_communal: number;
@@ -85,19 +85,7 @@ export async function handleGetKeys(
 
   const degraded: string[] = [];
   const logger = new Logger({ traceId: "key-list", tenantId });
-  let isGlobal = tenantId === "admin";
-  if (!isGlobal) {
-    try {
-      const u = await env.DB.prepare("SELECT tier, role FROM users WHERE id = ?").bind(tenantId).first<{ tier?: string; role?: string }>();
-      if (u && (u.tier === "admin" || u.role === "admin")) {
-        isGlobal = true;
-      }
-    } catch (err) {
-      // Fail closed: without the role the caller only sees their own keys.
-      degraded.push("role");
-      logger.warn("key_list_role_lookup_failed", { error: err });
-    }
-  }
+  const isGlobal = tenantId === "admin";
 
   const keyRows = await new ApiKeyRepository(env.DB).listForDashboard<ApiKeyRow>(isGlobal ? null : tenantId);
 
@@ -199,8 +187,14 @@ export async function handleGetKeys(
       cooldown_until: toEpochMs(row.circuit_open_until),
       created_at: createdMs,
       pool_type: normalisePoolType(row.pool_type),
-      community_routing_status: row.community_routing_status ?? "OBSERVATION",
-      observation_until: toEpochMs(row.observation_until),
+      community_routing_status:
+        normalisePoolType(row.pool_type) === "COMMUNITY"
+          ? (row.community_routing_status ?? "OBSERVATION")
+          : null,
+      observation_until:
+        normalisePoolType(row.pool_type) === "COMMUNITY"
+          ? toEpochMs(row.observation_until)
+          : null,
       dispatches_today: coordEntry?.dispatchedToday ?? 0,
       dispatches_communal: coordEntry?.dispatchedCommunal ?? 0,
       ...(isGlobal ? { tenant_id: row.tenant_id } : {}),

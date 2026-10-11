@@ -66,10 +66,11 @@ export async function handleGoogleAuth(
   // Tenant ID is always derived from the verified token subject; any id passed
   // in the request body is ignored to prevent identity spoofing.
   const tenantId = `usr_goog_${uid}`;
-  const tier = "builder";
+  const isAdmin = isAdminEmail(env, email);
+  const tier = isAdmin ? "admin" : "builder";
   // QA-15: role follows ADMIN_EMAILS at every sign-in (verifyFirebaseIdToken already
   // requires email_verified). Leaving the list demotes an admin to 'user'.
-  const role = isAdminEmail(env, email) ? "admin" : "user";
+  const role = isAdmin ? "admin" : "user";
 
 
   if (env.DB && typeof env.DB.prepare === "function") {
@@ -83,6 +84,10 @@ export async function handleGoogleAuth(
          VALUES (?, ?, ?, ?, NULL, 3, 0, CURRENT_TIMESTAMP)
          ON CONFLICT(id) DO UPDATE SET
            email = excluded.email,
+           tier = CASE
+             WHEN excluded.role = 'admin' THEN 'admin'
+             ELSE users.tier
+           END,
            role = CASE
              WHEN excluded.role = 'admin' THEN 'admin'
              WHEN users.role = 'admin' THEN 'user'
@@ -119,6 +124,9 @@ export async function handleGoogleAuth(
       }
       if (row?.role) {
         persistedRole = row.role;
+        if (row.role === "admin") {
+          responseTier = "admin";
+        }
       }
     } catch (err: unknown) {
       console.error("Failed to read user after Google sign-in:", err instanceof Error ? err.message : String(err));

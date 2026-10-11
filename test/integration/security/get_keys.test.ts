@@ -373,6 +373,44 @@ describe("Security: Lock down GET /api/keys", () => {
       const labels = keys.map((k) => String(k.label));
       expect(labels.some((l) => l.includes("tenant-a"))).toBe(false);
     });
+
+    it("ensures private keys have null community_routing_status and null observation_until", async () => {
+      const db = createTestDb();
+      const env: WorkerEnv = { DB: db };
+
+      const res = await handleGetKeys(env, "tenant-a");
+      expect(res.status).toBe(200);
+
+      const keys = (await res.json()) as Array<{
+        id: string;
+        pool_type: string;
+        community_routing_status: string | null;
+        observation_until: number | null;
+      }>;
+      const privateKey = keys.find((k) => k.id === "key-a-private");
+      expect(privateKey).toBeDefined();
+      expect(privateKey?.pool_type).toBe("PRIVATE");
+      expect(privateKey?.community_routing_status).toBeNull();
+      expect(privateKey?.observation_until).toBeNull();
+
+      const communityKey = keys.find((k) => k.id === "key-a-community");
+      expect(communityKey).toBeDefined();
+      expect(communityKey?.pool_type).toBe("COMMUNITY");
+      expect(communityKey?.community_routing_status).toBe("ACTIVE");
+    });
+
+    it("enforces strict tenant isolation for an admin user calling /api/keys", async () => {
+      const db = createTestDb();
+      const env: WorkerEnv = { DB: db };
+
+      // admin-user is a user with role: 'admin' in D1, but tenantId is their user id
+      const res = await handleGetKeys(env, "admin-user");
+      expect(res.status).toBe(200);
+
+      const keys = (await res.json()) as Array<Record<string, unknown>>;
+      // admin-user registered 0 keys, so they should see 0 keys (NOT all keys in the DB)
+      expect(keys.length).toBe(0);
+    });
   });
 
   describe("Requirement 3: Key Masking (first 6 + last 4 characters)", () => {
