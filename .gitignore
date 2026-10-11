@@ -34,3 +34,7 @@ docs/study_guide/book/
 backups/
 .claude/worktrees/
 .vscode/
+
+# QA smoke scripts & reports
+scripts/qa/dev_smoke.sh
+docs/specs/dev_smoke*.md
