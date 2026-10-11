@@ -57,7 +57,7 @@
       <form onsubmit={handleSubmit} class="p-5 flex flex-col gap-4">
         <div>
           <label for="leaked-key" class="block text-label-sm text-on-surface-variant mb-1">Leaked key</label>
-          <input id="leaked-key" type="password" autocomplete="off" bind:value={leakedKey} required placeholder="AIza… or gsk_…" class="w-full px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-on-surface" />
+          <input id="leaked-key" type="password" autocomplete="off" bind:value={leakedKey} required placeholder="AIza… or AQ.… or gsk_…" class="w-full px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-on-surface" />
           <p class="mt-1 text-[11px] text-on-surface-variant">Paste the exposed key. It is only used to look up and revoke the matching key.</p>
         </div>
         <Turnstile bind:this={turnstile} bind:token={turnstileToken} />

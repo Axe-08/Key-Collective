@@ -17,10 +17,11 @@ export const CLOUD_TRACE_PATTERN = /\b[0-9a-f]{32}\/\d+\b/gi;
 export const CONSUMER_PATTERN = /"consumer"\s*:\s*"[^"]+"/g;
 export const QUERY_KEY_PATTERN = /key=[^&\s"]+/g;
 export const AIZA_KEY_PATTERN = /AIza[0-9A-Za-z_\-]{35}/g;
+export const AQ_KEY_PATTERN = /AQ\.[0-9A-Za-z_\-]{40,80}/g;
 export const GSK_KEY_PATTERN = /gsk_[A-Za-z0-9]{20,}/g;
 export const SK_KEY_PATTERN = /sk-[A-Za-z0-9_\-]{20,}/g;
 export const BEARER_PATTERN = /Bearer\s+\S+/g;
-export const SECRET_REGEX = /(sk-[a-zA-Z0-9_\-]{20,}|gsk_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z_\-]{35}|Bearer\s+\S+)/g;
+export const SECRET_REGEX = /(sk-[a-zA-Z0-9_\-]{20,}|gsk_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z_\-]{35}|AQ\.[0-9A-Za-z_\-]{40,80}|Bearer\s+\S+)/g;
 export const IP_REGEX = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 
 export function sanitizeResponseHeaders(upstreamHeaders: Headers): Headers {
@@ -44,6 +45,7 @@ export function sanitize(text: string): string {
     .replace(CLOUD_TRACE_PATTERN, '[TRACE_REDACTED]')
     .replace(QUERY_KEY_PATTERN, 'key=[REDACTED_SECRET]')
     .replace(AIZA_KEY_PATTERN, '[REDACTED_SECRET]')
+    .replace(AQ_KEY_PATTERN, '[REDACTED_SECRET]')
     .replace(GSK_KEY_PATTERN, '[REDACTED_SECRET]')
     .replace(SK_KEY_PATTERN, '[REDACTED_SECRET]')
     .replace(BEARER_PATTERN, '[REDACTED_SECRET]')

@@ -140,9 +140,12 @@ async function probeEndpoint(url: string, rawKey: string): Promise<EndpointOutco
   return { reason: `http_${res.status}` };
 }
 
-/** null for providers without a GCP project (not probed). */
+/** null for providers without a GCP project (or auth keys where project cannot be probed). */
 export async function forceErrorGcpProbe(rawKey: string, provider: string): Promise<GcpProbeResult | null> {
   if (!isGoogle(provider)) return null;
+  // Modern Google AI Studio Authorization keys (AQ...) are restricted strictly to Gemini API;
+  // Translation/YouTube endpoints return 401 UNAUTHENTICATED without project metadata.
+  if (rawKey.startsWith("AQ.")) return null;
 
   const reasons: string[] = [];
   for (const url of GCP_PROBE_ENDPOINTS) {

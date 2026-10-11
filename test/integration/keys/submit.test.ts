@@ -95,6 +95,7 @@ function rateLimiter(allowed: boolean) {
 }
 
 const googleKey = () => `AIza${crypto.randomUUID().replace(/-/g, "")}abc`;
+const googleAuthKey = () => `AQ.${crypto.randomUUID().replace(/-/g, "")}${crypto.randomUUID().replace(/-/g, "").slice(0, 18)}`;
 const groqKey = () => `gsk_${crypto.randomUUID().replace(/-/g, "")}`;
 
 async function submitAs(
@@ -177,6 +178,44 @@ describe("POST /api/keys happy paths", () => {
       .bind(row?.provider_project_hash)
       .first();
     expect(registry).toEqual({ provider: "google", state: "ACTIVE", tenant_id: user.id });
+  });
+
+  it("COMMUNITY Gemini (AQ. auth key): 201, OBSERVATION for 24 h, unprobed provider_project_hash", async () => {
+    const user = await createUser({ github: true, eligible: true });
+    const before = Date.now();
+    const plaintext = googleAuthKey();
+
+    const res = await submitAs(user, valid({ provider: "google", key: plaintext, pool_type: "COMMUNITY" }));
+
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+    const row = await keyRow(id);
+    expect(row).toMatchObject({
+      pool_type: "COMMUNITY",
+      community_routing_status: "OBSERVATION",
+      provider_project_hash: null,
+    });
+    expect(Number(row?.observation_until) - before).toBeGreaterThanOrEqual(24 * 60 * 60 * 1000 - 5000);
+  });
+
+  it("PRIVATE Gemini (AQ. auth key): 201, HEALTHY, prefix and suffix recorded", async () => {
+    const user = await createUser();
+    const plaintext = googleAuthKey();
+
+    const res = await submitAs(user, valid({ provider: "google", key: plaintext, pool_type: "PRIVATE" }));
+
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+    const row = await keyRow(id);
+    expect(row).toMatchObject({
+      tenant_id: user.id,
+      provider: "google",
+      pool_type: "PRIVATE",
+      status: "HEALTHY",
+      key_prefix: plaintext.slice(0, 8),
+      key_suffix: plaintext.slice(-4),
+      provider_project_hash: null,
+    });
   });
 });
 

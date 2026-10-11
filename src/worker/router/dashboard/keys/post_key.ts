@@ -36,7 +36,7 @@ const TOMBSTONE_DURATION_MS = 14 * DAY_MS;
 const KEY_CONSENT_VERSION = "v1.0";
 
 const KEY_FORMATS: Record<"google" | "groq", RegExp> = {
-  google: /^AIza[0-9A-Za-z_-]{35}$/,
+  google: /^(AIza[0-9A-Za-z_-]{35}|AQ\.[0-9A-Za-z_-]{40,80})$/,
   groq: /^gsk_[A-Za-z0-9]{20,}$/,
 };
 

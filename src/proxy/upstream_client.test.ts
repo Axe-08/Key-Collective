@@ -166,6 +166,10 @@ describe("UpstreamClient", () => {
       const geminiHeaders = rewriteHeaders("gemini", {}, "AIzaSyTestKey");
       expect(geminiHeaders.get("x-goog-api-key")).toBe("AIzaSyTestKey");
       expect(geminiHeaders.get("authorization")).toBe("Bearer AIzaSyTestKey");
+
+      const aqHeaders = rewriteHeaders("google", {}, "AQ.Ab8RN6TestAuthKey1234567890");
+      expect(aqHeaders.get("x-goog-api-key")).toBe("AQ.Ab8RN6TestAuthKey1234567890");
+      expect(aqHeaders.get("authorization")).toBe("Bearer AQ.Ab8RN6TestAuthKey1234567890");
     });
 
     it("enforces Content-Type: application/json if missing", () => {
@@ -332,6 +336,13 @@ describe("UpstreamClient", () => {
       expect(keyErr403.message).toBe("Upstream authentication failed");
       expect(keyErr403.message).not.toContain("API key not authorized");
       expect(keyErr403.message).not.toContain("AIzaSy");
+
+      const errAQ = mapUpstreamHttpError(
+        "google",
+        403,
+        "API key not authorized for model: AQ.Ab8RN6SecretAuthKey1234567890"
+      );
+      expect((errAQ as InvalidKeyError).message).not.toContain("AQ.Ab8RN6");
     });
 
     it("maps HTTP 408 and 504 to ProviderTimeoutError", () => {
@@ -562,6 +573,29 @@ describe("UpstreamClient", () => {
       expect(capturedAuth).toBe("Bearer decrypted-plain-key");
       // Results recorded under original keyId
       expect(mockKeyPool.recordResult).toHaveBeenCalledWith("key-id-123", true);
+    });
+
+    it("does not call keyResolver when raw AQ. key is passed directly in request", async () => {
+      const keyResolver = vi.fn();
+      let capturedGoogleKey = "";
+      const mockFetch: typeof fetch = vi.fn().mockImplementation(async (_url, init) => {
+        const headers = new Headers(init?.headers);
+        capturedGoogleKey = headers.get("x-goog-api-key") ?? "";
+        return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      });
+
+      const client = new UpstreamClient({ keyResolver, fetch: mockFetch });
+      await client.send({
+        provider: "google",
+        apiKey: "AQ.Ab8RN6DirectRawApiKeyProvided1234567890",
+        body: {},
+      });
+
+      expect(keyResolver).not.toHaveBeenCalled();
+      expect(capturedGoogleKey).toBe("AQ.Ab8RN6DirectRawApiKeyProvided1234567890");
     });
 
     it("records failure on KeyPool and sanitizes error message when upstream returns error status", async () => {

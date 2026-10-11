@@ -132,8 +132,8 @@
       return;
     }
 
-    if (provider === 'gemini' && !trimmedKey.startsWith('AIza')) {
-      if (!confirm('Warning: Gemini API keys usually start with "AIza". Are you sure you want to save this key?')) {
+    if (provider === 'gemini' && !trimmedKey.startsWith('AIza') && !trimmedKey.startsWith('AQ.')) {
+      if (!confirm('Warning: Gemini API keys usually start with "AIza" or "AQ.". Are you sure you want to save this key?')) {
         return;
       }
     } else if (provider === 'groq' && !trimmedKey.startsWith('gsk_')) {
@@ -269,7 +269,7 @@
               API Key Token
             </label>
             <span class="text-[10px] text-slate-500">
-              {provider === 'gemini' ? 'Starts with AIza...' : 'Starts with gsk_...'}
+              {provider === 'gemini' ? 'Starts with AIza... or AQ....' : 'Starts with gsk_...'}
             </span>
           </div>
           <div class="relative">
@@ -278,7 +278,7 @@
               type={showKey ? 'text' : 'password'}
               bind:value={apiKey}
               required
-              placeholder={provider === 'gemini' ? 'AIzaSy...' : 'gsk_...'}
+              placeholder={provider === 'gemini' ? 'AIzaSy... or AQ....' : 'gsk_...'}
               class="w-full pl-3.5 pr-10 py-2 rounded-lg bg-slate-950/80 border border-white/10 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors text-xs font-mono"
             />
             <button

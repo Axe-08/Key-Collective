@@ -118,7 +118,7 @@
               autocomplete="off"
               bind:value={newKey}
               required
-              placeholder={provider === 'google' ? 'AIzaSy...' : 'gsk_...'}
+              placeholder={provider === 'google' ? 'AIzaSy... or AQ....' : 'gsk_...'}
               class="w-full px-3 py-2 rounded-lg bg-surface-container-highest/80 border border-outline-variant/30 text-on-surface focus:outline-none focus:border-primary text-xs"
             />
           </div>

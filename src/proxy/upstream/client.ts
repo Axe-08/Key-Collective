@@ -207,7 +207,7 @@ export class UpstreamClient {
       } else {
         apiKey = poolKey;
       }
-    } else if (apiKey && this.options.keyResolver && (apiKey.startsWith("key_") || (!apiKey.startsWith("AIza") && !apiKey.startsWith("gsk_") && !apiKey.startsWith("sk-")))) {
+    } else if (apiKey && this.options.keyResolver && (apiKey.startsWith("key_") || (!apiKey.startsWith("AIza") && !apiKey.startsWith("AQ.") && !apiKey.startsWith("gsk_") && !apiKey.startsWith("sk-")))) {
       keyId = keyId ?? apiKey;
       apiKey = await this.options.keyResolver(apiKey, request.provider);
     }
