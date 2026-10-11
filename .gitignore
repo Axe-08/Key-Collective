@@ -33,3 +33,4 @@ docs/study_guide/book/
 .wp/
 backups/
 .claude/worktrees/
+.vscode/
