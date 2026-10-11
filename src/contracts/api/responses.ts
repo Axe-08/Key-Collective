@@ -3,10 +3,26 @@ import { z } from 'zod';
 // Response contracts for /api/* endpoints consumed by the UI.
 // These validate the shapes defined in ui/src/lib/types.ts.
 
-export const ProviderSchema = z.enum(['gemini', 'groq', 'sambanova', 'cerebras']);
+export const ProviderSchema = z.preprocess(
+  (val) => (val === 'google' ? 'gemini' : val),
+  z.enum(['gemini', 'groq', 'sambanova', 'cerebras'])
+);
 export type Provider = z.infer<typeof ProviderSchema>;
 
-export const KeyStatusSchema = z.enum(['healthy', 'rate_limited', 'exhausted', 'invalid', 'disabled']);
+export const KeyStatusSchema = z.preprocess(
+  (val) => {
+    if (typeof val === 'string') {
+      const lower = val.toLowerCase();
+      if (lower === 'healthy') return 'healthy';
+      if (lower === 'cooldown' || lower === 'rate_limited') return 'rate_limited';
+      if (lower === 'quarantined' || lower === 'disabled') return 'disabled';
+      if (lower === 'revoked' || lower === 'invalid') return 'invalid';
+      return lower;
+    }
+    return val;
+  },
+  z.enum(['healthy', 'rate_limited', 'exhausted', 'invalid', 'disabled', 'quarantined', 'revoked', 'cooldown'])
+);
 export type KeyStatus = z.infer<typeof KeyStatusSchema>;
 
 export const PoolTypeSchema = z.enum(['COMMUNITY', 'PRIVATE']);
@@ -32,13 +48,13 @@ export const APIKeySchema = z.object({
   status: KeyStatusSchema,
   requests_this_min: z.number().optional(),
   requests_today: z.number().optional(),
-  cooldown_until: z.string().nullable().optional(),
+  cooldown_until: z.union([z.string(), z.number()]).nullable().optional(),
   total_requests: z.number().optional(),
   avg_latency_ms: z.number().optional(),
-  created_at: z.string().optional(),
+  created_at: z.union([z.string(), z.number()]).nullable().optional(),
   pool_type: PoolTypeSchema.optional(),
   community_routing_status: CommunityRoutingStatusSchema.optional(),
-  observation_until: z.string().nullable().optional(),
+  observation_until: z.union([z.string(), z.number()]).nullable().optional(),
   dispatches_today: z.number().optional(),
   dispatches_communal: z.number().optional(),
   tenant_id: z.string().optional(),

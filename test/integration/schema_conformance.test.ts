@@ -22,6 +22,7 @@ import {
 } from "../../src/worker/router/dashboard/keys/ops";
 import { handleAdminRequest } from "../../src/worker/gateway/admin_handler";
 import { deriveTenantKey, encrypt } from "../../src/crypto/encryption/index";
+import { KeyResponseSchema } from "../../src/contracts/api/responses";
 import type { KeyStatus } from "../../src/types/models";
 import type { WorkerEnv } from "../../src/worker/auth/index";
 import type { RouterHandler } from "../../src/worker/router/index";
@@ -296,7 +297,8 @@ describe("Schema Conformance Suite (Section 2.5)", () => {
       expect(res.status).toBe(201);
       const resBody = (await res.json()) as { id: string; provider: string; status: string };
       expect(resBody.id).toBeTruthy();
-      expect(resBody.provider).toBe("google");
+      expect(resBody.provider).toBe("gemini");
+      expect(() => KeyResponseSchema.parse(resBody)).not.toThrow();
 
       // Verify api_keys row
       const keyRow = await env.DB.prepare("SELECT * FROM api_keys WHERE id = ?")

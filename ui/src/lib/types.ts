@@ -28,13 +28,13 @@ export interface APIKey {
   status: KeyStatus;
   requests_this_min?: number;
   requests_today?: number;
-  cooldown_until?: string | null;
+  cooldown_until?: string | number | null;
   total_requests?: number;
   avg_latency_ms?: number;
-  created_at?: string;
+  created_at?: string | number | null;
   pool_type?: PoolType;
   community_routing_status?: CommunityRoutingStatus;
-  observation_until?: string | null;
+  observation_until?: string | number | null;
   dispatches_today?: number;
   dispatches_communal?: number;
   vesting_tier?: 0 | 1 | 2;

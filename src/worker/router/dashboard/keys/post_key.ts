@@ -289,7 +289,7 @@ export async function handlePostKeys(
       id: keyId,
       key_prefix: keyPrefix,
       key_suffix: keySuffix,
-      provider: body.provider,
+      provider: body.provider === "google" ? "gemini" : body.provider,
       label,
       rpm_limit: rpmLimit,
       rpd_limit: rpdLimit,
