@@ -66,10 +66,14 @@ async function sha256Hex(value: string): Promise<string> {
 async function withinDailyLimit(env: WorkerEnv, tenantId: string): Promise<boolean> {
   const ns = env.RATE_LIMITER as unknown as DurableObjectNamespaceLike | undefined;
   if (!ns || typeof ns.idFromName !== "function") return true;
+  const consoleHost = typeof env.CONSOLE_HOST === "string" ? env.CONSOLE_HOST : "";
+  const apiHost = typeof env.API_HOST === "string" ? env.API_HOST : "";
+  const isDev = consoleHost.includes("-dev") || apiHost.includes("-dev");
+  const limit = isDev ? 100 : SUBMISSIONS_PER_DAY;
   const res = await ns.get(ns.idFromName(`key-submit:${tenantId}`)).fetch("http://rate-limiter/check-limit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ limit: SUBMISSIONS_PER_DAY, windowMs: DAY_MS }),
+    body: JSON.stringify({ limit, windowMs: DAY_MS }),
   });
   return res.status !== 429;
 }
