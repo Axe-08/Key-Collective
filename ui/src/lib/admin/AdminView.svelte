@@ -475,6 +475,7 @@
       <TenantsView
         {tenants}
         {adminEmail}
+        onAdminAction={handleAdminAction}
         onResetQuota={async (tenantId, reason) => {
           await handleAdminAction({ action: 'RESET_QUOTA', targetTenantId: tenantId, reason, adminEmail });
         }}

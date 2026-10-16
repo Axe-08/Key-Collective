@@ -30,6 +30,29 @@
     onToggleDropdown,
     getProjectName,
   }: Props = $props();
+
+  let dropdownPos = $state<{ top: number; left: number } | null>(null);
+
+  function toggleDropdown(e: MouseEvent, keyId: string) {
+    if (openKeyDropdownId === keyId) {
+      closeDropdown();
+    } else {
+      const btn = e.currentTarget as HTMLElement;
+      const rect = btn.getBoundingClientRect();
+      const width = 144; // w-36 = 144px
+      const height = 80;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = spaceBelow < height + 10 ? rect.top - height - 4 : rect.bottom + 4;
+      const left = Math.max(8, rect.right - width);
+      dropdownPos = { top, left };
+      onToggleDropdown(keyId);
+    }
+  }
+
+  function closeDropdown() {
+    dropdownPos = null;
+    onToggleDropdown(null);
+  }
 </script>
 
 <section class="space-y-3">
@@ -141,40 +164,13 @@
                 <!-- Actions -->
                 <td class="py-3 px-4 text-right font-mono">
                   <div class="flex items-center justify-end gap-1">
-                    <div class="relative">
-                      <button
-                        type="button"
-                        onclick={() => onToggleDropdown(openKeyDropdownId === key.id ? null : key.id)}
-                        class="p-1 rounded hover:bg-surface-container text-outline hover:text-on-surface transition-colors cursor-pointer"
-                      >
-                        <span class="material-symbols-outlined text-[16px]">more_horiz</span>
-                      </button>
-                      {#if openKeyDropdownId === key.id}
-                        <!-- svelte-ignore a11y_click_events_have_key_events -->
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div class="fixed inset-0 z-10" onclick={() => onToggleDropdown(null)}></div>
-                        <div class="absolute right-0 mt-1 w-36 rounded-lg bg-surface-container-highest border border-outline-variant/30 shadow-xl z-20 p-1">
-                          <button
-                            type="button"
-                            onclick={() => { onToggleDropdown(null); onRotateKey(key.id); }}
-                            class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
-                          >
-                            <span class="material-symbols-outlined text-[14px]">refresh</span>
-                            Rotate Secret
-                          </button>
-                          <button
-                            type="button"
-                            data-testid="key-revoke-{key.id}"
-                            onclick={() => { onToggleDropdown(null); onRevokeKey(key.id); }}
-                            class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            title="Revoking deletes the key permanently"
-                          >
-                            <span class="material-symbols-outlined text-[14px]">block</span>
-                            Revoke
-                          </button>
-                        </div>
-                      {/if}
-                    </div>
+                    <button
+                      type="button"
+                      onclick={(e) => toggleDropdown(e, key.id)}
+                      class="p-1 rounded hover:bg-surface-container text-outline hover:text-on-surface transition-colors cursor-pointer"
+                    >
+                      <span class="material-symbols-outlined text-[16px]">more_horiz</span>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -184,4 +180,34 @@
       </table>
     </div>
   </div>
+
+  <!-- Viewport-Aware Fixed Dropdown Menu (Escapes Table Overflow) -->
+  {#if openKeyDropdownId && dropdownPos}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="fixed inset-0 z-40" onclick={closeDropdown}></div>
+    <div
+      class="fixed w-36 rounded-lg bg-surface-container-highest border border-outline-variant/30 shadow-2xl z-50 p-1 font-mono"
+      style="top: {dropdownPos.top}px; left: {dropdownPos.left}px;"
+    >
+      <button
+        type="button"
+        onclick={() => { const id = openKeyDropdownId!; closeDropdown(); onRotateKey(id); }}
+        class="w-full text-left px-3 py-2 text-xs font-code-sm text-on-surface hover:bg-surface-container-high rounded flex items-center gap-2 cursor-pointer transition-colors"
+      >
+        <span class="material-symbols-outlined text-[14px]">refresh</span>
+        Rotate Secret
+      </button>
+      <button
+        type="button"
+        data-testid="key-revoke-{openKeyDropdownId}"
+        onclick={() => { const id = openKeyDropdownId!; closeDropdown(); onRevokeKey(id); }}
+        class="w-full text-left px-3 py-2 text-xs font-code-sm text-error hover:bg-error-container/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+        title="Revoking deletes the key permanently"
+      >
+        <span class="material-symbols-outlined text-[14px]">block</span>
+        Revoke
+      </button>
+    </div>
+  {/if}
 </section>

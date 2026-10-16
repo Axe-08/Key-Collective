@@ -288,10 +288,39 @@ export async function handleGetAnalyticsUsage(
     return Response.json({ usage: [] });
   }
   try {
-    const res = await env.DB.prepare(
-      `SELECT day, provider, model, requests, tokens, cu
+    const rollupRes = await env.DB.prepare(
+      `SELECT day, provider, model_id AS model, total_requests AS requests, total_tokens AS tokens, total_cu AS cu
        FROM daily_cu_rollup
        WHERE tenant_id = ?
+       ORDER BY day DESC, total_cu DESC
+       LIMIT 100`
+    )
+      .bind(tenantId)
+      .all<{
+        day: string;
+        provider: string;
+        model: string;
+        requests: number;
+        tokens: number;
+        cu: number;
+      }>();
+
+    if (rollupRes.results && rollupRes.results.length > 0) {
+      return Response.json({ usage: rollupRes.results });
+    }
+
+    // Fall back to live aggregation from cost_ledger if daily_cu_rollup has not run yet today
+    const liveRes = await env.DB.prepare(
+      `SELECT
+         date(created_at) AS day,
+         CASE WHEN provider = 'google' THEN 'gemini' ELSE provider END AS provider,
+         model_id AS model,
+         COUNT(*) AS requests,
+         SUM(prompt_tokens + completion_tokens + reasoning_tokens) AS tokens,
+         COALESCE(SUM(cu), 0) AS cu
+       FROM cost_ledger
+       WHERE tenant_id = ?
+       GROUP BY day, provider, model_id
        ORDER BY day DESC, cu DESC
        LIMIT 100`
     )
@@ -304,7 +333,8 @@ export async function handleGetAnalyticsUsage(
         tokens: number;
         cu: number;
       }>();
-    return Response.json({ usage: res.results ?? [] });
+
+    return Response.json({ usage: liveRes.results ?? [] });
   } catch {
     return Response.json({ usage: [] });
   }

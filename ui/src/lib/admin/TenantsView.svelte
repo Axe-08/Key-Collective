@@ -6,10 +6,12 @@
     tenants = [],
     adminEmail = '',
     onAdminAction,
+    onResetQuota,
   }: {
     tenants?: TenantSurveillanceRow[];
     adminEmail?: string;
     onAdminAction?: (payload: AdminActionPayload) => void;
+    onResetQuota?: (tenantId: string, reason?: string) => Promise<void> | void;
   } = $props();
 
   let searchQuery = $state('');
@@ -42,13 +44,17 @@
   }
 
   function confirmReset() {
-    if (!resetModalTenant || !onAdminAction) return;
-    onAdminAction({
-      adminEmail,
-      targetTenantId: resetModalTenant.tenantId,
-      action: 'RESET_QUOTA',
-      reason: resetReason,
-    });
+    if (!resetModalTenant) return;
+    if (onAdminAction) {
+      onAdminAction({
+        adminEmail,
+        targetTenantId: resetModalTenant.tenantId,
+        action: 'RESET_QUOTA',
+        reason: resetReason,
+      });
+    } else if (onResetQuota) {
+      onResetQuota(resetModalTenant.tenantId, resetReason);
+    }
     resetModalTenant = null;
   }
 </script>
