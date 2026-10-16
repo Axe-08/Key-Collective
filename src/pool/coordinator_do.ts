@@ -439,6 +439,9 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     const currentMinute = Math.floor(now / 60_000);
     const currentDay = new Date(now).toISOString().slice(0, 10);
 
+    // Promote OBSERVATION keys whose observation period has ended
+    await this.promoteObservationKeys(false, now);
+
     // Reactivate COOLDOWN keys whose cooldown/reactivate timestamp has elapsed
     sql.exec(
       `UPDATE keys
@@ -788,9 +791,11 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
    * Checks whether `tenant` owns at least one promoted community key in this provider shard (WP-5.7 T-5.7.1).
    */
   public async isEyeForEyeAccessible(tenant: string, provider?: string): Promise<boolean> {
+    const now = this.clock.now();
+    await this.promoteObservationKeys(false, now);
     const sql = this.ensureSchema();
     const providerFilter = provider ? canonicalCoordinatorProvider(provider) : null;
-    const rows = sql
+    let rows = sql
       .exec(
         `SELECT 1 FROM keys
           WHERE owner = ?
@@ -802,6 +807,30 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
         providerFilter
       )
       .toArray();
+
+    if (rows.length === 0 && this.env?.DB) {
+      const keyCount = Number(
+        sql.exec("SELECT COUNT(*) AS c FROM keys").toArray()[0]?.c ?? 0
+      );
+      const lastReconcile = Number(this.getMeta("last_reconcile_ms") ?? "0");
+      if (keyCount === 0 || now - lastReconcile > 30_000) {
+        await this.reconcile(providerFilter ?? undefined);
+        await this.promoteObservationKeys(false, now);
+        rows = sql
+          .exec(
+            `SELECT 1 FROM keys
+              WHERE owner = ?
+                AND (status = 'ACTIVE' OR (status = 'COOLDOWN' AND observation_until IS NULL))
+                AND (? IS NULL OR provider = ?)
+              LIMIT 1`,
+            tenant,
+            providerFilter,
+            providerFilter
+          )
+          .toArray();
+      }
+    }
+
     return rows.length > 0;
   }
 
@@ -981,6 +1010,60 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
           providerFilter
         )
         .toArray();
+    }
+
+    if (rawRows.length === 0 && this.env?.DB) {
+      const keyCount = Number(
+        sql.exec("SELECT COUNT(*) AS c FROM keys").toArray()[0]?.c ?? 0
+      );
+      const lastReconcile = Number(this.getMeta("last_reconcile_ms") ?? "0");
+      if (keyCount === 0 || now - lastReconcile > 30_000) {
+        await this.reconcile(providerFilter ?? undefined);
+        await this.promoteObservationKeys(false, now);
+        if (req.ownOnly) {
+          rawRows = sql
+            .exec(
+              `SELECT k.key_id, k.owner, k.provider, k.status, k.rpm_limit, k.rpd_limit,
+                      k.minute_count, k.day_count, k.classification, k.priority_boost,
+                      COALESCE(d.debt_cu, 0) AS debt_cu
+                 FROM keys k
+                 LEFT JOIN owner_debts d ON d.owner = k.owner
+                WHERE k.owner = ?
+                  AND k.status IN ('ACTIVE', 'OBSERVATION')
+                  AND (k.cooldown_until IS NULL OR k.cooldown_until <= ?)
+                  AND k.minute_count < k.rpm_limit
+                  AND k.day_count < k.rpd_limit
+                  AND (? IS NULL OR k.provider = ?)
+                ORDER BY k.key_id ASC`,
+              req.tenant,
+              now,
+              providerFilter,
+              providerFilter
+            )
+            .toArray();
+        } else {
+          rawRows = sql
+            .exec(
+              `SELECT k.key_id, k.owner, k.provider, k.status, k.rpm_limit, k.rpd_limit,
+                      k.minute_count, k.day_count, k.classification, k.priority_boost,
+                      COALESCE(d.debt_cu, 0) AS debt_cu
+                 FROM keys k
+                 LEFT JOIN owner_debts d ON d.owner = k.owner
+                WHERE k.status = 'ACTIVE'
+                  AND k.owner != ?
+                  AND (k.cooldown_until IS NULL OR k.cooldown_until <= ?)
+                  AND k.minute_count < k.rpm_limit
+                  AND k.day_count < MIN(k.rpd_limit, COALESCE(k.effective_rpd, k.rpd_limit))
+                  AND (? IS NULL OR k.provider = ?)
+                ORDER BY k.key_id ASC`,
+              req.tenant,
+              now,
+              providerFilter,
+              providerFilter
+            )
+            .toArray();
+        }
+      }
     }
 
     if (rawRows.length === 0) {
@@ -1789,8 +1872,9 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
    * Returns summary statistics for this coordinator shard.
    */
   public async stats(): Promise<CoordinatorStats> {
-    const sql = this.ensureSchema();
     const now = this.clock.now();
+    await this.promoteObservationKeys(false, now);
+    const sql = this.ensureSchema();
     const cutoffMinute = Math.floor((now - BORROWER_WINDOW_MINUTES * 60_000) / 60_000);
 
     const keyAgg = sql
@@ -1897,6 +1981,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
     dispatchedToday: number;
     dispatchedCommunal: number;
   }> {
+    const now = this.clock.now();
+    await this.promoteObservationKeys(false, now);
     const sql = this.ensureSchema();
     const row =
       sql
@@ -1925,6 +2011,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
   public async getOwnerCommunityKeys(
     owner: string
   ): Promise<Array<{ keyId: string; provider: string; status: CoordinatorKeyStatus }>> {
+    const now = this.clock.now();
+    await this.promoteObservationKeys(false, now);
     const sql = this.ensureSchema();
     const rows = sql
       .exec(
@@ -1959,6 +2047,8 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
       }
     >
   > {
+    const now = this.clock.now();
+    await this.promoteObservationKeys(false, now);
     const sql = this.ensureSchema();
     const filterSet = keyIds && keyIds.length > 0 ? new Set(keyIds) : null;
     const rows = sql

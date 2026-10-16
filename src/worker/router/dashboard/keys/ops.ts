@@ -254,7 +254,8 @@ export async function handlePoolMode(
         }
       | undefined;
     if (meta && coordNs && typeof coordNs.idFromName === "function") {
-      const coordStub = coordNs.get(coordNs.idFromName(meta.provider));
+      const canon = meta.provider.toLowerCase() === "gemini" ? "google" : meta.provider.toLowerCase();
+      const coordStub = coordNs.get(coordNs.idFromName(`pool:${canon}`));
       if (poolType === "COMMUNITY" && typeof coordStub.upsertKey === "function") {
         await coordStub.upsertKey({
           keyId,
@@ -267,6 +268,15 @@ export async function handlePoolMode(
         });
       } else if (poolType === "PRIVATE" && typeof coordStub.removeKey === "function") {
         await coordStub.removeKey(keyId);
+        // Also clean up any legacy un-prefixed shard instance
+        try {
+          const legacyStub = coordNs.get(coordNs.idFromName(meta.provider));
+          if (typeof legacyStub.removeKey === "function") {
+            await legacyStub.removeKey(keyId);
+          }
+        } catch {
+          // ignore legacy shard cleanup error
+        }
       }
     }
   } catch (_err) {

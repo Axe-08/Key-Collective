@@ -379,4 +379,45 @@ describe("PoolCoordinatorDO (T-4.1.2)", () => {
       expect(statsAfterSettle.dispatchedCommunal).toBe(5);
     });
   });
+
+  it("promotes expired OBSERVATION keys on-demand during lease() without alarm", async () => {
+    const stub = getCoordinatorStub("test-coord-lazy-promote");
+    await runInDurableObject(stub, async (coord: PoolCoordinatorDO) => {
+      const t0 = Date.UTC(2030, 0, 15, 10, 0, 0);
+      coord.setClockForTest(t0);
+
+      await coord.upsertKey({
+        keyId: "key_obs_graduating",
+        owner: "owner_grad",
+        provider: "google",
+        status: "OBSERVATION",
+        observationUntil: t0 + 60_000,
+        rpmLimit: 10,
+        rpdLimit: 100,
+      });
+
+      // Before expiry: another tenant cannot borrow
+      const earlyLease = await coord.lease({
+        tenant: "borrower_x",
+        ownOnly: false,
+      });
+      expect(earlyLease).toBeNull();
+
+      // Advance clock past observationUntil (without running alarm!)
+      coord.setClockForTest(t0 + 65_000);
+
+      // Now lease() promotes on-demand and returns the key
+      const promotedLease = await coord.lease({
+        tenant: "borrower_x",
+        ownOnly: false,
+      });
+      expect(promotedLease).not.toBeNull();
+      expect(promotedLease?.keyId).toBe("key_obs_graduating");
+      expect(promotedLease?.source).toBe("borrowed");
+
+      const stats = await coord.stats();
+      expect(stats.activeKeys).toBe(1);
+      expect(stats.observationKeys).toBe(0);
+    });
+  });
 });

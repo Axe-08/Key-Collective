@@ -367,7 +367,8 @@ async function syncCommunityKeyToCoordinator(
     | undefined;
   if (!coordNs || typeof coordNs.idFromName !== "function") return;
   try {
-    const stub = coordNs.get(coordNs.idFromName(input.provider));
+    const canon = input.provider.toLowerCase() === "gemini" ? "google" : input.provider.toLowerCase();
+    const stub = coordNs.get(coordNs.idFromName(`pool:${canon}`));
     if (typeof stub.upsertKey === "function") {
       await stub.upsertKey({
         keyId: input.keyId,
