@@ -456,6 +456,50 @@
     {/if}
   </main>
 
+  <!-- Mobile Bottom Navigation Bar (< 768px) -->
+  <nav
+    class="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-low/95 backdrop-blur-lg border-t border-outline-variant/30 flex md:hidden items-center justify-around py-2 px-3 shadow-lg"
+    aria-label="Mobile Navigation"
+    data-testid="mobile-bottom-nav"
+  >
+    <button
+      type="button"
+      data-testid="mobile-nav-dashboard"
+      onclick={() => (activeTab = 'dashboard')}
+      class="flex flex-col items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer {activeTab === 'dashboard' || activeTab === 'workbench' ? 'text-primary' : 'text-outline hover:text-on-surface'}"
+    >
+      <span class="material-symbols-outlined text-[20px]">dashboard</span>
+      <span>Dashboard</span>
+    </button>
+    <button
+      type="button"
+      data-testid="mobile-nav-keys"
+      onclick={() => (activeTab = 'keys')}
+      class="flex flex-col items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer {activeTab === 'keys' ? 'text-primary' : 'text-outline hover:text-on-surface'}"
+    >
+      <span class="material-symbols-outlined text-[20px]">vpn_key</span>
+      <span>Keys</span>
+    </button>
+    <button
+      type="button"
+      data-testid="mobile-nav-pool"
+      onclick={() => (activeTab = 'pool')}
+      class="flex flex-col items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer {activeTab === 'pool' || activeTab === 'commons' ? 'text-primary' : 'text-outline hover:text-on-surface'}"
+    >
+      <span class="material-symbols-outlined text-[20px]">groups</span>
+      <span>Pool</span>
+    </button>
+    <button
+      type="button"
+      data-testid="mobile-nav-analytics"
+      onclick={() => (activeTab = 'analytics')}
+      class="flex flex-col items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer {activeTab === 'analytics' ? 'text-primary' : 'text-outline hover:text-on-surface'}"
+    >
+      <span class="material-symbols-outlined text-[20px]">insights</span>
+      <span>Analytics</span>
+    </button>
+  </nav>
+
   <!-- Add Key Modal -->
   <AddKeyModal
     isOpen={isAddModalOpen}

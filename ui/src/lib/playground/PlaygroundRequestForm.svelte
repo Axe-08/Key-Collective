@@ -66,6 +66,10 @@
         </button>
       {/if}
     </div>
+    <p class="text-[11px] text-outline mt-1.5 flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-[14px] text-amber-400">info</span>
+      <span>Playground session token expires in 15m. For persistent API integration, use a Project Key from Workbench.</span>
+    </p>
   </div>
 
   <!-- Model Selection -->

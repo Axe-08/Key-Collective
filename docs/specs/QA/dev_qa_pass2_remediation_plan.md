@@ -309,26 +309,27 @@ Playground tokens (`kc_live_...`) are ephemeral by security design (15m TTL), wh
 
 ---
 
-## Execution Order & Verification Gates
+## Execution Order & Verification Status
 
-### Phase 1: High-Priority Fixes (P0)
-1. **ISSUE-01:** Fix Workbench project key dropdown clipping.
-2. **ISSUE-02:** Fix Admin `actionModalType` mismatch to enable Quota Reset.
-3. **ISSUE-03:** Fix `handleGetAnalyticsUsage` SQL column mismatch & live aggregation.
+### Phase 1: High-Priority Fixes (P0) — [COMPLETED & VERIFIED: commit `390c55d`]
+1. **ISSUE-01:** Fix Workbench project key dropdown clipping. (Done in `ui/src/lib/workbench/KeysSection.svelte`)
+2. **ISSUE-02:** Fix Admin `actionModalType` mismatch to enable Quota Reset. (Done in `ui/src/lib/admin/TenantsView.svelte` & `AdminView.svelte`)
+3. **ISSUE-03:** Fix `handleGetAnalyticsUsage` SQL column mismatch & live aggregation. (Done in `src/worker/router/dashboard/metrics_routes.ts`)
 
-### Phase 2: Core UX & Metrics Synchronization (P1)
-4. **ISSUE-06:** Add observation status payload to `post_key.ts` 201 response.
-5. **ISSUE-04:** Fix Dashboard `personal_requests_today` calculation in `pool_routes.ts`.
-6. **ISSUE-05:** Update `SideNavBar.svelte` quota percentage & render total limit denominator.
-7. **ISSUE-07:** Implement responsive mobile bottom navigation bar.
+### Phase 2: Core UX & Metrics Synchronization (P1) — [COMPLETED & VERIFIED]
+4. **ISSUE-06:** Add observation status payload to `post_key.ts` 201 response. (Done in `src/worker/router/dashboard/keys/post_key.ts`)
+5. **ISSUE-04:** Fix Dashboard `personal_requests_today` calculation in `pool_routes.ts` & fallback in `DashboardView.svelte`.
+6. **ISSUE-05:** Update `SideNavBar.svelte` quota percentage calculation & render `/ limit` denominator figure.
+7. **ISSUE-07:** Implement responsive mobile bottom navigation bar (`<nav ...>` for `< 768px`) in `ui/src/App.svelte`.
 
-### Phase 3: Cleanup & Documentation (P2)
-8. **ISSUE-08:** Prune `sambanova` and `cerebras` from `pool_routes.ts` & UI types.
-9. **ISSUE-09:** Add Playground session token guidance banner.
+### Phase 3: Cleanup & Documentation (P2) — [COMPLETED & VERIFIED]
+8. **ISSUE-08:** Prune `sambanova` and `cerebras` from `pool_routes.ts` & `ui/src/lib/types.ts`.
+9. **ISSUE-09:** Add Playground session token guidance banner in `ui/src/lib/playground/PlaygroundRequestForm.svelte`.
 
 ### Verification Gate Protocol
-Each phase must execute:
+All phases verified with:
 ```bash
-make gate  # Typecheck + 1049 backend tests + 102 UI tests must pass in <10s
+make gate  # Typecheck + 1049 backend tests + 102 UI tests satisfied in <10s (ALL PASSED)
 ```
-Following Phase 1, D3–D6 and H7 will be re-tested in `dev` to achieve a 100% clean QA pass.
+Following deployment of these fixes to `dev`, sections C6, D3–D6, E7, G1, H7, and L2 can be re-tested in `dev` to achieve a 100% clean QA pass.
+

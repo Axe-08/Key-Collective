@@ -74,7 +74,7 @@ async function handlePoolTelemetry(
 
   const uPoolPercent = activeShards > 0 ? Math.floor(sumUtilisationPct / activeShards) : 0;
 
-  const canonicalProviders = ['gemini', 'groq', 'sambanova', 'cerebras'];
+  const canonicalProviders = ['gemini', 'groq'];
   const providerPools = canonicalProviders.map(cp => {
     const st = coordinatorStats.get(cp);
     const activeCount = st?.activeKeys ?? 0;
@@ -319,7 +319,24 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
 
   const dispatchedToday = coordDispatchedToday;
   const communalServed = coordCommunalServed;
-  const personalRequestsToday = Math.max(0, dispatchedToday - communalServed);
+  let personalRequestsToday = Math.max(0, dispatchedToday - communalServed);
+
+  if (personalRequestsToday === 0) {
+    try {
+      const personalRow = await db
+        .prepare(
+          `SELECT COUNT(*) as personal_reqs FROM cost_ledger WHERE tenant_id = ? AND date(created_at) = date('now') AND borrowed = 0`
+        )
+        .bind(tenantId)
+        .first<{ personal_reqs: number }>();
+      if (personalRow && typeof personalRow.personal_reqs === 'number' && personalRow.personal_reqs > 0) {
+        personalRequestsToday = personalRow.personal_reqs;
+      }
+    } catch {
+      // cost_ledger query fallback is best-effort
+    }
+  }
+
   const netCu = contributed - debt;
 
   return Response.json({

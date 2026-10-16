@@ -30,11 +30,11 @@
   );
 
   let quotaPercent = $derived.by(() => {
-    if (!stats || !stats.daily_quota_limit || stats.daily_quota_limit === 0) {
-      return 0;
-    }
-    const percent = Math.round((stats.daily_quota_used / stats.daily_quota_limit) * 100);
-    return Math.min(100, Math.max(0, percent));
+    const used = cuUsedToday ?? stats?.cu_used_today ?? stats?.daily_quota_used ?? 0;
+    const allowance = stats?.cu_allowance_today || stats?.daily_quota_limit || 0;
+    if (allowance <= 0 || !used || used <= 0) return 0;
+    const ratio = (used / allowance) * 100;
+    return ratio > 0 && ratio < 1 ? 1 : Math.min(100, Math.round(ratio));
   });
 
   function handleTabClick(tab: string) {
@@ -176,9 +176,14 @@
         <div class="bg-gradient-to-r from-primary to-secondary h-full rounded-full transition-all duration-500" style="width: {quotaPercent}%;"></div>
       </div>
       <div class="flex justify-between items-center text-[10px] font-mono text-on-surface-variant pt-0.5">
-        <span class="text-secondary font-medium" title="Credit Unit Accounting ({cuUsedToday} CU)">
-          {formatCu(cuUsedToday)} CU today
+        <span class="text-secondary font-medium" title="Credit Unit Accounting ({cuUsedToday ?? stats?.cu_used_today ?? 0} CU)">
+          {formatCu(cuUsedToday ?? stats?.cu_used_today ?? 0)} CU today
         </span>
+        {#if stats?.cu_allowance_today || stats?.daily_quota_limit}
+          <span class="text-outline">
+            / {formatCu(stats.cu_allowance_today || stats.daily_quota_limit)} CU limit
+          </span>
+        {/if}
       </div>
     </div>
 

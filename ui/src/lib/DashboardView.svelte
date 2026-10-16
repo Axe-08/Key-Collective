@@ -126,7 +126,7 @@
           <div class="p-3 rounded-lg bg-surface-container-highest/40 border border-outline-variant/20">
             <span class="text-[10px] text-outline uppercase block">Personal Reqs</span>
             <span class="text-base font-bold text-on-surface mt-1 block">
-              {contributionData.personal_requests_today.toLocaleString()}
+              {(contributionData.personal_requests_today || stats.daily_quota_used || 0).toLocaleString()}
             </span>
           </div>
 

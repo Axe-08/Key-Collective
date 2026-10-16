@@ -1,4 +1,4 @@
-export type Provider = 'gemini' | 'groq' | 'sambanova' | 'cerebras';
+export type Provider = 'gemini' | 'groq';
 
 /** A row of GET /api/notifications (src/worker/pool_routes.ts). */
 export interface NotificationItem {
