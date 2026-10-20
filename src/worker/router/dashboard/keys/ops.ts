@@ -380,8 +380,12 @@ export async function handleRotateKeySecret(
     throw new RouterError("KC_MASTER_KEY is not configured", { statusCode: 500 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { new_key?: string; key?: string };
-  const rawKey = (body.new_key ?? body.key)?.trim();
+  const body = (await request.json().catch(() => ({}))) as {
+    new_key?: string;
+    key?: string;
+    secret?: string;
+  };
+  const rawKey = (body.new_key ?? body.key ?? body.secret)?.trim();
   if (!rawKey) {
     throw new RouterError("New key string is required", { statusCode: 400 });
   }

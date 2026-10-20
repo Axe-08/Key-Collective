@@ -378,6 +378,21 @@ describe("WP-5.11 T-5.11.3 — Tombstone lifecycle and project-preserving key ro
     expect(afterOkRow?.key_suffix).toBe(sameProjectNewKey.slice(-4));
     expect(afterOkRow?.created_at).toBe(originalVesting);
     expect(afterOkRow?.provider_project_hash).toBe(beforeRow?.provider_project_hash);
+
+    // 3. Rotate using { secret: key } payload from UI console -> 200
+    const secretPayloadKey = googleKey();
+    const secretRes = await handleRotateKeySecret(
+      `/api/keys/${keyId}/rotate`,
+      new Request(`https://console.test/api/keys/${keyId}/rotate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ secret: secretPayloadKey }),
+      }),
+      env as unknown as WorkerEnv,
+      owner.id,
+      masterKey
+    );
+    expect(secretRes.status).toBe(200);
   });
 
   it("Coordinator alarm transitions expired ROTATING rows into TOMBSTONED, and repeated 401 after canary transitions directly to TOMBSTONED", async () => {

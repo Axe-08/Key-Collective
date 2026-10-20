@@ -282,16 +282,17 @@ export const api = {
   async rotateKeySecret(
     keyId: string,
     newSecret: string
-  ): Promise<{ ok: boolean; message?: string }> {
+  ): Promise<{ ok: boolean; message?: string; error?: string }> {
     try {
       const res = await fetch(`/api/keys/${encodeURIComponent(keyId)}/rotate`, {
         ...sessionInit('POST'),
-        body: JSON.stringify({ secret: newSecret }),
+        body: JSON.stringify({ new_key: newSecret, secret: newSecret, key: newSecret }),
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
         return {
           ok: false,
+          error: typeof errBody?.error === 'string' ? errBody.error : errBody?.error?.code || errBody?.code,
           message: errBody?.error?.message || errBody?.message || 'Key rotation failed',
         };
       }
