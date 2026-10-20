@@ -7,7 +7,7 @@
   let token = $state('');
 </script>
 
-<div class="space-y-2">
+<div class="flex flex-col items-center gap-2">
   <Turnstile bind:token />
   <a
     href={token ? `/api/auth/github/start?turnstile=${encodeURIComponent(token)}` : undefined}

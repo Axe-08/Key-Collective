@@ -30,7 +30,7 @@
   }
 </script>
 
-<div data-testid="claim-legacy-card" class="mx-4 mt-3 rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+<div data-testid="claim-legacy-card" class="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
   <h3 class="font-semibold text-on-surface">Claim your old keys</h3>
   <p class="text-sm text-on-surface-variant">
     Your GitHub account owns keys from an earlier Key Collective sign-in ({accounts.join(', ')}). Move them to this account.

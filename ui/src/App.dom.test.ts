@@ -129,4 +129,43 @@ describe('App identity mapping (WP-F.5, QA-03, QA-09)', () => {
     expect(document.body.textContent).not.toContain('GitHub Authentication Required');
     unmount(app);
   });
+
+  it('displays session notice cleanly and opens LinkGithubModal on click', async () => {
+    server.use(
+      http.get('http://localhost/api/session', () =>
+        HttpResponse.json({
+          success: true,
+          user: { id: 'usr_goog_only', email: 'user@example.com', tier: 'builder', role: 'user' },
+          csrfToken: 'csrf-from-session',
+          rights: { privatePool: true, communityPool: false },
+          notices: ['Link GitHub to keep sharing your key with the community pool'],
+        })
+      ),
+      http.get('http://localhost/api/keys', () => HttpResponse.json([]))
+    );
+
+    const app = mount(App, { target: document.body });
+    await settle();
+
+    const noticeEl = document.querySelector('[data-testid="session-notice"]');
+    expect(noticeEl).not.toBeNull();
+    expect(noticeEl?.textContent).toContain('Link GitHub to keep sharing your key with the community pool');
+
+    // Link GitHub modal is not open initially
+    expect(document.querySelector('[data-testid="link-github-modal"]')).toBeNull();
+
+    // Click "Link GitHub" button on notice
+    const noticeBtn = document.querySelector('[data-testid="link-github-notice-btn"]') as HTMLButtonElement | null;
+    expect(noticeBtn).not.toBeNull();
+    noticeBtn?.click();
+    await settle();
+
+    // Link GitHub modal is now open
+    const modalEl = document.querySelector('[data-testid="link-github-modal"]');
+    expect(modalEl).not.toBeNull();
+    expect(modalEl?.textContent).toContain('Link GitHub Account');
+    expect(modalEl?.querySelector('[data-testid="link-github"]')).not.toBeNull();
+
+    unmount(app);
+  });
 });

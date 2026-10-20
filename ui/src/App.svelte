@@ -29,7 +29,7 @@
 </script>
 
 <script lang="ts">
-  import LinkGithubButton from './lib/LinkGithubButton.svelte';
+  import LinkGithubModal from './lib/LinkGithubModal.svelte';
   import { onMount } from 'svelte';
   import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, ToastMessage, CU } from './lib/types';
   import type { UserAccount, Project, ProjectKey, UserTier } from '../../src/contracts/v3_types';
@@ -105,6 +105,7 @@
   let isAddModalOpen = $state(false);
   let isReportModalOpen = $state(false);
   let isOAuthModalOpen = $state(false);
+  let isLinkGithubModalOpen = $state(false);
   let sessionRights = $state({ privatePool: false, communityPool: false });
   let sessionNotices = $state<string[]>([]);
   let claimableLegacy = $state<string[]>([]);
@@ -351,17 +352,6 @@
     {proxyEndpoint}
   />
 
-  {#if claimableLegacy.length > 0}
-    <ClaimLegacyCard accounts={claimableLegacy} onClaimed={() => void refreshSession()} />
-  {/if}
-
-  {#each sessionNotices as notice}
-    <div data-testid="session-notice" class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200 flex items-center justify-between gap-3">
-      <span>{notice}</span>
-      <LinkGithubButton />
-    </div>
-  {/each}
-
   <!-- Shared Component: SideNavBar (Fixed top 14, left 0, bottom 0, w-64, z-40) -->
   <SideNavBar
     {activeTab}
@@ -376,6 +366,31 @@
 
   <!-- Main Canvas Container with Left Sidebar Offset -->
   <main class="md:ml-64 pt-16 min-h-screen px-4 md:px-8 pb-24 relative z-10">
+    {#if claimableLegacy.length > 0}
+      <div class="mb-4">
+        <ClaimLegacyCard accounts={claimableLegacy} onClaimed={() => void refreshSession()} />
+      </div>
+    {/if}
+
+    {#each sessionNotices as notice}
+      <div
+        data-testid="session-notice"
+        class="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
+      >
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-amber-400 text-lg">info</span>
+          <span>{notice}</span>
+        </div>
+        <button
+          type="button"
+          data-testid="link-github-notice-btn"
+          onclick={() => (isLinkGithubModalOpen = true)}
+          class="shrink-0 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 px-3.5 py-1.5 text-xs font-semibold text-amber-100 transition-colors cursor-pointer"
+        >
+          Link GitHub
+        </button>
+      </div>
+    {/each}
     <!-- TAB 1: Dashboard (Standing Card, Activity, Quick Credentials & Workbench) -->
     {#if activeTab === 'dashboard' || activeTab === 'workbench'}
       <DashboardView
@@ -519,6 +534,12 @@
     isOpen={isOAuthModalOpen}
     onClose={() => (isOAuthModalOpen = false)}
     onSignedIn={() => void refreshSession()}
+  />
+
+  <!-- Link GitHub Modal (from session notice banner) -->
+  <LinkGithubModal
+    isOpen={isLinkGithubModalOpen}
+    onClose={() => (isLinkGithubModalOpen = false)}
   />
 
   <!-- 30s Polling Notification Toasts (T-6.4.8) -->
