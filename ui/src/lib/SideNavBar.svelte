@@ -197,5 +197,20 @@
       <span class="material-symbols-outlined text-[18px]" data-icon="security">security</span>
       <span>Report / Takedown</span>
     </button>
+
+    <!-- Support / GitHub Issues Link -->
+    <a
+      href="https://github.com/Axe-08/Key-Collective/issues"
+      target="_blank"
+      rel="noopener noreferrer"
+      data-testid="nav-link-support"
+      class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container/50 text-label-md font-label-md transition-colors cursor-pointer text-left"
+    >
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-[18px]" data-icon="help">help</span>
+        <span>Support</span>
+      </div>
+      <span class="material-symbols-outlined text-[14px] text-outline">open_in_new</span>
+    </a>
   </div>
 </aside>
