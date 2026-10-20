@@ -163,12 +163,12 @@ describe("forceErrorGcpProbe (T-F.4.1)", () => {
 });
 
 describe("checkProofOfLife", () => {
-  it("sends one minimal Gemini call on gemini-3.5-flash-lite", async () => {
+  it("sends one minimal Gemini call on gemini-3.5-flash", async () => {
     const fetchFn = answer(200, { candidates: [] });
 
     expect(await checkProofOfLife(KEY, "google")).toEqual({ ok: true });
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent");
     expect(JSON.parse(String(init.body)).generationConfig.maxOutputTokens).toBe(1);
   });
 
@@ -209,7 +209,7 @@ describe("checkProofOfLife", () => {
   });
 
   it.each([
-    ["google", 404, { error: { code: 404, message: "models/gemini-3.5-flash-lite is not found", status: "NOT_FOUND" } }],
+    ["google", 404, { error: { code: 404, message: "models/gemini-3.5-flash is not found", status: "NOT_FOUND" } }],
     ["groq", 404, { error: { message: "The model does not exist", type: "invalid_request_error", code: "model_not_found" } }],
     ["groq", 400, { error: { message: "The model has been decommissioned", type: "invalid_request_error", code: "model_decommissioned" } }],
   ])("logs probe_model_unavailable and answers provider_unavailable for %s HTTP %i", async (provider, status, body) => {
@@ -220,7 +220,7 @@ describe("checkProofOfLife", () => {
     expect(await checkProofOfLife(key, provider)).toEqual({ error: "provider_unavailable" });
     const logged = warn.mock.calls.map((c) => String(c[0])).join("\n");
     expect(logged).toContain("probe_model_unavailable");
-    expect(logged).toContain(provider === "groq" ? "openai/gpt-oss-20b" : "gemini-3.5-flash-lite");
+    expect(logged).toContain(provider === "groq" ? "openai/gpt-oss-20b" : "gemini-3.5-flash");
     expect(logged).not.toContain(key);
     warn.mockRestore();
   });

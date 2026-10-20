@@ -25,6 +25,7 @@
 
   interface ContributionData {
     total_keys: number;
+    community_total_keys?: number;
     community_active_keys: number;
     requests_served_for_community_today: number;
     personal_requests_today: number;
@@ -70,6 +71,7 @@
   });
   let contribution = $state<ContributionData>({
     total_keys: 0,
+    community_total_keys: 0,
     community_active_keys: 0,
     requests_served_for_community_today: 0,
     personal_requests_today: 0,
@@ -278,7 +280,7 @@
         <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30">
           <span class="text-[10px] text-outline uppercase block">Active Community Keys</span>
           <span class="text-xl font-bold text-secondary mt-1 block">
-            {contribution.community_active_keys} / {contribution.total_keys}
+            {contribution.community_active_keys} / {contribution.community_total_keys ?? contribution.total_keys}
           </span>
         </div>
 

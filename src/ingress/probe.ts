@@ -13,10 +13,11 @@ export type GcpProbeResult = { projectNumber: string } | { unavailable: string }
 export type ProofOfLife = { ok: true } | { error: "key_no_quota" | "key_invalid" | "provider_unavailable" };
 
 const PROBE_TIMEOUT_MS = 8_000;
-/** Stable, no shutdown announced, cheapest Gemini 3.5 model (PHASEF_PLAN §2). */
-export const PROOF_MODEL_GOOGLE = "gemini-3.5-flash-lite";
+/** Primary fast Gemini model for ingress proof-of-life; verified to answer in <2.5s (PHASEF_PLAN §2). */
+export const PROOF_MODEL_GOOGLE = "gemini-3.5-flash";
 /** Production Groq model; verified to answer 200 with max_tokens: 1 (docs/specs/gcp_probe.md). */
 export const PROOF_MODEL_GROQ = "openai/gpt-oss-20b";
+const PROOF_MODELS_GOOGLE = [PROOF_MODEL_GOOGLE, "gemini-3.6-flash"] as const;
 
 const probeLogger = new Logger({ traceId: "key-ingress-probe", tenantId: "system" });
 
@@ -160,35 +161,44 @@ export async function forceErrorGcpProbe(rawKey: string, provider: string): Prom
 
 export async function checkProofOfLife(rawKey: string, provider: string): Promise<ProofOfLife> {
   const google = isGoogle(provider);
-  const model = google ? PROOF_MODEL_GOOGLE : PROOF_MODEL_GROQ;
-  let res: Response;
-  try {
-    res = google
-      ? await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-goog-api-key": rawKey },
-          body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 1 } }),
-          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-        })
-      : await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${rawKey}` },
-          body: JSON.stringify({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
-          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-        });
-  } catch (err) {
-    probeLogger.warn("probe_network_error", { provider, model, error: err instanceof Error ? err.name : String(err) });
-    return { error: "provider_unavailable" };
-  }
-  if (res.ok) return { ok: true };
-  if (res.status === 429) return { error: "key_no_quota" };
-  if (res.status === 401 || res.status === 403) return { error: "key_invalid" };
+  const models = google ? PROOF_MODELS_GOOGLE : [PROOF_MODEL_GROQ];
 
-  const body = await readErrorBody(res);
-  if (isModelUnavailable(res.status, body)) {
-    probeLogger.warn("probe_model_unavailable", { provider, model, status: res.status });
-    return { error: "provider_unavailable" };
+  let lastError: ProofOfLife = { error: "provider_unavailable" };
+
+  for (const model of models) {
+    let res: Response;
+    try {
+      res = google
+        ? await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-goog-api-key": rawKey },
+            body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 1 } }),
+            signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+          })
+        : await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${rawKey}` },
+            body: JSON.stringify({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+            signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+          });
+    } catch (err) {
+      probeLogger.warn("probe_network_error", { provider, model, error: err instanceof Error ? err.name : String(err) });
+      lastError = { error: "provider_unavailable" };
+      continue;
+    }
+    if (res.ok) return { ok: true };
+    if (res.status === 429) return { error: "key_no_quota" };
+    if (res.status === 401 || res.status === 403) return { error: "key_invalid" };
+
+    const body = await readErrorBody(res);
+    if (isModelUnavailable(res.status, body)) {
+      probeLogger.warn("probe_model_unavailable", { provider, model, status: res.status });
+      lastError = { error: "provider_unavailable" };
+      continue;
+    }
+    if (res.status === 400 && google && isGeminiKeyInvalid(body)) return { error: "key_invalid" };
+    lastError = { error: "provider_unavailable" };
   }
-  if (res.status === 400 && google && isGeminiKeyInvalid(body)) return { error: "key_invalid" };
-  return { error: "provider_unavailable" };
+
+  return lastError;
 }

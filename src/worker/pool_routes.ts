@@ -228,6 +228,7 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
   if (!tenantId || tenantId === 'anonymous' || tenantId === 'default' || tenantId === 'guest') {
     return Response.json({
       total_keys: 0,
+      community_total_keys: 0,
       community_active_keys: 0,
       requests_served_for_community_today: 0,
       personal_requests_today: 0,
@@ -247,13 +248,16 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
   const result = await db.prepare(`
     SELECT
       COUNT(*) as total_keys,
+      SUM(CASE WHEN pool_type = 'COMMUNITY' THEN 1 ELSE 0 END) as community_total_keys,
       SUM(CASE WHEN pool_type = 'COMMUNITY' AND community_routing_status = 'ACTIVE' THEN 1 ELSE 0 END) as community_active_keys
-    FROM api_keys WHERE tenant_id = ?
+    FROM api_keys WHERE tenant_id = ? AND UPPER(status) != 'REVOKED'
   `).bind(tenantId).first<{
     total_keys: number;
+    community_total_keys: number;
     community_active_keys: number;
   }>();
 
+  let coordTotalCommunityKeys = 0;
   let coordActiveKeys = 0;
   let coordDispatchedToday = 0;
   let coordCommunalServed = 0;
@@ -284,6 +288,7 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
         const stub = coordinatorNs.get(coordinatorNs.idFromName(`pool:${shard}`));
         if (typeof stub.ownerStats === 'function') {
           const st = await stub.ownerStats(tenantId);
+          coordTotalCommunityKeys += st.totalCommunityKeys ?? 0;
           coordActiveKeys += st.activeCommunityKeys ?? 0;
           coordDispatchedToday += st.dispatchedToday ?? 0;
           coordCommunalServed += st.dispatchedCommunal ?? 0;
@@ -339,11 +344,17 @@ async function handlePoolContribution(env: WorkerEnv, tenantId: string): Promise
 
   const netCu = contributed - debt;
 
+  const communityTotalKeys = hasCoordinatorStats && coordTotalCommunityKeys > 0
+    ? coordTotalCommunityKeys
+    : (result?.community_total_keys ?? 0);
+  const communityActiveKeys = hasCoordinatorStats && coordActiveKeys > 0
+    ? coordActiveKeys
+    : (result?.community_active_keys ?? 0);
+
   return Response.json({
     total_keys: result?.total_keys ?? 0,
-    community_active_keys: hasCoordinatorStats && coordActiveKeys > 0
-      ? coordActiveKeys
-      : (result?.community_active_keys ?? 0),
+    community_total_keys: communityTotalKeys,
+    community_active_keys: communityActiveKeys,
     requests_served_for_community_today: communalServed,
     personal_requests_today: personalRequestsToday,
     community_debt_cu: debt,
