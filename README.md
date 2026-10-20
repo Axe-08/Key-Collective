@@ -2,7 +2,7 @@
 
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue.svg)](https://www.typescriptlang.org/)
 [![Cloudflare Workers & Durable Objects](https://img.shields.io/badge/Cloudflare-Workers%20%26%20Durable%20Objects-orange.svg)](https://developers.cloudflare.com/workers/)
-[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-304%2F304%20Passed%20(<10s)-brightgreen.svg)](Makefile)
+[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-1152%2F1152%20Passed%20(<10s)-brightgreen.svg)](Makefile)
 [![Zero Plaintext Keys](https://img.shields.io/badge/Security-AES--256--GCM%20Web%20Crypto-blueviolet.svg)](src/crypto/)
 
 Key Collective is a **high-throughput, edge-native AI proxy, community capacity exchange, and quota multiplexer** running globally on Cloudflare Workers and Durable Objects. It federates free-tier and provisioned API keys across frontier AI providers (Google Gemini, GroqCloud, SambaNova, Cerebras) into unified, OpenAI-compatible streaming endpoints (`/v1/chat/completions`) with sub-millisecond failover, continuous credit scoring, and zero cross-tenant state leakage.
@@ -15,23 +15,26 @@ Key Collective is a **high-throughput, edge-native AI proxy, community capacity 
 |---|---|---|
 | **Web Console & Playground** | [console.key-col.axe08.tech](https://console.key-col.axe08.tech/) | Interactive developer console, live testing sandbox, and pool analytics |
 | **API Edge Gateway** | [api.key-col.axe08.tech](https://api.key-col.axe08.tech/) | OpenAI-compatible completions gateway (`/v1/chat/completions`, `/v1/models`) |
-| **Main Portal** | [key-col.axe08.tech](https://key-col.axe08.tech/) | Root custom domain and marketing / entry portal |
 | **Admin Surveillance** | [admin.key-col.axe08.tech](https://admin.key-col.axe08.tech/) | Restricted admin governance & circuit-breaker control plane |
-| **Development Gateway** | [dev.key-col.axe08.tech](https://dev.key-col.axe08.tech/) | Isolated staging and preview edge environment |
+| **Dev API Gateway** | [api-dev.key-col.axe08.tech](https://api-dev.key-col.axe08.tech/v1) | Staging and preview edge completions API |
+| **Dev Console** | [console-dev.key-col.axe08.tech](https://console-dev.key-col.axe08.tech/) | Staging developer console and testing workbench |
+| **Dev Admin** | [admin-dev.key-col.axe08.tech](https://admin-dev.key-col.axe08.tech/) | Staging surveillance and governance control plane |
+| **Main Portal** | [key-col.axe08.tech](https://key-col.axe08.tech/) | Root custom domain and marketing / entry portal |
 
 ---
 
 ## ⚡ Key Capabilities & Architecture Highlights
 
 - **Communal Capacity Exchange:** A cooperative key pool where developers contribute provider keys in exchange for elevated capacity multipliers (`1.5x` up to `4.5x`).
-- **5-Minute Surge Emergency Brake:** The global `PoolCoordinatorDO` monitors communal token consumption and automatically applies a 60-second isolation brake to any tenant whose traffic exceeds **35% of total pool volume** in a rolling 5-minute window.
+- **Commons Economy & 24h Observation Window:** Community-contributed keys undergo an automated 24-hour observation quarantine before on-demand promotion into the active routing pool, protected by community eligibility checks (`community_eligible = 1`).
+- **Normalized Shard Coordination & Cold Reconcile:** The global `PoolCoordinatorDO` enforces deterministic shard addressing (`pool:google`, `pool:groq`), managing state synchronization across distributed isolates with cold-start DO reconciliation.
+- **5-Minute Surge Emergency Brake:** Monitors communal token consumption and automatically applies a 60-second isolation brake to any tenant whose traffic exceeds **35% of total pool volume** in a rolling 5-minute window.
 - **Graduated Jail Demotion Cycle:** Contributor standing evaluates Community Debt against Contributed Capacity:
   - `PRISTINE` ($\text{Debt} / \text{Contributed} \le 0.50$): Full capacity multipliers and burst headroom.
   - `SOFT_WARNING` ($0.50 < \text{Debt} / \text{Contributed} \le 1.00$): Multiplier frozen, warning surfaced.
   - `HARD_JAIL` ($\text{Debt} / \text{Contributed} > 1.00$): Clamped to probationary bounds (2 RPM / 50 RPD).
-- **Dedicated Interactive Playground:** Full-featured testing bench in the web console (`ui/src/lib/Playground.svelte`) with real-time SSE streaming inspection, latency profiling, dynamic model discovery via `/v1/models`, and instant overview telemetry synchronization.
-- **Developer Workbench:** Project-level isolation with virtual client API keys, custom sub-caps, and per-project usage telemetry.
-- **Zero-Mock Real Telemetry:** All dashboard counters, latency charts, and ledger balances reflect ground-truth production traffic and live response headers (`x-request-cost-micros`).
+- **Dedicated Interactive Playground & Developer Workbench:** Full-featured testing bench in the web console (`ui/src/lib/Playground.svelte`) with real-time SSE streaming inspection, latency profiling, dynamic model discovery via `/v1/models`, virtual client API keys, sub-caps, and responsive mobile navigation.
+- **Zero-Mock Production Telemetry:** Real-time analytics rollups aggregating live D1 SQL transactions and response headers (`x-request-cost-cu`), eliminating synthetic counters across dashboard and admin surveillance planes.
 
 ---
 
@@ -109,7 +112,7 @@ The proxy maps logical aliases to canonical models and automatically falls back 
 # Install root and UI dependencies
 make setup
 
-# Run strict typecheck and all 304 automated tests in <10s
+# Run strict typecheck and all 1,152 automated tests in <10s
 make gate
 ```
 

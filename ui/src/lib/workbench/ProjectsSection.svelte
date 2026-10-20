@@ -131,7 +131,7 @@
           <div class="flex justify-between items-center font-code-sm text-code-sm font-mono">
             <span class="text-on-surface-variant">Assigned RPM Sub-cap</span>
             <span class="text-on-surface font-medium">
-              <span data-testid="project-rpm">{assignedRpm ?? '—'} / {maxCap ?? 'tier limit'} RPM</span>
+              <span data-testid="project-rpm">{assignedRpm ?? '—'} / {maxCap ?? 'Unlimited'} RPM</span>
               <span class="font-bold {rpmPercent >= 50 ? 'text-primary' : 'text-secondary'}">
                 ({rpmPercent}%)
               </span>

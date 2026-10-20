@@ -27,10 +27,11 @@ export function getTierLimits(tier: UserTier): TierLimits {
 }
 
 /**
- * Calculates the effective project RPM quota, ensuring that any configured
- * projectMaxSubCap does not exceed the root limit of the tenant tier.
+ * Calculates the effective project RPM quota.
  *
- * Applies Math.min(tenantLimit, projectMaxSubCap) logic when a sub-cap is provided.
+ * When a project-specific sub-cap is provided, it honors it directly so tenants
+ * can partition their capacity across virtual applications. If no sub-cap is
+ * configured, it falls back to the tenant's tier limit.
  *
  * @param tenantTier - The tier of the root tenant.
  * @param projectMaxSubCap - Optional project-specific sub-cap on RPM.
@@ -40,13 +41,15 @@ export function calculateProjectQuota(
   tenantTier: UserTier,
   projectMaxSubCap?: number | null
 ): number {
-  const tenantLimit = getTierLimits(tenantTier).rpmLimit;
-
-  if (projectMaxSubCap !== undefined && projectMaxSubCap !== null) {
-    return Math.min(tenantLimit, projectMaxSubCap);
+  if (tenantTier === "suspended") {
+    return 0;
   }
 
-  return tenantLimit;
+  if (projectMaxSubCap !== undefined && projectMaxSubCap !== null && projectMaxSubCap >= 0) {
+    return projectMaxSubCap;
+  }
+
+  return getTierLimits(tenantTier).rpmLimit;
 }
 
 export { TIER_LIMITS_MAP };

@@ -22,7 +22,6 @@
   } from './workbench/formatters';
 
   import IdentityCard from './workbench/IdentityCard.svelte';
-  import TierMatrixSection from './workbench/TierMatrixSection.svelte';
   import ProjectsSection from './workbench/ProjectsSection.svelte';
   import ProviderKeysSection from './workbench/ProviderKeysSection.svelte';
   import KeysSection from './workbench/KeysSection.svelte';
@@ -474,13 +473,7 @@
     onCreateKeyClick={() => (showNewKeyModal = true)}
   />
 
-  <!-- 2. Quota Hierarchy & Governance Tiers Matrix -->
-  <TierMatrixSection
-    tierMatrix={TIER_MATRIX}
-    {selectedTier}
-  />
-
-  <!-- 3. Multi-Project Management Section -->
+  <!-- 2. Multi-Project Management Section -->
   <ProjectsSection
     projects={filteredProjects}
     {projectFilter}

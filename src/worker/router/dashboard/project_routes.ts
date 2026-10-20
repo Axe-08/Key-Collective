@@ -11,8 +11,6 @@
  * - Strict TypeScript (zero `any`).
  */
 
-import { calculateProjectQuota } from "../../../quota/limits";
-import type { UserTier } from "../../../contracts/v3_types";
 import type { D1Database } from "@cloudflare/workers-types";
 import type { WorkerEnv } from "../../auth/types";
 import { toEpochMs } from "../../../utils/time";
@@ -340,7 +338,7 @@ export async function handleUpdateProject(
     const newDesc = body.description !== undefined ? (typeof body.description === "string" ? body.description.trim() : null) : existing.description;
 
     // rpm_sub_cap: absent keeps the stored value, null clears it, a number must not exceed the
-    // owner's tier RPM limit (400 SUB_CAP_ABOVE_TIER, shown inline by the Workbench).
+    // platform maximum of 10,000 RPM (400 SUB_CAP_TOO_HIGH).
     let subCapSql = "rpm_sub_cap";
     const subCapParams: unknown[] = [];
     if (body.rpm_sub_cap === null) {
@@ -349,10 +347,9 @@ export async function handleUpdateProject(
       if (typeof body.rpm_sub_cap !== "number" || !Number.isInteger(body.rpm_sub_cap) || body.rpm_sub_cap < 1) {
         return errorResponse("rpm_sub_cap must be a positive integer", "BAD_REQUEST", 400);
       }
-      const owner = await db.prepare("SELECT tier FROM users WHERE id = ?").bind(existing.tenant_id).first<{ tier: string }>();
-      const tierMax = calculateProjectQuota((owner?.tier ?? "builder") as UserTier);
-      if (body.rpm_sub_cap > tierMax) {
-        return errorResponse(`RPM sub-cap exceeds your tier maximum of ${tierMax}`, "SUB_CAP_ABOVE_TIER", 400);
+      // Enforce an absolute platform sanity ceiling (10,000 RPM) rather than owner.tier
+      if (body.rpm_sub_cap > 10_000) {
+        return errorResponse("rpm_sub_cap exceeds the platform maximum of 10,000 RPM", "SUB_CAP_TOO_HIGH", 400);
       }
       subCapSql = "?";
       subCapParams.push(body.rpm_sub_cap);

@@ -229,36 +229,112 @@ export async function handleAdminRequest(
       body = (await request.json()) as { pool_type?: 'COMMUNITY' | 'PRIVATE' };
     } catch { /* ignore */ }
 
-    const targetPool = body.pool_type === 'PRIVATE' ? 'PRIVATE' : 'COMMUNITY';
     const db = (env.DB || env.D1_DB) as D1Database | undefined;
-    if (db && typeof db.prepare === "function") {
-      await db
-        .prepare("UPDATE api_keys SET pool_type = ? WHERE id = ?")
-        .bind(targetPool, targetKeyId)
-        .run();
-
-      try {
-        const auditId = crypto.randomUUID();
-        await db
-          .prepare(
-            "INSERT INTO admin_audit_logs (id, admin_email, action, target, details_json, ip_address) VALUES (?, ?, ?, ?, ?, ?)"
-          )
-          .bind(
-            auditId,
-            "admin@keycollective.ai",
-            "KEY_POOL_MODE_SWITCH",
-            targetKeyId,
-            JSON.stringify({ pool_type: targetPool }),
-            request.headers.get("cf-connecting-ip") || "127.0.0.1"
-          )
-          .run();
-      } catch { /* ignore */ }
+    if (!db || typeof db.prepare !== "function") {
+      const unavailable = Response.json(
+        { error: "database_unavailable", message: "Database unavailable" },
+        { status: 503 }
+      );
+      return options.cors !== false ? applyCors(unavailable) : unavailable;
     }
+
+    const existing = await db
+      .prepare("SELECT id, tenant_id, pool_type, provider FROM api_keys WHERE id = ?")
+      .bind(targetKeyId)
+      .first<{ id: string; tenant_id: string; pool_type: string; provider: string }>();
+
+    if (!existing) {
+      const notFoundRes = Response.json(
+        { error: "key_not_found", message: "Key not found" },
+        { status: 404 }
+      );
+      return options.cors !== false ? applyCors(notFoundRes) : notFoundRes;
+    }
+
+    // INVARIANT: Admins can never convert a tenant's PRIVATE key to COMMUNITY
+    if (existing.pool_type === "PRIVATE" && body.pool_type === "COMMUNITY") {
+      const forbiddenRes = Response.json(
+        {
+          error: {
+            code: "FORBIDDEN_POOL_CONVERSION",
+            message:
+              "Admins cannot convert private tenant keys to community keys. Only the key owner may consent to pool contribution.",
+          },
+        },
+        { status: 403 }
+      );
+      return options.cors !== false ? applyCors(forbiddenRes) : forbiddenRes;
+    }
+
+    // If already in target pool, no-op
+    if (existing.pool_type === body.pool_type) {
+      const res = Response.json({
+        success: true,
+        key_id: targetKeyId,
+        pool_type: existing.pool_type,
+      });
+      return options.cors !== false ? applyCors(res) : res;
+    }
+
+    // Administrative Ejection: COMMUNITY -> PRIVATE
+    const now = Date.now();
+    await db
+      .prepare(
+        "UPDATE api_keys SET pool_type = 'PRIVATE', community_routing_status = NULL, observation_until = NULL, status_changed_at = ? WHERE id = ?"
+      )
+      .bind(now, targetKeyId)
+      .run();
+
+    // Notify Coordinator Shard to immediately purge key from routing rotation
+    try {
+      const coordNs = env.POOL_COORDINATOR as unknown as {
+        idFromName?: (name: string) => { toString: () => string };
+        get?: (id: unknown) => { removeKey?: (keyId: string) => Promise<unknown> };
+      };
+      const canonProvider =
+        existing.provider === "google" || existing.provider === "gemini" ? "google" : existing.provider;
+      if (coordNs && typeof coordNs.idFromName === "function" && typeof coordNs.get === "function") {
+        const stub = coordNs.get(coordNs.idFromName(`pool:${canonProvider}`));
+        if (typeof stub.removeKey === "function") {
+          await stub.removeKey(targetKeyId);
+        }
+      }
+    } catch {
+      /* coordinator best-effort */
+    }
+
+    // Reconcile Owner's KeyPoolDO
+    try {
+      const keyPoolNs = env.KEY_POOL as unknown as {
+        idFromName?: (name: string) => { toString: () => string };
+        get?: (id: unknown) => { reconcile?: (tenantId: string) => Promise<unknown> };
+      };
+      if (keyPoolNs && typeof keyPoolNs.idFromName === "function" && typeof keyPoolNs.get === "function") {
+        const stub = keyPoolNs.get(keyPoolNs.idFromName(existing.tenant_id));
+        if (typeof stub.reconcile === "function") {
+          await stub.reconcile(existing.tenant_id);
+        }
+      }
+    } catch {
+      /* keypool best-effort */
+    }
+
+    // Audit Log
+    const actor = await getAdminActor(request, db);
+    const clientIp = request.headers.get("cf-connecting-ip") || "127.0.0.1";
+    await logAdminAudit(
+      db,
+      actor,
+      "KEY_EJECT_COMMUNITY_TO_PRIVATE",
+      targetKeyId,
+      { previous_pool: "COMMUNITY", new_pool: "PRIVATE", reason: "Administrative ejection" },
+      clientIp
+    );
 
     const res = Response.json({
       success: true,
       key_id: targetKeyId,
-      pool_type: targetPool,
+      pool_type: "PRIVATE",
     });
     return options.cors !== false ? applyCors(res) : res;
   }

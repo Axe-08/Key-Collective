@@ -3,7 +3,7 @@
  *
  * Invariants Tested:
  * 1. name, description, rpm_sub_cap and is_archived are stored (the handler used to echo them).
- * 2. rpm_sub_cap above the owner's tier RPM limit → 400 SUB_CAP_ABOVE_TIER.
+ * 2. rpm_sub_cap above platform sanity ceiling (10,000) → 400 SUB_CAP_TOO_HIGH.
  * 3. Another tenant's project → 404.
  * 4. Deleting a project unbinds its tokens instead of failing on the foreign key.
  */
@@ -58,20 +58,24 @@ describe("PATCH /api/projects/:id", () => {
     expect(list.find((p) => p.id === id)).toMatchObject({ rpm_sub_cap: 2, is_archived: 1 });
   });
 
-  it("refuses a sub-cap above the tier RPM limit with 400 and can clear it", async () => {
+  it("allows sub-caps beyond builder tier limit up to platform maximum of 10,000 RPM, refuses above 10,000 with 400, and clears with null", async () => {
     const user = await createUser({ tier: "builder" });
     const id = await project(user.id);
     const call = await as(user);
-    const tierLimit = getTierLimits("builder").rpmLimit;
 
-    const tooHigh = await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: tierLimit + 1 });
+    // Sub-cap above builder tier limit (e.g. 50 RPM) is permitted (ISSUE-15)
+    const validHigh = await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: 50 });
+    expect(validHigh.status).toBe(200);
+    expect(await validHigh.json()).toMatchObject({ rpm_sub_cap: 50 });
+    expect((await stored(id))?.rpm_sub_cap).toBe(50);
+
+    // Sub-cap above platform ceiling (10,000 RPM) is refused
+    const tooHigh = await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: 10_001 });
     expect(tooHigh.status).toBe(400);
-    expect(await tooHigh.json()).toMatchObject({ error: { code: "SUB_CAP_ABOVE_TIER" } });
-    expect((await stored(id))?.rpm_sub_cap).toBeNull();
+    expect(await tooHigh.json()).toMatchObject({ error: { code: "SUB_CAP_TOO_HIGH" } });
+    expect((await stored(id))?.rpm_sub_cap).toBe(50);
 
-    await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: tierLimit });
-    expect((await stored(id))?.rpm_sub_cap).toBe(tierLimit);
-
+    // Can clear with null
     await call(`/api/projects/${id}`, "PATCH", { rpm_sub_cap: null });
     expect((await stored(id))?.rpm_sub_cap).toBeNull();
   });

@@ -42,23 +42,21 @@ describe('src/quota/limits.ts', () => {
       expect(calculateProjectQuota('admin', null)).toBe(Infinity);
     });
 
-    it('applies Math.min(tenantLimit, projectMaxSubCap) when sub-cap is lower than tenant limit', () => {
+    it('honors projectMaxSubCap directly when configured', () => {
       expect(calculateProjectQuota('builder', 5)).toBe(5);
+      expect(calculateProjectQuota('builder', 50)).toBe(50);
       expect(calculateProjectQuota('max', 30)).toBe(30);
+      expect(calculateProjectQuota('max', 100)).toBe(100);
       expect(calculateProjectQuota('admin', 100)).toBe(100);
       expect(calculateProjectQuota('ultra', 500)).toBe(500);
       expect(calculateProjectQuota('probationary', 1)).toBe(1);
+      expect(calculateProjectQuota('probationary', 10)).toBe(10);
     });
 
-    it('clamps to tenant root limit when projectMaxSubCap exceeds tenant limit', () => {
-      // Builder root limit is 20 RPM
-      expect(calculateProjectQuota('builder', 50)).toBe(20);
-      // Max root limit is 60 RPM
-      expect(calculateProjectQuota('max', 100)).toBe(60);
-      // Probationary root limit is 2 RPM
-      expect(calculateProjectQuota('probationary', 10)).toBe(2);
-      // Suspended root limit is 0 RPM
+    it('always yields 0 for suspended tenants regardless of sub-cap', () => {
+      expect(calculateProjectQuota('suspended')).toBe(0);
       expect(calculateProjectQuota('suspended', 10)).toBe(0);
+      expect(calculateProjectQuota('suspended', null)).toBe(0);
     });
 
     it('correctly handles edge case of 0 sub-cap', () => {

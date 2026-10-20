@@ -371,15 +371,17 @@
                                       </button>
                                     {/if}
 
-                                    <!-- Switch Pool Mode (COMMUNITY <-> PRIVATE) -->
-                                    <button
-                                      type="button"
-                                      onclick={() => onUpdateKeyPoolMode?.(k.id, k.pool_type === 'COMMUNITY' ? 'PRIVATE' : 'COMMUNITY')}
-                                      class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-on-surface text-[11px] border border-outline-variant/30 cursor-pointer transition-colors"
-                                      title="Switch key between Community and Private pool"
-                                    >
-                                      {k.pool_type === 'COMMUNITY' ? 'To Private' : 'To Community'}
-                                    </button>
+                                    <!-- Eject Community Key to Private (Admins cannot donate private keys) -->
+                                    {#if k.pool_type === 'COMMUNITY'}
+                                      <button
+                                        type="button"
+                                        onclick={() => onUpdateKeyPoolMode?.(k.id, 'PRIVATE')}
+                                        class="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-[11px] border border-amber-500/30 cursor-pointer transition-colors"
+                                        title="Eject key from community pool to private"
+                                      >
+                                        Eject to Private
+                                      </button>
+                                    {/if}
 
                                     <!-- Delete Key -->
                                     <button

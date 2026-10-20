@@ -101,7 +101,8 @@ describe('T-F.7.4 honest project-key actions (QA-14)', () => {
 
     row!.querySelector<HTMLButtonElement>('button')!.click();
     flushSync();
-    const actions = Array.from(row!.querySelectorAll('button')).map((b) => b.textContent?.trim() ?? '').filter(Boolean);
+    const menu = document.querySelector('.fixed.w-36');
+    const actions = Array.from(menu?.querySelectorAll('button') ?? []).map((b) => b.textContent?.trim() ?? '').filter(Boolean);
     expect(actions.some((a) => a.endsWith('Revoke'))).toBe(true);
     expect(actions.some((a) => /Force Delete|Reactivate|Delete$/.test(a))).toBe(false);
     unmount(wb);
@@ -120,23 +121,13 @@ describe('T-F.7.4 honest project-key actions (QA-14)', () => {
   });
 });
 
-describe('T-F.7.1 tier cards are read-only (QA-04)', () => {
-  it('renders tier cards without buttons, and clicking one does not change the active tier', async () => {
+describe('T-F.7.1 tier matrix retired from Workbench (QA-04 & ISSUE-15)', () => {
+  it('does not render obsolete tier cards in Workbench', async () => {
     const wb = mount(Workbench, { target: document.body, props: { userAccount: account } });
     await settle();
 
     const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="tier-card"]'));
-    expect(cards.length).toBeGreaterThan(0);
-    for (const card of cards) {
-      expect(card.tagName).not.toBe('BUTTON');
-      expect(card.closest('button')).toBeNull();
-    }
-    const probationary = cards.find((c) => c.textContent?.includes('Probationary'));
-    probationary?.click();
-    flushSync();
-    const active = cards.filter((c) => c.textContent?.includes('CURRENT ACTIVE TIER'));
-    expect(active.length).toBe(1);
-    expect(active[0].textContent).toContain('Builder');
+    expect(cards.length).toBe(0);
     unmount(wb);
   });
 
