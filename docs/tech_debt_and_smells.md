@@ -276,3 +276,27 @@ Due to the presence of an active **Inter-Package Dependency Cycle** (`proxy <-> 
 > **Workflow 9: SOTA Codebase Decoupler & Zero-Breakage Modular Refactorer**
 
 Workflow 9 provides automated AST extractions, mathematical instability analysis ($I = C_e / (C_a + C_e)$), baseline characterization safety nets, and atomic Git rollback guards to safely untangle these cycles without regressions.
+
+---
+
+## 8. Emerging Architectural & Security Debt: Google AI Studio Scoped Tokens (`AQ.`) & Static Project Hash Invalidation
+
+### 8.1 Symptom & Context
+- **Legacy Pattern:** Key Collective originally relied on static side-channel probing (`forceErrorGcpProbe` in `src/ingress/probe.ts`) against Translation v2 and YouTube v3 APIs to extract Google Cloud Project numbers from `AIzaSy...` keys and enforce cross-tenant uniqueness via `project_hash_registry`.
+- **Obsolescence:** Google AI Studio transitioned to scoped OAuth2 / service tokens formatted as `AQ.[A-Za-z0-9_-]{51}` (54 chars). These tokens are strictly scoped to `generativelanguage.googleapis.com` and reject side-channel probes with generic 400/401 errors that contain zero project metadata.
+- **Architectural Debt:**
+  1. `provider_project_hash` in `api_keys` evaluates to `NULL` for modern `AQ.` tokens.
+  2. Static pre-registration uniqueness and rotation validation cannot differentiate between two `AQ.` tokens originating from the same underlying GCP project vs different projects.
+  3. Risk: Malicious or unknowing users can register multiple keys from the same upstream quota bucket, creating co-dependent capacity units that co-trip upstream 429 rate limits.
+
+### 8.2 Current Production Mitigation
+- **Identity Gating:** Strict GitHub Sybil verification (account age $\ge 60$d, $\ge 15$ commits, public repos, ASN checks) prevents large-scale multi-account generation.
+- **Observation Quarantine:** 24-hour observation window (FR-07) isolates newly contributed keys before pool inclusion.
+- **Durable Object Circuit Breakers:** Upstream 429 errors instantly trip `KeyPoolDO` circuit breakers into `COOLDOWN` backed by transactional storage.
+- **Fairness Jail:** Congestion-gated debt and Quota Jail penalize abusive or frequently throttled tenants.
+- **Policy Invariant:** Existing `project_hash_registry` logic is maintained without regressions for legacy `AIzaSy...` keys.
+
+### 8.3 Target Remediation (Phase 5 / v4.1)
+- Formally documented in [ADR-006: Modern Google AI Studio Scoped Tokens (`AQ.`) & Runtime Quota Co-Tripping Detection](file:///home/akshit/Projects/Key%20Collective/docs/adr/006-modern-aq-key-quota-clustering.md).
+- Implement sliding-window Pearson co-tripping correlation in `PoolCoordinatorDO` to dynamically detect keys that simultaneously trigger upstream 429s, grouping them into virtual `QuotaCluster` buckets with unified pacing.
+

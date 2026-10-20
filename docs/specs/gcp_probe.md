@@ -64,3 +64,24 @@ Gemini answers an invalid key with HTTP **400** `INVALID_ARGUMENT`, `ErrorInfo.r
   - Aliases: `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest`.
 - **Groq chat models:** `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`, `allam-2-7b`.
   - `llama-3.3-70b-versatile` is **not** offered to this key, although Groq's docs page still lists it.
+
+---
+
+## Addendum (2026-10-21): Modern Google AI Studio Scoped Tokens (`AQ...`) & Probe Limitations
+
+### Upstream Token Format Change
+In late 2024 / 2025, Google AI Studio began issuing scoped OAuth2 / service tokens formatted as `AQ.[A-Za-z0-9_-]{51}` (54 characters total), in addition to legacy GCP API keys formatted as `AIzaSy...` (39 characters).
+
+### Probe Behavior for `AQ.` Tokens
+1. **Translation v2 & YouTube v3 Probes:**
+   - When an `AQ.` token is sent in `x-goog-api-key`, Google Cloud API Gateway rejects the token with HTTP 400 `INVALID_ARGUMENT` or HTTP 401 `CREDENTIALS_MISSING`.
+   - The response **does not include** `ErrorInfo.metadata.consumer` (`projects/<NUM>`), `containerInfo`, or activation URLs.
+   - Probing returns `null` project hash.
+2. **Database Invariant Impact:**
+   - In D1, `api_keys.provider_project_hash` is `NULL` for `AQ.` keys (identical to Groq, Cerebras, and SambaNova keys).
+   - `project_hash_registry` is not populated for `AQ.` keys.
+   - Consequently, static pre-registration project collision detection (`409 project_mismatch`) cannot be evaluated at registration or key rotation time for `AQ.` keys.
+3. **Architectural Resolution:**
+   - Retain existing `project_hash_registry` schema and probe logic for legacy `AIzaSy...` keys.
+   - See [ADR-006: Modern Google AI Studio Scoped Tokens (`AQ.`) & Runtime Quota Co-Tripping Detection](file:///home/akshit/Projects/Key%20Collective/docs/adr/006-modern-aq-key-quota-clustering.md) for the runtime telemetric cluster inference roadmap.
+

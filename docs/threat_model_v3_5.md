@@ -42,3 +42,12 @@
 ### 2.6 Elevation of Privilege
 * **Threat:** Tenant creates a project with `maxRpmSubCap = 1000` to exceed their account ceiling.
 * **Mitigation:** Deterministic clamping inside `KeyPoolDO`: `effectiveRpm = min(project.subCap, tierLimits[user.tier].rpmLimit)`. The Durable Object enforces the account ceiling regardless of project configuration.
+
+### 2.7 Sybil Quota Evasion via Scoped Bearer Tokens (`AQ...`)
+* **Threat:** Contributor generates multiple Google AI Studio keys (`AQ...`) under the same underlying GCP project/account and registers them across multiple accounts or rotations to multiply capacity allocation without providing genuine isolated upstream quota.
+* **Mitigation:** Multi-layered defense:
+  1. *Identity Gate:* GitHub account age ($\ge 60$d), commit count ($\ge 15$), and ASN reputation prevent bulk account farming.
+  2. *Observation Sandbox:* 24h quarantine (FR-07) isolates newly contributed keys before pool routing.
+  3. *Circuit Breaker Containment:* Upstream 429 errors instantly trip `KeyPoolDO` circuit breakers to `COOLDOWN` in transactional storage.
+  4. *Runtime Quota Co-Tripping Detection (ADR-006):* Telemetric Pearson correlation in `PoolCoordinatorDO` detects simultaneous 429s across keys and dynamically binds them to a single virtual `QuotaCluster` with unified 15 RPM pacing.
+
