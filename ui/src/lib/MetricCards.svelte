@@ -12,8 +12,25 @@
     cuUsedToday?: number;
   } = $props();
 
+  let liveStats = $state<PoolStats | null>(null);
+  let isFetchingStats = $state(false);
+
+  async function fetchStats() {
+    isFetchingStats = true;
+    try {
+      const res = await fetch('/api/stats');
+      if (res.ok) {
+        liveStats = await res.json();
+      }
+    } catch (err) {
+      console.error('Failed to fetch /api/stats:', err);
+    } finally {
+      isFetchingStats = false;
+    }
+  }
+
   const effectiveStats = $derived(
-    stats ?? {
+    liveStats ?? stats ?? {
       total_keys: 0,
       healthy_keys: 0,
       rate_limited_keys: 0,
@@ -53,9 +70,11 @@
 
   // Credit Unit (CU) Accounting & Spend Ring Calculations
   const cuUsed = $derived(
-    cuUsedToday !== undefined && cuUsedToday > 0
-      ? cuUsedToday
-      : (effectiveStats.cu_used_today ?? 0)
+    liveStats?.cu_used_today !== undefined
+      ? liveStats.cu_used_today
+      : (cuUsedToday !== undefined && cuUsedToday > 0
+          ? cuUsedToday
+          : (effectiveStats.cu_used_today ?? 0))
   );
   const cuAllowance = $derived(effectiveStats.cu_allowance_today ?? 0);
   const spendRatio = $derived(
@@ -93,7 +112,19 @@
   <div class="specular-border rounded-xl p-4 bg-surface-container-low/70 backdrop-blur-xl border border-outline-variant/30 relative overflow-hidden group hover:border-outline-variant/60 transition-all">
     <div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-2">
       <span class="tracking-wider uppercase font-medium">TOTAL MANAGED KEYS</span>
-      <span class="material-symbols-outlined text-[16px] text-primary" data-icon="vpn_key">vpn_key</span>
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          data-testid="refresh-stats-btn"
+          onclick={fetchStats}
+          class="text-outline hover:text-on-surface transition-colors cursor-pointer flex items-center"
+          title="Refresh stats"
+          aria-label="Refresh stats"
+        >
+          <span class="material-symbols-outlined {isFetchingStats ? 'animate-spin' : ''}">refresh</span>
+        </button>
+        <span class="material-symbols-outlined text-[16px] text-primary" data-icon="vpn_key">vpn_key</span>
+      </div>
     </div>
     <div class="flex items-baseline gap-2 mb-3">
       <span class="text-headline-lg font-headline-lg font-semibold text-on-surface font-mono">{totalKeys}</span>
