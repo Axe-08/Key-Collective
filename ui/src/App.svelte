@@ -300,33 +300,6 @@
 
       void refreshSession();
     }
-
-    let pollIntervalId: ReturnType<typeof setInterval>;
-    
-    function updatePollInterval() {
-      if (pollIntervalId) clearInterval(pollIntervalId);
-      let freqStr = localStorage.getItem('telemetryPollFreq') || '3s';
-      let freqMs = parseInt(freqStr.replace('s', '')) * 1000;
-      if (isNaN(freqMs)) freqMs = 3000;
-
-      pollIntervalId = setInterval(() => {
-        if (autoRefresh && (activeTab === 'dashboard' || activeTab === 'pool')) {
-          loadData();
-        }
-      }, freqMs);
-    }
-
-    updatePollInterval();
-
-    const handleStorage = () => updatePollInterval();
-    window.addEventListener('settings-updated', handleStorage);
-    window.addEventListener('storage', handleStorage);
-
-    return () => {
-      clearInterval(pollIntervalId);
-      window.removeEventListener('settings-updated', handleStorage);
-      window.removeEventListener('storage', handleStorage);
-    };
   });
 </script>
 

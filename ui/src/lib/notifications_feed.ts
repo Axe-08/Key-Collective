@@ -21,11 +21,10 @@ async function refresh(): Promise<void> {
 export const notificationsFeed = {
   subscribe: items.subscribe,
   refresh,
-  /** Starts polling and returns the stop function. */
-  start(intervalMs = NOTIFICATION_POLL_MS): () => void {
+  /** Starts notifications feed and returns the cleanup function. */
+  start(_intervalMs = NOTIFICATION_POLL_MS): () => void {
     void refresh();
-    const timer = setInterval(() => void refresh(), intervalMs);
-    return () => clearInterval(timer);
+    return () => {};
   },
   markReadLocally(id: string): void {
     const now = Date.now();

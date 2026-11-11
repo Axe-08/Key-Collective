@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mount, tick, unmount } from 'svelte';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -169,3 +169,44 @@ describe('App identity mapping (WP-F.5, QA-03, QA-09)', () => {
     unmount(app);
   });
 });
+
+describe('App background polling (WP-1.1)', () => {
+  afterEach(() => {
+    server.resetHandlers();
+    document.body.innerHTML = '';
+  });
+
+  it('mounts App.svelte in JSDOM, advances fake timers by 60s, and verifies fetch is called 0 times while idle', async () => {
+    useSession(
+      {
+        id: 'usr_idle_tester',
+        email: 'idle@example.com',
+        tier: 'builder',
+        role: 'user',
+      },
+      { privatePool: true, communityPool: false }
+    );
+
+    vi.useFakeTimers();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const app = mount(App, { target: document.body });
+
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(10);
+      await tick();
+    }
+
+    fetchSpy.mockClear();
+
+    try {
+      vi.advanceTimersByTime(60_000);
+      await tick();
+      expect(fetchSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+      fetchSpy.mockRestore();
+      unmount(app);
+    }
+  });
+});
+
