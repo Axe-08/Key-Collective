@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { sessionAuthTransport } from "./api/client";
   import type { PoolStats, APIKey } from './types';
   import { type CU, formatCu } from './types';
 
@@ -13,33 +12,8 @@
     cuUsedToday?: number;
   } = $props();
 
-  let liveStats = $state<PoolStats | null>(null);
-
-  // Session cookie travels by default (same-origin); mutations need the CSRF header (WP-3.4).
-  function getAuthHeaders(): Record<string, string> {
-    return sessionAuthTransport.getHeaders('POST');
-  }
-
-  async function fetchStats() {
-    try {
-      const res = await fetch('/api/stats', { headers: getAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        liveStats = data;
-      }
-    } catch (err) {
-      console.error('Failed to fetch /api/stats:', err);
-    }
-  }
-
-  $effect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 5000);
-    return () => clearInterval(interval);
-  });
-
   const effectiveStats = $derived(
-    liveStats ?? stats ?? {
+    stats ?? {
       total_keys: 0,
       healthy_keys: 0,
       rate_limited_keys: 0,
