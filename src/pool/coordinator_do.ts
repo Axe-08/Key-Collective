@@ -159,6 +159,11 @@ export class PoolCoordinatorDO extends DurableObject<WorkerEnv> {
 
   constructor(ctx: DurableObjectState, env: WorkerEnv = {}) {
     super(ctx, env);
+    const idName = (this.ctx.id as { name?: string }).name;
+    if (idName?.startsWith("pool:")) {
+      const canonicalProvider = canonicalCoordinatorProvider(idName.slice(5));
+      this.setMeta("provider", canonicalProvider);
+    }
     const bootstrapAlarm = async () => {
       if (
         typeof this.ctx.storage?.getAlarm === "function" &&
