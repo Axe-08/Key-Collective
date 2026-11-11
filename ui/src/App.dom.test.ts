@@ -211,14 +211,15 @@ describe('App background polling (WP-1.1)', () => {
   });
 });
 
-describe('Telemetry and cache refresh controls (WP-1.3)', () => {
+describe('Telemetry and cache refresh controls (WP-1.3, WP-4.1)', () => {
   afterEach(() => {
     server.resetHandlers();
     document.body.innerHTML = '';
   });
 
-  it('clicking data-testid="refresh-logs-btn" executes fetch to /api/logs', async () => {
+  it('clicking data-testid="refresh-logs-btn" dispatches fetch to /api/logs and updates telemetry', async () => {
     let logsFetched = false;
+    let telemetryUpdated = false;
     server.use(
       http.get('http://localhost/api/logs', () => {
         logsFetched = true;
@@ -231,8 +232,9 @@ describe('Telemetry and cache refresh controls (WP-1.3)', () => {
       props: {
         logs: [],
         autoRefresh: false,
-        onRefresh: () => {
-          void fetch('http://localhost/api/logs');
+        onRefresh: async () => {
+          await fetch('http://localhost/api/logs');
+          telemetryUpdated = true;
         },
       },
     });
@@ -244,6 +246,34 @@ describe('Telemetry and cache refresh controls (WP-1.3)', () => {
     await settle();
 
     expect(logsFetched).toBe(true);
+    expect(telemetryUpdated).toBe(true);
+    unmount(comp);
+  });
+
+  it('clicking data-testid="refresh-logs-btn" without onRefresh dispatches api.getLogs with force: true', async () => {
+    let apiLogsFetched = false;
+    server.use(
+      http.get('http://localhost/api/logs', () => {
+        apiLogsFetched = true;
+        return HttpResponse.json([]);
+      })
+    );
+
+    const comp = mount(TelemetryLogs, {
+      target: document.body,
+      props: {
+        logs: [],
+        autoRefresh: false,
+      },
+    });
+    await settle();
+
+    const refreshBtn = document.querySelector('[data-testid="refresh-logs-btn"]') as HTMLButtonElement | null;
+    expect(refreshBtn).not.toBeNull();
+    refreshBtn?.click();
+    await settle();
+
+    expect(apiLogsFetched).toBe(true);
     unmount(comp);
   });
 
@@ -279,7 +309,18 @@ describe('Telemetry and cache refresh controls (WP-1.3)', () => {
           cu_used_today: 0,
           cu_allowance_today: 10000,
         })
-      )
+      ),
+      http.get('http://localhost/api/pool/contribution', () =>
+        HttpResponse.json({
+          personal_requests_today: 0,
+          requests_served_for_community_today: 0,
+          cu_contributed_24h: 0,
+          cu_borrowed_24h: 0,
+        })
+      ),
+      http.get('http://localhost/api/projects', () => HttpResponse.json([])),
+      http.get('http://localhost/api/projects/*/keys', () => HttpResponse.json([])),
+      http.get('http://localhost/api/tokens', () => HttpResponse.json([]))
     );
 
     vi.useFakeTimers();
@@ -342,7 +383,18 @@ describe('Telemetry and cache refresh controls (WP-1.3)', () => {
           cu_used_today: 0,
           cu_allowance_today: 10000,
         })
-      )
+      ),
+      http.get('http://localhost/api/pool/contribution', () =>
+        HttpResponse.json({
+          personal_requests_today: 0,
+          requests_served_for_community_today: 0,
+          cu_contributed_24h: 0,
+          cu_borrowed_24h: 0,
+        })
+      ),
+      http.get('http://localhost/api/projects', () => HttpResponse.json([])),
+      http.get('http://localhost/api/projects/*/keys', () => HttpResponse.json([])),
+      http.get('http://localhost/api/tokens', () => HttpResponse.json([]))
     );
 
     vi.useFakeTimers();
@@ -372,5 +424,6 @@ describe('Telemetry and cache refresh controls (WP-1.3)', () => {
     }
   });
 });
+
 
 
