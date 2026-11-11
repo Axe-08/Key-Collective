@@ -3,6 +3,7 @@ import { mount, tick, unmount } from 'svelte';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import App from './App.svelte';
+import TelemetryLogs from './lib/TelemetryLogs.svelte';
 
 const server = setupServer(
   http.get('http://localhost/api/session', () =>
@@ -209,4 +210,167 @@ describe('App background polling (WP-1.1)', () => {
     }
   });
 });
+
+describe('Telemetry and cache refresh controls (WP-1.3)', () => {
+  afterEach(() => {
+    server.resetHandlers();
+    document.body.innerHTML = '';
+  });
+
+  it('clicking data-testid="refresh-logs-btn" executes fetch to /api/logs', async () => {
+    let logsFetched = false;
+    server.use(
+      http.get('http://localhost/api/logs', () => {
+        logsFetched = true;
+        return HttpResponse.json([]);
+      })
+    );
+
+    const comp = mount(TelemetryLogs, {
+      target: document.body,
+      props: {
+        logs: [],
+        autoRefresh: false,
+        onRefresh: () => {
+          void fetch('http://localhost/api/logs');
+        },
+      },
+    });
+    await settle();
+
+    const refreshBtn = document.querySelector('[data-testid="refresh-logs-btn"]') as HTMLButtonElement | null;
+    expect(refreshBtn).not.toBeNull();
+    refreshBtn?.click();
+    await settle();
+
+    expect(logsFetched).toBe(true);
+    unmount(comp);
+  });
+
+  it('dispatching window.dispatchEvent(new Event("focus")) when cache is older than 5 minutes triggers loadData', async () => {
+    let loadCount = 0;
+    server.use(
+      http.get('http://localhost/api/session', () =>
+        HttpResponse.json({
+          success: true,
+          user: { id: 'usr_focus_test', email: 'focus@example.com', tier: 'builder', role: 'user' },
+          csrfToken: 'csrf-from-session',
+          rights: { privatePool: true, communityPool: false },
+        })
+      ),
+      http.get('http://localhost/api/keys', () => {
+        loadCount++;
+        return HttpResponse.json([privateKey]);
+      }),
+      http.get('http://localhost/api/logs', () => HttpResponse.json([])),
+      http.get('http://localhost/api/stats', () =>
+        HttpResponse.json({
+          total_keys: 1,
+          healthy_keys: 1,
+          rate_limited_keys: 0,
+          invalid_keys: 0,
+          total_rpm_headroom: 100,
+          total_rpm_limit: 100,
+          current_rpm_used: 0,
+          avg_upstream_latency_ms: 10,
+          daily_quota_used: 0,
+          daily_quota_limit: 1000,
+          proxy_status: 'healthy',
+          cu_used_today: 0,
+          cu_allowance_today: 10000,
+        })
+      )
+    );
+
+    vi.useFakeTimers();
+    const app = mount(App, { target: document.body });
+
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(10);
+      await tick();
+    }
+
+    const initialLoads = loadCount;
+    expect(initialLoads).toBeGreaterThan(0);
+
+    try {
+      // Advance by > 5 minutes (300_001 ms)
+      await vi.advanceTimersByTimeAsync(300_001);
+      window.dispatchEvent(new Event('focus'));
+
+      for (let i = 0; i < 20; i++) {
+        await vi.advanceTimersByTimeAsync(10);
+        await tick();
+      }
+
+      expect(loadCount).toBeGreaterThan(initialLoads);
+    } finally {
+      vi.useRealTimers();
+      unmount(app);
+    }
+  });
+
+  it('dispatching window.dispatchEvent(new Event("focus")) when cache is fresh (< 5 minutes) triggers 0 network calls', async () => {
+    let loadCount = 0;
+    server.use(
+      http.get('http://localhost/api/session', () =>
+        HttpResponse.json({
+          success: true,
+          user: { id: 'usr_focus_test2', email: 'focus2@example.com', tier: 'builder', role: 'user' },
+          csrfToken: 'csrf-from-session',
+          rights: { privatePool: true, communityPool: false },
+        })
+      ),
+      http.get('http://localhost/api/keys', () => {
+        loadCount++;
+        return HttpResponse.json([privateKey]);
+      }),
+      http.get('http://localhost/api/logs', () => HttpResponse.json([])),
+      http.get('http://localhost/api/stats', () =>
+        HttpResponse.json({
+          total_keys: 1,
+          healthy_keys: 1,
+          rate_limited_keys: 0,
+          invalid_keys: 0,
+          total_rpm_headroom: 100,
+          total_rpm_limit: 100,
+          current_rpm_used: 0,
+          avg_upstream_latency_ms: 10,
+          daily_quota_used: 0,
+          daily_quota_limit: 1000,
+          proxy_status: 'healthy',
+          cu_used_today: 0,
+          cu_allowance_today: 10000,
+        })
+      )
+    );
+
+    vi.useFakeTimers();
+    const app = mount(App, { target: document.body });
+
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(10);
+      await tick();
+    }
+
+    const baselineCount = loadCount;
+
+    try {
+      // Advance by only 1 minute (< 5 minutes)
+      await vi.advanceTimersByTimeAsync(60_000);
+      window.dispatchEvent(new Event('focus'));
+
+      for (let i = 0; i < 20; i++) {
+        await vi.advanceTimersByTimeAsync(10);
+        await tick();
+      }
+
+      expect(loadCount).toBe(baselineCount);
+    } finally {
+      vi.useRealTimers();
+      unmount(app);
+    }
+  });
+});
+
 

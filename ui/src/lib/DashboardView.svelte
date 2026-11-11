@@ -92,6 +92,18 @@
     </div>
 
     <div class="flex items-center gap-2">
+      <button
+        type="button"
+        onclick={() => {
+          loadContribution();
+          onRefresh?.();
+        }}
+        class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-xs text-on-surface flex items-center gap-1.5 border border-outline-variant/30 cursor-pointer"
+        data-testid="refresh-dashboard-btn"
+      >
+        <span class="material-symbols-outlined text-[16px]">refresh</span>
+        <span>Refresh</span>
+      </button>
       {#if onOpenAddModal}
         <button
           type="button"

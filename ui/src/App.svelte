@@ -55,6 +55,7 @@
   import Toast from './lib/Toast.svelte';
   import PoolCommonsTab from './lib/PoolCommonsTab.svelte';
   import ReportKeyModal from './lib/ReportKeyModal.svelte';
+  import { invalidateCache } from './lib/cache/browser_cache';
 
   // Navigation state (PRD Section 4 top-level tabs)
   let activeTab = $state<'dashboard' | 'keys' | 'pool' | 'analytics' | 'workbench' | 'docs' | 'playground' | 'admin' | 'commons' | 'report'>('dashboard');
@@ -128,6 +129,8 @@
     toasts = toasts.filter((t) => t.id !== id);
   }
 
+  let lastLoadedAt = $state(Date.now());
+
   async function loadData() {
     // Each source loads on its own: a failing /api/logs or /api/stats must not hide the key list.
     isRefreshing = true;
@@ -147,6 +150,7 @@
     } else {
       console.error('Failed to load stats', statsRes.reason);
     }
+    lastLoadedAt = Date.now();
     isRefreshing = false;
   }
 
@@ -154,7 +158,8 @@
     try {
       const created = await api.createKey(payload);
       keys = [created, ...keys];
-      stats = await api.getStats();
+      invalidateCache();
+      await loadData();
       addToast('success', `API Key "${created.label}" added to pool with ${created.rpm_limit} RPM / ${created.rpd_limit} RPD.`);
     } catch (err: any) {
       addToast('error', `Failed to add key: ${err?.message || 'Unknown error'}`);
@@ -173,8 +178,27 @@
       addToast('error', result.errorMessage);
       return;
     }
-    stats = await api.getStats();
+    invalidateCache();
+    await loadData();
     addToast('info', `Key "${keyToDelete?.label || id}" was deleted from the pool.`);
+  }
+
+  async function handleRotateKey(id: string, newKey?: string) {
+    try {
+      let res;
+      if (newKey) {
+        res = await api.rotateProviderKey(id, newKey);
+      } else {
+        res = await api.rotateToken(id);
+      }
+      invalidateCache();
+      await loadData();
+      addToast('success', 'Key rotated successfully.');
+      return res;
+    } catch (err: any) {
+      addToast('error', `Failed to rotate key: ${err?.message || 'Unknown error'}`);
+      throw err;
+    }
   }
 
   async function handleTestKey(id: string) {
@@ -186,6 +210,7 @@
       } else {
         addToast('warning', `Test Alert: ${res.message}`);
       }
+      invalidateCache();
       await loadData();
     } catch (err: any) {
       addToast('error', `Key test failed: ${err?.message || 'Upstream error'}`);
@@ -301,6 +326,18 @@
       void refreshSession();
     }
   });
+
+  onMount(() => {
+    if (typeof window !== 'undefined') {
+      const onFocus = () => {
+        if (Date.now() - lastLoadedAt > 300_000) {
+          void loadData();
+        }
+      };
+      window.addEventListener('focus', onFocus);
+      return () => window.removeEventListener('focus', onFocus);
+    }
+  });
 </script>
 
 <div class="min-h-screen bg-surface-container-lowest text-on-surface antialiased relative selection:bg-primary-container selection:text-on-primary-container font-body-md text-body-md overflow-x-hidden">
@@ -374,7 +411,10 @@
         {isEndpointCopied}
         onCopyEndpoint={handleCopyEndpoint}
         onOpenAddModal={() => (isAddModalOpen = true)}
-        onRefresh={loadData}
+        onRefresh={async () => {
+          invalidateCache();
+          await loadData();
+        }}
         {userAccount}
         {projects}
         {projectKeys}
@@ -427,7 +467,13 @@
 
     <!-- Developers: Sandbox Playground -->
     {#if activeTab === 'playground'}
-      <Playground {proxyEndpoint} onRefreshMetrics={loadData} />
+      <Playground
+        {proxyEndpoint}
+        onRefreshMetrics={async () => {
+          invalidateCache();
+          await loadData();
+        }}
+      />
     {/if}
 
     <!-- Admin Surveillance Panel (admin.*) -->

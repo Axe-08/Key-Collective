@@ -1,19 +1,32 @@
 <script lang="ts">
   import type { RequestLog } from './types';
+  import { api } from './api';
 
   let {
-    logs,
-    autoRefresh,
+    logs = [],
+    autoRefresh = false,
     onToggleAutoRefresh,
     onManualRefresh,
+    onRefresh,
     isRefreshing = false,
   }: {
-    logs: RequestLog[];
-    autoRefresh: boolean;
-    onToggleAutoRefresh: () => void;
-    onManualRefresh: () => Promise<void> | void;
+    logs?: RequestLog[];
+    autoRefresh?: boolean;
+    onToggleAutoRefresh?: () => void;
+    onManualRefresh?: () => Promise<void> | void;
+    onRefresh?: () => Promise<void> | void;
     isRefreshing?: boolean;
   } = $props();
+
+  async function handleRefresh() {
+    if (onRefresh) {
+      await onRefresh();
+    } else if (onManualRefresh) {
+      await onManualRefresh();
+    } else {
+      await api.getLogs({ force: true });
+    }
+  }
 
   let statusFilter = $state<string>('all');
   let isCleared = $state(false);
@@ -180,13 +193,14 @@
     <div class="flex items-center gap-3">
       <button
         type="button"
-        onclick={onManualRefresh}
+        data-testid="refresh-logs-btn"
+        onclick={handleRefresh}
         disabled={isRefreshing}
         class="text-outline hover:text-on-surface transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
         title="Synchronize telemetry"
       >
         <span class="material-symbols-outlined text-[12px] {isRefreshing ? 'animate-spin' : ''}">refresh</span>
-        Sync
+        Refresh
       </button>
       <button
         type="button"
