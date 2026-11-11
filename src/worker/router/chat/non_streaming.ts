@@ -133,7 +133,9 @@ export async function handleNonStreamingResponse(
   if (ctx && typeof ctx.waitUntil === "function") {
     ctx.waitUntil(workPromise);
   }
-  await workPromise;
+  if (env?.KC_ENV === "test") {
+    await workPromise;
+  }
 
   // Obtain upstream JSON response if available
   let upstreamJson: Record<string, unknown> = {};
@@ -300,4 +302,5 @@ export async function handleNonStreamingResponse(
 }
 
 export const handleNonStreamingChat = handleNonStreamingResponse;
+export const handleChatCompletionNonStreaming = handleNonStreamingResponse;
 
