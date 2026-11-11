@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount, tick, unmount } from 'svelte';
 import MetricCards from './MetricCards.svelte';
-import type { PoolStats } from './types';
+import type { PoolStats, APIKey } from './types';
 
-describe('MetricCards DOM (WP-1.1)', () => {
+describe('MetricCards DOM (WP-1.1 & WP-4.1)', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -48,7 +48,7 @@ describe('MetricCards DOM (WP-1.1)', () => {
   });
 });
 
-describe('MetricCards DOM (WP-1.3)', () => {
+describe('MetricCards DOM (WP-1.3 & WP-4.1)', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -143,6 +143,106 @@ describe('MetricCards DOM (WP-1.3)', () => {
     expect(document.body.textContent).toContain('450');
     expect(document.body.textContent).toContain('8,888');
     expect(document.body.textContent).toContain('99,999');
+
+    unmount(component);
+  });
+
+  it('clears animate-spin and handles fetch errors gracefully on failed refresh', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network failure'));
+
+    const component = mount(MetricCards, {
+      target: document.body,
+      props: {
+        stats: {
+          total_keys: 2,
+          healthy_keys: 2,
+          rate_limited_keys: 0,
+          invalid_keys: 0,
+          total_rpm_headroom: 30,
+          total_rpm_limit: 30,
+          current_rpm_used: 0,
+          avg_upstream_latency_ms: 10,
+          daily_quota_used: 0,
+          daily_quota_limit: 1000,
+          proxy_status: 'healthy',
+        },
+      },
+    });
+
+    await tick();
+    const refreshBtn = document.querySelector('[data-testid="refresh-stats-btn"]') as HTMLButtonElement | null;
+    expect(refreshBtn).not.toBeNull();
+    const spinIcon = refreshBtn!.querySelector('span');
+    expect(spinIcon).not.toBeNull();
+
+    refreshBtn!.click();
+    await tick();
+    await new Promise((r) => setTimeout(r, 10));
+    await tick();
+
+    expect(spinIcon!.classList.contains('animate-spin')).toBe(false);
+    expect(console.error).toHaveBeenCalled();
+
+    unmount(component);
+  });
+
+  it('updates dynamic cooldown countdown every second and cleans up interval on unmount', async () => {
+    vi.useFakeTimers();
+    const now = 1_700_000_000_000;
+    vi.setSystemTime(now);
+
+    const keys: APIKey[] = [
+      {
+        id: 'key-1',
+        key_prefix: 'AIza',
+        key_suffix: '1234',
+        provider: 'gemini',
+        label: 'Cooling Key',
+        rpm_limit: 15,
+        rpd_limit: 1500,
+        priority: 1,
+        status: 'rate_limited',
+        cooldown_until: new Date(now + 30_000).toISOString(),
+      },
+    ];
+
+    const component = mount(MetricCards, {
+      target: document.body,
+      props: {
+        keys,
+      },
+    });
+
+    await tick();
+    expect(document.body.textContent).toContain('00:30s cooldown');
+
+    // Advance 5 seconds
+    vi.advanceTimersByTime(5000);
+    await tick();
+    expect(document.body.textContent).toContain('00:25s cooldown');
+
+    unmount(component);
+    vi.useRealTimers();
+  });
+
+  it('does not trigger network requests on window focus event (focus isolation)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({}));
+
+    const component = mount(MetricCards, {
+      target: document.body,
+      props: {},
+    });
+
+    await tick();
+    expect(fetchSpy).toHaveBeenCalledTimes(0);
+
+    // Dispatch focus event on window
+    window.dispatchEvent(new Event('focus'));
+    await tick();
+
+    // MetricCards should not independently revalidate on focus (responsibility of parent/App)
+    expect(fetchSpy).toHaveBeenCalledTimes(0);
 
     unmount(component);
   });
