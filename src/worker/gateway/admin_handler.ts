@@ -5,8 +5,7 @@
 
 import type { ExecutionContextLike } from "../telemetry_emitter";
 import type { WorkerEnv } from "../auth/index";
-import type { RouterHandler } from "../router/index";
-import type { WorkerOptions } from "./types";
+import type { RouteDispatcherFn, WorkerOptions } from "./types";
 import { applyCors } from "./subdomain";
 import { TOKENS_PER_REQUEST_ESTIMATE } from "../../constants/keys";
 import { normaliseKeyStatus, normalisePoolType } from "../../contracts/keys";
@@ -85,7 +84,7 @@ async function logAdminAudit(
 export async function handleAdminRequest(
   request: Request,
   env: WorkerEnv,
-  routerHandler: RouterHandler,
+  routerHandler: RouteDispatcherFn | { handle: RouteDispatcherFn },
   options: WorkerOptions = {},
   ctx?: ExecutionContextLike
 ): Promise<Response> {
@@ -1195,7 +1194,10 @@ export async function handleAdminRequest(
     pathname.startsWith("/v1/") ||
     pathname === "/openapi.json"
   ) {
-    return routerHandler.handle(request, env, ctx);
+    if (typeof routerHandler === "function") {
+      return routerHandler(request, env, ctx as ExecutionContext);
+    }
+    return routerHandler.handle(request, env, ctx as ExecutionContext);
   }
 
   // 5. Static Admin Assets & SPA Serving (when ASSETS binding is present)

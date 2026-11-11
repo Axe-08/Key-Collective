@@ -5,8 +5,9 @@
 
 import type { EdgeSubdomain, HostRouteDecision } from "../../contracts/v3_5_types";
 import type { WorkerEnv } from "../auth/index";
-import { CORS_HEADERS } from "./types";
+import { CORS_HEADERS, type RouteDispatcherFn } from "./types";
 
+export type { RouteDispatcherFn };
 export type EdgeHost = "api" | "console" | "admin" | "apex" | "unknown";
 
 /**

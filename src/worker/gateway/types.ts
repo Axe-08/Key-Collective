@@ -5,8 +5,18 @@
 
 import type { ExecutionContextLike, TelemetryEmitter } from "../telemetry_emitter";
 import type { AuthMiddleware, WorkerEnv } from "../auth/index";
-import type { RouterHandler, RouterHandlerOptions } from "../router/index";
+import type { RouterHandlerOptions } from "../router/types";
+import type { RouterHandler } from "../router/router_handler";
 import type { EdgeSubdomain, HostRouteDecision } from "../../contracts/v3_5_types";
+
+/**
+ * Generic route dispatcher function signature.
+ */
+export type RouteDispatcherFn = (
+  request: Request,
+  env: WorkerEnv,
+  ctx?: ExecutionContext
+) => Promise<Response>;
 
 /**
  * Health response payload format.
@@ -34,9 +44,9 @@ export const CORS_HEADERS: Record<string, string> = {
 /**
  * Options for configuring MainWorker.
  */
-export interface WorkerOptions extends RouterHandlerOptions {
-  /** Injected RouterHandler instance */
-  routerHandler?: RouterHandler;
+export interface WorkerOptions<TRouter = RouterHandler> extends RouterHandlerOptions {
+  /** Injected RouteDispatcher instance, function, or RouterHandler */
+  routerHandler?: TRouter;
   /** Injected AuthMiddleware instance */
   authMiddleware?: AuthMiddleware;
   /** Injected TelemetryEmitter instance */
