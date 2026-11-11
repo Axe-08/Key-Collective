@@ -6,7 +6,7 @@ import {
   DEFAULT_CACHE_TTL_MS,
 } from './browser_cache';
 
-describe('browser_cache', () => {
+describe('browser_cache unit test suite', () => {
   beforeEach(() => {
     clearCache();
     vi.useFakeTimers();
@@ -16,7 +16,7 @@ describe('browser_cache', () => {
     vi.useRealTimers();
   });
 
-  it('exports DEFAULT_CACHE_TTL_MS as 300_000 (5 minutes)', () => {
+  it('exports DEFAULT_CACHE_TTL_MS as 300_000 ms (5 minutes)', () => {
     expect(DEFAULT_CACHE_TTL_MS).toBe(300_000);
   });
 
@@ -39,7 +39,30 @@ describe('browser_cache', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
-  it('invalidateCache("keys") marks matching entries dirty, forcing a re-fetch on the next invocation', async () => {
+  it('correctly caches falsy values (null, false, 0, "") without re-executing fetcher', async () => {
+    const nullFetcher = vi.fn().mockResolvedValue(null);
+    const zeroFetcher = vi.fn().mockResolvedValue(0);
+    const falseFetcher = vi.fn().mockResolvedValue(false);
+    const emptyStrFetcher = vi.fn().mockResolvedValue('');
+
+    expect(await fetchWithCache('null-key', nullFetcher)).toBeNull();
+    expect(await fetchWithCache('null-key', nullFetcher)).toBeNull();
+    expect(nullFetcher).toHaveBeenCalledTimes(1);
+
+    expect(await fetchWithCache('zero-key', zeroFetcher)).toBe(0);
+    expect(await fetchWithCache('zero-key', zeroFetcher)).toBe(0);
+    expect(zeroFetcher).toHaveBeenCalledTimes(1);
+
+    expect(await fetchWithCache('false-key', falseFetcher)).toBe(false);
+    expect(await fetchWithCache('false-key', falseFetcher)).toBe(false);
+    expect(falseFetcher).toHaveBeenCalledTimes(1);
+
+    expect(await fetchWithCache('empty-str-key', emptyStrFetcher)).toBe('');
+    expect(await fetchWithCache('empty-str-key', emptyStrFetcher)).toBe('');
+    expect(emptyStrFetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidateCache("keys") marks matching entries dirty, forcing a re-fetch on the next invocation while unaffected cached entries remain intact', async () => {
     let callCount = 0;
     const keysFetcher = vi.fn().mockImplementation(async () => {
       callCount++;
@@ -69,9 +92,14 @@ describe('browser_cache', () => {
     const cachedStats = await fetchWithCache('stats', statsFetcher);
     expect(cachedStats).toEqual({ stats: 'ok' });
     expect(statsFetcher).toHaveBeenCalledTimes(1);
+
+    // Once refreshed, the entry dirty flag should be reset so subsequent calls are cached again
+    const cachedKeysAgain = await fetchWithCache('keys', keysFetcher);
+    expect(cachedKeysAgain).toEqual({ keys: ['key-3'] });
+    expect(keysFetcher).toHaveBeenCalledTimes(4);
   });
 
-  it('invalidateCache() without arguments marks all entries dirty', async () => {
+  it('invalidateCache() without arguments marks all entries dirty, forcing re-fetch on subsequent calls', async () => {
     const f1 = vi.fn().mockResolvedValue('val1');
     const f2 = vi.fn().mockResolvedValue('val2');
 
@@ -98,20 +126,20 @@ describe('browser_cache', () => {
     expect(res1).toBe('v1');
     expect(fetcher).toHaveBeenCalledTimes(1);
 
-    // Call with force: true
+    // Call with force: true at timestamp 5000
     vi.setSystemTime(5000);
     const res2 = await fetchWithCache('force-key', fetcher, { force: true });
     expect(res2).toBe('v2');
     expect(fetcher).toHaveBeenCalledTimes(2);
 
-    // Subsequent call within TTL from new timestamp should return v2 without calling fetcher
+    // Subsequent call within TTL from new timestamp (5000 + 1000 = 6000) should return v2 without calling fetcher
     vi.setSystemTime(6000);
     const res3 = await fetchWithCache('force-key', fetcher);
     expect(res3).toBe('v2');
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it('expired TTL triggers a re-fetch', async () => {
+  it('expired TTL triggers a re-fetch using fake timers', async () => {
     vi.setSystemTime(1000);
     const fetcher = vi.fn()
       .mockResolvedValueOnce('first')
@@ -134,7 +162,7 @@ describe('browser_cache', () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it('custom ttlMs is respected', async () => {
+  it('custom ttlMs options are respected', async () => {
     vi.setSystemTime(1000);
     const fetcher = vi.fn()
       .mockResolvedValueOnce('custom1')
@@ -148,13 +176,13 @@ describe('browser_cache', () => {
     expect(resFresh).toBe('custom1');
     expect(fetcher).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(6_000); // 11_000ms passed total
+    vi.advanceTimersByTime(6_000); // 11_000 ms elapsed total
     const resExpired = await fetchWithCache('custom-ttl-key', fetcher, { ttlMs: 10_000 });
     expect(resExpired).toBe('custom2');
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it('fetcher rejections throw without caching', async () => {
+  it('fetcher rejections throw without caching the error, allowing subsequent calls to attempt fetch', async () => {
     const errorFetcher = vi.fn().mockRejectedValue(new Error('Network error'));
 
     await expect(fetchWithCache('error-key', errorFetcher)).rejects.toThrow('Network error');
@@ -168,14 +196,20 @@ describe('browser_cache', () => {
   });
 
   it('clearCache empties the cache completely', async () => {
-    const fetcher = vi.fn().mockResolvedValue('value');
-    await fetchWithCache('cleared-key', fetcher);
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    const fetcher1 = vi.fn().mockResolvedValue('value1');
+    const fetcher2 = vi.fn().mockResolvedValue('value2');
+
+    await fetchWithCache('cleared-key-1', fetcher1);
+    await fetchWithCache('cleared-key-2', fetcher2);
+    expect(fetcher1).toHaveBeenCalledTimes(1);
+    expect(fetcher2).toHaveBeenCalledTimes(1);
 
     clearCache();
 
-    await fetchWithCache('cleared-key', fetcher);
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    await fetchWithCache('cleared-key-1', fetcher1);
+    await fetchWithCache('cleared-key-2', fetcher2);
+    expect(fetcher1).toHaveBeenCalledTimes(2);
+    expect(fetcher2).toHaveBeenCalledTimes(2);
   });
 
   it('automatically invalidates cache when global fetch changes in test environments', async () => {
@@ -191,5 +225,27 @@ describe('browser_cache', () => {
     } finally {
       (globalThis as unknown as { fetch?: unknown }).fetch = originalFetch;
     }
+  });
+
+  it('manages independent cache entries across multiple keys without cross-contamination', async () => {
+    const k1Fetcher = vi.fn().mockResolvedValue({ service: 'alpha' });
+    const k2Fetcher = vi.fn().mockResolvedValue({ service: 'beta' });
+
+    const res1 = await fetchWithCache('srv:alpha', k1Fetcher);
+    const res2 = await fetchWithCache('srv:beta', k2Fetcher);
+
+    expect(res1).toEqual({ service: 'alpha' });
+    expect(res2).toEqual({ service: 'beta' });
+    expect(k1Fetcher).toHaveBeenCalledTimes(1);
+    expect(k2Fetcher).toHaveBeenCalledTimes(1);
+
+    // Invalidate only alpha
+    invalidateCache('srv:alpha');
+
+    await fetchWithCache('srv:beta', k2Fetcher);
+    expect(k2Fetcher).toHaveBeenCalledTimes(1);
+
+    await fetchWithCache('srv:alpha', k1Fetcher);
+    expect(k1Fetcher).toHaveBeenCalledTimes(2);
   });
 });
