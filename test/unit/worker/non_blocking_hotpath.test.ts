@@ -19,11 +19,10 @@ import type { AuthenticatedContext, WorkerEnv } from "../../../src/worker/auth/i
 import type { ChatHandlerDependencies } from "../../../src/worker/router/chat/types";
 import type { ExecutionContextLike, TelemetryEmitter } from "../../../src/worker/telemetry_emitter";
 import type { CostLedgerRepository } from "../../../src/storage/repositories/cost_ledger/index";
-import * as nonStreamingModule from "../../../src/worker/router/chat/non_streaming";
-
-const handleChatCompletionNonStreaming =
-  (nonStreamingModule as { handleChatCompletionNonStreaming?: typeof nonStreamingModule.handleNonStreamingResponse })
-    .handleChatCompletionNonStreaming ?? nonStreamingModule.handleNonStreamingResponse;
+import {
+  handleChatCompletionNonStreaming,
+  handleNonStreamingResponse,
+} from "../../../src/worker/router/chat/non_streaming";
 
 function createTestModelDef(overrides?: Partial<ModelDef>): ModelDef {
   return {
@@ -93,9 +92,8 @@ describe("Non-Blocking Proxy Hot-Path - T-2.1.1", () => {
   } as unknown as KeyPoolContract;
 
   it("returns HTTP 200 before workPromise resolves when KC_ENV is production", async () => {
-    expect(
-      typeof (nonStreamingModule as { handleChatCompletionNonStreaming?: unknown }).handleChatCompletionNonStreaming
-    ).toBe("function");
+    expect(typeof handleChatCompletionNonStreaming).toBe("function");
+    expect(handleChatCompletionNonStreaming).toBe(handleNonStreamingResponse);
 
     const modelDef = createTestModelDef();
     const cascadeRes: CascadeRouteResponse = {
@@ -333,5 +331,10 @@ describe("Non-Blocking Proxy Hot-Path - T-2.1.1", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  it("exports handleChatCompletionNonStreaming with identical signature to handleNonStreamingResponse", () => {
+    expect(typeof handleChatCompletionNonStreaming).toBe("function");
+    expect(handleChatCompletionNonStreaming).toBe(handleNonStreamingResponse);
   });
 });

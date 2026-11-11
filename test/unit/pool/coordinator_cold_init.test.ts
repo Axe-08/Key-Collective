@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { PoolCoordinatorDO } from "../../../src/pool/coordinator_do";
+import type { WorkerEnv } from "../../../src/worker/auth/types";
+
+interface CoordinatorTestAccess {
+  getMeta(key: string): string | null;
+}
 
 class MockD1Database {
   public prepareCalls: Array<{ query: string; bindings: unknown[] }> = [];
@@ -113,18 +118,37 @@ describe("PoolCoordinatorDO Cold Initialization (T-3.1.1)", () => {
   it("extracts shard provider from DO ID name and sets provider in meta on instantiation", () => {
     const ctx = createMockDOState("pool:google");
     const mockDb = new MockD1Database();
-    const env = { DB: mockDb as any };
+    const env: WorkerEnv = { DB: mockDb as unknown as D1Database };
 
     const coord = new PoolCoordinatorDO(ctx, env);
 
     // Assert that provider meta is set to 'google' immediately upon instantiation without prior RPC calls
-    expect((coord as any).getMeta("provider")).toBe("google");
+    expect((coord as unknown as CoordinatorTestAccess).getMeta("provider")).toBe("google");
+  });
+
+  it("canonicalizes various shard provider names on initialization", () => {
+    const providers: Array<{ shardName: string; expectedCanonical: string }> = [
+      { shardName: "pool:openai", expectedCanonical: "openai" },
+      { shardName: "pool:anthropic", expectedCanonical: "anthropic" },
+      { shardName: "pool:gemini", expectedCanonical: "google" },
+      { shardName: "pool:google", expectedCanonical: "google" },
+      { shardName: "pool:groq", expectedCanonical: "groq" },
+    ];
+
+    for (const { shardName, expectedCanonical } of providers) {
+      const ctx = createMockDOState(shardName);
+      const mockDb = new MockD1Database();
+      const env: WorkerEnv = { DB: mockDb as unknown as D1Database };
+
+      const coord = new PoolCoordinatorDO(ctx, env);
+      expect((coord as unknown as CoordinatorTestAccess).getMeta("provider")).toBe(expectedCanonical);
+    }
   });
 
   it("triggers alarm() on cold DO and executes D1 reconciliation successfully", async () => {
     const ctx = createMockDOState("pool:google");
     const mockDb = new MockD1Database();
-    const env = { DB: mockDb as any };
+    const env: WorkerEnv = { DB: mockDb as unknown as D1Database };
 
     const coord = new PoolCoordinatorDO(ctx, env);
 

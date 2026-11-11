@@ -147,4 +147,64 @@ describe("Bounded 7-day live analytics rollup query (T-2.2.1)", () => {
     expect(json.usage).toHaveLength(1);
     expect(json.usage[0].cu).toBe(150);
   });
+
+  it("prioritizes daily_cu_rollup results and skips cost_ledger fallback when rollup rows exist", async () => {
+    const executedQueries: string[] = [];
+    const mockDb = {
+      prepare(query: string) {
+        executedQueries.push(query);
+        const createStatement = () => ({
+          bind(..._args: unknown[]) {
+            return createStatement() as unknown as D1PreparedStatement;
+          },
+          all: async <T>() => {
+            if (query.includes("FROM daily_cu_rollup")) {
+              return {
+                results: [
+                  {
+                    day: "2026-11-10",
+                    provider: "openai",
+                    model: "gpt-4o",
+                    requests: 42,
+                    tokens: 5000,
+                    cu: 840,
+                  },
+                ] as unknown as T[],
+                success: true,
+                meta: {} as D1Response["meta"],
+              };
+            }
+            return { results: [] as T[], success: true, meta: {} as D1Response["meta"] };
+          },
+          first: async <T>() => null as T | null,
+          run: async () => ({ success: true, meta: {} as D1Response["meta"] }),
+        });
+        return createStatement() as unknown as D1PreparedStatement;
+      },
+      dump: async () => new ArrayBuffer(0),
+      batch: async <T>() => [] as unknown as D1Result<T>[],
+      exec: async () => ({ count: 0, duration: 0 }),
+    } as unknown as D1Database;
+
+    const env: WorkerEnv = { DB: mockDb };
+    const response = await handleGetAnalyticsUsage(env, "tenant-123");
+    expect(response.status).toBe(200);
+
+    const json = (await response.json()) as {
+      usage: Array<{
+        day: string;
+        provider: string;
+        model: string;
+        requests: number;
+        tokens: number;
+        cu: number;
+      }>;
+    };
+
+    expect(json.usage).toHaveLength(1);
+    expect(json.usage[0].model).toBe("gpt-4o");
+    expect(json.usage[0].cu).toBe(840);
+    expect(executedQueries.some((q) => q.includes("FROM cost_ledger"))).toBe(false);
+  });
 });
+
