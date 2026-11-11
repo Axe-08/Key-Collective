@@ -319,7 +319,7 @@ export async function handleGetAnalyticsUsage(
          SUM(prompt_tokens + completion_tokens + reasoning_tokens) AS tokens,
          COALESCE(SUM(cu), 0) AS cu
        FROM cost_ledger
-       WHERE tenant_id = ?
+       WHERE tenant_id = ? AND created_at >= datetime('now', '-7 days')
        GROUP BY day, provider, model_id
        ORDER BY day DESC, cu DESC
        LIMIT 100`
