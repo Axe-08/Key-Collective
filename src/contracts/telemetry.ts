@@ -1,3 +1,10 @@
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  cachedTokens?: number;
+  reasoningTokens?: number;
+}
+
 export interface TelemetryEvent {
     traceId: string;
     tenantId: string;

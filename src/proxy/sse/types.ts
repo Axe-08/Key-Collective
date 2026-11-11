@@ -3,7 +3,7 @@
  * Types and interfaces for Server-Sent Events (SSE) streaming and usage tracking.
  */
 
-import type { TokenUsage } from "../../router/registry/index";
+import type { TokenUsage } from "../../contracts/telemetry";
 
 /**
  * Authoritative token usage extracted from an upstream SSE stream.

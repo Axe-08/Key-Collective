@@ -12,19 +12,7 @@ import type {
   ModelPricing,
 } from "../../types/models";
 
-/**
- * Token usage counts reported by upstream or estimated for pre-flight routing.
- */
-export interface TokenUsage {
-  /** Prompt / input tokens consumed */
-  promptTokens: number;
-  /** Completion / output tokens generated */
-  completionTokens: number;
-  /** Cached tokens read from prompt cache */
-  cachedTokens?: number;
-  /** Reasoning / thought tokens consumed (billed at completion rate) */
-  reasoningTokens?: number;
-}
+export type { TokenUsage } from "../../contracts/telemetry";
 
 /**
  * Detailed breakdown of transaction costs in fixed-point credit units.
