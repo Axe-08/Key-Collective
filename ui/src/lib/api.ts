@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { APIKey, RequestLog, PoolStats, CreateKeyPayload, NotificationItem } from './types';
 import { request, sessionAuthTransport, setCsrfToken } from './api/client';
+import { fetchWithCache, invalidateCache } from './cache/browser_cache';
 import {
   KeysListResponseSchema,
   LogsListResponseSchema,
@@ -24,24 +25,27 @@ function sessionInit(method = 'GET'): RequestInit {
 }
 
 export const api = {
-  async getKeys(): Promise<APIKey[]> {
-    return request(KeysListResponseSchema, '/api/keys');
+  async getKeys(options?: { force?: boolean }): Promise<APIKey[]> {
+    return fetchWithCache('keys', () => request(KeysListResponseSchema, '/api/keys'), options);
   },
 
   async createKey(payload: CreateKeyPayload): Promise<APIKey> {
     // The server reads the Turnstile token from x-turnstile-token, never the body.
     const { turnstile_token, ...body } = payload;
-    return request(KeyResponseSchema, '/api/keys', {
+    const res = await request(KeyResponseSchema, '/api/keys', {
       method: 'POST',
       headers: { 'x-turnstile-token': turnstile_token },
       body: JSON.stringify(body),
     });
+    invalidateCache('keys');
+    return res;
   },
 
   async deleteKey(id: string): Promise<boolean> {
     await request(DeleteKeyResponseSchema, `/api/keys/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
+    invalidateCache('keys');
     return true;
   },
 
@@ -51,12 +55,12 @@ export const api = {
     });
   },
 
-  async getLogs(): Promise<RequestLog[]> {
-    return request(LogsListResponseSchema, '/api/logs');
+  async getLogs(options?: { force?: boolean }): Promise<RequestLog[]> {
+    return fetchWithCache('logs', () => request(LogsListResponseSchema, '/api/logs'), options);
   },
 
-  async getStats(): Promise<PoolStats> {
-    return request(PoolStatsSchema, '/api/stats');
+  async getStats(options?: { force?: boolean }): Promise<PoolStats> {
+    return fetchWithCache('stats', () => request(PoolStatsSchema, '/api/stats'), options);
   },
 
   // --- Projects and API keys (WP-3.9): cookie session + CSRF via request() ---
@@ -103,13 +107,17 @@ export const api = {
   },
 
   async setKeyPoolMode(id: string, poolType: 'COMMUNITY' | 'PRIVATE') {
-    return request(z.object({ pool_type: z.enum(['COMMUNITY', 'PRIVATE']), community_routing_status: z.string().nullable(), observation_until: z.number().nullable() }).passthrough(),
+    const res = await request(z.object({ pool_type: z.enum(['COMMUNITY', 'PRIVATE']), community_routing_status: z.string().nullable(), observation_until: z.number().nullable() }).passthrough(),
       `/api/keys/${encodeURIComponent(id)}/pool-mode`, { method: 'PATCH', body: JSON.stringify({ pool_type: poolType }) });
+    invalidateCache('keys');
+    return res;
   },
 
   async rotateProviderKey(id: string, newKey: string) {
-    return request(z.object({ key_prefix: z.string(), key_suffix: z.string() }).passthrough(),
+    const res = await request(z.object({ key_prefix: z.string(), key_suffix: z.string() }).passthrough(),
       `/api/keys/${encodeURIComponent(id)}/rotate`, { method: 'POST', body: JSON.stringify({ new_key: newKey }) });
+    invalidateCache('keys');
+    return res;
   },
 
   async getAdminTenants(): Promise<{ tenants: any[]; pool?: any }> {
@@ -377,4 +385,5 @@ export const api = {
     }
   },
 };
+export { invalidateCache, fetchWithCache };
 
