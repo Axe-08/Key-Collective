@@ -2,7 +2,7 @@
 
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue.svg)](https://www.typescriptlang.org/)
 [![Cloudflare Workers & Durable Objects](https://img.shields.io/badge/Cloudflare-Workers%20%26%20Durable%20Objects-orange.svg)](https://developers.cloudflare.com/workers/)
-[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-1152%2F1152%20Passed%20(<10s)-brightgreen.svg)](Makefile)
+[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-1199%2F1199%20Passed%20(<10s)-brightgreen.svg)](Makefile)
 [![Zero Plaintext Keys](https://img.shields.io/badge/Security-AES--256--GCM%20Web%20Crypto-blueviolet.svg)](src/crypto/)
 
 Key Collective is a **high-throughput, edge-native AI proxy, community capacity exchange, and quota multiplexer** running globally on Cloudflare Workers and Durable Objects. It federates free-tier and provisioned API keys across frontier AI providers (Google Gemini, GroqCloud, SambaNova, Cerebras) into unified, OpenAI-compatible streaming endpoints (`/v1/chat/completions`) with sub-millisecond failover, continuous credit scoring, and zero cross-tenant state leakage.
@@ -25,16 +25,17 @@ Key Collective is a **high-throughput, edge-native AI proxy, community capacity 
 
 ## ⚡ Key Capabilities & Architecture Highlights
 
+- **Zero-Idle Event-Driven UI & In-Browser SWR Cache:** Completely eliminated background `setInterval` polling in the console. Idle open tabs make **0 requests/day** and **0 D1 queries/day**. Data is served instantly via a client-side SWR cache (`ui/src/lib/cache/browser_cache.ts`) with request deduplication, mutation invalidation, throttled window-focus revalidation (5 minutes), and dedicated manual refresh controls on stats and logs.
+- **Non-Blocking Hot-Path & Bounded Analytics:** The completions proxy serving `/v1/chat/completions` offloads all telemetry emission and D1 credit rollups to asynchronous `ctx.waitUntil()` promises, delivering client responses with 0ms added database latency. Live analytics queries are bounded to rolling 7-day windows (`WHERE created_at >= datetime('now', '-7 days')`), avoiding full-table SQLite scans.
 - **Communal Capacity Exchange:** A cooperative key pool where developers contribute provider keys in exchange for elevated capacity multipliers (`1.5x` up to `4.5x`).
 - **Commons Economy & 24h Observation Window:** Community-contributed keys undergo an automated 24-hour observation quarantine before on-demand promotion into the active routing pool, protected by community eligibility checks (`community_eligible = 1`).
-- **Normalized Shard Coordination & Cold Reconcile:** The global `PoolCoordinatorDO` enforces deterministic shard addressing (`pool:google`, `pool:groq`), managing state synchronization across distributed isolates with cold-start DO reconciliation.
+- **Normalized Shard Coordination & Cold Reconcile:** The global `PoolCoordinatorDO` enforces deterministic shard addressing (`pool:google`, `pool:groq`), managing state synchronization across distributed isolates with cold-start DO reconciliation derived directly from the actor ID.
 - **5-Minute Surge Emergency Brake:** Monitors communal token consumption and automatically applies a 60-second isolation brake to any tenant whose traffic exceeds **35% of total pool volume** in a rolling 5-minute window.
 - **Graduated Jail Demotion Cycle:** Contributor standing evaluates Community Debt against Contributed Capacity:
   - `PRISTINE` ($\text{Debt} / \text{Contributed} \le 0.50$): Full capacity multipliers and burst headroom.
   - `SOFT_WARNING` ($0.50 < \text{Debt} / \text{Contributed} \le 1.00$): Multiplier frozen, warning surfaced.
   - `HARD_JAIL` ($\text{Debt} / \text{Contributed} > 1.00$): Clamped to probationary bounds (2 RPM / 50 RPD).
 - **Dedicated Interactive Playground & Developer Workbench:** Full-featured testing bench in the web console (`ui/src/lib/Playground.svelte`) with real-time SSE streaming inspection, latency profiling, dynamic model discovery via `/v1/models`, virtual client API keys, sub-caps, and responsive mobile navigation.
-- **Zero-Mock Production Telemetry:** Real-time analytics rollups aggregating live D1 SQL transactions and response headers (`x-request-cost-cu`), eliminating synthetic counters across dashboard and admin surveillance planes.
 
 ---
 
@@ -80,9 +81,9 @@ flowchart TD
 
 1. **Zero Plaintext Keys at Rest:** Upstream provider keys are encrypted with AES-256-GCM using unique 12-byte CSPRNG nonces and PBKDF2/HKDF master key derivation. Plaintext keys exist only in ephemeral V8 isolate memory during request dispatch.
 2. **Per-Tenant Compute Isolation:** Routed via `env.KEY_POOL.idFromName(tenantId)`. Each tenant executes inside an isolated Durable Object actor with zero cross-tenant state.
-3. **Fixed-Point Microdollars (`int64` / `bigint`):** All financial computations use 64-bit integer microdollars ($1.00 USD = 1,000,000 µ$). Floating-point math is strictly forbidden.
+3. **Integer Credit Units (`bigint` CU):** All capacity accounting uses 64-bit integer Capacity Units (`bigint` CU). Floating-point math and fractional currency arithmetic are strictly prohibited.
 4. **DO Transactional Storage for Hot State:** Sliding-window rate counters and circuit breaker trip states persist to `this.ctx.storage`, surviving worker evictions and edge restarts.
-5. **Non-Blocking Telemetry:** High-frequency event emission and cost ledger persistence are deferred to asynchronous `ctx.waitUntil()` tasks, guaranteeing zero proxy latency penalty.
+5. **Non-Blocking Telemetry:** High-frequency event emission and cost ledger persistence are deferred to asynchronous `ctx.waitUntil()` tasks, guaranteeing zero proxy latency penalty on the hot path.
 6. **Automated Upstream Failover:** Upstream HTTP 429 or 5xx responses trigger immediate key quarantine and transparent escalation across sibling keys or fallback models without breaking client streams.
 
 ---
@@ -112,12 +113,15 @@ The proxy maps logical aliases to canonical models and automatically falls back 
 # Install root and UI dependencies
 make setup
 
-# Run strict typecheck and all 1,152 automated tests in <10s
+# Run strict typecheck and all 1,199 automated tests in <10s
 make gate
 ```
 
 ### 3. Local Development
 ```bash
+# Initialize local development environment variables
+cp .dev.vars.example .dev.vars
+
 # Apply local D1 schema migrations
 npx wrangler d1 migrations apply key-collective-db --local
 
@@ -143,15 +147,13 @@ curl -X POST https://api.key-col.axe08.tech/v1/chat/completions \
   }'
 ```
 
-> **Note on Legacy Endpoint Deprecation & Sunset:** Legacy API endpoint URLs on the apex domain (`https://key-col.axe08.tech/v1/*`), console domain (`https://console.key-col.axe08.tech/v1/*`), and unversioned path aliases (`/chat/completions`, etc.) are deprecated and return HTTP `Deprecation: true` and `Sunset: Thu, 01 Jan 2026 00:00:00 GMT` headers (30 days post-cutover per D-22). Legacy endpoints will be permanently decommissioned after the sunset date and 14 consecutive days of zero traffic. All integrations must target the canonical host: `https://api.key-col.axe08.tech/v1/chat/completions`.
-
 ---
 
 ## 📁 Repository Structure
 
 ```
 .
-├── src/
+├── src/                     # Backend Worker & Durable Objects (see src/README.md)
 │   ├── durable_objects/     # KeyPoolDO, CircuitBreakers, KeySelector & RateLimiter
 │   ├── pool/                # PoolCoordinatorDO (35% surge brake, leaky bucket, debt engine)
 │   ├── quota/               # TenantQuotaDO (sliding-window multi-project limits)
@@ -159,22 +161,31 @@ curl -X POST https://api.key-col.axe08.tech/v1/chat/completions \
 │   ├── proxy/               # UpstreamClient, SSEStreamTransformer, CostCalculator
 │   ├── crypto/              # AES-256-GCM Web Crypto encryption & nonce utilities
 │   ├── worker/              # Worker entry, router_handler, pool_routes, auth_middleware
-│   └── contracts/           # Strict TypeScript contracts & domain models
+│   └── contracts/           # Strict TypeScript contracts & telemetry models
 ├── ui/                      # Svelte 5 Developer Console & Interactive Playground
 │   ├── src/lib/Playground.svelte   # Standalone model testbench & stream reader
 │   ├── src/lib/Workbench.svelte    # Multi-project key management & sub-caps
 │   ├── src/lib/PoolCommonsTab.svelte # Communal pool telemetry & contributor standing
-│   └── src/lib/MetricCards.svelte  # Real-time telemetry cards (RPM, latency, spend)
+│   ├── src/lib/MetricCards.svelte  # Real-time telemetry cards with manual refresh
+│   └── src/lib/cache/              # Browser SWR cache engine & deduplicator
 ├── docs/
+│   ├── adr/                 # Architecture Decision Records (ADR-001 through ADR-006)
 │   ├── architecture/        # LLDs, UI designs, and state machines
 │   └── codeflow/            # Microscopic CFGs, call graphs, and Def-Use matrices
 ├── migrations/              # D1 SQL relational schema migrations
+├── CONTRIBUTING.md           # Developer onboarding & contribution guidelines
 └── Makefile                 # Quality gate & development automation harness
 ```
 
 ---
 
-## 🏛️ Governance & Second Brain Integration
+## 🤝 Contributing
 
-- **Architecture Decision Records:** Documented in [`docs/architecture/`](docs/architecture/) and mirrored to `~/Vault/1-Projects/Key-Collective/`.
+We welcome community contributions! Please review [`CONTRIBUTING.md`](CONTRIBUTING.md) for architectural guidelines, coding standards, and our pull request checklist.
+
+---
+
+## 🏛️ Governance & Knowledge Integration
+
+- **Architecture Decision Records:** Documented in [`docs/adr/`](docs/adr/) and mirrored to `~/Vault/1-Projects/Key-Collective/`.
 - **Knowledge Base Synchronization:** Codebase Scribe exports evergreen concepts (`communal-capacity-credit-and-jail-cycle`, `adaptive-cascade-routing-and-fallback-escalation`) to Obsidian Vault at `~/Vault/2-Areas/ai-systems/`.

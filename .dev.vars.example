@@ -1,1 +1,16 @@
+# Key Collective — Local Wrangler Dev Environment Variables (.dev.vars)
+# Copy this file to .dev.vars for local development:
+#   cp .dev.vars.example .dev.vars
+# NOTE: .dev.vars is gitignored. NEVER commit real production secrets.
+
+# Master encryption key used by Web Crypto AES-256-GCM derivation
 KC_MASTER_KEY="kc-master-secret-local-dev-key-2026"
+
+# Admin Bearer token for admin.* subdomain routes
+ADMIN_TOKEN="kc-admin-dev-token-secret-2026"
+
+# Optional: Comma-separated list of admin email addresses
+ADMIN_EMAILS="admin@keycollective.ai,root@keycollective.ai"
+
+# Firebase Auth Web Client Configuration (optional for local mock testing)
+FIREBASE_PROJECT_ID="key-collective-568f8"

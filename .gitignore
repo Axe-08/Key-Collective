@@ -32,9 +32,18 @@ node_modules
 docs/study_guide/book/
 .wp/
 backups/
+archives/
+scratch/
+.hive/
+.hive-v1/
+*.sql
+*.log
+.DS_Store
+Thumbs.db
 .claude/worktrees/
 .vscode/
 
 # QA smoke scripts & reports
 scripts/qa/dev_smoke.sh
 docs/specs/dev_smoke*.md
+
