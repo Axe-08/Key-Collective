@@ -101,14 +101,16 @@ selftest() {
 
 verify_tasks() {
   local wp="$1" branch="wp/$1"
+  local progress_file="docs/PROGRESS.md"
+  [[ -f "$progress_file" ]] || progress_file="docs/research/PROGRESS_PHASE3_PHASEF.md"
   local section
   section=$(awk -v wp="### $wp" '
     $0 == wp || index($0, wp " ") == 1 { in_sec=1; next }
     in_sec && /^##/ { exit }
     in_sec { print }
-  ' docs/PROGRESS.md)
+  ' "$progress_file")
   if [[ -z "$section" ]]; then
-    echo "FINISH FAILED: section ### $wp not found in docs/PROGRESS.md" >&2
+    echo "FINISH FAILED: section ### $wp not found in $progress_file" >&2
     return 1
   fi
   local unticked
